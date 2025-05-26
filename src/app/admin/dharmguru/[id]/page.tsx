@@ -174,7 +174,7 @@ const dharmguruCategories = [
 // Ranks for Dharmgurus
 const dharmguruRanks = ["Junior", "Senior", "Expert", "Master"];
 
- // Activity interface
+// Activity interface
 interface Activity {
 	date: string;
 	action: string;
@@ -214,12 +214,32 @@ export default function DharmguruDetailPage() {
 
 	// Memoize the fetch function and add proper dependencies
 	const fetchDharmguruData = useCallback(() => {
-		// In a real app, you would fetch dharmguru data from an API
-		const dharmguruData =
+		// First check mock data
+		let dharmguruData =
 			mockDharmguruDetails[dharmguruId as keyof typeof mockDharmguruDetails];
+
+		// If not found in mock data, check localStorage
+		if (!dharmguruData && typeof window !== "undefined") {
+			const savedDharmgurus = localStorage.getItem("dharmgurus");
+			if (savedDharmgurus) {
+				const allDharmgurus = JSON.parse(savedDharmgurus);
+				dharmguruData = allDharmgurus.find((d: Dharmguru) => d.id === dharmguruId);
+			}
+		}
+
 		if (dharmguruData) {
-			setDharmguru(dharmguruData);
-			setEditedDharmguru({ ...dharmguruData });
+			// Ensure preferences are properly initialized
+			const dharmguruWithPreferences = {
+				...dharmguruData,
+				preferences: {
+					notifications: dharmguruData.preferences?.notifications ?? true,
+					newsletter: dharmguruData.preferences?.newsletter ?? true,
+					language: dharmguruData.preferences?.language ?? "en",
+				},
+				activities: dharmguruData.activities || [],
+			};
+			setDharmguru(dharmguruWithPreferences);
+			setEditedDharmguru({ ...dharmguruWithPreferences });
 		} else {
 			// If dharmguru not found, redirect to dharmgurus list
 			router.push("/admin/dharmguru");
@@ -231,25 +251,48 @@ export default function DharmguruDetailPage() {
 		fetchDharmguruData();
 	}, [fetchDharmguruData]);
 
-	if (!dharmguru) {
-		return <div className="p-6">Loading dharmguru details...</div>;
-	}
-
 	const handleSaveChanges = () => {
+		if (!editedDharmguru) return;
+
+		// Update the dharmguru in localStorage
+		if (typeof window !== "undefined") {
+			const savedDharmgurus = localStorage.getItem("dharmgurus");
+			if (savedDharmgurus) {
+				let allDharmgurus = JSON.parse(savedDharmgurus);
+				allDharmgurus = allDharmgurus.map((d: Dharmguru) =>
+					d.id === dharmguruId ? { ...editedDharmguru } : d
+				);
+				localStorage.setItem("dharmgurus", JSON.stringify(allDharmgurus));
+			} else {
+				// If no dharmgurus exist in localStorage yet, create a new array with the updated dharmguru
+				localStorage.setItem("dharmgurus", JSON.stringify([editedDharmguru]));
+			}
+		}
+
 		setDharmguru(editedDharmguru);
 		setIsEditing(false);
-		// In a real app, you would save changes to the backend
 		alert("Dharmguru details updated successfully!");
 	};
 
 	const formatDate = (dateString: string) => {
+		if (!dateString) return "N/A";
 		const date = new Date(dateString);
+		if (isNaN(date.getTime())) return "Invalid date";
 		return new Intl.DateTimeFormat("en-IN", {
 			day: "2-digit",
 			month: "short",
 			year: "numeric",
 		}).format(date);
 	};
+
+	// Call the memoized function
+	useEffect(() => {
+		fetchDharmguruData();
+	}, [fetchDharmguruData]);
+
+	if (!dharmguru) {
+		return <div className="p-6">Loading dharmguru details...</div>;
+	}
 
 	return (
 		<div className="p-6 space-y-6">
@@ -411,13 +454,13 @@ export default function DharmguruDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="category">Category</Label>
 													<Select
-														value={editedDharmguru?.status || ""}
+														value={editedDharmguru?.category || ""}
 														onValueChange={(value) =>
 															setEditedDharmguru((prev) =>
 																prev
 																	? {
 																			...prev,
-																			status: value,
+																			category: value,
 																	}
 																	: null
 															)
@@ -445,11 +488,11 @@ export default function DharmguruDetailPage() {
 															setEditedDharmguru((prev) =>
 																prev
 																	? {
-																		...prev,
-																		rank: value,
+																			...prev,
+																			rank: value,
 																	}
 																	: null
-																)
+															)
 														}
 													>
 														<SelectTrigger id="rank">
@@ -474,11 +517,11 @@ export default function DharmguruDetailPage() {
 															setEditedDharmguru((prev) =>
 																prev
 																	? {
-																		...prev,
-																		status: value,
+																			...prev,
+																			status: value,
 																	}
 																	: null
-																)
+															)
 														}
 													>
 														<SelectTrigger id="status">
@@ -504,9 +547,11 @@ export default function DharmguruDetailPage() {
 														setEditedDharmguru((prev) =>
 															prev
 																? {
-																	...prev,
-																	address: e.target.value,
-																}: null )
+																		...prev,
+																		address: e.target.value,
+																}
+																: null
+														)
 													}
 												/>
 											</div>
@@ -519,11 +564,11 @@ export default function DharmguruDetailPage() {
 														setEditedDharmguru((prev) =>
 															prev
 																? {
-																	...prev,
-																	bio: e.target.value,
+																		...prev,
+																		bio: e.target.value,
 																}
 																: null
-															)
+														)
 													}
 													rows={4}
 												/>
@@ -612,17 +657,22 @@ export default function DharmguruDetailPage() {
 													<input
 														type="checkbox"
 														id="notifications"
-														checked={editedDharmguru?.preferences.notifications || false}
+														checked={
+															editedDharmguru?.preferences.notifications ||
+															false
+														}
 														onChange={(e) =>
 															setEditedDharmguru((prev) =>
 																prev
 																	? {
-																		...prev,
-																		preferences: {
-																			...prev.preferences,
-																	notifications: e.target.checked,
-																},
-															}:null)
+																			...prev,
+																			preferences: {
+																				...prev.preferences,
+																				notifications: e.target.checked,
+																			},
+																	}
+																	: null
+															)
 														}
 														className="h-4 w-4"
 													/>
@@ -634,17 +684,21 @@ export default function DharmguruDetailPage() {
 													<input
 														type="checkbox"
 														id="newsletter"
-														checked={editedDharmguru?.preferences.newsletter || false}
+														checked={
+															editedDharmguru?.preferences.newsletter || false
+														}
 														onChange={(e) =>
 															setEditedDharmguru((prev) =>
 																prev
 																	? {
-																		...prev,
-																		preferences: {
-																			...prev.preferences,
-																	newsletter: e.target.checked,
-																},
-															}:null)
+																			...prev,
+																			preferences: {
+																				...prev.preferences,
+																				newsletter: e.target.checked,
+																			},
+																	}
+																	: null
+															)
 														}
 														className="h-4 w-4"
 													/>
@@ -657,12 +711,14 @@ export default function DharmguruDetailPage() {
 															setEditedDharmguru((prev) =>
 																prev
 																	? {
-																		...prev,
-																		preferences: {
-																			...prev.preferences,
-																	language: value,
-																},
-															}:null)
+																			...prev,
+																			preferences: {
+																				...prev.preferences,
+																				language: value,
+																			},
+																	}
+																	: null
+															)
 														}
 													>
 														<SelectTrigger id="language">
@@ -739,12 +795,13 @@ export default function DharmguruDetailPage() {
 								</CardHeader>
 								<CardContent>
 									<div className="space-y-4">
-										{dharmguru.activities.map((activity: Activity, index: number) => (
-											<div
-												key={index}
-												className="flex items-start gap-4 border-b border-border pb-4 last:border-0 last:pb-0"
-											>
-												<div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+										{dharmguru.activities.map(
+											(activity: Activity, index: number) => (
+												<div
+													key={index}
+													className="flex items-start gap-4 border-b border-border pb-4 last:border-0 last:pb-0"
+												>
+													<div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
 														<Calendar className="h-4 w-4 text-primary" />
 													</div>
 													<div>

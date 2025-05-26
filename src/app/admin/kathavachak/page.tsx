@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
 	PlusCircle,
 	Search,
@@ -10,9 +10,9 @@ import {
 	LogIn,
 	ThumbsUp,
 	ThumbsDown,
-    CheckCircle2,
-    CircleSlash,
-    Activity,
+	CheckCircle2,
+	CircleSlash,
+	Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,15 +124,41 @@ const kathavachakCategories = [
 // Ranks for Kathavachaks
 const kathavachakRanks = ["Junior", "Senior", "Expert", "Master"];
 
+interface Kathavachak {
+	id: string;
+	name: string;
+	category: string;
+	phone: string;
+	email: string;
+	status: string;
+	rank: string;
+	isApproved: boolean;
+}
+
 export default function KathavachakPage() {
 	const router = useRouter();
-	const [kathavachaks, setKathavachaks] = useState(mockKathavachaks);
+	// Load kathavachaks from localStorage or use mock data if not found
+	const [kathavachaks, setKathavachaks] = useState(() => {
+		if (typeof window !== "undefined") {
+			const saved = localStorage.getItem("kathavachaks");
+			return saved ? JSON.parse(saved) : mockKathavachaks;
+		}
+		return mockKathavachaks;
+	});
+
+	// Save to localStorage whenever kathavachaks change
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			localStorage.setItem("kathavachaks", JSON.stringify(kathavachaks));
+		}
+	}, [kathavachaks]);
+
 	const [isAddKathavachakOpen, setIsAddKathavachakOpen] = useState(false);
 	const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 	const [kathavachakToDelete, setKathavachakToDelete] = useState<string | null>(
 		null
 	);
-	const [newKathavachak, setNewKathavachak] = useState({
+	const [newKathavachak, setNewKathavachak] = useState<Omit<Kathavachak, 'id'> & { id?: string }>({
 		name: "",
 		category: "",
 		phone: "",
@@ -144,8 +170,9 @@ export default function KathavachakPage() {
 	const [searchQuery, setSearchQuery] = useState("");
 
 	const handleAddKathavachak = () => {
-		const id = (kathavachaks.length + 1).toString();
-		setKathavachaks([...kathavachaks, { ...newKathavachak, id }]);
+		const id = Date.now().toString(); // Use timestamp for unique ID
+		const updatedKathavachaks = [...kathavachaks, { ...newKathavachak, id }];
+		setKathavachaks(updatedKathavachaks);
 		setNewKathavachak({
 			name: "",
 			category: "",
@@ -160,7 +187,7 @@ export default function KathavachakPage() {
 
 	const handleStatusChange = (kathavachakId: string, newStatus: string) => {
 		setKathavachaks(
-			kathavachaks.map((kathavachak) =>
+			kathavachaks.map((kathavachak: Kathavachak) =>
 				kathavachak.id === kathavachakId
 					? { ...kathavachak, status: newStatus }
 					: kathavachak
@@ -170,7 +197,7 @@ export default function KathavachakPage() {
 
 	const handleApprovalChange = (kathavachakId: string, isApproved: boolean) => {
 		setKathavachaks(
-			kathavachaks.map((kathavachak) =>
+			kathavachaks.map((kathavachak: Kathavachak) =>
 				kathavachak.id === kathavachakId
 					? { ...kathavachak, isApproved }
 					: kathavachak
@@ -189,7 +216,7 @@ export default function KathavachakPage() {
 
 	const confirmDeleteKathavachak = () => {
 		if (kathavachakToDelete) {
-			setKathavachaks(kathavachaks.filter((k) => k.id !== kathavachakToDelete));
+			setKathavachaks(kathavachaks.filter((k: Kathavachak) => k.id !== kathavachakToDelete));
 			setKathavachakToDelete(null);
 			setIsDeleteConfirmOpen(false);
 			// In a real app, you would call an API to delete the kathavachak
@@ -204,7 +231,7 @@ export default function KathavachakPage() {
 	};
 
 	const filteredKathavachaks = kathavachaks.filter(
-		(kathavachak) =>
+		(kathavachak: Kathavachak) =>
 			kathavachak.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			kathavachak.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			kathavachak.phone.includes(searchQuery) ||
@@ -413,7 +440,7 @@ export default function KathavachakPage() {
 					</TableHeader>
 					<TableBody>
 						{filteredKathavachaks.length > 0 ? (
-							filteredKathavachaks.map((kathavachak) => (
+							filteredKathavachaks.map((kathavachak: Kathavachak) => (
 								<TableRow key={kathavachak.id}>
 									<TableCell className="font-medium">
 										{kathavachak.name}
@@ -489,7 +516,7 @@ export default function KathavachakPage() {
 														Disapprove
 													</DropdownMenuItem>
 												)}
-                                                <DropdownMenuSub>
+												<DropdownMenuSub>
 													<DropdownMenuSubTrigger>
 														<Activity className="h-4 w-4 mr-2" />
 														Change Status

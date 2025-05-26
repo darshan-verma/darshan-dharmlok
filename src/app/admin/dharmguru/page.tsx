@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
 	PlusCircle,
 	Search,
@@ -123,16 +123,40 @@ const dharmguruCategories = [
 
 // Ranks for Dharmgurus
 const dharmguruRanks = ["Junior", "Senior", "Expert", "Master"];
+interface Dharmguru {
+	id: string;
+	name: string;
+	category: string;
+	phone: string;
+	email: string;
+	status: string;
+	rank: string;
+	isApproved: boolean;
+}
 
 export default function DharmguruPage() {
 	const router = useRouter();
-	const [dharmgurus, setDharmgurus] = useState(mockDharmgurus);
+	const [dharmgurus, setDharmgurus] = useState(() => {
+		if (typeof window !== "undefined") {
+			const saved = localStorage.getItem("dharmgurus");
+			return saved ? JSON.parse(saved) : mockDharmgurus;
+		}
+		return mockDharmgurus;
+	});
+
+	// Save to localStorage whenever dharmgurus change
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			localStorage.setItem("dharmgurus", JSON.stringify(dharmgurus));
+		}
+	}, [dharmgurus]);
+
 	const [isAddDharmguruOpen, setIsAddDharmguruOpen] = useState(false);
 	const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 	const [dharmguruToDelete, setDharmguruToDelete] = useState<string | null>(
 		null
 	);
-	const [newDharmguru, setNewDharmguru] = useState({
+	const [newDharmguru, setNewDharmguru] = useState<Omit<Dharmguru, 'id'> & { id?: string }>({
 		name: "",
 		category: "",
 		phone: "",
@@ -145,7 +169,9 @@ export default function DharmguruPage() {
 
 	const handleAddDharmguru = () => {
 		const id = (dharmgurus.length + 1).toString();
-		setDharmgurus([...dharmgurus, { ...newDharmguru, id }]);
+		const newDharmguruWithId = { ...newDharmguru, id };
+		const updatedDharmgurus = [...dharmgurus, newDharmguruWithId];
+		setDharmgurus(updatedDharmgurus);
 		setNewDharmguru({
 			name: "",
 			category: "",
@@ -160,7 +186,7 @@ export default function DharmguruPage() {
 
 	const handleStatusChange = (dharmguruId: string, newStatus: string) => {
 		setDharmgurus(
-			dharmgurus.map((dharmguru) =>
+			dharmgurus.map((dharmguru: Dharmguru) =>
 				dharmguru.id === dharmguruId
 					? { ...dharmguru, status: newStatus }
 					: dharmguru
@@ -170,7 +196,7 @@ export default function DharmguruPage() {
 
 	const handleApprovalChange = (dharmguruId: string, isApproved: boolean) => {
 		setDharmgurus(
-			dharmgurus.map((dharmguru) =>
+			dharmgurus.map((dharmguru: Dharmguru) =>
 				dharmguru.id === dharmguruId ? { ...dharmguru, isApproved } : dharmguru
 			)
 		);
@@ -185,7 +211,7 @@ export default function DharmguruPage() {
 
 	const confirmDeleteDharmguru = () => {
 		if (dharmguruToDelete) {
-			setDharmgurus(dharmgurus.filter((k) => k.id !== dharmguruToDelete));
+			setDharmgurus(dharmgurus.filter((d:Dharmguru) => d.id !== dharmguruToDelete));
 			setDharmguruToDelete(null);
 			setIsDeleteConfirmOpen(false);
 			// In a real app, you would call an API to delete the dharmguru
@@ -200,7 +226,7 @@ export default function DharmguruPage() {
 	};
 
 	const filteredDharmgurus = dharmgurus.filter(
-		(dharmguru) =>
+		(dharmguru:Dharmguru) =>
 			dharmguru.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			dharmguru.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			dharmguru.phone.includes(searchQuery) ||
@@ -397,7 +423,7 @@ export default function DharmguruPage() {
 					</TableHeader>
 					<TableBody>
 						{filteredDharmgurus.length > 0 ? (
-							filteredDharmgurus.map((dharmguru) => (
+							filteredDharmgurus.map((dharmguru:Dharmguru) => (
 								<TableRow key={dharmguru.id}>
 									<TableCell className="font-medium">
 										{dharmguru.name}

@@ -492,7 +492,7 @@ export default function UserDetailPage() {
 																				language: e.target.value,
 																				newsletter: e.target.checked,
 																			},
-																	  }
+																	}
 																	: null
 															)
 														}
@@ -520,7 +520,7 @@ export default function UserDetailPage() {
 																				language: e.target.value,
 																				newsletter: e.target.checked,
 																			},
-																	  }
+																	}
 																	: null
 															)
 														}
