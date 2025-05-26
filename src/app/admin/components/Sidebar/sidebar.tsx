@@ -85,16 +85,28 @@ export function AdminSidebar() {
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all">
-							<UserCircle2 className="h-5 w-5 text-amber-500" />
-							<span>Kathavachak</span>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/kathavachak"}
+							asChild
+						>
+							<Link href="/admin/kathavachak">
+								<UserCircle2 className="h-5 w-5 text-amber-500" />
+								<span>Kathavachak</span>
+							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all">
-							<HandHeart className="h-5 w-5 text-green-500" />
-							<span>Dharmguru</span>
+						<SidebarMenuButton
+						className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+						isActive={pathname === "/admin/dharmguru"}
+						asChild
+						>
+							<Link href="/admin/dharmguru">
+								<HandHeart className="h-5 w-5 text-green-500" />
+								<span>Dharmguru</span>
+							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
