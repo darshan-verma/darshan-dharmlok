@@ -33,6 +33,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import Image from "next/image";
 
 // Mock kathavachak data - in a real app, you would fetch this from an API
 const mockKathavachakDetails = {
@@ -172,15 +173,38 @@ const kathavachakCategories = [
 
 // Ranks for Kathavachaks
 const kathavachakRanks = ["Junior", "Senior", "Expert", "Master"];
-
+interface Activity {
+	date: string;
+	action: string;
+}
+interface Kathavachak {
+	id: string;
+	name: string;
+	email: string;
+	phone: string;
+	category: string;
+	status: string;
+	rank: string;
+	address: string;
+	joinedDate: string;
+	avatar?: string;
+	bio?: string;
+	preferences: {
+		notifications: boolean;
+		newsletter: boolean;
+		language: string;
+	};
+	activities: { date: string; action: string }[];
+}
 export default function KathavachakDetailPage() {
 	const params = useParams();
 	const router = useRouter();
 	const kathavachakId = params.id as string;
 
-	const [kathavachak, setKathavachak] = useState<any>(null);
+	const [kathavachak, setKathavachak] = useState<Kathavachak | null>(null);
+	const [editedKathavachak, setEditedKathavachak] =
+		useState<Kathavachak | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
-	const [editedKathavachak, setEditedKathavachak] = useState<any>(null);
 	const [imageError, setImageError] = useState(false);
 
 	// Memoize the fetch function and add proper dependencies
@@ -243,11 +267,14 @@ export default function KathavachakDetailPage() {
 					<CardHeader className="text-center">
 						<div className="w-24 h-24 mx-auto rounded-full bg-muted flex items-center justify-center mb-4">
 							{kathavachak.avatar && !imageError ? (
-								<img
+								<Image
 									src={kathavachak.avatar}
 									alt={kathavachak.name}
+									width={96}
+									height={96}
 									className="w-full h-full rounded-full object-cover"
 									onError={() => setImageError(true)}
+									unoptimized={true} // Only needed if using external URLs
 								/>
 							) : (
 								<User className="h-12 w-12 text-muted-foreground" />
@@ -318,7 +345,7 @@ export default function KathavachakDetailPage() {
 								<CardHeader>
 									<CardTitle>Personal Information</CardTitle>
 									<CardDescription>
-										Update kathavachak's personal details and contact
+										Update kathavachak&apos;s personal details and contact
 										information.
 									</CardDescription>
 								</CardHeader>
@@ -330,12 +357,16 @@ export default function KathavachakDetailPage() {
 													<Label htmlFor="name">Full Name</Label>
 													<Input
 														id="name"
-														value={editedKathavachak.name}
+														value={editedKathavachak?.name || ""}
 														onChange={(e) =>
-															setEditedKathavachak({
-																...editedKathavachak,
-																name: e.target.value,
-															})
+															setEditedKathavachak((prev) =>
+																prev
+																	? {
+																			...prev,
+																			name: e.target.value,
+																	  }
+																	: null
+															)
 														}
 													/>
 												</div>
@@ -344,12 +375,16 @@ export default function KathavachakDetailPage() {
 													<Input
 														id="email"
 														type="email"
-														value={editedKathavachak.email}
+														value={editedKathavachak?.email || ""}
 														onChange={(e) =>
-															setEditedKathavachak({
-																...editedKathavachak,
-																email: e.target.value,
-															})
+															setEditedKathavachak((prev) =>
+																prev
+																	? {
+																			...prev,
+																			email: e.target.value,
+																	  }
+																	: null
+															)
 														}
 													/>
 												</div>
@@ -357,24 +392,32 @@ export default function KathavachakDetailPage() {
 													<Label htmlFor="phone">Phone</Label>
 													<Input
 														id="phone"
-														value={editedKathavachak.phone}
+														value={editedKathavachak?.phone || ""}
 														onChange={(e) =>
-															setEditedKathavachak({
-																...editedKathavachak,
-																phone: e.target.value,
-															})
+															setEditedKathavachak((prev) =>
+																prev
+																	? {
+																			...prev,
+																			phone: e.target.value,
+																	  }
+																	: null
+															)
 														}
 													/>
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor="category">Category</Label>
 													<Select
-														value={editedKathavachak.category}
+														value={editedKathavachak?.category || ""}
 														onValueChange={(value) =>
-															setEditedKathavachak({
-																...editedKathavachak,
-																category: value,
-															})
+															setEditedKathavachak((prev) =>
+																prev
+																	? {
+																			...prev,
+																			category: value,
+																	  }
+																	: null
+															)
 														}
 													>
 														<SelectTrigger id="category">
@@ -394,12 +437,16 @@ export default function KathavachakDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="rank">Rank</Label>
 													<Select
-														value={editedKathavachak.rank}
+														value={editedKathavachak?.rank || ""}
 														onValueChange={(value) =>
-															setEditedKathavachak({
-																...editedKathavachak,
-																rank: value,
-															})
+															setEditedKathavachak((prev) =>
+																prev
+																	? {
+																			...prev,
+																			rank: value,
+																	  }
+																	: null
+															)
 														}
 													>
 														<SelectTrigger id="rank">
@@ -419,12 +466,16 @@ export default function KathavachakDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="status">Status</Label>
 													<Select
-														value={editedKathavachak.status}
+														value={editedKathavachak?.status || ""}
 														onValueChange={(value) =>
-															setEditedKathavachak({
-																...editedKathavachak,
-																status: value,
-															})
+															setEditedKathavachak((prev) =>
+																prev
+																	? {
+																			...prev,
+																			status: value,
+																	  }
+																	: null
+															)
 														}
 													>
 														<SelectTrigger id="status">
@@ -445,12 +496,16 @@ export default function KathavachakDetailPage() {
 												<Label htmlFor="address">Address</Label>
 												<Input
 													id="address"
-													value={editedKathavachak.address}
+													value={editedKathavachak?.address || ""}
 													onChange={(e) =>
-														setEditedKathavachak({
-															...editedKathavachak,
-															address: e.target.value,
-														})
+														setEditedKathavachak((prev) =>
+															prev
+																? {
+																		...prev,
+																		address: e.target.value,
+																  }
+																: null
+														)
 													}
 												/>
 											</div>
@@ -458,12 +513,16 @@ export default function KathavachakDetailPage() {
 												<Label htmlFor="bio">Bio</Label>
 												<Textarea
 													id="bio"
-													value={editedKathavachak.bio}
+													value={editedKathavachak?.bio || ""}
 													onChange={(e) =>
-														setEditedKathavachak({
-															...editedKathavachak,
-															bio: e.target.value,
-														})
+														setEditedKathavachak((prev) =>
+															prev
+																? {
+																		...prev,
+																		bio: e.target.value,
+																  }
+																: null
+														)
 													}
 													rows={4}
 												/>
@@ -555,16 +614,21 @@ export default function KathavachakDetailPage() {
 														type="checkbox"
 														id="notifications"
 														checked={
-															editedKathavachak.preferences.notifications
+															editedKathavachak?.preferences.notifications ||
+															false
 														}
 														onChange={(e) =>
-															setEditedKathavachak({
-																...editedKathavachak,
-																preferences: {
-																	...editedKathavachak.preferences,
-																	notifications: e.target.checked,
-																},
-															})
+															setEditedKathavachak((prev) =>
+																prev
+																	? {
+																			...prev,
+																			preferences: {
+																				...prev.preferences,
+																				notifications: e.target.checked,
+																			},
+																	  }
+																	: null
+															)
 														}
 														className="h-4 w-4"
 													/>
@@ -576,15 +640,21 @@ export default function KathavachakDetailPage() {
 													<input
 														type="checkbox"
 														id="newsletter"
-														checked={editedKathavachak.preferences.newsletter}
+														checked={
+															editedKathavachak?.preferences.newsletter || false
+														}
 														onChange={(e) =>
-															setEditedKathavachak({
-																...editedKathavachak,
-																preferences: {
-																	...editedKathavachak.preferences,
-																	newsletter: e.target.checked,
-																},
-															})
+															setEditedKathavachak((prev) =>
+																prev
+																	? {
+																			...prev,
+																			preferences: {
+																				...prev.preferences,
+																				newsletter: e.target.checked,
+																			},
+																	  }
+																	: null
+															)
 														}
 														className="h-4 w-4"
 													/>
@@ -592,15 +662,21 @@ export default function KathavachakDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="language">Preferred Language</Label>
 													<Select
-														value={editedKathavachak.preferences.language}
+														value={
+															editedKathavachak?.preferences.language || ""
+														}
 														onValueChange={(value) =>
-															setEditedKathavachak({
-																...editedKathavachak,
-																preferences: {
-																	...editedKathavachak.preferences,
-																	language: value,
-																},
-															})
+															setEditedKathavachak((prev) =>
+																prev
+																	? {
+																			...prev,
+																			preferences: {
+																				...prev.preferences,
+																				language: value,
+																			},
+																	  }
+																	: null
+															)
 														}
 													>
 														<SelectTrigger id="language">
@@ -678,7 +754,7 @@ export default function KathavachakDetailPage() {
 								<CardContent>
 									<div className="space-y-4">
 										{kathavachak.activities.map(
-											(activity: any, index: number) => (
+											(activity: Activity, index: number) => (
 												<div
 													key={index}
 													className="flex items-start gap-4 border-b border-border pb-4 last:border-0 last:pb-0"

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import {
 	ArrowLeft,
 	Save,
@@ -173,14 +174,42 @@ const dharmguruCategories = [
 // Ranks for Dharmgurus
 const dharmguruRanks = ["Junior", "Senior", "Expert", "Master"];
 
+ // Activity interface
+interface Activity {
+	date: string;
+	action: string;
+}
+// Add Dharmguru interface
+interface Dharmguru {
+	id: string;
+	name: string;
+	email: string;
+	phone: string;
+	category: string;
+	status: string;
+	rank: string;
+	address: string;
+	joinedDate: string;
+	avatar?: string;
+	bio?: string;
+	preferences: {
+		notifications: boolean;
+		newsletter: boolean;
+		language: string;
+	};
+	activities: { date: string; action: string }[];
+}
+
 export default function DharmguruDetailPage() {
 	const params = useParams();
 	const router = useRouter();
 	const dharmguruId = params.id as string;
 
-	const [dharmguru, setDharmguru] = useState<any>(null);
+	const [dharmguru, setDharmguru] = useState<Dharmguru | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
-	const [editedDharmguru, setEditedDharmguru] = useState<any>(null);
+	const [editedDharmguru, setEditedDharmguru] = useState<Dharmguru | null>(
+		null
+	);
 	const [imageError, setImageError] = useState(false);
 
 	// Memoize the fetch function and add proper dependencies
@@ -241,11 +270,14 @@ export default function DharmguruDetailPage() {
 					<CardHeader className="text-center">
 						<div className="w-24 h-24 mx-auto rounded-full bg-muted flex items-center justify-center mb-4">
 							{dharmguru.avatar && !imageError ? (
-								<img
+								<Image
 									src={dharmguru.avatar}
 									alt={dharmguru.name}
+									width={96}
+									height={96}
 									className="w-full h-full rounded-full object-cover"
 									onError={() => setImageError(true)}
+									unoptimized={true} // Only needed if using external URLs
 								/>
 							) : (
 								<User className="h-12 w-12 text-muted-foreground" />
@@ -316,7 +348,8 @@ export default function DharmguruDetailPage() {
 								<CardHeader>
 									<CardTitle>Personal Information</CardTitle>
 									<CardDescription>
-										Update dharmguru's personal details and contact information.
+										Update dharmguru&apos;s personal details and contact
+										information.
 									</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-4">
@@ -327,12 +360,16 @@ export default function DharmguruDetailPage() {
 													<Label htmlFor="name">Full Name</Label>
 													<Input
 														id="name"
-														value={editedDharmguru.name}
+														value={editedDharmguru?.name || ""}
 														onChange={(e) =>
-															setEditedDharmguru({
-																...editedDharmguru,
-																name: e.target.value,
-															})
+															setEditedDharmguru((prev) =>
+																prev
+																	? {
+																			...prev,
+																			name: e.target.value,
+																	}
+																	: null
+															)
 														}
 													/>
 												</div>
@@ -341,12 +378,16 @@ export default function DharmguruDetailPage() {
 													<Input
 														id="email"
 														type="email"
-														value={editedDharmguru.email}
+														value={editedDharmguru?.email || ""}
 														onChange={(e) =>
-															setEditedDharmguru({
-																...editedDharmguru,
-																email: e.target.value,
-															})
+															setEditedDharmguru((prev) =>
+																prev
+																	? {
+																			...prev,
+																			email: e.target.value,
+																	}
+																	: null
+															)
 														}
 													/>
 												</div>
@@ -354,24 +395,32 @@ export default function DharmguruDetailPage() {
 													<Label htmlFor="phone">Phone</Label>
 													<Input
 														id="phone"
-														value={editedDharmguru.phone}
+														value={editedDharmguru?.phone || ""}
 														onChange={(e) =>
-															setEditedDharmguru({
-																...editedDharmguru,
-																phone: e.target.value,
-															})
+															setEditedDharmguru((prev) =>
+																prev
+																	? {
+																			...prev,
+																			phone: e.target.value,
+																	}
+																	: null
+															)
 														}
 													/>
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor="category">Category</Label>
 													<Select
-														value={editedDharmguru.category}
+														value={editedDharmguru?.status || ""}
 														onValueChange={(value) =>
-															setEditedDharmguru({
-																...editedDharmguru,
-																category: value,
-															})
+															setEditedDharmguru((prev) =>
+																prev
+																	? {
+																			...prev,
+																			status: value,
+																	}
+																	: null
+															)
 														}
 													>
 														<SelectTrigger id="category">
@@ -391,12 +440,16 @@ export default function DharmguruDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="rank">Rank</Label>
 													<Select
-														value={editedDharmguru.rank}
+														value={editedDharmguru?.rank || ""}
 														onValueChange={(value) =>
-															setEditedDharmguru({
-																...editedDharmguru,
-																rank: value,
-															})
+															setEditedDharmguru((prev) =>
+																prev
+																	? {
+																		...prev,
+																		rank: value,
+																	}
+																	: null
+																)
 														}
 													>
 														<SelectTrigger id="rank">
@@ -416,12 +469,16 @@ export default function DharmguruDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="status">Status</Label>
 													<Select
-														value={editedDharmguru.status}
+														value={editedDharmguru?.status || ""}
 														onValueChange={(value) =>
-															setEditedDharmguru({
-																...editedDharmguru,
-																status: value,
-															})
+															setEditedDharmguru((prev) =>
+																prev
+																	? {
+																		...prev,
+																		status: value,
+																	}
+																	: null
+																)
 														}
 													>
 														<SelectTrigger id="status">
@@ -442,12 +499,14 @@ export default function DharmguruDetailPage() {
 												<Label htmlFor="address">Address</Label>
 												<Input
 													id="address"
-													value={editedDharmguru.address}
+													value={editedDharmguru?.address || ""}
 													onChange={(e) =>
-														setEditedDharmguru({
-															...editedDharmguru,
-															address: e.target.value,
-														})
+														setEditedDharmguru((prev) =>
+															prev
+																? {
+																	...prev,
+																	address: e.target.value,
+																}: null )
 													}
 												/>
 											</div>
@@ -455,12 +514,16 @@ export default function DharmguruDetailPage() {
 												<Label htmlFor="bio">Bio</Label>
 												<Textarea
 													id="bio"
-													value={editedDharmguru.bio}
+													value={editedDharmguru?.bio || ""}
 													onChange={(e) =>
-														setEditedDharmguru({
-															...editedDharmguru,
-															bio: e.target.value,
-														})
+														setEditedDharmguru((prev) =>
+															prev
+																? {
+																	...prev,
+																	bio: e.target.value,
+																}
+																: null
+															)
 													}
 													rows={4}
 												/>
@@ -549,15 +612,17 @@ export default function DharmguruDetailPage() {
 													<input
 														type="checkbox"
 														id="notifications"
-														checked={editedDharmguru.preferences.notifications}
+														checked={editedDharmguru?.preferences.notifications || false}
 														onChange={(e) =>
-															setEditedDharmguru({
-																...editedDharmguru,
-																preferences: {
-																	...editedDharmguru.preferences,
+															setEditedDharmguru((prev) =>
+																prev
+																	? {
+																		...prev,
+																		preferences: {
+																			...prev.preferences,
 																	notifications: e.target.checked,
 																},
-															})
+															}:null)
 														}
 														className="h-4 w-4"
 													/>
@@ -569,15 +634,17 @@ export default function DharmguruDetailPage() {
 													<input
 														type="checkbox"
 														id="newsletter"
-														checked={editedDharmguru.preferences.newsletter}
+														checked={editedDharmguru?.preferences.newsletter || false}
 														onChange={(e) =>
-															setEditedDharmguru({
-																...editedDharmguru,
-																preferences: {
-																	...editedDharmguru.preferences,
+															setEditedDharmguru((prev) =>
+																prev
+																	? {
+																		...prev,
+																		preferences: {
+																			...prev.preferences,
 																	newsletter: e.target.checked,
 																},
-															})
+															}:null)
 														}
 														className="h-4 w-4"
 													/>
@@ -585,15 +652,17 @@ export default function DharmguruDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="language">Preferred Language</Label>
 													<Select
-														value={editedDharmguru.preferences.language}
+														value={editedDharmguru?.preferences.language || ""}
 														onValueChange={(value) =>
-															setEditedDharmguru({
-																...editedDharmguru,
-																preferences: {
-																	...editedDharmguru.preferences,
+															setEditedDharmguru((prev) =>
+																prev
+																	? {
+																		...prev,
+																		preferences: {
+																			...prev.preferences,
 																	language: value,
 																},
-															})
+															}:null)
 														}
 													>
 														<SelectTrigger id="language">
@@ -670,13 +739,12 @@ export default function DharmguruDetailPage() {
 								</CardHeader>
 								<CardContent>
 									<div className="space-y-4">
-										{dharmguru.activities.map(
-											(activity: any, index: number) => (
-												<div
-													key={index}
-													className="flex items-start gap-4 border-b border-border pb-4 last:border-0 last:pb-0"
-												>
-													<div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+										{dharmguru.activities.map((activity: Activity, index: number) => (
+											<div
+												key={index}
+												className="flex items-start gap-4 border-b border-border pb-4 last:border-0 last:pb-0"
+											>
+												<div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
 														<Calendar className="h-4 w-4 text-primary" />
 													</div>
 													<div>

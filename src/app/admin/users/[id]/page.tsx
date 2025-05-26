@@ -32,9 +32,36 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import Image from "next/image";
+
+interface Activity {
+	date: string;
+	action: string;
+}
+
+interface UserPreferences {
+	notifications: boolean;
+	newsletter: boolean;
+	language: string;
+}
+
+interface User {
+	id: string;
+	name: string;
+	phone: string;
+	email: string;
+	status: string;
+	address: string;
+	joinedDate: string;
+	lastActive: string;
+	avatar?: string;
+	bio: string;
+	preferences: UserPreferences;
+	activities: Activity[];
+}
 
 // Mock user data - in a real app, you would fetch this from an API
-const mockUserDetails = {
+const mockUserDetails: Record<string, User> = {
 	"1": {
 		id: "1",
 		name: "Rahul Sharma",
@@ -152,9 +179,9 @@ export default function UserDetailPage() {
 	const router = useRouter();
 	const userId = params.id as string;
 
-	const [user, setUser] = useState<any>(null);
+	const [user, setUser] = useState<User | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
-	const [editedUser, setEditedUser] = useState<any>(null);
+	const [editedUser, setEditedUser] = useState<Partial<User> | null>(null);
 	const [imageError, setImageError] = useState(false);
 
 	// Fix: Memoize the fetch function and add proper dependencies
@@ -180,7 +207,7 @@ export default function UserDetailPage() {
 	}
 
 	const handleSaveChanges = () => {
-		setUser(editedUser);
+		setUser(editedUser as User);
 		setIsEditing(false);
 		// In a real app, you would save changes to the backend
 		alert("User details updated successfully!");
@@ -214,11 +241,14 @@ export default function UserDetailPage() {
 					<CardHeader className="text-center">
 						<div className="w-24 h-24 mx-auto rounded-full bg-muted flex items-center justify-center mb-4">
 							{user.avatar && !imageError ? (
-								<img
+								<Image
 									src={user.avatar}
 									alt={user.name}
+									width={96}
+									height={96}
 									className="w-full h-full rounded-full object-cover"
 									onError={() => setImageError(true)}
+									unoptimized={true} // Only needed if using external URLs
 								/>
 							) : (
 								<User className="h-12 w-12 text-muted-foreground" />
@@ -280,7 +310,7 @@ export default function UserDetailPage() {
 								<CardHeader>
 									<CardTitle>Personal Information</CardTitle>
 									<CardDescription>
-										Update user's personal details and contact information.
+										Update user&apos;s personal details and contact information.
 									</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-4">
@@ -291,7 +321,7 @@ export default function UserDetailPage() {
 													<Label htmlFor="name">Full Name</Label>
 													<Input
 														id="name"
-														value={editedUser.name}
+														value={editedUser?.name}
 														onChange={(e) =>
 															setEditedUser({
 																...editedUser,
@@ -305,7 +335,7 @@ export default function UserDetailPage() {
 													<Input
 														id="email"
 														type="email"
-														value={editedUser.email}
+														value={editedUser?.email}
 														onChange={(e) =>
 															setEditedUser({
 																...editedUser,
@@ -318,7 +348,7 @@ export default function UserDetailPage() {
 													<Label htmlFor="phone">Phone</Label>
 													<Input
 														id="phone"
-														value={editedUser.phone}
+														value={editedUser?.phone}
 														onChange={(e) =>
 															setEditedUser({
 																...editedUser,
@@ -330,7 +360,7 @@ export default function UserDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="status">Status</Label>
 													<Select
-														value={editedUser.status}
+														value={editedUser?.status}
 														onValueChange={(value) =>
 															setEditedUser({ ...editedUser, status: value })
 														}
@@ -353,7 +383,7 @@ export default function UserDetailPage() {
 												<Label htmlFor="address">Address</Label>
 												<Input
 													id="address"
-													value={editedUser.address}
+													value={editedUser?.address}
 													onChange={(e) =>
 														setEditedUser({
 															...editedUser,
@@ -366,7 +396,7 @@ export default function UserDetailPage() {
 												<Label htmlFor="bio">Bio</Label>
 												<Textarea
 													id="bio"
-													value={editedUser.bio}
+													value={editedUser?.bio}
 													onChange={(e) =>
 														setEditedUser({
 															...editedUser,
@@ -448,15 +478,23 @@ export default function UserDetailPage() {
 													<input
 														type="checkbox"
 														id="notifications"
-														checked={editedUser.preferences.notifications}
+														checked={
+															editedUser?.preferences?.notifications || false
+														}
 														onChange={(e) =>
-															setEditedUser({
-																...editedUser,
-																preferences: {
-																	...editedUser.preferences,
-																	notifications: e.target.checked,
-																},
-															})
+															setEditedUser((prev) =>
+																prev
+																	? {
+																			...prev,
+																			preferences: {
+																				...prev.preferences,
+																				notifications: e.target.checked,
+																				language: e.target.value,
+																				newsletter: e.target.checked,
+																			},
+																	  }
+																	: null
+															)
 														}
 														className="h-4 w-4"
 													/>
@@ -468,15 +506,23 @@ export default function UserDetailPage() {
 													<input
 														type="checkbox"
 														id="newsletter"
-														checked={editedUser.preferences.newsletter}
+														checked={
+															editedUser?.preferences?.newsletter || false
+														}
 														onChange={(e) =>
-															setEditedUser({
-																...editedUser,
-																preferences: {
-																	...editedUser.preferences,
-																	newsletter: e.target.checked,
-																},
-															})
+															setEditedUser((prev) =>
+																prev
+																	? {
+																			...prev,
+																			preferences: {
+																				...prev.preferences,
+																				notifications: e.target.checked,
+																				language: e.target.value,
+																				newsletter: e.target.checked,
+																			},
+																	  }
+																	: null
+															)
 														}
 														className="h-4 w-4"
 													/>
@@ -484,15 +530,24 @@ export default function UserDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="language">Preferred Language</Label>
 													<Select
-														value={editedUser.preferences.language}
+														value={editedUser?.preferences?.language || ""}
 														onValueChange={(value) =>
-															setEditedUser({
-																...editedUser,
-																preferences: {
-																	...editedUser.preferences,
-																	language: value,
-																},
-															})
+															setEditedUser((prev) =>
+																prev
+																	? {
+																			...prev,
+																			preferences: {
+																				...prev.preferences,
+																				language: value,
+																				notifications:
+																					prev.preferences?.notifications ??
+																					false, // Provide default value
+																				newsletter:
+																					prev.preferences?.newsletter ?? false, // Provide default value
+																			},
+																	}
+																	: null
+															)
 														}
 													>
 														<SelectTrigger id="language">
@@ -569,22 +624,24 @@ export default function UserDetailPage() {
 								</CardHeader>
 								<CardContent>
 									<div className="space-y-4">
-										{user.activities.map((activity: any, index: number) => (
-											<div
-												key={index}
-												className="flex items-start gap-4 border-b border-border pb-4 last:border-0 last:pb-0"
-											>
-												<div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-													<Calendar className="h-4 w-4 text-primary" />
+										{user.activities.map(
+											(activity: Activity, index: number) => (
+												<div
+													key={index}
+													className="flex items-start gap-4 border-b border-border pb-4 last:border-0 last:pb-0"
+												>
+													<div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+														<Calendar className="h-4 w-4 text-primary" />
+													</div>
+													<div>
+														<p className="font-medium">{activity.action}</p>
+														<p className="text-sm text-muted-foreground">
+															{formatDate(activity.date)}
+														</p>
+													</div>
 												</div>
-												<div>
-													<p className="font-medium">{activity.action}</p>
-													<p className="text-sm text-muted-foreground">
-														{formatDate(activity.date)}
-													</p>
-												</div>
-											</div>
-										))}
+											)
+										)}
 									</div>
 								</CardContent>
 							</Card>

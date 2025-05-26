@@ -254,28 +254,22 @@ const topSellingItems = [
 	},
 ];
 
-const MiniChart = ({
-	data,
-	color,
-}: {
-	data: any[];
+interface MiniChartProps {
+	data: ChartDataPoint[];
 	color: string;
-	positive: boolean;
-}) => {
+}
+
+const MiniChart = ({ data, color }: MiniChartProps) => {
 	return (
 		<div className="h-10">
 			<ResponsiveContainer width="100%" height="100%">
-				<LineChart
-					data={data}
-					margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-				>
+				<LineChart data={data} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
 					<Line
 						type="monotone"
 						dataKey="value"
 						stroke={color}
-						strokeWidth={1.5}
-						dot={{ r: 1 }}
-						isAnimationActive={false}
+						strokeWidth={2}
+						dot={false}
 					/>
 				</LineChart>
 			</ResponsiveContainer>
@@ -283,6 +277,10 @@ const MiniChart = ({
 	);
 };
 
+interface ChartDataPoint {
+	name: string; // or date, depending on your x-axis
+	value: number;
+}
 export default function DharmlokDashboard() {
 	return (
 		<div className="w-full">
@@ -372,7 +370,7 @@ export default function DharmlokDashboard() {
 								</div>
 							</div>
 							<div className="text-2xl font-bold pb-1">₹12,52,310</div>
-							<MiniChart data={revenueData} color="#1E40AF" positive={true} />
+							<MiniChart data={revenueData} color="#1E40AF" />
 						</div>
 					</CardContent>
 				</Card>
@@ -389,7 +387,7 @@ export default function DharmlokDashboard() {
 								</div>
 							</div>
 							<div className="text-2xl font-bold pb-1">892</div>
-							<MiniChart data={bookingsData} color="#1E40AF" positive={false} />
+							<MiniChart data={bookingsData} color="#1E40AF" />
 						</div>
 					</CardContent>
 				</Card>
@@ -406,7 +404,7 @@ export default function DharmlokDashboard() {
 								</div>
 							</div>
 							<div className="text-2xl font-bold pb-1">3,602</div>
-							<MiniChart data={newUsersData} color="#1E40AF" positive={true} />
+							<MiniChart data={newUsersData} color="#1E40AF" />
 						</div>
 					</CardContent>
 				</Card>
