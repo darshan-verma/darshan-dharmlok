@@ -30,6 +30,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { toast } from "@/lib/toast";
 
 // Mock data for initial display
 const mockUsers = [
@@ -73,6 +74,7 @@ const mockUsers = [
 export default function UsersPage() {
 	const [users, setUsers] = useState(mockUsers);
 	const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
 	const [newUser, setNewUser] = useState({
 		name: "",
 		phone: "",
@@ -81,24 +83,66 @@ export default function UsersPage() {
 	});
 	const [searchQuery, setSearchQuery] = useState("");
 
-	const handleAddUser = () => {
-		const id = (users.length + 1).toString();
-		setUsers([...users, { ...newUser, id }]);
-		setNewUser({
-			name: "",
-			phone: "",
-			email: "",
-			status: "Active",
-		});
-		setIsAddUserOpen(false);
+	const handleAddUser = async () => {
+		if (!newUser.name || !newUser.email) {
+			toast.warning("Please fill in all required fields");
+			return;
+		}
+
+		setIsLoading(true);
+		const loadingToast = toast.loading("Adding new user...");
+
+		try {
+			// Simulate API call
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+
+			const id = (users.length + 1).toString();
+			const updatedUsers = [...users, { ...newUser, id }];
+			setUsers(updatedUsers);
+
+			// Reset form
+			setNewUser({
+				name: "",
+				phone: "",
+				email: "",
+				status: "Active",
+			});
+
+			toast.dismiss(loadingToast);
+			toast.success("User added successfully!");
+			setIsAddUserOpen(false);
+		} catch (error) {
+			console.error("Error adding user:", error);
+			toast.dismiss(loadingToast);
+			toast.error("Failed to add user. Please try again.");
+		} finally {
+			setIsLoading(false);
+		}
 	};
 
-	const handleStatusChange = (userId: string, newStatus: string) => {
-		setUsers(
-			users.map((user) =>
-				user.id === userId ? { ...user, status: newStatus } : user
-			)
-		);
+	const handleStatusChange = async (userId: string, newStatus: string) => {
+		const user = users.find((u) => u.id === userId);
+		if (!user) return;
+
+		const loadingToast = toast.loading("Updating user status...");
+
+		try {
+			// Simulate API call
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
+			setUsers(
+				users.map((user) =>
+					user.id === userId ? { ...user, status: newStatus } : user
+				)
+			);
+
+			toast.dismiss(loadingToast);
+			toast.success(`User ${newStatus.toLowerCase()} successfully`);
+		} catch (error) {
+			console.error("Error updating user status:", error);
+			toast.dismiss(loadingToast);
+			toast.error("Failed to update user status");
+		}
 	};
 
 	const filteredUsers = users.filter(
@@ -190,8 +234,12 @@ export default function UsersPage() {
 							</div>
 						</div>
 						<DialogFooter>
-							<Button type="submit" onClick={handleAddUser}>
-								Add User
+							<Button
+								type="submit"
+								onClick={handleAddUser}
+								disabled={isLoading}
+							>
+								{isLoading ? "Adding..." : "Add User"}
 							</Button>
 						</DialogFooter>
 					</DialogContent>

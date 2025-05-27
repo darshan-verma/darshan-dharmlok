@@ -54,6 +54,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
+import { toast } from "@/lib/toast";
 
 // Mock data for initial display
 const mockDharmgurus = [
@@ -136,10 +137,16 @@ interface Dharmguru {
 
 export default function DharmguruPage() {
 	const router = useRouter();
+	const [isLoading, setIsLoading] = useState(false);
 	const [dharmgurus, setDharmgurus] = useState(() => {
 		if (typeof window !== "undefined") {
-			const saved = localStorage.getItem("dharmgurus");
-			return saved ? JSON.parse(saved) : mockDharmgurus;
+			try {
+				const saved = localStorage.getItem("dharmgurus");
+				return saved ? JSON.parse(saved) : mockDharmgurus;
+			} catch (error) {
+				toast.error("Failed to load Dharmguru data");
+				return mockDharmgurus;
+			}
 		}
 		return mockDharmgurus;
 	});
@@ -147,16 +154,23 @@ export default function DharmguruPage() {
 	// Save to localStorage whenever dharmgurus change
 	useEffect(() => {
 		if (typeof window !== "undefined") {
-			localStorage.setItem("dharmgurus", JSON.stringify(dharmgurus));
+			try {
+				localStorage.setItem("dharmgurus", JSON.stringify(dharmgurus));
+			} catch (error) {
+				toast.error("Failed to save Dharmguru data");
+			}
 		}
 	}, [dharmgurus]);
 
 	const [isAddDharmguruOpen, setIsAddDharmguruOpen] = useState(false);
 	const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-	const [dharmguruToDelete, setDharmguruToDelete] = useState<string | null>(
-		null
-	);
-	const [newDharmguru, setNewDharmguru] = useState<Omit<Dharmguru, 'id'> & { id?: string }>({
+	const [dharmguruToDelete, setDharmguruToDelete] = useState<{
+		id: string;
+		name: string;
+	} | null>(null);
+	const [newDharmguru, setNewDharmguru] = useState<
+		Omit<Dharmguru, "id"> & { id?: string }
+	>({
 		name: "",
 		category: "",
 		phone: "",
@@ -168,65 +182,118 @@ export default function DharmguruPage() {
 	const [searchQuery, setSearchQuery] = useState("");
 
 	const handleAddDharmguru = () => {
-		const id = (dharmgurus.length + 1).toString();
-		const newDharmguruWithId = { ...newDharmguru, id };
-		const updatedDharmgurus = [...dharmgurus, newDharmguruWithId];
-		setDharmgurus(updatedDharmgurus);
-		setNewDharmguru({
-			name: "",
-			category: "",
-			phone: "",
-			email: "",
-			status: "Active",
-			rank: "",
-			isApproved: false,
-		});
-		setIsAddDharmguruOpen(false);
-	};
+		if (!newDharmguru.name || !newDharmguru.email) {
+			toast.warning("Please fill in all required fields");
+			return;
+		}
 
-	const handleStatusChange = (dharmguruId: string, newStatus: string) => {
-		setDharmgurus(
-			dharmgurus.map((dharmguru: Dharmguru) =>
-				dharmguru.id === dharmguruId
-					? { ...dharmguru, status: newStatus }
-					: dharmguru
-			)
-		);
-	};
+		setIsLoading(true);
+		const loadingToast = toast.loading("Adding new Dharmguru...");
 
-	const handleApprovalChange = (dharmguruId: string, isApproved: boolean) => {
-		setDharmgurus(
-			dharmgurus.map((dharmguru: Dharmguru) =>
-				dharmguru.id === dharmguruId ? { ...dharmguru, isApproved } : dharmguru
-			)
-		);
-		// In a real app, you would call an API to update the approval status
-		alert(`Dharmguru ${isApproved ? "approved" : "disapproved"} successfully!`);
-	};
+		try {
+			// Simulate API call
+			setTimeout(() => {
+				const id = (dharmgurus.length + 1).toString();
+				const newDharmguruWithId = { ...newDharmguru, id };
+				const updatedDharmgurus = [...dharmgurus, newDharmguruWithId];
+				setDharmgurus(updatedDharmgurus);
 
-	const handleDeleteDharmguru = (id: string) => {
-		setDharmguruToDelete(id);
-		setIsDeleteConfirmOpen(true);
-	};
+				setNewDharmguru({
+					name: "",
+					category: "",
+					phone: "",
+					email: "",
+					status: "Active",
+					rank: "",
+					isApproved: false,
+				});
 
-	const confirmDeleteDharmguru = () => {
-		if (dharmguruToDelete) {
-			setDharmgurus(dharmgurus.filter((d:Dharmguru) => d.id !== dharmguruToDelete));
-			setDharmguruToDelete(null);
-			setIsDeleteConfirmOpen(false);
-			// In a real app, you would call an API to delete the dharmguru
-			alert("Dharmguru deleted successfully!");
+				toast.dismiss(loadingToast);
+				toast.success("Dharmguru added successfully!");
+				setIsAddDharmguruOpen(false);
+			}, 1000);
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error("Failed to add Dharmguru");
+		} finally {
+			setIsLoading(false);
 		}
 	};
 
-	const handleLoginAsDharmguru = (dharmguruId: string) => {
+	const handleStatusChange = (dharmguruId: string, newStatus: string) => {
+		try {
+			setDharmgurus(
+				dharmgurus.map((dharmguru: Dharmguru) =>
+					dharmguru.id === dharmguruId
+						? { ...dharmguru, status: newStatus }
+						: dharmguru
+				)
+			);
+			toast.success(`Status updated to ${newStatus}`);
+		} catch (error) {
+			toast.error("Failed to update status");
+		}
+	};
+
+	const handleApprovalChange = (dharmguruId: string, isApproved: boolean) => {
+		try {
+			setDharmgurus(
+				dharmgurus.map((dharmguru: Dharmguru) =>
+					dharmguru.id === dharmguruId
+						? { ...dharmguru, isApproved }
+						: dharmguru
+				)
+			);
+			toast.success(
+				`Dharmguru ${isApproved ? "approved" : "disapproved"} successfully`
+			);
+		} catch (error) {
+			toast.error("Failed to update approval status");
+		}
+	};
+
+	const handleDeleteDharmguru = (id: string, name: string) => {
+		setDharmguruToDelete({ id, name });
+		setIsDeleteConfirmOpen(true);
+	};
+
+	const confirmDeleteDharmguru = async () => {
+		if (!dharmguruToDelete) return;
+
+		setIsLoading(true);
+		const loadingToast = toast.loading(`Deleting ${dharmguruToDelete.name}...`);
+
+		try {
+			// Simulate API call
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+
+			setDharmgurus(
+				dharmgurus.filter((d: Dharmguru) => d.id !== dharmguruToDelete.id)
+			);
+			toast.dismiss(loadingToast);
+			toast.success(`${dharmguruToDelete.name} deleted successfully`);
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(`Failed to delete ${dharmguruToDelete.name}`);
+		} finally {
+			setDharmguruToDelete(null);
+			setIsDeleteConfirmOpen(false);
+			setIsLoading(false);
+		}
+	};
+
+	const handleLoginAsDharmguru = (dharmguru: Dharmguru) => {
+		const loadingToast = toast.loading(`Logging in as ${dharmguru.name}...`);
 		// In a real app, you would implement a secure way to login as the dharmguru
-		alert(`Logging in as Dharmguru ID: ${dharmguruId}`);
-		// Redirect to dharmguru dashboard or perform other actions
+		setTimeout(() => {
+			toast.dismiss(loadingToast);
+			toast.success(`Successfully logged in as ${dharmguru.name}`);
+			// Redirect to dharmguru dashboard or perform other actions
+		}, 1000);
 	};
 
 	const filteredDharmgurus = dharmgurus.filter(
-		(dharmguru:Dharmguru) =>
+		(dharmguru: Dharmguru) =>
 			dharmguru.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			dharmguru.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			dharmguru.phone.includes(searchQuery) ||
@@ -423,7 +490,7 @@ export default function DharmguruPage() {
 					</TableHeader>
 					<TableBody>
 						{filteredDharmgurus.length > 0 ? (
-							filteredDharmgurus.map((dharmguru:Dharmguru) => (
+							filteredDharmgurus.map((dharmguru: Dharmguru) => (
 								<TableRow key={dharmguru.id}>
 									<TableCell className="font-medium">
 										{dharmguru.name}
@@ -540,14 +607,16 @@ export default function DharmguruPage() {
 													Edit
 												</DropdownMenuItem>
 												<DropdownMenuItem
-													onClick={() => handleDeleteDharmguru(dharmguru.id)}
+													onClick={() =>
+														handleDeleteDharmguru(dharmguru.id, dharmguru.name)
+													}
 													className="text-red-600"
 												>
 													<Trash2 className="h-4 w-4 mr-2" />
 													Delete
 												</DropdownMenuItem>
 												<DropdownMenuItem
-													onClick={() => handleLoginAsDharmguru(dharmguru.id)}
+													onClick={() => handleLoginAsDharmguru(dharmguru)}
 												>
 													<LogIn className="h-4 w-4 mr-2" />
 													Login as Dharmguru
@@ -571,23 +640,28 @@ export default function DharmguruPage() {
 
 			{/* Delete Confirmation Dialog */}
 			<Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-				<DialogContent className="sm:max-w-[425px]">
+				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>Confirm Deletion</DialogTitle>
 						<DialogDescription>
-							Are you sure you want to delete this dharmguru? This action cannot
-							be undone.
+							Are you sure you want to delete {dharmguruToDelete?.name}? This
+							action cannot be undone.
 						</DialogDescription>
 					</DialogHeader>
-					<DialogFooter className="flex justify-between">
+					<DialogFooter>
 						<Button
 							variant="outline"
 							onClick={() => setIsDeleteConfirmOpen(false)}
+							disabled={isLoading}
 						>
 							Cancel
 						</Button>
-						<Button variant="destructive" onClick={confirmDeleteDharmguru}>
-							Delete
+						<Button
+							variant="destructive"
+							onClick={confirmDeleteDharmguru}
+							disabled={isLoading}
+						>
+							{isLoading ? "Deleting..." : "Delete"}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

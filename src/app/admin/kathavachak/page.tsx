@@ -54,6 +54,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
+import { toast } from "@/lib/toast";
 
 // Mock data for initial display
 const mockKathavachaks = [
@@ -137,105 +138,200 @@ interface Kathavachak {
 
 export default function KathavachakPage() {
 	const router = useRouter();
-	// Load kathavachaks from localStorage or use mock data if not found
-	const [kathavachaks, setKathavachaks] = useState(() => {
-		if (typeof window !== "undefined") {
-			const saved = localStorage.getItem("kathavachaks");
-			return saved ? JSON.parse(saved) : mockKathavachaks;
-		}
-		return mockKathavachaks;
-	});
-
-	// Save to localStorage whenever kathavachaks change
-	useEffect(() => {
-		if (typeof window !== "undefined") {
-			localStorage.setItem("kathavachaks", JSON.stringify(kathavachaks));
-		}
-	}, [kathavachaks]);
-
+	const [kathavachaks, setKathavachaks] = useState<Kathavachak[]>([]);
+	const [isLoading, setIsLoading] = useState(true);
+	const [searchTerm, setSearchTerm] = useState("");
 	const [isAddKathavachakOpen, setIsAddKathavachakOpen] = useState(false);
 	const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-	const [kathavachakToDelete, setKathavachakToDelete] = useState<string | null>(
-		null
-	);
-	const [newKathavachak, setNewKathavachak] = useState<Omit<Kathavachak, 'id'> & { id?: string }>({
+	const [kathavachakToDelete, setKathavachakToDelete] =
+		useState<Kathavachak | null>(null);
+	const [newKathavachak, setNewKathavachak] = useState<Partial<Kathavachak>>({
 		name: "",
 		category: "",
 		phone: "",
 		email: "",
 		status: "Active",
-		rank: "",
+		rank: "Junior",
 		isApproved: false,
 	});
-	const [searchQuery, setSearchQuery] = useState("");
+
+	// Load kathavachaks from localStorage or use mock data
+	useEffect(() => {
+		const loadKathavachaks = async () => {
+			const loadingToast = toast.loading("Loading Kathavachaks...");
+			try {
+				// Simulate API call
+				await new Promise((resolve) => setTimeout(resolve, 1000));
+
+				try {
+					const saved = localStorage.getItem("kathavachaks");
+					const data = saved ? JSON.parse(saved) : mockKathavachaks;
+					setKathavachaks(data);
+					toast.dismiss(loadingToast);
+				} catch (error) {
+					console.error("Error loading kathavachaks:", error);
+					toast.dismiss(loadingToast);
+					toast.error("Failed to load Kathavachak data");
+					setKathavachaks(mockKathavachaks);
+				}
+			} catch (error) {
+				console.error("Error in loadKathavachaks:", error);
+				toast.dismiss(loadingToast);
+				toast.error("Failed to load Kathavachak data");
+				setKathavachaks(mockKathavachaks);
+			} finally {
+				setIsLoading(false);
+			}
+		};
+
+		loadKathavachaks();
+	}, []);
+
+	// Save kathavachaks to localStorage whenever they change
+	useEffect(() => {
+		if (kathavachaks.length > 0) {
+			try {
+				localStorage.setItem("kathavachaks", JSON.stringify(kathavachaks));
+			} catch (error) {
+				console.error("Error saving kathavachaks:", error);
+				toast.error("Failed to save Kathavachak data");
+			}
+		}
+	}, [kathavachaks]);
 
 	const handleAddKathavachak = () => {
-		const id = Date.now().toString(); // Use timestamp for unique ID
-		const updatedKathavachaks = [...kathavachaks, { ...newKathavachak, id }];
-		setKathavachaks(updatedKathavachaks);
-		setNewKathavachak({
-			name: "",
-			category: "",
-			phone: "",
-			email: "",
-			status: "Active",
-			rank: "",
-			isApproved: false,
-		});
-		setIsAddKathavachakOpen(false);
-	};
+		if (!newKathavachak.name || !newKathavachak.email) {
+			toast.warning("Please fill in all required fields");
+			return;
+		}
 
-	const handleStatusChange = (kathavachakId: string, newStatus: string) => {
-		setKathavachaks(
-			kathavachaks.map((kathavachak: Kathavachak) =>
-				kathavachak.id === kathavachakId
-					? { ...kathavachak, status: newStatus }
-					: kathavachak
-			)
-		);
-	};
+		setIsLoading(true);
+		const loadingToast = toast.loading("Adding new Kathavachak...");
 
-	const handleApprovalChange = (kathavachakId: string, isApproved: boolean) => {
-		setKathavachaks(
-			kathavachaks.map((kathavachak: Kathavachak) =>
-				kathavachak.id === kathavachakId
-					? { ...kathavachak, isApproved }
-					: kathavachak
-			)
-		);
-		// In a real app, you would call an API to update the approval status
-		alert(
-			`Kathavachak ${isApproved ? "approved" : "disapproved"} successfully!`
-		);
-	};
+		try {
+			// Simulate API call
+			setTimeout(() => {
+				const newKavach = {
+					...newKathavachak,
+					id: Math.random().toString(36).substr(2, 9),
+					isApproved: false,
+				} as Kathavachak;
 
-	const handleDeleteKathavachak = (id: string) => {
-		setKathavachakToDelete(id);
-		setIsDeleteConfirmOpen(true);
-	};
+				setKathavachaks([...kathavachaks, newKavach]);
+				setNewKathavachak({
+					name: "",
+					category: "",
+					phone: "",
+					email: "",
+					status: "Active",
+					rank: "Junior",
+					isApproved: false,
+				});
 
-	const confirmDeleteKathavachak = () => {
-		if (kathavachakToDelete) {
-			setKathavachaks(kathavachaks.filter((k: Kathavachak) => k.id !== kathavachakToDelete));
-			setKathavachakToDelete(null);
-			setIsDeleteConfirmOpen(false);
-			// In a real app, you would call an API to delete the kathavachak
-			alert("Kathavachak deleted successfully!");
+				toast.dismiss(loadingToast);
+				toast.success("Kathavachak added successfully!");
+				setIsAddKathavachakOpen(false);
+			}, 1000);
+		} catch (error) {
+			console.error("Error adding kathavachak:", error);
+			toast.dismiss(loadingToast);
+			toast.error("Failed to add Kathavachak");
+		} finally {
+			setIsLoading(false);
 		}
 	};
 
-	const handleLoginAsKathavachak = (kathavachakId: string) => {
-		// In a real app, you would implement a secure way to login as the kathavachak
-		alert(`Logging in as Kathavachak ID: ${kathavachakId}`);
-		// Redirect to kathavachak dashboard or perform other actions
+	const handleDeleteKathavachak = async () => {
+		if (!kathavachakToDelete) return;
+
+		setIsLoading(true);
+		const loadingToast = toast.loading(
+			`Deleting ${kathavachakToDelete.name}...`
+		);
+
+		try {
+			// Simulate API call
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+
+			setKathavachaks(
+				kathavachaks.filter((k) => k.id !== kathavachakToDelete.id)
+			);
+			toast.dismiss(loadingToast);
+			toast.success(`${kathavachakToDelete.name} deleted successfully`);
+		} catch (error) {
+			console.error("Error deleting kathavachak:", error);
+			toast.dismiss(loadingToast);
+			toast.error(`Failed to delete ${kathavachakToDelete.name}`);
+		} finally {
+			setKathavachakToDelete(null);
+			setIsDeleteConfirmOpen(false);
+			setIsLoading(false);
+		}
+	};
+
+	const handleUpdateStatus = async (id: string, newStatus: string) => {
+		const loadingToast = toast.loading("Updating status...");
+		try {
+			// Simulate API call
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
+			setKathavachaks(
+				kathavachaks.map((k) => (k.id === id ? { ...k, status: newStatus } : k))
+			);
+			toast.dismiss(loadingToast);
+			toast.success(`Status updated to ${newStatus}`);
+		} catch (error) {
+			console.error("Error updating status:", error);
+			toast.dismiss(loadingToast);
+			toast.error("Failed to update status");
+		}
+	};
+
+	const handleToggleApproval = async (id: string, currentStatus: boolean) => {
+		const loadingToast = toast.loading("Updating approval status...");
+		try {
+			// Simulate API call
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
+			setKathavachaks(
+				kathavachaks.map((k) =>
+					k.id === id ? { ...k, isApproved: !currentStatus } : k
+				)
+			);
+			toast.dismiss(loadingToast);
+			toast.success(
+				`Kathavachak ${currentStatus ? "disapproved" : "approved"} successfully`
+			);
+		} catch (error) {
+			console.error("Error updating approval status:", error);
+			toast.dismiss(loadingToast);
+			toast.error("Failed to update approval status");
+		}
+	};
+
+	const handleLoginAsKathavachak = (kathavachak: Kathavachak) => {
+		const loadingToast = toast.loading(`Logging in as ${kathavachak.name}...`);
+
+		try {
+			// Simulate login
+			setTimeout(() => {
+				toast.dismiss(loadingToast);
+				toast.success(`Successfully logged in as ${kathavachak.name}`);
+				// In a real app, you would redirect to the kathavachak's dashboard
+			}, 1000);
+		} catch (error) {
+			console.error("Error logging in as kathavachak:", error);
+			toast.dismiss(loadingToast);
+			toast.error("Failed to log in as Kathavachak");
+		}
 	};
 
 	const filteredKathavachaks = kathavachaks.filter(
 		(kathavachak: Kathavachak) =>
-			kathavachak.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			kathavachak.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			kathavachak.phone.includes(searchQuery) ||
-			kathavachak.category.toLowerCase().includes(searchQuery.toLowerCase())
+			kathavachak.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			kathavachak.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			kathavachak.phone.includes(searchTerm) ||
+			kathavachak.category.toLowerCase().includes(searchTerm.toLowerCase())
 	);
 
 	return (
@@ -414,8 +510,8 @@ export default function KathavachakPage() {
 				<Input
 					type="text"
 					placeholder="Search kathavachaks..."
-					value={searchQuery}
-					onChange={(e) => setSearchQuery(e.target.value)}
+					value={searchTerm}
+					onChange={(e) => setSearchTerm(e.target.value)}
 					className="flex-1"
 				/>
 				<Button type="submit" variant="outline" size="icon">
@@ -498,7 +594,10 @@ export default function KathavachakPage() {
 												{!kathavachak.isApproved ? (
 													<DropdownMenuItem
 														onClick={() =>
-															handleApprovalChange(kathavachak.id, true)
+															handleToggleApproval(
+																kathavachak.id,
+																kathavachak.isApproved
+															)
 														}
 														className="text-green-600"
 													>
@@ -508,7 +607,10 @@ export default function KathavachakPage() {
 												) : (
 													<DropdownMenuItem
 														onClick={() =>
-															handleApprovalChange(kathavachak.id, false)
+															handleToggleApproval(
+																kathavachak.id,
+																kathavachak.isApproved
+															)
 														}
 														className="text-amber-600"
 													>
@@ -524,7 +626,7 @@ export default function KathavachakPage() {
 													<DropdownMenuSubContent>
 														<DropdownMenuItem
 															onClick={() =>
-																handleStatusChange(kathavachak.id, "Active")
+																handleUpdateStatus(kathavachak.id, "Active")
 															}
 															className={
 																kathavachak.status === "Active"
@@ -537,7 +639,7 @@ export default function KathavachakPage() {
 														</DropdownMenuItem>
 														<DropdownMenuItem
 															onClick={() =>
-																handleStatusChange(kathavachak.id, "Inactive")
+																handleUpdateStatus(kathavachak.id, "Inactive")
 															}
 															className={
 																kathavachak.status === "Inactive"
@@ -559,18 +661,14 @@ export default function KathavachakPage() {
 													Edit
 												</DropdownMenuItem>
 												<DropdownMenuItem
-													onClick={() =>
-														handleDeleteKathavachak(kathavachak.id)
-													}
+													onClick={() => setKathavachakToDelete(kathavachak)}
 													className="text-red-600"
 												>
 													<Trash2 className="h-4 w-4 mr-2" />
 													Delete
 												</DropdownMenuItem>
 												<DropdownMenuItem
-													onClick={() =>
-														handleLoginAsKathavachak(kathavachak.id)
-													}
+													onClick={() => handleLoginAsKathavachak(kathavachak)}
 												>
 													<LogIn className="h-4 w-4 mr-2" />
 													Login as Kathavachak
@@ -609,7 +707,7 @@ export default function KathavachakPage() {
 						>
 							Cancel
 						</Button>
-						<Button variant="destructive" onClick={confirmDeleteKathavachak}>
+						<Button variant="destructive" onClick={handleDeleteKathavachak}>
 							Delete
 						</Button>
 					</DialogFooter>

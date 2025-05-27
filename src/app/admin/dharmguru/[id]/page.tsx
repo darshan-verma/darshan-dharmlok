@@ -34,6 +34,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { toast } from "@/lib/toast";
 
 // Mock dharmguru data - in a real app, you would fetch this from an API
 const mockDharmguruDetails = {
@@ -207,6 +208,7 @@ export default function DharmguruDetailPage() {
 
 	const [dharmguru, setDharmguru] = useState<Dharmguru | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
+	const [isSaving, setIsSaving] = useState(false);
 	const [editedDharmguru, setEditedDharmguru] = useState<Dharmguru | null>(
 		null
 	);
@@ -214,35 +216,48 @@ export default function DharmguruDetailPage() {
 
 	// Memoize the fetch function and add proper dependencies
 	const fetchDharmguruData = useCallback(() => {
-		// First check mock data
-		let dharmguruData =
-			mockDharmguruDetails[dharmguruId as keyof typeof mockDharmguruDetails];
+		const loadingToast = toast.loading("Loading Dharmguru details...");
+		try {
+			// First check mock data
+			let dharmguruData =
+				mockDharmguruDetails[dharmguruId as keyof typeof mockDharmguruDetails];
 
-		// If not found in mock data, check localStorage
-		if (!dharmguruData && typeof window !== "undefined") {
-			const savedDharmgurus = localStorage.getItem("dharmgurus");
-			if (savedDharmgurus) {
-				const allDharmgurus = JSON.parse(savedDharmgurus);
-				dharmguruData = allDharmgurus.find((d: Dharmguru) => d.id === dharmguruId);
+			// If not found in mock data, check localStorage
+			if (!dharmguruData && typeof window !== "undefined") {
+				const savedDharmgurus = localStorage.getItem("dharmgurus");
+				if (savedDharmgurus) {
+					const allDharmgurus = JSON.parse(savedDharmgurus);
+					dharmguruData = allDharmgurus.find(
+						(d: Dharmguru) => d.id === dharmguruId
+					);
+				}
 			}
-		}
 
-		if (dharmguruData) {
-			// Ensure preferences are properly initialized
-			const dharmguruWithPreferences = {
-				...dharmguruData,
-				preferences: {
-					notifications: dharmguruData.preferences?.notifications ?? true,
-					newsletter: dharmguruData.preferences?.newsletter ?? true,
-					language: dharmguruData.preferences?.language ?? "en",
-				},
-				activities: dharmguruData.activities || [],
-			};
-			setDharmguru(dharmguruWithPreferences);
-			setEditedDharmguru({ ...dharmguruWithPreferences });
-		} else {
-			// If dharmguru not found, redirect to dharmgurus list
-			router.push("/admin/dharmguru");
+			if (dharmguruData) {
+				// Ensure preferences are properly initialized
+				const dharmguruWithPreferences = {
+					...dharmguruData,
+					preferences: {
+						notifications: dharmguruData.preferences?.notifications ?? true,
+						newsletter: dharmguruData.preferences?.newsletter ?? true,
+						language: dharmguruData.preferences?.language ?? "en",
+					},
+					activities: dharmguruData.activities || [],
+				};
+				setDharmguru(dharmguruWithPreferences);
+				setEditedDharmguru({ ...dharmguruWithPreferences });
+			} else {
+				// If dharmguru not found, redirect to dharmgurus list
+				toast.dismiss(loadingToast);
+				toast.error("Dharmguru not found");
+				setTimeout(() => {
+					router.push("/admin/dharmguru");
+				}, 1500);
+			}
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error("Failed to load Dharmguru data");
+			console.error("Error loading Dharmguru data:", error);
 		}
 	}, [dharmguruId, router]);
 
@@ -251,27 +266,83 @@ export default function DharmguruDetailPage() {
 		fetchDharmguruData();
 	}, [fetchDharmguruData]);
 
-	const handleSaveChanges = () => {
+	const handleSaveChanges = async () => {
 		if (!editedDharmguru) return;
 
-		// Update the dharmguru in localStorage
-		if (typeof window !== "undefined") {
-			const savedDharmgurus = localStorage.getItem("dharmgurus");
-			if (savedDharmgurus) {
-				let allDharmgurus = JSON.parse(savedDharmgurus);
-				allDharmgurus = allDharmgurus.map((d: Dharmguru) =>
-					d.id === dharmguruId ? { ...editedDharmguru } : d
-				);
-				localStorage.setItem("dharmgurus", JSON.stringify(allDharmgurus));
-			} else {
-				// If no dharmgurus exist in localStorage yet, create a new array with the updated dharmguru
-				localStorage.setItem("dharmgurus", JSON.stringify([editedDharmguru]));
-			}
-		}
+		setIsSaving(true);
+		const toastId = toast.loading("Saving changes...");
 
-		setDharmguru(editedDharmguru);
-		setIsEditing(false);
-		alert("Dharmguru details updated successfully!");
+		try {
+			// Simulate API call
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+
+			// Update the dharmguru in localStorage
+			if (typeof window !== "undefined") {
+				const savedDharmgurus = localStorage.getItem("dharmgurus");
+				let allDharmgurus = [];
+
+				if (savedDharmgurus) {
+					allDharmgurus = JSON.parse(savedDharmgurus);
+					allDharmgurus = allDharmgurus.map((d: Dharmguru) =>
+						d.id === dharmguruId ? { ...editedDharmguru } : d
+					);
+				} else {
+					allDharmgurus = [editedDharmguru];
+				}
+
+				localStorage.setItem("dharmgurus", JSON.stringify(allDharmgurus));
+			}
+
+			setDharmguru(editedDharmguru);
+			setIsEditing(false);
+			toast.dismiss(toastId);
+			toast.success("Dharmguru details updated successfully!");
+		} catch (error) {
+			toast.dismiss(toastId);
+			toast.error("Failed to save changes. Please try again.");
+			console.error("Error saving Dharmguru data:", error);
+		} finally {
+			setIsSaving(false);
+		}
+	};
+
+	const handleCancelEdit = () => {
+		if (dharmguru) {
+			setEditedDharmguru({ ...dharmguru });
+			setIsEditing(false);
+			toast.info("Changes discarded");
+		}
+	};
+
+	const handleInputChange = (
+		e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+	) => {
+		if (!editedDharmguru) return;
+
+		const { name, value } = e.target;
+		setEditedDharmguru({
+			...editedDharmguru,
+			[name]: value,
+		});
+	};
+
+	const handlePreferenceChange = (name: string, value: string | boolean) => {
+		if (!editedDharmguru) return;
+
+		setEditedDharmguru({
+			...editedDharmguru,
+			preferences: {
+				...editedDharmguru.preferences,
+				[name]: value,
+			},
+		});
+
+		// Show feedback for preference changes
+		if (typeof value === "boolean") {
+			const preferenceName =
+				name === "notifications" ? "Notifications" : "Newsletter";
+			toast.info(`${preferenceName} ${value ? "enabled" : "disabled"}`);
+		}
 	};
 
 	const formatDate = (dateString: string) => {
@@ -285,13 +356,13 @@ export default function DharmguruDetailPage() {
 		}).format(date);
 	};
 
-	// Call the memoized function
-	useEffect(() => {
-		fetchDharmguruData();
-	}, [fetchDharmguruData]);
-
 	if (!dharmguru) {
-		return <div className="p-6">Loading dharmguru details...</div>;
+		return (
+			<div className="p-6 flex items-center justify-center">
+				<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+				<span className="ml-3">Loading dharmguru details...</span>
+			</div>
+		);
 	}
 
 	return (
@@ -410,7 +481,7 @@ export default function DharmguruDetailPage() {
 																	? {
 																			...prev,
 																			name: e.target.value,
-																	}
+																	  }
 																	: null
 															)
 														}
@@ -428,7 +499,7 @@ export default function DharmguruDetailPage() {
 																	? {
 																			...prev,
 																			email: e.target.value,
-																	}
+																	  }
 																	: null
 															)
 														}
@@ -445,7 +516,7 @@ export default function DharmguruDetailPage() {
 																	? {
 																			...prev,
 																			phone: e.target.value,
-																	}
+																	  }
 																	: null
 															)
 														}
@@ -461,7 +532,7 @@ export default function DharmguruDetailPage() {
 																	? {
 																			...prev,
 																			category: value,
-																	}
+																	  }
 																	: null
 															)
 														}
@@ -490,7 +561,7 @@ export default function DharmguruDetailPage() {
 																	? {
 																			...prev,
 																			rank: value,
-																	}
+																	  }
 																	: null
 															)
 														}
@@ -519,7 +590,7 @@ export default function DharmguruDetailPage() {
 																	? {
 																			...prev,
 																			status: value,
-																	}
+																	  }
 																	: null
 															)
 														}
@@ -549,7 +620,7 @@ export default function DharmguruDetailPage() {
 																? {
 																		...prev,
 																		address: e.target.value,
-																}
+																  }
 																: null
 														)
 													}
@@ -566,7 +637,7 @@ export default function DharmguruDetailPage() {
 																? {
 																		...prev,
 																		bio: e.target.value,
-																}
+																  }
 																: null
 														)
 													}
@@ -670,7 +741,7 @@ export default function DharmguruDetailPage() {
 																				...prev.preferences,
 																				notifications: e.target.checked,
 																			},
-																	}
+																	  }
 																	: null
 															)
 														}
@@ -696,7 +767,7 @@ export default function DharmguruDetailPage() {
 																				...prev.preferences,
 																				newsletter: e.target.checked,
 																			},
-																	}
+																	  }
 																	: null
 															)
 														}
@@ -716,7 +787,7 @@ export default function DharmguruDetailPage() {
 																				...prev.preferences,
 																				language: value,
 																			},
-																	}
+																	  }
 																	: null
 															)
 														}
@@ -820,6 +891,50 @@ export default function DharmguruDetailPage() {
 					</Tabs>
 				</div>
 			</div>
+			<CardFooter className="flex justify-end gap-2">
+				{isEditing ? (
+					<>
+						<Button
+							variant="outline"
+							onClick={handleCancelEdit}
+							disabled={isSaving}
+						>
+							Cancel
+						</Button>
+						<Button onClick={handleSaveChanges} disabled={isSaving}>
+							{isSaving ? (
+								<>
+									<svg
+										className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<circle
+											className="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											strokeWidth="4"
+										></circle>
+										<path
+											className="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+										></path>
+									</svg>
+									Saving...
+								</>
+							) : (
+								"Save Changes"
+							)}
+						</Button>
+					</>
+				) : (
+					<Button onClick={() => setIsEditing(true)}>Edit Dharmguru</Button>
+				)}
+			</CardFooter>
 		</div>
 	);
 }

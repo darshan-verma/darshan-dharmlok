@@ -37,6 +37,13 @@ import {
 	ChevronRight,
 	Star,
 } from "lucide-react";
+import {
+	toastSuccess,
+	toastError,
+	toastInfo,
+	toastLoading,
+	toastWarning,
+} from "@/lib/toast";
 
 // Sample data
 const revenueData = [
@@ -263,7 +270,10 @@ const MiniChart = ({ data, color }: MiniChartProps) => {
 	return (
 		<div className="h-10">
 			<ResponsiveContainer width="100%" height="100%">
-				<LineChart data={data} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+				<LineChart
+					data={data}
+					margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+				>
 					<Line
 						type="monotone"
 						dataKey="value"
@@ -281,14 +291,64 @@ interface ChartDataPoint {
 	name: string; // or date, depending on your x-axis
 	value: number;
 }
+
 export default function DharmlokDashboard() {
+	const [isLoading, setIsLoading] = React.useState(false);
+
+	const loadDashboardData = async () => {
+		setIsLoading(true);
+		const loadingToast = toastLoading("Loading dashboard data...");
+
+		try {
+			// Simulate API call
+			await new Promise((resolve) => setTimeout(resolve, 1500));
+			toastSuccess("Dashboard data loaded successfully!");
+		} catch (error) {
+			toastError("Failed to load dashboard data");
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	const handleDownload = () => {
+		const loadingId = toastLoading("Preparing download...");
+
+		setTimeout(() => {
+			toastSuccess("Download started!");
+			// Actual download logic would go here
+		}, 1000);
+	};
+
+	const handleExport = () => {
+		toastInfo("Exporting data... This may take a moment.");
+		// Actual export logic would go here
+	};
+
+	const handleNotificationClick = () => {
+		toastInfo("Showing unread notifications");
+	};
+
+	const handleSearch = (e: React.FormEvent) => {
+		e.preventDefault();
+		const input = e.currentTarget.querySelector("input");
+		if (input?.value) {
+			toastInfo(`Searching for: ${input.value}`);
+		} else {
+			toastWarning("Please enter a search term");
+		}
+	};
+
+	React.useEffect(() => {
+		loadDashboardData();
+	}, []);
+
 	return (
 		<div className="w-full">
 			{/* Header */}
 			<div className="flex justify-between items-center mb-6">
 				<h1 className="text-2xl font-bold">Dharmlok Dashboard</h1>
 				<div className="flex items-center gap-4">
-					<div className="relative">
+					<form onSubmit={handleSearch} className="relative">
 						<span className="absolute inset-y-0 left-0 flex items-center pl-3">
 							<Search className="h-4 w-4 text-muted-foreground" />
 						</span>
@@ -297,10 +357,12 @@ export default function DharmlokDashboard() {
 							placeholder="Search..."
 							className="pl-10 w-[200px] h-8"
 						/>
-						{/* K badge removed */}
-					</div>
-					<div className="relative flex items-center justify-center">
-						<Bell className="h-5 w-5 text-muted-foreground cursor-pointer" />
+					</form>
+					<div
+						className="relative flex items-center justify-center cursor-pointer"
+						onClick={handleNotificationClick}
+					>
+						<Bell className="h-5 w-5 text-muted-foreground" />
 						<Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-[10px]">
 							3
 						</Badge>
@@ -319,9 +381,15 @@ export default function DharmlokDashboard() {
 				<span className="text-sm text-muted-foreground">
 					27 Apr 2023 - 24 May 2023
 				</span>
-				<Button size="sm" variant="outline" className="h-8">
+				<Button
+					size="sm"
+					variant="outline"
+					className="h-8"
+					onClick={handleDownload}
+					disabled={isLoading}
+				>
 					<Download className="h-4 w-4 mr-2" />
-					Download
+					{isLoading ? "Preparing..." : "Download"}
 				</Button>
 			</div>
 

@@ -33,6 +33,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import Image from "next/image";
+import { toast } from "@/lib/toast";
 
 interface Activity {
 	date: string;
@@ -181,36 +182,62 @@ export default function UserDetailPage() {
 
 	const [user, setUser] = useState<User | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
+	const [isSaving, setIsSaving] = useState(false);
 	const [editedUser, setEditedUser] = useState<Partial<User> | null>(null);
 	const [imageError, setImageError] = useState(false);
 
 	// Fix: Memoize the fetch function and add proper dependencies
 	const fetchUserData = useCallback(() => {
-		// In a real app, you would fetch user data from an API
-		const userData = mockUserDetails[userId as keyof typeof mockUserDetails];
-		if (userData) {
-			setUser(userData);
-			setEditedUser({ ...userData });
-		} else {
-			// If user not found, redirect to users list
-			router.push("/admin/users");
+		try {
+			const loadingToast = toast.loading("Loading user details...");
+			// In a real app, you would fetch user data from an API
+			setTimeout(() => {
+				const userData =
+					mockUserDetails[userId as keyof typeof mockUserDetails];
+				if (userData) {
+					setUser(userData);
+					setEditedUser({ ...userData });
+					toast.dismiss(loadingToast);
+				} else {
+					toast.dismiss(loadingToast);
+					toast.error("User not found");
+					router.push("/admin/users");
+				}
+			}, 500);
+		} catch (error) {
+			console.error("Error loading user:", error);
+			toast.error("Failed to load user details");
 		}
-	}, [userId, router]); // Add all dependencies here
+	}, [userId, router]);
 
 	// Fix: Call the memoized function
 	useEffect(() => {
 		fetchUserData();
 	}, [fetchUserData]);
 
-	if (!user) {
-		return <div className="p-6">Loading user details...</div>;
-	}
+	const handleSaveChanges = async () => {
+		if (!editedUser) return;
 
-	const handleSaveChanges = () => {
-		setUser(editedUser as User);
-		setIsEditing(false);
-		// In a real app, you would save changes to the backend
-		alert("User details updated successfully!");
+		setIsSaving(true);
+		const loadingToast = toast.loading("Saving changes...");
+
+		try {
+			// Simulate API call
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+
+			// In a real app, you would save changes to the backend here
+			setUser(editedUser as User);
+			setIsEditing(false);
+
+			toast.dismiss(loadingToast);
+			toast.success("User details updated successfully!");
+		} catch (error) {
+			console.error("Error saving user:", error);
+			toast.dismiss(loadingToast);
+			toast.error("Failed to update user details");
+		} finally {
+			setIsSaving(false);
+		}
 	};
 
 	const formatDate = (dateString: string) => {
@@ -240,7 +267,7 @@ export default function UserDetailPage() {
 				<Card className="md:col-span-1">
 					<CardHeader className="text-center">
 						<div className="w-24 h-24 mx-auto rounded-full bg-muted flex items-center justify-center mb-4">
-							{user.avatar && !imageError ? (
+							{user?.avatar && !imageError ? (
 								<Image
 									src={user.avatar}
 									alt={user.name}
@@ -254,35 +281,35 @@ export default function UserDetailPage() {
 								<User className="h-12 w-12 text-muted-foreground" />
 							)}
 						</div>
-						<CardTitle>{user.name}</CardTitle>
+						<CardTitle>{user?.name}</CardTitle>
 						<CardDescription>
 							<span
 								className={`px-2 py-1 rounded-full text-xs font-medium ${
-									user.status === "Active"
+									user?.status === "Active"
 										? "bg-green-100 text-green-800"
 										: "bg-red-100 text-red-800"
 								}`}
 							>
-								{user.status}
+								{user?.status}
 							</span>
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-4">
 						<div className="flex items-center gap-3">
 							<Phone className="h-4 w-4 text-muted-foreground" />
-							<span>{user.phone}</span>
+							<span>{user?.phone}</span>
 						</div>
 						<div className="flex items-center gap-3">
 							<Mail className="h-4 w-4 text-muted-foreground" />
-							<span>{user.email}</span>
+							<span>{user?.email}</span>
 						</div>
 						<div className="flex items-center gap-3">
 							<Calendar className="h-4 w-4 text-muted-foreground" />
-							<span>Joined: {formatDate(user.joinedDate)}</span>
+							<span>Joined: {user?.joinedDate ? formatDate(user.joinedDate) : 'N/A'}</span>
 						</div>
 						<div className="flex items-center gap-3">
 							<MapPin className="h-4 w-4 text-muted-foreground" />
-							<span className="text-sm">{user.address}</span>
+							<span className="text-sm">{user?.address}</span>
 						</div>
 					</CardContent>
 					<CardFooter>
@@ -411,38 +438,38 @@ export default function UserDetailPage() {
 										<div className="space-y-4">
 											<div className="p-4 bg-muted/30 rounded-lg">
 												<h3 className="font-medium mb-2">About</h3>
-												<p className="text-muted-foreground">{user.bio}</p>
+												<p className="text-muted-foreground">{user?.bio}</p>
 											</div>
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-y-4">
 												<div>
 													<h3 className="text-sm text-muted-foreground">
 														Full Name
 													</h3>
-													<p className="font-medium">{user.name}</p>
+													<p className="font-medium">{user?.name}</p>
 												</div>
 												<div>
 													<h3 className="text-sm text-muted-foreground">
 														Email
 													</h3>
-													<p className="font-medium">{user.email}</p>
+													<p className="font-medium">{user?.email}</p>
 												</div>
 												<div>
 													<h3 className="text-sm text-muted-foreground">
 														Phone
 													</h3>
-													<p className="font-medium">{user.phone}</p>
+													<p className="font-medium">{user?.phone}</p>
 												</div>
 												<div>
 													<h3 className="text-sm text-muted-foreground">
 														Status
 													</h3>
-													<p className="font-medium">{user.status}</p>
+													<p className="font-medium">{user?.status}</p>
 												</div>
 												<div className="md:col-span-2">
 													<h3 className="text-sm text-muted-foreground">
 														Address
 													</h3>
-													<p className="font-medium">{user.address}</p>
+													<p className="font-medium">{user?.address}</p>
 												</div>
 											</div>
 										</div>
@@ -450,9 +477,37 @@ export default function UserDetailPage() {
 								</CardContent>
 								{isEditing && (
 									<CardFooter>
-										<Button onClick={handleSaveChanges} className="w-full">
-											<Save className="h-4 w-4 mr-2" />
-											Save Changes
+										<Button onClick={handleSaveChanges} disabled={isSaving}>
+											{isSaving ? (
+												<>
+													<svg
+														className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+														xmlns="http://www.w3.org/2000/svg"
+														fill="none"
+														viewBox="0 0 24 24"
+													>
+														<circle
+															className="opacity-25"
+															cx="12"
+															cy="12"
+															r="10"
+															stroke="currentColor"
+															strokeWidth="4"
+														></circle>
+														<path
+															className="opacity-75"
+															fill="currentColor"
+															d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+														></path>
+													</svg>
+													Saving...
+												</>
+											) : (
+												<>
+													<Save className="h-4 w-4 mr-2" />
+													Save Changes
+												</>
+											)}
 										</Button>
 									</CardFooter>
 								)}
@@ -492,7 +547,7 @@ export default function UserDetailPage() {
 																				language: e.target.value,
 																				newsletter: e.target.checked,
 																			},
-																	}
+																	  }
 																	: null
 															)
 														}
@@ -520,7 +575,7 @@ export default function UserDetailPage() {
 																				language: e.target.value,
 																				newsletter: e.target.checked,
 																			},
-																	}
+																	  }
 																	: null
 															)
 														}
@@ -545,7 +600,7 @@ export default function UserDetailPage() {
 																				newsletter:
 																					prev.preferences?.newsletter ?? false, // Provide default value
 																			},
-																	}
+																	  }
 																	: null
 															)
 														}
@@ -575,7 +630,7 @@ export default function UserDetailPage() {
 															Email Notifications
 														</h3>
 														<p className="font-medium">
-															{user.preferences.notifications
+															{user?.preferences?.notifications
 																? "Enabled"
 																: "Disabled"}
 														</p>
@@ -585,7 +640,7 @@ export default function UserDetailPage() {
 															Newsletter
 														</h3>
 														<p className="font-medium">
-															{user.preferences.newsletter
+															{user?.preferences?.newsletter
 																? "Subscribed"
 																: "Not Subscribed"}
 														</p>
@@ -595,7 +650,7 @@ export default function UserDetailPage() {
 															Preferred Language
 														</h3>
 														<p className="font-medium">
-															{user.preferences.language}
+															{user?.preferences?.language}
 														</p>
 													</div>
 												</div>
@@ -624,7 +679,7 @@ export default function UserDetailPage() {
 								</CardHeader>
 								<CardContent>
 									<div className="space-y-4">
-										{user.activities.map(
+										{user?.activities.map(
 											(activity: Activity, index: number) => (
 												<div
 													key={index}
