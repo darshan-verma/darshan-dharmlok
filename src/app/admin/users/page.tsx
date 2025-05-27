@@ -24,7 +24,6 @@ import {
 import {
 	Select,
 	SelectContent,
-	SelectGroup,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
@@ -82,10 +81,42 @@ export default function UsersPage() {
 		status: "Active",
 	});
 	const [searchQuery, setSearchQuery] = useState("");
+	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+	const validateForm = (userData: typeof newUser) => {
+		const errors: Record<string, string> = {};
+
+		// Name validation
+		if (!userData.name.trim()) {
+			errors.name = "Name is required";
+		} else if (userData.name.length < 2) {
+			errors.name = "Name must be at least 2 characters";
+		}
+
+		// Email validation
+		if (!userData.email) {
+			errors.email = "Email is required";
+		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userData.email)) {
+			errors.email = "Please enter a valid email address";
+		}
+
+		// Phone validation (assuming Indian phone numbers)
+		if (
+			userData.phone &&
+			!/^[6-9]\d{9}$/.test(userData.phone.replace(/[^0-9]/g, ""))
+		) {
+			errors.phone = "Please enter a valid 10-digit phone number";
+		}
+
+		return errors;
+	};
 
 	const handleAddUser = async () => {
-		if (!newUser.name || !newUser.email) {
-			toast.warning("Please fill in all required fields");
+		const errors = validateForm(newUser);
+		setFormErrors(errors);
+
+		// If there are errors, don't proceed
+		if (Object.keys(errors).length > 0) {
 			return;
 		}
 
@@ -107,16 +138,15 @@ export default function UsersPage() {
 				email: "",
 				status: "Active",
 			});
-
-			toast.dismiss(loadingToast);
-			toast.success("User added successfully!");
 			setIsAddUserOpen(false);
+
+			toast.success("User added successfully");
 		} catch (error) {
 			console.error("Error adding user:", error);
-			toast.dismiss(loadingToast);
-			toast.error("Failed to add user. Please try again.");
+			toast.error("Failed to add user");
 		} finally {
 			setIsLoading(false);
+			toast.dismiss(loadingToast);
 		}
 	};
 
@@ -167,79 +197,102 @@ export default function UsersPage() {
 						<DialogHeader>
 							<DialogTitle>Add New User</DialogTitle>
 							<DialogDescription>
-								Fill in the details to add a new user to the system.
+								Fill in the details below to add a new user.
 							</DialogDescription>
 						</DialogHeader>
 						<div className="grid gap-4 py-4">
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="name" className="text-right">
-									Name
-								</Label>
+							<div className="space-y-2">
+								<Label htmlFor="name">Full Name *</Label>
 								<Input
 									id="name"
 									value={newUser.name}
-									onChange={(e) =>
-										setNewUser({ ...newUser, name: e.target.value })
-									}
-									className="col-span-3"
+									onChange={(e) => {
+										setNewUser({ ...newUser, name: e.target.value });
+										if (formErrors.name) {
+											setFormErrors({ ...formErrors, name: "" });
+										}
+									}}
+									placeholder="Enter full name"
+									className={formErrors.name ? "border-red-500" : ""}
 								/>
+								{formErrors.name && (
+									<p className="text-sm text-red-500">{formErrors.name}</p>
+								)}
 							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="phone" className="text-right">
-									Phone
-								</Label>
-								<Input
-									id="phone"
-									value={newUser.phone}
-									onChange={(e) =>
-										setNewUser({ ...newUser, phone: e.target.value })
-									}
-									className="col-span-3"
-								/>
-							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="email" className="text-right">
-									Email
-								</Label>
+							<div className="space-y-2">
+								<Label htmlFor="email">Email *</Label>
 								<Input
 									id="email"
 									type="email"
 									value={newUser.email}
-									onChange={(e) =>
-										setNewUser({ ...newUser, email: e.target.value })
-									}
-									className="col-span-3"
+									onChange={(e) => {
+										setNewUser({ ...newUser, email: e.target.value });
+										if (formErrors.email) {
+											setFormErrors({ ...formErrors, email: "" });
+										}
+									}}
+									placeholder="Enter email address"
+									className={formErrors.email ? "border-red-500" : ""}
 								/>
+								{formErrors.email && (
+									<p className="text-sm text-red-500">{formErrors.email}</p>
+								)}
 							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="status" className="text-right">
-									Status
-								</Label>
+							<div className="space-y-2">
+								<Label htmlFor="phone">Phone Number</Label>
+								<Input
+									id="phone"
+									type="tel"
+									value={newUser.phone}
+									onChange={(e) => {
+										setNewUser({ ...newUser, phone: e.target.value });
+										if (formErrors.phone) {
+											setFormErrors({ ...formErrors, phone: "" });
+										}
+									}}
+									placeholder="Enter phone number"
+									className={formErrors.phone ? "border-red-500" : ""}
+								/>
+								{formErrors.phone && (
+									<p className="text-sm text-red-500">{formErrors.phone}</p>
+								)}
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="status">Status *</Label>
 								<Select
 									value={newUser.status}
 									onValueChange={(value) =>
 										setNewUser({ ...newUser, status: value })
 									}
 								>
-									<SelectTrigger className="col-span-3">
+									<SelectTrigger>
 										<SelectValue placeholder="Select status" />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectGroup>
-											<SelectItem value="Active">Active</SelectItem>
-											<SelectItem value="Inactive">Inactive</SelectItem>
-										</SelectGroup>
+										<SelectItem value="Active">Active</SelectItem>
+										<SelectItem value="Inactive">Inactive</SelectItem>
+										<SelectItem value="Suspended">Suspended</SelectItem>
 									</SelectContent>
 								</Select>
 							</div>
 						</div>
 						<DialogFooter>
 							<Button
+								type="button"
+								variant="outline"
+								onClick={() => {
+									setIsAddUserOpen(false);
+									setFormErrors({});
+								}}
+							>
+								Cancel
+							</Button>
+							<Button
 								type="submit"
 								onClick={handleAddUser}
 								disabled={isLoading}
 							>
-								{isLoading ? "Adding..." : "Add User"}
+								{isLoading ? "Saving..." : "Save User"}
 							</Button>
 						</DialogFooter>
 					</DialogContent>

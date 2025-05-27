@@ -190,6 +190,7 @@ interface Kathavachak {
 	joinedDate: string;
 	avatar?: string;
 	bio?: string;
+	isApproved?: boolean;
 	preferences: {
 		notifications: boolean;
 		newsletter: boolean;
@@ -197,10 +198,20 @@ interface Kathavachak {
 	};
 	activities: { date: string; action: string }[];
 }
+
+interface FormErrors {
+	name?: string;
+	email?: string;
+	phone?: string;
+	category?: string;
+	address?: string;
+	bio?: string;
+}
+
 export default function KathavachakDetailPage() {
 	const params = useParams();
-	const router = useRouter();
 	const kathavachakId = params.id as string;
+	const router = useRouter();
 
 	const [kathavachak, setKathavachak] = useState<Kathavachak | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
@@ -208,29 +219,69 @@ export default function KathavachakDetailPage() {
 	const [editedKathavachak, setEditedKathavachak] =
 		useState<Partial<Kathavachak> | null>(null);
 	const [imageError, setImageError] = useState(false);
+	const [errors, setErrors] = useState<FormErrors>({});
 
 	const fetchKathavachakData = useCallback(() => {
+		const loadingToast = toast.loading("Loading Kathavachak details...");
 		try {
-			const loadingToast = toast.loading("Loading kathavachak details...");
-			// In a real app, you would fetch kathavachak data from an API
-			setTimeout(() => {
-				const kathavachakData =
-					mockKathavachakDetails[
-						kathavachakId as keyof typeof mockKathavachakDetails
-					];
-				if (kathavachakData) {
-					setKathavachak(kathavachakData);
-					setEditedKathavachak({ ...kathavachakData });
-					toast.dismiss(loadingToast);
-				} else {
-					toast.dismiss(loadingToast);
-					toast.error("Kathavachak not found");
-					router.push("/admin/kathavachak");
+			// First check for detailed data in localStorage
+			const detailedData = localStorage.getItem(`kathavachak_${kathavachakId}`);
+			if (detailedData) {
+				const kathavachakData = JSON.parse(detailedData);
+				setKathavachak(kathavachakData);
+				setEditedKathavachak({ ...kathavachakData });
+				toast.dismiss(loadingToast);
+				return;
+			}
+
+			// If no detailed data, check mock data
+			let kathavachakData =
+				mockKathavachakDetails[
+					kathavachakId as keyof typeof mockKathavachakDetails
+				];
+
+			// If not found in mock data, check localStorage for basic data
+			if (!kathavachakData && typeof window !== "undefined") {
+				const savedKathavachaks = localStorage.getItem("kathavachaks");
+				if (savedKathavachaks) {
+					const allKathavachaks = JSON.parse(savedKathavachaks);
+					kathavachakData = allKathavachaks.find(
+						(k: any) => k.id === kathavachakId
+					);
 				}
-			}, 500);
+			}
+
+			if (kathavachakData) {
+				// Ensure preferences are properly initialized
+				const kathavachakWithPreferences = {
+					...kathavachakData,
+					preferences: {
+						notifications: kathavachakData.preferences?.notifications ?? true,
+						newsletter: kathavachakData.preferences?.newsletter ?? true,
+						language: kathavachakData.preferences?.language ?? "en",
+					},
+					activities: kathavachakData.activities || [],
+					// Add any missing fields with default values
+					address: kathavachakData.address || "",
+					bio: kathavachakData.bio || "",
+					joinedDate:
+						kathavachakData.joinedDate ||
+						new Date().toISOString().split("T")[0],
+				};
+				setKathavachak(kathavachakWithPreferences);
+				setEditedKathavachak({ ...kathavachakWithPreferences });
+			} else {
+				// If kathavachak not found, redirect to kathavachaks list
+				toast.dismiss(loadingToast);
+				toast.error("Kathavachak not found");
+				setTimeout(() => {
+					router.push("/admin/kathavachak");
+				}, 1500);
+			}
 		} catch (error) {
-			console.error("Error loading kathavachak:", error);
-			toast.error("Failed to load kathavachak details");
+			toast.dismiss(loadingToast);
+			toast.error("Failed to load Kathavachak data");
+			console.error("Error loading Kathavachak data:", error);
 		}
 	}, [kathavachakId, router]);
 
@@ -238,31 +289,127 @@ export default function KathavachakDetailPage() {
 		fetchKathavachakData();
 	}, [fetchKathavachakData]);
 
+	const validateForm = (data: Partial<Kathavachak>): boolean => {
+		const newErrors: FormErrors = {};
+
+		if (!data.name?.trim()) {
+			newErrors.name = "Name is required";
+		}
+
+		if (!data.email?.trim()) {
+			newErrors.email = "Email is required";
+		} else if (!/\S+@\S+\.\S+/.test(data.email)) {
+			newErrors.email = "Email is invalid";
+		}
+
+		if (!data.phone?.trim()) {
+			newErrors.phone = "Phone number is required";
+		} else {
+			const phoneRegex = /^(\+91[\s-]?)?[0-9]{10}$/;
+			if (!phoneRegex.test(data.phone.replace(/[\s-]/g, ""))) {
+				newErrors.phone =
+					"Please enter a valid 10-digit phone number with optional +91 prefix";
+			}
+		}
+
+		if (!data.category) {
+			newErrors.category = "Category is required";
+		}
+
+		if (!data.address?.trim()) {
+			newErrors.address = "Address is required";
+		}
+
+		if (!data.bio?.trim()) {
+			newErrors.bio = "Bio is required";
+		} else if (data.bio.length < 50) {
+			newErrors.bio = "Bio should be at least 50 characters long";
+		}
+
+		setErrors(newErrors);
+		return Object.keys(newErrors).length === 0;
+	};
+
 	const handleSaveChanges = async () => {
-		if (!editedKathavachak) return;
+		if (!editedKathavachak || !validateForm(editedKathavachak as Kathavachak)) {
+			return;
+		}
 
 		setIsSaving(true);
-		const loadingToast = toast.loading("Saving changes...");
+		// Clear any existing toasts first
+		toast.dismiss();
+		const toastId = toast.loading("Saving changes...");
 
 		try {
-			// Simulate API call
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			// Prepare the simplified kathavachak data for the list view
+			const simplifiedKathavachak = {
+				id: editedKathavachak.id,
+				name: editedKathavachak.name,
+				category: editedKathavachak.category,
+				phone: editedKathavachak.phone,
+				email: editedKathavachak.email,
+				status: editedKathavachak.status,
+				rank: editedKathavachak.rank,
+				isApproved: kathavachak?.isApproved || false, // Preserve the approval status
+			};
 
-			// In a real app, you would save changes to the backend here
-			setKathavachak(editedKathavachak as Kathavachak);
-			setIsEditing(false);
+			// Update the kathavachak in localStorage
+			if (typeof window !== "undefined") {
+				const savedKathavachaks = localStorage.getItem("kathavachaks");
+				let allKathavachaks = [];
 
-			toast.dismiss(loadingToast);
-			toast.success("Kathavachak details updated successfully!");
+				if (savedKathavachaks) {
+					allKathavachaks = JSON.parse(savedKathavachaks);
+					// Find the index of the kathavachak to update
+					const index = allKathavachaks.findIndex(
+						(k: any) => k.id === kathavachakId
+					);
+					if (index !== -1) {
+						// Update existing kathavachak
+						allKathavachaks[index] = simplifiedKathavachak;
+					} else {
+						// Add new kathavachak if not found
+						allKathavachaks.push(simplifiedKathavachak);
+					}
+				} else {
+					allKathavachaks = [simplifiedKathavachak];
+				}
+
+				localStorage.setItem("kathavachaks", JSON.stringify(allKathavachaks));
+
+				// Also save the detailed data in a separate key for the detail view
+				localStorage.setItem(
+					`kathavachak_${kathavachakId}`,
+					JSON.stringify(editedKathavachak)
+				);
+
+				// Update the local state with the saved data
+				setKathavachak(editedKathavachak as Kathavachak);
+				setIsEditing(false);
+
+				// Dismiss the loading toast and show success
+				toast.dismiss(toastId);
+				const successToast = toast.success(
+					"Kathavachak details updated successfully!"
+				);
+				setTimeout(() => {
+					toast.dismiss(successToast);
+					router.push("/admin/kathavachak");
+				}, 2000);
+			}
 		} catch (error) {
-			console.error("Error saving kathavachak:", error);
-			toast.dismiss(loadingToast);
-			toast.error("Failed to update kathavachak details");
+			console.error("Error saving Kathavachak data:", error);
+			toast.dismiss(toastId);
+			const errorToast = toast.error(
+				"Failed to save changes. Please try again."
+			);
+			setTimeout(() => {
+				toast.dismiss(errorToast);
+			}, 2000);
 		} finally {
 			setIsSaving(false);
 		}
 	};
-
 	const handleInputChange = (field: keyof Kathavachak, value: string) => {
 		if (!editedKathavachak) return;
 		setEditedKathavachak({
@@ -388,7 +535,11 @@ export default function KathavachakDetailPage() {
 													onChange={(e) =>
 														handleInputChange("name", e.target.value)
 													}
+													className={errors.name ? "border-red-500" : ""}
 												/>
+												{errors.name && (
+													<p className="text-sm text-red-500">{errors.name}</p>
+												)}
 											</div>
 											<div className="space-y-2">
 												<Label htmlFor="email">Email</Label>
@@ -399,7 +550,11 @@ export default function KathavachakDetailPage() {
 													onChange={(e) =>
 														handleInputChange("email", e.target.value)
 													}
+													className={errors.email ? "border-red-500" : ""}
 												/>
+												{errors.email && (
+													<p className="text-sm text-red-500">{errors.email}</p>
+												)}
 											</div>
 											<div className="space-y-2">
 												<Label htmlFor="phone">Phone</Label>
@@ -409,7 +564,11 @@ export default function KathavachakDetailPage() {
 													onChange={(e) =>
 														handleInputChange("phone", e.target.value)
 													}
+													className={errors.phone ? "border-red-500" : ""}
 												/>
+												{errors.phone && (
+													<p className="text-sm text-red-500">{errors.phone}</p>
+												)}
 											</div>
 											<div className="space-y-2">
 												<Label htmlFor="category">Category</Label>
@@ -432,6 +591,11 @@ export default function KathavachakDetailPage() {
 														</SelectGroup>
 													</SelectContent>
 												</Select>
+												{errors.category && (
+													<p className="text-sm text-red-500">
+														{errors.category}
+													</p>
+												)}
 											</div>
 											<div className="space-y-2">
 												<Label htmlFor="rank">Rank</Label>
@@ -473,6 +637,36 @@ export default function KathavachakDetailPage() {
 														</SelectGroup>
 													</SelectContent>
 												</Select>
+											</div>
+											<div className="space-y-2">
+												<Label htmlFor="address">Address</Label>
+												<Input
+													id="address"
+													value={editedKathavachak?.address || ""}
+													onChange={(e) =>
+														handleInputChange("address", e.target.value)
+													}
+													className={errors.address ? "border-red-500" : ""}
+												/>
+												{errors.address && (
+													<p className="text-sm text-red-500">
+														{errors.address}
+													</p>
+												)}
+											</div>
+											<div className="space-y-2">
+												<Label htmlFor="bio">Bio</Label>
+												<Textarea
+													id="bio"
+													value={editedKathavachak?.bio || ""}
+													onChange={(e) =>
+														handleInputChange("bio", e.target.value)
+													}
+													className={errors.bio ? "border-red-500" : ""}
+												/>
+												{errors.bio && (
+													<p className="text-sm text-red-500">{errors.bio}</p>
+												)}
 											</div>
 										</div>
 									) : (

@@ -122,8 +122,7 @@ const dharmguruCategories = [
 	"Other",
 ];
 
-// Ranks for Dharmgurus
-const dharmguruRanks = ["Junior", "Senior", "Expert", "Master"];
+// Ranks for Dharmguru
 interface Dharmguru {
 	id: string;
 	name: string;
@@ -180,43 +179,84 @@ export default function DharmguruPage() {
 		isApproved: false,
 	});
 	const [searchQuery, setSearchQuery] = useState("");
+	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-	const handleAddDharmguru = () => {
-		if (!newDharmguru.name || !newDharmguru.email) {
-			toast.warning("Please fill in all required fields");
+	const validateForm = (dharmguruData: typeof newDharmguru) => {
+		const errors: Record<string, string> = {};
+
+		// Name validation
+		if (!dharmguruData.name.trim()) {
+			errors.name = "Name is required";
+		} else if (dharmguruData.name.length < 2) {
+			errors.name = "Name must be at least 2 characters";
+		}
+
+		// Category validation
+		if (!dharmguruData.category.trim()) {
+			errors.category = "Category is required";
+		}
+
+		// Email validation
+		if (!dharmguruData.email) {
+			errors.email = "Email is required";
+		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dharmguruData.email)) {
+			errors.email = "Please enter a valid email address";
+		}
+
+		// Phone validation (assuming Indian phone numbers)
+		if (!dharmguruData.phone) {
+			errors.phone = "Phone number is required";
+		} else if (
+			!/^[6-9]\d{9}$/.test(dharmguruData.phone.replace(/[^0-9]/g, ""))
+		) {
+			errors.phone = "Please enter a valid 10-digit phone number";
+		}
+
+		// Rank validation
+		if (!dharmguruData.rank) {
+			errors.rank = "Please select a rank";
+		}
+
+		return errors;
+	};
+
+	const handleAddDharmguru = async () => {
+		const errors = validateForm(newDharmguru);
+		setFormErrors(errors);
+
+		if (Object.keys(errors).length > 0) {
 			return;
 		}
 
 		setIsLoading(true);
-		const loadingToast = toast.loading("Adding new Dharmguru...");
+		const loadingToast = toast.loading("Adding new dharmguru...");
 
 		try {
 			// Simulate API call
-			setTimeout(() => {
-				const id = (dharmgurus.length + 1).toString();
-				const newDharmguruWithId = { ...newDharmguru, id };
-				const updatedDharmgurus = [...dharmgurus, newDharmguruWithId];
-				setDharmgurus(updatedDharmgurus);
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 
-				setNewDharmguru({
-					name: "",
-					category: "",
-					phone: "",
-					email: "",
-					status: "Active",
-					rank: "",
-					isApproved: false,
-				});
+			const id = (dharmgurus.length + 1).toString();
+			const updatedDharmgurus = [...dharmgurus, { ...newDharmguru, id }];
+			setDharmgurus(updatedDharmgurus);
 
-				toast.dismiss(loadingToast);
-				toast.success("Dharmguru added successfully!");
-				setIsAddDharmguruOpen(false);
-			}, 1000);
+			// Reset form
+			setNewDharmguru({
+				name: "",
+				category: "",
+				phone: "",
+				email: "",
+				status: "Active",
+				rank: "",
+				isApproved: false,
+			});
+
+			setIsAddDharmguruOpen(false);
+			toast.success("Dharmguru added successfully");
 		} catch (error) {
-			toast.dismiss(loadingToast);
-			toast.error("Failed to add Dharmguru");
+			toast.error("Failed to add dharmguru");
 		} finally {
 			setIsLoading(false);
+			toast.dismiss(loadingToast);
 		}
 	};
 
@@ -315,26 +355,30 @@ export default function DharmguruPage() {
 						<DialogHeader>
 							<DialogTitle>Add New Dharmguru</DialogTitle>
 							<DialogDescription>
-								Fill in the details to add a new dharmguru to the system.
+								Fill in the details below to add a new dharmguru.
 							</DialogDescription>
 						</DialogHeader>
 						<div className="grid gap-4 py-4">
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="name" className="text-right">
-									Name
-								</Label>
+							<div className="space-y-2">
+								<Label htmlFor="name">Full Name *</Label>
 								<Input
 									id="name"
 									value={newDharmguru.name}
-									onChange={(e) =>
-										setNewDharmguru({ ...newDharmguru, name: e.target.value })
-									}
-									className="col-span-3"
+									onChange={(e) => {
+										setNewDharmguru({ ...newDharmguru, name: e.target.value });
+										if (formErrors.name)
+											setFormErrors({ ...formErrors, name: "" });
+									}}
+									placeholder="Enter full name"
+									className={formErrors.name ? "border-red-500" : ""}
 								/>
+								{formErrors.name && (
+									<p className="text-sm text-red-500">{formErrors.name}</p>
+								)}
 							</div>
 							<div className="grid grid-cols-4 items-center gap-4">
 								<Label htmlFor="category" className="text-right">
-									Category
+									Category *
 								</Label>
 								<Select
 									value={newDharmguru.category}
@@ -357,103 +401,125 @@ export default function DharmguruPage() {
 								</Select>
 							</div>
 							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="phone" className="text-right">
-									Phone
-								</Label>
-								<Input
-									id="phone"
-									value={newDharmguru.phone}
-									onChange={(e) =>
-										setNewDharmguru({ ...newDharmguru, phone: e.target.value })
-									}
-									className="col-span-3"
-								/>
+								
 							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="email" className="text-right">
-									Email
-								</Label>
+
+							<div className="space-y-2">
+								<Label htmlFor="email">Email *</Label>
 								<Input
 									id="email"
 									type="email"
 									value={newDharmguru.email}
-									onChange={(e) =>
-										setNewDharmguru({ ...newDharmguru, email: e.target.value })
-									}
-									className="col-span-3"
+									onChange={(e) => {
+										setNewDharmguru({ ...newDharmguru, email: e.target.value });
+										if (formErrors.email)
+											setFormErrors({ ...formErrors, email: "" });
+									}}
+									placeholder="Enter email address"
+									className={formErrors.email ? "border-red-500" : ""}
 								/>
+								{formErrors.email && (
+									<p className="text-sm text-red-500">{formErrors.email}</p>
+								)}
 							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="rank" className="text-right">
-									Rank
-								</Label>
+
+							<div className="space-y-2">
+								<Label htmlFor="phone">Phone Number *</Label>
+								<Input
+									id="phone"
+									type="tel"
+									value={newDharmguru.phone}
+									onChange={(e) => {
+										setNewDharmguru({ ...newDharmguru, phone: e.target.value });
+										if (formErrors.phone)
+											setFormErrors({ ...formErrors, phone: "" });
+									}}
+									placeholder="Enter phone number"
+									className={formErrors.phone ? "border-red-500" : ""}
+								/>
+								{formErrors.phone && (
+									<p className="text-sm text-red-500">{formErrors.phone}</p>
+								)}
+							</div>
+
+							<div className="space-y-2">
+								<Label htmlFor="rank">Rank *</Label>
 								<Select
 									value={newDharmguru.rank}
-									onValueChange={(value) =>
-										setNewDharmguru({ ...newDharmguru, rank: value })
-									}
+									onValueChange={(value) => {
+										setNewDharmguru({ ...newDharmguru, rank: value });
+										if (formErrors.rank)
+											setFormErrors({ ...formErrors, rank: "" });
+									}}
 								>
-									<SelectTrigger className="col-span-3">
+									<SelectTrigger
+										className={formErrors.rank ? "border-red-500" : ""}
+									>
 										<SelectValue placeholder="Select rank" />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectGroup>
-											{dharmguruRanks.map((rank) => (
-												<SelectItem key={rank} value={rank}>
-													{rank}
-												</SelectItem>
-											))}
-										</SelectGroup>
+										<SelectItem value="Junior">Junior</SelectItem>
+										<SelectItem value="Senior">Senior</SelectItem>
+										<SelectItem value="Expert">Expert</SelectItem>
+										<SelectItem value="Master">Master</SelectItem>
 									</SelectContent>
 								</Select>
+								{formErrors.rank && (
+									<p className="text-sm text-red-500">{formErrors.rank}</p>
+								)}
 							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="status" className="text-right">
-									Status
-								</Label>
+
+							<div className="space-y-2">
+								<Label htmlFor="status">Status *</Label>
 								<Select
 									value={newDharmguru.status}
 									onValueChange={(value) =>
 										setNewDharmguru({ ...newDharmguru, status: value })
 									}
 								>
-									<SelectTrigger className="col-span-3">
+									<SelectTrigger>
 										<SelectValue placeholder="Select status" />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectGroup>
-											<SelectItem value="Active">Active</SelectItem>
-											<SelectItem value="Inactive">Inactive</SelectItem>
-										</SelectGroup>
+										<SelectItem value="Active">Active</SelectItem>
+										<SelectItem value="Inactive">Inactive</SelectItem>
 									</SelectContent>
 								</Select>
 							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="isApproved" className="text-right">
-									Approved
-								</Label>
-								<div className="col-span-3 flex items-center">
-									<input
-										type="checkbox"
-										id="isApproved"
-										checked={newDharmguru.isApproved}
-										onChange={(e) =>
-											setNewDharmguru({
-												...newDharmguru,
-												isApproved: e.target.checked,
-											})
-										}
-										className="h-4 w-4 mr-2"
-									/>
-									<Label htmlFor="isApproved">
-										{newDharmguru.isApproved ? "Yes" : "No"}
-									</Label>
-								</div>
+
+							<div className="flex items-center space-x-2">
+								<input
+									type="checkbox"
+									id="isApproved"
+									checked={newDharmguru.isApproved}
+									onChange={(e) =>
+										setNewDharmguru({
+											...newDharmguru,
+											isApproved: e.target.checked,
+										})
+									}
+									className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+								/>
+								<Label htmlFor="isApproved">Approved</Label>
 							</div>
 						</div>
 						<DialogFooter>
-							<Button type="submit" onClick={handleAddDharmguru}>
-								Add Dharmguru
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => {
+									setIsAddDharmguruOpen(false);
+									setFormErrors({});
+								}}
+							>
+								Cancel
+							</Button>
+							<Button
+								type="submit"
+								onClick={handleAddDharmguru}
+								disabled={isLoading}
+							>
+								{isLoading ? "Saving..." : "Save Dharmguru"}
 							</Button>
 						</DialogFooter>
 					</DialogContent>

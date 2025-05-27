@@ -180,6 +180,7 @@ interface Activity {
 	date: string;
 	action: string;
 }
+
 // Add Dharmguru interface
 interface Dharmguru {
 	id: string;
@@ -201,6 +202,17 @@ interface Dharmguru {
 	activities: { date: string; action: string }[];
 }
 
+interface FormErrors {
+	name?: string;
+	email?: string;
+	phone?: string;
+	category?: string;
+	address?: string;
+	bio?: string;
+	rank?: string;
+	status?: string;
+}
+
 export default function DharmguruDetailPage() {
 	const params = useParams();
 	const router = useRouter();
@@ -213,23 +225,32 @@ export default function DharmguruDetailPage() {
 		null
 	);
 	const [imageError, setImageError] = useState(false);
+	const [errors, setErrors] = useState<FormErrors>({});
 
 	// Memoize the fetch function and add proper dependencies
 	const fetchDharmguruData = useCallback(() => {
 		const loadingToast = toast.loading("Loading Dharmguru details...");
 		try {
-			// First check mock data
+			// First check for detailed data in localStorage
+			const detailedData = localStorage.getItem(`dharmguru_${dharmguruId}`);
+			if (detailedData) {
+				const dharmguruData = JSON.parse(detailedData);
+				setDharmguru(dharmguruData);
+				setEditedDharmguru({ ...dharmguruData });
+				toast.dismiss(loadingToast);
+				return;
+			}
+
+			// If no detailed data, check mock data
 			let dharmguruData =
 				mockDharmguruDetails[dharmguruId as keyof typeof mockDharmguruDetails];
 
-			// If not found in mock data, check localStorage
+			// If not found in mock data, check localStorage for basic data
 			if (!dharmguruData && typeof window !== "undefined") {
 				const savedDharmgurus = localStorage.getItem("dharmgurus");
 				if (savedDharmgurus) {
 					const allDharmgurus = JSON.parse(savedDharmgurus);
-					dharmguruData = allDharmgurus.find(
-						(d: Dharmguru) => d.id === dharmguruId
-					);
+					dharmguruData = allDharmgurus.find((d: any) => d.id === dharmguruId);
 				}
 			}
 
@@ -243,6 +264,11 @@ export default function DharmguruDetailPage() {
 						language: dharmguruData.preferences?.language ?? "en",
 					},
 					activities: dharmguruData.activities || [],
+					// Add any missing fields with default values
+					address: dharmguruData.address || "",
+					bio: dharmguruData.bio || "",
+					joinedDate:
+						dharmguruData.joinedDate || new Date().toISOString().split("T")[0],
 				};
 				setDharmguru(dharmguruWithPreferences);
 				setEditedDharmguru({ ...dharmguruWithPreferences });
@@ -266,15 +292,75 @@ export default function DharmguruDetailPage() {
 		fetchDharmguruData();
 	}, [fetchDharmguruData]);
 
+	const validateForm = (data: Partial<Dharmguru>): boolean => {
+		const newErrors: FormErrors = {};
+
+		if (!data.name?.trim()) {
+			newErrors.name = "Name is required";
+		}
+
+		if (!data.email?.trim()) {
+			newErrors.email = "Email is required";
+		} else if (!/\S+@\S+\.\S+/.test(data.email)) {
+			newErrors.email = "Email is invalid";
+		}
+
+		if (!data.phone?.trim()) {
+			newErrors.phone = "Phone number is required";
+		} else {
+			const phoneRegex = /^(\+91[\s-]?)?[0-9]{10}$/;
+			if (!phoneRegex.test(data.phone.replace(/[\s-]/g, ""))) {
+				newErrors.phone =
+					"Please enter a valid 10-digit phone number with optional +91 prefix";
+			}
+		}
+
+		if (!data.category) {
+			newErrors.category = "Category is required";
+		}
+
+		if (!data.rank) {
+			newErrors.rank = "Rank is required";
+		}
+
+		if (!data.address?.trim()) {
+			newErrors.address = "Address is required";
+		}
+
+		if (!data.bio?.trim()) {
+			newErrors.bio = "Bio is required";
+		} else if (data.bio.length < 50) {
+			newErrors.bio = "Bio should be at least 50 characters long";
+		}
+
+		if (!data.status) {
+			newErrors.status = "Status is required";
+		}
+
+		setErrors(newErrors);
+		return Object.keys(newErrors).length === 0;
+	};
+
 	const handleSaveChanges = async () => {
-		if (!editedDharmguru) return;
+		if (!editedDharmguru || !validateForm(editedDharmguru)) {
+			return;
+		}
 
 		setIsSaving(true);
 		const toastId = toast.loading("Saving changes...");
 
 		try {
-			// Simulate API call
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			// Prepare the simplified dharmguru data for the list view
+			const simplifiedDharmguru = {
+				id: editedDharmguru.id,
+				name: editedDharmguru.name,
+				category: editedDharmguru.category,
+				phone: editedDharmguru.phone,
+				email: editedDharmguru.email,
+				status: editedDharmguru.status,
+				rank: editedDharmguru.rank,
+				isApproved: dharmguru?.isApproved || false, // Preserve the approval status
+			};
 
 			// Update the dharmguru in localStorage
 			if (typeof window !== "undefined") {
@@ -283,24 +369,42 @@ export default function DharmguruDetailPage() {
 
 				if (savedDharmgurus) {
 					allDharmgurus = JSON.parse(savedDharmgurus);
-					allDharmgurus = allDharmgurus.map((d: Dharmguru) =>
-						d.id === dharmguruId ? { ...editedDharmguru } : d
+					// Find the index of the dharmguru to update
+					const index = allDharmgurus.findIndex(
+						(d: any) => d.id === dharmguruId
 					);
+					if (index !== -1) {
+						// Update existing dharmguru
+						allDharmgurus[index] = simplifiedDharmguru;
+					} else {
+						// Add new dharmguru if not found
+						allDharmgurus.push(simplifiedDharmguru);
+					}
 				} else {
-					allDharmgurus = [editedDharmguru];
+					allDharmgurus = [simplifiedDharmguru];
 				}
 
 				localStorage.setItem("dharmgurus", JSON.stringify(allDharmgurus));
-			}
 
-			setDharmguru(editedDharmguru);
-			setIsEditing(false);
-			toast.dismiss(toastId);
-			toast.success("Dharmguru details updated successfully!");
+				// Also save the detailed data in a separate key for the detail view
+				localStorage.setItem(
+					`dharmguru_${dharmguruId}`,
+					JSON.stringify(editedDharmguru)
+				);
+
+				// Update the local state with the saved data
+				setDharmguru(editedDharmguru);
+				setIsEditing(false);
+				toast.dismiss(toastId);
+				toast.success("Dharmguru details updated successfully!");
+
+				// Redirect back to the list page
+				router.push("/admin/dharmguru");
+			}
 		} catch (error) {
+			console.error("Error saving Dharmguru data:", error);
 			toast.dismiss(toastId);
 			toast.error("Failed to save changes. Please try again.");
-			console.error("Error saving Dharmguru data:", error);
 		} finally {
 			setIsSaving(false);
 		}
@@ -474,53 +578,47 @@ export default function DharmguruDetailPage() {
 													<Label htmlFor="name">Full Name</Label>
 													<Input
 														id="name"
+														name="name"
 														value={editedDharmguru?.name || ""}
-														onChange={(e) =>
-															setEditedDharmguru((prev) =>
-																prev
-																	? {
-																			...prev,
-																			name: e.target.value,
-																	  }
-																	: null
-															)
-														}
+														onChange={handleInputChange}
+														className={errors.name ? "border-red-500" : ""}
 													/>
+													{errors.name && (
+														<p className="text-sm text-red-500">
+															{errors.name}
+														</p>
+													)}
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor="email">Email</Label>
 													<Input
 														id="email"
+														name="email"
 														type="email"
 														value={editedDharmguru?.email || ""}
-														onChange={(e) =>
-															setEditedDharmguru((prev) =>
-																prev
-																	? {
-																			...prev,
-																			email: e.target.value,
-																	  }
-																	: null
-															)
-														}
+														onChange={handleInputChange}
+														className={errors.email ? "border-red-500" : ""}
 													/>
+													{errors.email && (
+														<p className="text-sm text-red-500">
+															{errors.email}
+														</p>
+													)}
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor="phone">Phone</Label>
 													<Input
 														id="phone"
+														name="phone"
 														value={editedDharmguru?.phone || ""}
-														onChange={(e) =>
-															setEditedDharmguru((prev) =>
-																prev
-																	? {
-																			...prev,
-																			phone: e.target.value,
-																	  }
-																	: null
-															)
-														}
+														onChange={handleInputChange}
+														className={errors.phone ? "border-red-500" : ""}
 													/>
+													{errors.phone && (
+														<p className="text-sm text-red-500">
+															{errors.phone}
+														</p>
+													)}
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor="category">Category</Label>
@@ -536,6 +634,7 @@ export default function DharmguruDetailPage() {
 																	: null
 															)
 														}
+														// className={errors.category ? "border-red-500" : ""}
 													>
 														<SelectTrigger id="category">
 															<SelectValue placeholder="Select category" />
@@ -550,6 +649,11 @@ export default function DharmguruDetailPage() {
 															</SelectGroup>
 														</SelectContent>
 													</Select>
+													{errors.category && (
+														<p className="text-sm text-red-500">
+															{errors.category}
+														</p>
+													)}
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor="rank">Rank</Label>
@@ -565,6 +669,7 @@ export default function DharmguruDetailPage() {
 																	: null
 															)
 														}
+														// className={errors.rank ? "border-red-500" : ""}
 													>
 														<SelectTrigger id="rank">
 															<SelectValue placeholder="Select rank" />
@@ -579,6 +684,11 @@ export default function DharmguruDetailPage() {
 															</SelectGroup>
 														</SelectContent>
 													</Select>
+													{errors.rank && (
+														<p className="text-sm text-red-500">
+															{errors.rank}
+														</p>
+													)}
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor="status">Status</Label>
@@ -594,6 +704,7 @@ export default function DharmguruDetailPage() {
 																	: null
 															)
 														}
+														// className={errors.status ? "border-red-500" : ""}
 													>
 														<SelectTrigger id="status">
 															<SelectValue placeholder="Select status" />
@@ -607,42 +718,41 @@ export default function DharmguruDetailPage() {
 															</SelectGroup>
 														</SelectContent>
 													</Select>
+													{errors.status && (
+														<p className="text-sm text-red-500">
+															{errors.status}
+														</p>
+													)}
 												</div>
 											</div>
 											<div className="space-y-2">
 												<Label htmlFor="address">Address</Label>
 												<Input
 													id="address"
+													name="address"
 													value={editedDharmguru?.address || ""}
-													onChange={(e) =>
-														setEditedDharmguru((prev) =>
-															prev
-																? {
-																		...prev,
-																		address: e.target.value,
-																  }
-																: null
-														)
-													}
+													onChange={handleInputChange}
+													className={errors.address ? "border-red-500" : ""}
 												/>
+												{errors.address && (
+													<p className="text-sm text-red-500">
+														{errors.address}
+													</p>
+												)}
 											</div>
 											<div className="space-y-2">
 												<Label htmlFor="bio">Bio</Label>
 												<Textarea
 													id="bio"
+													name="bio"
 													value={editedDharmguru?.bio || ""}
-													onChange={(e) =>
-														setEditedDharmguru((prev) =>
-															prev
-																? {
-																		...prev,
-																		bio: e.target.value,
-																  }
-																: null
-														)
-													}
+													onChange={handleInputChange}
 													rows={4}
+													className={errors.bio ? "border-red-500" : ""}
 												/>
+												{errors.bio && (
+													<p className="text-sm text-red-500">{errors.bio}</p>
+												)}
 											</div>
 										</>
 									) : (
@@ -733,16 +843,9 @@ export default function DharmguruDetailPage() {
 															false
 														}
 														onChange={(e) =>
-															setEditedDharmguru((prev) =>
-																prev
-																	? {
-																			...prev,
-																			preferences: {
-																				...prev.preferences,
-																				notifications: e.target.checked,
-																			},
-																	  }
-																	: null
+															handlePreferenceChange(
+																"notifications",
+																e.target.checked
 															)
 														}
 														className="h-4 w-4"
@@ -759,16 +862,9 @@ export default function DharmguruDetailPage() {
 															editedDharmguru?.preferences.newsletter || false
 														}
 														onChange={(e) =>
-															setEditedDharmguru((prev) =>
-																prev
-																	? {
-																			...prev,
-																			preferences: {
-																				...prev.preferences,
-																				newsletter: e.target.checked,
-																			},
-																	  }
-																	: null
+															handlePreferenceChange(
+																"newsletter",
+																e.target.checked
 															)
 														}
 														className="h-4 w-4"
@@ -779,17 +875,7 @@ export default function DharmguruDetailPage() {
 													<Select
 														value={editedDharmguru?.preferences.language || ""}
 														onValueChange={(value) =>
-															setEditedDharmguru((prev) =>
-																prev
-																	? {
-																			...prev,
-																			preferences: {
-																				...prev.preferences,
-																				language: value,
-																			},
-																	  }
-																	: null
-															)
+															handlePreferenceChange("language", value)
 														}
 													>
 														<SelectTrigger id="language">

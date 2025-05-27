@@ -61,6 +61,13 @@ interface User {
 	activities: Activity[];
 }
 
+interface FormErrors {
+	name?: string;
+	email?: string;
+	phone?: string;
+	address?: string;
+}
+
 // Mock user data - in a real app, you would fetch this from an API
 const mockUserDetails: Record<string, User> = {
 	"1": {
@@ -185,6 +192,7 @@ export default function UserDetailPage() {
 	const [isSaving, setIsSaving] = useState(false);
 	const [editedUser, setEditedUser] = useState<Partial<User> | null>(null);
 	const [imageError, setImageError] = useState(false);
+	const [errors, setErrors] = useState<FormErrors>({});
 
 	// Fix: Memoize the fetch function and add proper dependencies
 	const fetchUserData = useCallback(() => {
@@ -215,8 +223,43 @@ export default function UserDetailPage() {
 		fetchUserData();
 	}, [fetchUserData]);
 
+	const validateForm = (userData: Partial<User>): boolean => {
+		const newErrors: FormErrors = {};
+
+		if (!userData.name?.trim()) {
+			newErrors.name = "Name is required";
+		}
+
+		if (!userData.email?.trim()) {
+			newErrors.email = "Email is required";
+		} else if (!/\S+@\S+\.\S+/.test(userData.email)) {
+			newErrors.email = "Email is invalid";
+		}
+
+		if (!userData.phone?.trim()) {
+			newErrors.phone = "Phone number is required";
+		} else {
+			const phoneRegex = /^(\+91[\s-]?)?[0-9]{10}$/;
+			if (!phoneRegex.test(userData.phone.replace(/[\s-]/g, ""))) {
+				newErrors.phone =
+					"Please enter a valid 10-digit phone number with optional +91 prefix";
+			}
+		}
+
+		if (!userData.address?.trim()) {
+			newErrors.address = "Address is required";
+		}
+
+		setErrors(newErrors);
+		return Object.keys(newErrors).length === 0;
+	};
+
 	const handleSaveChanges = async () => {
 		if (!editedUser) return;
+
+		if (!validateForm(editedUser)) {
+			return;
+		}
 
 		setIsSaving(true);
 		const loadingToast = toast.loading("Saving changes...");
@@ -247,6 +290,22 @@ export default function UserDetailPage() {
 			month: "short",
 			year: "numeric",
 		}).format(date);
+	};
+
+	const formatPhoneNumber = (value: string): string => {
+		// Remove all non-digit characters
+		const cleaned = value.replace(/\D/g, "");
+
+		// If it starts with 91, add +91
+		if (cleaned.startsWith("91") && cleaned.length >= 10) {
+			return `+91 ${cleaned.substring(2, 12)}`;
+		}
+		// If it's 10 digits, format as is
+		else if (cleaned.length <= 10) {
+			return cleaned;
+		}
+		// Default return the cleaned value
+		return cleaned;
 	};
 
 	return (
@@ -305,7 +364,9 @@ export default function UserDetailPage() {
 						</div>
 						<div className="flex items-center gap-3">
 							<Calendar className="h-4 w-4 text-muted-foreground" />
-							<span>Joined: {user?.joinedDate ? formatDate(user.joinedDate) : 'N/A'}</span>
+							<span>
+								Joined: {user?.joinedDate ? formatDate(user.joinedDate) : "N/A"}
+							</span>
 						</div>
 						<div className="flex items-center gap-3">
 							<MapPin className="h-4 w-4 text-muted-foreground" />
@@ -348,48 +409,89 @@ export default function UserDetailPage() {
 													<Label htmlFor="name">Full Name</Label>
 													<Input
 														id="name"
-														value={editedUser?.name}
+														value={editedUser?.name || ""}
 														onChange={(e) =>
 															setEditedUser({
 																...editedUser,
 																name: e.target.value,
 															})
 														}
+														className={errors.name ? "border-red-500" : ""}
 													/>
+													{errors.name && (
+														<p className="text-sm text-red-500">
+															{errors.name}
+														</p>
+													)}
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor="email">Email</Label>
 													<Input
 														id="email"
 														type="email"
-														value={editedUser?.email}
+														value={editedUser?.email || ""}
 														onChange={(e) =>
 															setEditedUser({
 																...editedUser,
 																email: e.target.value,
 															})
 														}
+														className={errors.email ? "border-red-500" : ""}
 													/>
+													{errors.email && (
+														<p className="text-sm text-red-500">
+															{errors.email}
+														</p>
+													)}
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor="phone">Phone</Label>
-													<Input
-														id="phone"
-														value={editedUser?.phone}
-														onChange={(e) =>
-															setEditedUser({
-																...editedUser,
-																phone: e.target.value,
-															})
-														}
-													/>
+													<div className="relative">
+														<Input
+															id="phone"
+															type="tel"
+															value={editedUser?.phone || ""}
+															onChange={(e) => {
+																// Format the input value
+																const formatted = formatPhoneNumber(
+																	e.target.value
+																);
+																setEditedUser({
+																	...editedUser,
+																	phone: formatted,
+																});
+																// Clear error when typing
+																if (errors.phone) {
+																	setErrors({
+																		...errors,
+																		phone: undefined,
+																	});
+																}
+															}}
+															placeholder="+91 9876543210"
+															className={`pl-12 ${
+																errors.phone ? "border-red-500" : ""
+															}`}
+														/>
+														<span className="absolute left-3 top-2.5 text-sm text-muted-foreground">
+															+91
+														</span>
+													</div>
+													{errors.phone && (
+														<p className="text-sm text-red-500">
+															{errors.phone}
+														</p>
+													)}
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor="status">Status</Label>
 													<Select
 														value={editedUser?.status}
 														onValueChange={(value) =>
-															setEditedUser({ ...editedUser, status: value })
+															setEditedUser({
+																...editedUser,
+																status: value,
+															})
 														}
 													>
 														<SelectTrigger id="status">
@@ -410,20 +512,26 @@ export default function UserDetailPage() {
 												<Label htmlFor="address">Address</Label>
 												<Input
 													id="address"
-													value={editedUser?.address}
+													value={editedUser?.address || ""}
 													onChange={(e) =>
 														setEditedUser({
 															...editedUser,
 															address: e.target.value,
 														})
 													}
+													className={errors.address ? "border-red-500" : ""}
 												/>
+												{errors.address && (
+													<p className="text-sm text-red-500">
+														{errors.address}
+													</p>
+												)}
 											</div>
 											<div className="space-y-2">
 												<Label htmlFor="bio">Bio</Label>
 												<Textarea
 													id="bio"
-													value={editedUser?.bio}
+													value={editedUser?.bio || ""}
 													onChange={(e) =>
 														setEditedUser({
 															...editedUser,

@@ -151,9 +151,47 @@ export default function KathavachakPage() {
 		phone: "",
 		email: "",
 		status: "Active",
-		rank: "Junior",
+		rank: "",
 		isApproved: false,
 	});
+	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+	const validateForm = (data: Partial<Kathavachak>) => {
+		const errors: Record<string, string> = {};
+
+		// Name validation
+		if (!data.name?.trim()) {
+			errors.name = "Name is required";
+		} else if (data.name.length < 2) {
+			errors.name = "Name must be at least 2 characters";
+		}
+
+		// Category validation
+		if (!data.category) {
+			errors.category = "Category is required";
+		}
+
+		// Email validation
+		if (!data.email) {
+			errors.email = "Email is required";
+		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+			errors.email = "Please enter a valid email address";
+		}
+
+		// Phone validation (Indian format)
+		if (!data.phone) {
+			errors.phone = "Phone number is required";
+		} else if (!/^[6-9]\d{9}$/.test(data.phone.replace(/\D/g, ""))) {
+			errors.phone = "Please enter a valid 10-digit phone number";
+		}
+
+		// Rank validation
+		if (!data.rank) {
+			errors.rank = "Please select a rank";
+		}
+
+		return errors;
+	};
 
 	// Load kathavachaks from localStorage or use mock data
 	useEffect(() => {
@@ -199,9 +237,11 @@ export default function KathavachakPage() {
 		}
 	}, [kathavachaks]);
 
-	const handleAddKathavachak = () => {
-		if (!newKathavachak.name || !newKathavachak.email) {
-			toast.warning("Please fill in all required fields");
+	const handleAddKathavachak = async () => {
+		const validationErrors = validateForm(newKathavachak);
+		setFormErrors(validationErrors);
+
+		if (Object.keys(validationErrors).length > 0) {
 			return;
 		}
 
@@ -210,34 +250,39 @@ export default function KathavachakPage() {
 
 		try {
 			// Simulate API call
-			setTimeout(() => {
-				const newKavach = {
-					...newKathavachak,
-					id: Math.random().toString(36).substr(2, 9),
-					isApproved: false,
-				} as Kathavachak;
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 
-				setKathavachaks([...kathavachaks, newKavach]);
-				setNewKathavachak({
-					name: "",
-					category: "",
-					phone: "",
-					email: "",
-					status: "Active",
-					rank: "Junior",
-					isApproved: false,
-				});
+			const newKavach = {
+				...newKathavachak,
+				id: Math.random().toString(36).substr(2, 9),
+				isApproved: newKathavachak.isApproved || false,
+			} as Kathavachak;
 
-				toast.dismiss(loadingToast);
-				toast.success("Kathavachak added successfully!");
-				setIsAddKathavachakOpen(false);
-			}, 1000);
+			setKathavachaks([...kathavachaks, newKavach]);
+
+			// Reset form
+			setNewKathavachak({
+				name: "",
+				category: "",
+				phone: "",
+				email: "",
+				status: "Active",
+				rank: "",
+				isApproved: false,
+			});
+
+			// Clear errors
+			setFormErrors({});
+
+			// Close modal and show success
+			setIsAddKathavachakOpen(false);
+			toast.success("Kathavachak added successfully!");
 		} catch (error) {
 			console.error("Error adding kathavachak:", error);
-			toast.dismiss(loadingToast);
 			toast.error("Failed to add Kathavachak");
 		} finally {
 			setIsLoading(false);
+			toast.dismiss(loadingToast);
 		}
 	};
 
@@ -333,7 +378,9 @@ export default function KathavachakPage() {
 			kathavachak.phone.includes(searchTerm) ||
 			kathavachak.category.toLowerCase().includes(searchTerm.toLowerCase())
 	);
-
+	if (isLoading) {
+		return <div>Loading kathavachaks...</div>; // Or a nice loading spinner
+	}
 	return (
 		<div className="p-6 space-y-6">
 			<div className="flex items-center justify-between">
@@ -348,158 +395,295 @@ export default function KathavachakPage() {
 							Add Kathavachak
 						</Button>
 					</DialogTrigger>
-					<DialogContent className="sm:max-w-[425px]">
+					<DialogContent className="sm:max-w-[500px]">
 						<DialogHeader>
 							<DialogTitle>Add New Kathavachak</DialogTitle>
 							<DialogDescription>
 								Fill in the details to add a new kathavachak to the system.
+								Fields marked with <span className="text-red-500">*</span> are
+								required.
 							</DialogDescription>
 						</DialogHeader>
-						<div className="grid gap-4 py-4">
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="name" className="text-right">
-									Name
-								</Label>
-								<Input
-									id="name"
-									value={newKathavachak.name}
-									onChange={(e) =>
-										setNewKathavachak({
-											...newKathavachak,
-											name: e.target.value,
-										})
-									}
-									className="col-span-3"
-								/>
+						<div className="space-y-4 py-2">
+							{/* Name Field */}
+							<div className="space-y-2">
+								<div className="flex items-center">
+									<Label htmlFor="name" className="text-sm font-medium w-32">
+										Name <span className="text-red-500">*</span>
+									</Label>
+									<div className="flex-1">
+										<Input
+											id="name"
+											value={newKathavachak.name}
+											onChange={(e) => {
+												setNewKathavachak({
+													...newKathavachak,
+													name: e.target.value,
+												});
+												if (formErrors.name)
+													setFormErrors({ ...formErrors, name: "" });
+											}}
+											className={`w-full ${
+												formErrors.name ? "border-red-500" : ""
+											}`}
+											placeholder="Enter full name"
+										/>
+									</div>
+								</div>
+								{formErrors.name && (
+									<p className="text-sm text-red-600 mt-1 ml-32 pl-2">
+										{formErrors.name}
+									</p>
+								)}
 							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="category" className="text-right">
-									Category
-								</Label>
-								<Select
-									value={newKathavachak.category}
-									onValueChange={(value) =>
-										setNewKathavachak({ ...newKathavachak, category: value })
-									}
-								>
-									<SelectTrigger className="col-span-3">
-										<SelectValue placeholder="Select category" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectGroup>
-											{kathavachakCategories.map((category) => (
-												<SelectItem key={category} value={category}>
-													{category}
-												</SelectItem>
-											))}
-										</SelectGroup>
-									</SelectContent>
-								</Select>
+
+							{/* Category Field */}
+							<div className="space-y-2">
+								<div className="flex items-center">
+									<Label
+										htmlFor="category"
+										className="text-sm font-medium w-32"
+									>
+										Category <span className="text-red-500">*</span>
+									</Label>
+									<div className="flex-1">
+										<Select
+											value={newKathavachak.category}
+											onValueChange={(value) => {
+												setNewKathavachak({
+													...newKathavachak,
+													category: value,
+												});
+												if (formErrors.category)
+													setFormErrors({ ...formErrors, category: "" });
+											}}
+										>
+											<SelectTrigger
+												className={`w-full ${
+													formErrors.category ? "border-red-500" : ""
+												}`}
+											>
+												<SelectValue placeholder="Select category" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectGroup>
+													{kathavachakCategories.map((category) => (
+														<SelectItem key={category} value={category}>
+															{category}
+														</SelectItem>
+													))}
+												</SelectGroup>
+											</SelectContent>
+										</Select>
+									</div>
+								</div>
+								{formErrors.category && (
+									<p className="text-sm text-red-600 mt-1 ml-32 pl-2">
+										{formErrors.category}
+									</p>
+								)}
 							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="phone" className="text-right">
-									Phone
-								</Label>
-								<Input
-									id="phone"
-									value={newKathavachak.phone}
-									onChange={(e) =>
-										setNewKathavachak({
-											...newKathavachak,
-											phone: e.target.value,
-										})
-									}
-									className="col-span-3"
-								/>
+
+							{/* Email Field */}
+							<div className="space-y-2">
+								<div className="flex items-center">
+									<Label htmlFor="email" className="text-sm font-medium w-32">
+										Email <span className="text-red-500">*</span>
+									</Label>
+									<div className="flex-1">
+										<Input
+											id="email"
+											type="email"
+											value={newKathavachak.email}
+											onChange={(e) => {
+												setNewKathavachak({
+													...newKathavachak,
+													email: e.target.value,
+												});
+												if (formErrors.email)
+													setFormErrors({ ...formErrors, email: "" });
+											}}
+											className={`w-full ${
+												formErrors.email ? "border-red-500" : ""
+											}`}
+											placeholder="Enter email address"
+										/>
+									</div>
+								</div>
+								{formErrors.email && (
+									<p className="text-sm text-red-600 mt-1 ml-32 pl-2">
+										{formErrors.email}
+									</p>
+								)}
 							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="email" className="text-right">
-									Email
-								</Label>
-								<Input
-									id="email"
-									type="email"
-									value={newKathavachak.email}
-									onChange={(e) =>
-										setNewKathavachak({
-											...newKathavachak,
-											email: e.target.value,
-										})
-									}
-									className="col-span-3"
-								/>
+
+							{/* Phone Field */}
+							<div className="space-y-2">
+								<div className="flex items-center">
+									<Label htmlFor="phone" className="text-sm font-medium w-32">
+										Phone <span className="text-red-500">*</span>
+									</Label>
+									<div className="flex-1">
+										<Input
+											id="phone"
+											type="tel"
+											value={newKathavachak.phone}
+											onChange={(e) => {
+												setNewKathavachak({
+													...newKathavachak,
+													phone: e.target.value,
+												});
+												if (formErrors.phone)
+													setFormErrors({ ...formErrors, phone: "" });
+											}}
+											className={`w-full ${
+												formErrors.phone ? "border-red-500" : ""
+											}`}
+											placeholder="Enter phone number"
+										/>
+									</div>
+								</div>
+								{formErrors.phone && (
+									<p className="text-sm text-red-600 mt-1 ml-32 pl-2">
+										{formErrors.phone}
+									</p>
+								)}
 							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="rank" className="text-right">
-									Rank
-								</Label>
-								<Select
-									value={newKathavachak.rank}
-									onValueChange={(value) =>
-										setNewKathavachak({ ...newKathavachak, rank: value })
-									}
-								>
-									<SelectTrigger className="col-span-3">
-										<SelectValue placeholder="Select rank" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectGroup>
-											{kathavachakRanks.map((rank) => (
-												<SelectItem key={rank} value={rank}>
-													{rank}
-												</SelectItem>
-											))}
-										</SelectGroup>
-									</SelectContent>
-								</Select>
+
+							{/* Rank Field */}
+							<div className="space-y-2">
+								<div className="flex items-center">
+									<Label htmlFor="rank" className="text-sm font-medium w-32">
+										Rank <span className="text-red-500">*</span>
+									</Label>
+									<div className="flex-1">
+										<Select
+											value={newKathavachak.rank}
+											onValueChange={(value) => {
+												setNewKathavachak({
+													...newKathavachak,
+													rank: value,
+												});
+												if (formErrors.rank)
+													setFormErrors({ ...formErrors, rank: "" });
+											}}
+										>
+											<SelectTrigger
+												className={`w-full ${
+													formErrors.rank ? "border-red-500" : ""
+												}`}
+											>
+												<SelectValue placeholder="Select rank" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectGroup>
+													{kathavachakRanks.map((rank) => (
+														<SelectItem key={rank} value={rank}>
+															{rank}
+														</SelectItem>
+													))}
+												</SelectGroup>
+											</SelectContent>
+										</Select>
+									</div>
+								</div>
+								{formErrors.rank && (
+									<p className="text-sm text-red-600 mt-1 ml-32 pl-2">
+										{formErrors.rank}
+									</p>
+								)}
 							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="status" className="text-right">
+
+							{/* Status Field */}
+							<div className="flex items-center">
+								<Label htmlFor="status" className="text-sm font-medium w-32">
 									Status
 								</Label>
-								<Select
-									value={newKathavachak.status}
-									onValueChange={(value) =>
-										setNewKathavachak({ ...newKathavachak, status: value })
-									}
-								>
-									<SelectTrigger className="col-span-3">
-										<SelectValue placeholder="Select status" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectGroup>
+								<div className="flex-1">
+									<Select
+										value={newKathavachak.status}
+										onValueChange={(value) =>
+											setNewKathavachak({ ...newKathavachak, status: value })
+										}
+									>
+										<SelectTrigger className="w-full">
+											<SelectValue placeholder="Select status" />
+										</SelectTrigger>
+										<SelectContent>
 											<SelectItem value="Active">Active</SelectItem>
 											<SelectItem value="Inactive">Inactive</SelectItem>
-										</SelectGroup>
-									</SelectContent>
-								</Select>
+										</SelectContent>
+									</Select>
+								</div>
 							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="isApproved" className="text-right">
-									Approved
-								</Label>
-								<div className="col-span-3 flex items-center">
+
+							{/* Approved Checkbox */}
+							<div className="flex items-center pt-2">
+								<div className="w-32"></div>
+								<div className="flex items-center space-x-2">
 									<input
 										type="checkbox"
 										id="isApproved"
-										checked={newKathavachak.isApproved}
+										checked={newKathavachak.isApproved || false}
 										onChange={(e) =>
 											setNewKathavachak({
 												...newKathavachak,
 												isApproved: e.target.checked,
 											})
 										}
-										className="h-4 w-4 mr-2"
+										className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
 									/>
-									<Label htmlFor="isApproved">
-										{newKathavachak.isApproved ? "Yes" : "No"}
+									<Label htmlFor="isApproved" className="text-sm font-medium">
+										Approved
 									</Label>
 								</div>
 							</div>
 						</div>
-						<DialogFooter>
-							<Button type="submit" onClick={handleAddKathavachak}>
-								Add Kathavachak
+						<DialogFooter className="pt-4">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => {
+									setIsAddKathavachakOpen(false);
+									setFormErrors({});
+								}}
+								disabled={isLoading}
+							>
+								Cancel
+							</Button>
+							<Button
+								type="submit"
+								onClick={handleAddKathavachak}
+								disabled={isLoading}
+								className="bg-primary hover:bg-primary/90"
+							>
+								{isLoading ? (
+									<>
+										<svg
+											className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+											xmlns="http://www.w3.org/2000/svg"
+											fill="none"
+											viewBox="0 0 24 24"
+										>
+											<circle
+												className="opacity-25"
+												cx="12"
+												cy="12"
+												r="10"
+												stroke="currentColor"
+												strokeWidth="4"
+											></circle>
+											<path
+												className="opacity-75"
+												fill="currentColor"
+												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+											></path>
+										</svg>
+										Saving...
+									</>
+								) : (
+									"Add Kathavachak"
+								)}
 							</Button>
 						</DialogFooter>
 					</DialogContent>
