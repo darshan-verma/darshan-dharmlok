@@ -142,7 +142,7 @@ export default function DharmguruPage() {
 			try {
 				const saved = localStorage.getItem("dharmgurus");
 				return saved ? JSON.parse(saved) : mockDharmgurus;
-			} catch (error) {
+			} catch{
 				toast.error("Failed to load Dharmguru data");
 				return mockDharmgurus;
 			}
@@ -155,7 +155,7 @@ export default function DharmguruPage() {
 		if (typeof window !== "undefined") {
 			try {
 				localStorage.setItem("dharmgurus", JSON.stringify(dharmgurus));
-			} catch (error) {
+			} catch{
 				toast.error("Failed to save Dharmguru data");
 			}
 		}
@@ -252,7 +252,7 @@ export default function DharmguruPage() {
 
 			setIsAddDharmguruOpen(false);
 			toast.success("Dharmguru added successfully");
-		} catch (error) {
+		} catch {
 			toast.error("Failed to add dharmguru");
 		} finally {
 			setIsLoading(false);
@@ -270,7 +270,7 @@ export default function DharmguruPage() {
 				)
 			);
 			toast.success(`Status updated to ${newStatus}`);
-		} catch (error) {
+		} catch {
 			toast.error("Failed to update status");
 		}
 	};
@@ -287,7 +287,7 @@ export default function DharmguruPage() {
 			toast.success(
 				`Dharmguru ${isApproved ? "approved" : "disapproved"} successfully`
 			);
-		} catch (error) {
+		} catch {
 			toast.error("Failed to update approval status");
 		}
 	};
@@ -312,7 +312,7 @@ export default function DharmguruPage() {
 			);
 			toast.dismiss(loadingToast);
 			toast.success(`${dharmguruToDelete.name} deleted successfully`);
-		} catch (error) {
+		} catch {
 			toast.dismiss(loadingToast);
 			toast.error(`Failed to delete ${dharmguruToDelete.name}`);
 		} finally {

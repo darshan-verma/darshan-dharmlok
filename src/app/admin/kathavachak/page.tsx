@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
 	PlusCircle,
 	Search,
@@ -143,8 +143,10 @@ export default function KathavachakPage() {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [isAddKathavachakOpen, setIsAddKathavachakOpen] = useState(false);
 	const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-	const [kathavachakToDelete, setKathavachakToDelete] =
-		useState<Kathavachak | null>(null);
+	const [kathavachakToDelete, setKathavachakToDelete] = useState<{
+		id: string;
+		name: string;
+	} | null>(null);
 	const [newKathavachak, setNewKathavachak] = useState<Partial<Kathavachak>>({
 		name: "",
 		category: "",
@@ -286,7 +288,12 @@ export default function KathavachakPage() {
 		}
 	};
 
-	const handleDeleteKathavachak = async () => {
+	const handleDeleteKathavachak = (id: string, name: string) => {
+		setKathavachakToDelete({ id, name });
+		setIsDeleteConfirmOpen(true);
+	};
+
+	const confirmDeleteKathavachak = async () => {
 		if (!kathavachakToDelete) return;
 
 		setIsLoading(true);
@@ -371,13 +378,17 @@ export default function KathavachakPage() {
 		}
 	};
 
-	const filteredKathavachaks = kathavachaks.filter(
-		(kathavachak: Kathavachak) =>
-			kathavachak.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			kathavachak.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			kathavachak.phone.includes(searchTerm) ||
-			kathavachak.category.toLowerCase().includes(searchTerm.toLowerCase())
-	);
+	const filteredKathavachaks = useMemo(() => {
+		return kathavachaks.filter((kathavachak) => {
+			const searchLower = searchTerm.toLowerCase();
+			return (
+				kathavachak.name.toLowerCase().includes(searchLower) ||
+				kathavachak.email.toLowerCase().includes(searchLower) ||
+				kathavachak.phone.includes(searchTerm) ||
+				kathavachak.category.toLowerCase().includes(searchLower)
+			);
+		});
+	}, [kathavachaks, searchTerm]);
 	if (isLoading) {
 		return <div>Loading kathavachaks...</div>; // Or a nice loading spinner
 	}
@@ -845,10 +856,16 @@ export default function KathavachakPage() {
 													Edit
 												</DropdownMenuItem>
 												<DropdownMenuItem
-													onClick={() => setKathavachakToDelete(kathavachak)}
-													className="text-red-600"
+													className="flex items-center gap-2 text-red-600"
+													onSelect={(e) => {
+														e.preventDefault();
+														handleDeleteKathavachak(
+															kathavachak.id,
+															kathavachak.name
+														);
+													}}
 												>
-													<Trash2 className="h-4 w-4 mr-2" />
+													<Trash2 className="h-4 w-4" />
 													Delete
 												</DropdownMenuItem>
 												<DropdownMenuItem
@@ -876,23 +893,27 @@ export default function KathavachakPage() {
 
 			{/* Delete Confirmation Dialog */}
 			<Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-				<DialogContent className="sm:max-w-[425px]">
+				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Confirm Deletion</DialogTitle>
+						<DialogTitle>Are you sure?</DialogTitle>
 						<DialogDescription>
-							Are you sure you want to delete this kathavachak? This action
-							cannot be undone.
+							This action cannot be undone. This will permanently delete the
+							kathavachak{kathavachakToDelete?.name}.
 						</DialogDescription>
 					</DialogHeader>
-					<DialogFooter className="flex justify-between">
+					<DialogFooter>
 						<Button
 							variant="outline"
 							onClick={() => setIsDeleteConfirmOpen(false)}
 						>
 							Cancel
 						</Button>
-						<Button variant="destructive" onClick={handleDeleteKathavachak}>
-							Delete
+						<Button
+							variant="destructive"
+							onClick={confirmDeleteKathavachak}
+							disabled={isLoading}
+						>
+							{isLoading ? "Deleting..." : "Delete"}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

@@ -43,6 +43,7 @@ import {
 	toastInfo,
 	toastLoading,
 	toastWarning,
+	toast,
 } from "@/lib/toast";
 
 // Sample data
@@ -297,33 +298,29 @@ export default function DharmlokDashboard() {
 
 	const loadDashboardData = async () => {
 		setIsLoading(true);
-		const loadingToast = toastLoading("Loading dashboard data...");
+		const loadingToastId = toastLoading("Loading dashboard data...");
 
 		try {
 			// Simulate API call
 			await new Promise((resolve) => setTimeout(resolve, 1500));
 			toastSuccess("Dashboard data loaded successfully!");
-		} catch (error) {
+		} catch {
 			toastError("Failed to load dashboard data");
 		} finally {
 			setIsLoading(false);
+			// Dismiss the loading toast if it's still showing
+			toast.dismiss(loadingToastId);
 		}
 	};
 
 	const handleDownload = () => {
-		const loadingId = toastLoading("Preparing download...");
+		toastLoading("Preparing download...");
 
 		setTimeout(() => {
 			toastSuccess("Download started!");
 			// Actual download logic would go here
 		}, 1000);
 	};
-
-	const handleExport = () => {
-		toastInfo("Exporting data... This may take a moment.");
-		// Actual export logic would go here
-	};
-
 	const handleNotificationClick = () => {
 		toastInfo("Showing unread notifications");
 	};

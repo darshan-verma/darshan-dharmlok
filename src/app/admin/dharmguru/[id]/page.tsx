@@ -192,6 +192,7 @@ interface Dharmguru {
 	rank: string;
 	address: string;
 	joinedDate: string;
+	isApproved?: boolean;
 	avatar?: string;
 	bio?: string;
 	preferences: {
@@ -250,7 +251,7 @@ export default function DharmguruDetailPage() {
 				const savedDharmgurus = localStorage.getItem("dharmgurus");
 				if (savedDharmgurus) {
 					const allDharmgurus = JSON.parse(savedDharmgurus);
-					dharmguruData = allDharmgurus.find((d: any) => d.id === dharmguruId);
+					dharmguruData = allDharmgurus.find((d: Dharmguru) => d.id === dharmguruId);
 				}
 			}
 
@@ -371,7 +372,7 @@ export default function DharmguruDetailPage() {
 					allDharmgurus = JSON.parse(savedDharmgurus);
 					// Find the index of the dharmguru to update
 					const index = allDharmgurus.findIndex(
-						(d: any) => d.id === dharmguruId
+						(d: Dharmguru) => d.id === dharmguruId
 					);
 					if (index !== -1) {
 						// Update existing dharmguru

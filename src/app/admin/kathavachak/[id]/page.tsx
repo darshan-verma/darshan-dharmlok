@@ -246,7 +246,7 @@ export default function KathavachakDetailPage() {
 				if (savedKathavachaks) {
 					const allKathavachaks = JSON.parse(savedKathavachaks);
 					kathavachakData = allKathavachaks.find(
-						(k: any) => k.id === kathavachakId
+						(k: Kathavachak) => k.id === kathavachakId
 					);
 				}
 			}
@@ -278,10 +278,10 @@ export default function KathavachakDetailPage() {
 					router.push("/admin/kathavachak");
 				}, 1500);
 			}
-		} catch (error) {
+		} catch {
 			toast.dismiss(loadingToast);
 			toast.error("Failed to load Kathavachak data");
-			console.error("Error loading Kathavachak data:", error);
+			console.error("Error loading Kathavachak data:");
 		}
 	}, [kathavachakId, router]);
 
@@ -362,7 +362,7 @@ export default function KathavachakDetailPage() {
 					allKathavachaks = JSON.parse(savedKathavachaks);
 					// Find the index of the kathavachak to update
 					const index = allKathavachaks.findIndex(
-						(k: any) => k.id === kathavachakId
+						(k: Kathavachak) => k.id === kathavachakId
 					);
 					if (index !== -1) {
 						// Update existing kathavachak
@@ -397,8 +397,8 @@ export default function KathavachakDetailPage() {
 					router.push("/admin/kathavachak");
 				}, 2000);
 			}
-		} catch (error) {
-			console.error("Error saving Kathavachak data:", error);
+		} catch {
+			console.error("Error saving Kathavachak data");
 			toast.dismiss(toastId);
 			const errorToast = toast.error(
 				"Failed to save changes. Please try again."
