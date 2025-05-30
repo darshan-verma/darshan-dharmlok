@@ -35,7 +35,7 @@ import {
 import Image from "next/image";
 import cn from "classnames";
 
-export function AdminSidebar({ className }: any) {
+export function AdminSidebar({ className }: { className?: string }) {
 	const pathname = usePathname();
 	const router = useRouter();
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
