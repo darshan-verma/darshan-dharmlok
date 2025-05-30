@@ -18,6 +18,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "@/lib/toast";
 
 import {
 	Sidebar,
@@ -30,12 +33,51 @@ import {
 	SidebarFooter,
 } from "@/components/ui/sidebar";
 import Image from "next/image";
+import cn from "classnames";
 
-export function AdminSidebar() {
+export function AdminSidebar({ className }: any) {
 	const pathname = usePathname();
+	const router = useRouter();
+	const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+	const handleLogout = async () => {
+		if (isLoggingOut) return;
+
+		setIsLoggingOut(true);
+
+		try {
+			const response = await fetch("/api/auth/signout", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(errorData.error || "Failed to log out");
+			}
+
+			// Clear any client-side state
+			// Redirect to sign-in page
+			router.push("/auth/signin");
+			// Force a full page reload to clear all state
+			window.location.href = "/auth/signin";
+		} catch (error) {
+			console.error("Logout failed:", error);
+			toast.error(error instanceof Error ? error.message : "Failed to log out");
+		} finally {
+			setIsLoggingOut(false);
+		}
+	};
 
 	return (
-		<Sidebar className="border-r border-border bg-gradient-to-b from-background to-muted/20">
+		<Sidebar
+			className={cn(
+				"border-r border-border bg-gradient-to-b from-background to-muted/20",
+				className
+			)}
+		>
 			<SidebarHeader className="flex flex-col items-center justify-center p-4 pb-2">
 				<div className="w-32 h-auto mb-2">
 					<Image
@@ -300,9 +342,17 @@ export function AdminSidebar() {
 						<Settings className="h-5 w-5" />
 						<span>Settings</span>
 					</SidebarMenuButton>
-					<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 hover:text-red-500 transition-all">
+					<SidebarMenuButton
+						onClick={handleLogout}
+						disabled={isLoggingOut}
+						className={cn(
+							"gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all",
+							"hover:text-red-500 focus:text-red-500",
+							isLoggingOut ? "opacity-50 cursor-not-allowed" : ""
+						)}
+					>
 						<LogOut className="h-5 w-5" />
-						<span>Logout</span>
+						<span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
 					</SidebarMenuButton>
 				</div>
 			</SidebarFooter>

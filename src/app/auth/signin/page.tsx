@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
+import Image from "next/image";
 
 export default function SignInPage() {
 	const router = useRouter();
@@ -80,6 +81,20 @@ export default function SignInPage() {
 
 	return (
 		<div className="space-y-6">
+			<div className="flex flex-col items-center justify-center mb-4">
+				<div className="w-32 h-auto mb-2">
+					<Image
+						src="/dharmlok-logo.svg"
+						alt="Dharmlok Logo"
+						width={150}
+						height={80}
+						priority
+					/>
+				</div>
+			</div>
+			<h2 className="text-2xl font-bold text-center text-gray-900 mb-6">
+				Sign In to Your Account
+			</h2>
 			<form className="space-y-6" onSubmit={handleSubmit}>
 				<div>
 					<label

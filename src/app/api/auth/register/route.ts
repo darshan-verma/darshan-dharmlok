@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-	const { email, password, name, phone } = await req.json();
+	const { email, password, name, phone, userType } = await req.json();
 	if (!email || !password || !name || !phone) {
 		return NextResponse.json(
 			{ error: "Email, password, name, and phone are required" },
@@ -18,7 +18,13 @@ export async function POST(req: Request) {
 
 	const hashed = await bcrypt.hash(password, 7);
 	const user = await prisma.user.create({
-		data: { email, password: hashed, name, phone, userType: "User" },
+		data: {
+			email,
+			password: hashed,
+			name,
+			phone,
+			userType: userType || "User",
+		},
 	});
 
 	return NextResponse.json(

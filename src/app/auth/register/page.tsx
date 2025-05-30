@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
+import Image from "next/image";
 
 export default function RegisterPage() {
 	const router = useRouter();
@@ -15,6 +16,7 @@ export default function RegisterPage() {
 		phone: "",
 		password: "",
 		confirmPassword: "",
+		role: "User",
 	});
 	const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -38,12 +40,17 @@ export default function RegisterPage() {
 		if (formData.password !== formData.confirmPassword) {
 			newErrors.confirmPassword = "Passwords do not match";
 		}
+		if (!formData.role) {
+			newErrors.role = "Role is required";
+		}
 
 		setErrors(newErrors);
 		return Object.keys(newErrors).length === 0;
 	};
 
-	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleChange = (
+		e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+	) => {
 		const { name, value } = e.target;
 		setFormData((prev) => ({
 			...prev,
@@ -74,6 +81,7 @@ export default function RegisterPage() {
 			email: formData.email.trim(),
 			phone: formData.phone.trim(),
 			password: formData.password,
+			userType: formData.role,
 		};
 
 		console.log("Sending registration request to /api/auth/register...", {
@@ -129,6 +137,17 @@ export default function RegisterPage() {
 
 	return (
 		<div className="space-y-6">
+			<div className="flex flex-col items-center justify-center mb-4">
+				<div className="w-32 h-auto mb-2">
+					<Image
+						src="/dharmlok-logo.svg"
+						alt="Dharmlok Logo"
+						width={150}
+						height={80}
+						priority
+					/>
+				</div>
+			</div>
 			<h2 className="text-2xl font-bold text-center text-gray-900">
 				Create Admin Account
 			</h2>
@@ -345,6 +364,34 @@ export default function RegisterPage() {
 				</div>
 
 				<div>
+					<label
+						htmlFor="role"
+						className="block text-sm font-medium text-gray-700"
+					>
+						Register as
+					</label>
+					<select
+						id="role"
+						name="role"
+						value={formData.role}
+						onChange={handleChange}
+						className={`mt-1 block w-full rounded-md border ${
+							errors.role ? "border-red-500" : "border-gray-300"
+						} px-3 py-2 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm`}
+					>
+						<option value="User">User</option>
+						<option value="Kathavachak">Kathavachak</option>
+						<option value="Dharmguru">Dharmguru</option>
+						<option value="Hotel/Dharamshala">Hotel/Dharamshala</option>
+						<option value="Pandit Ji">Pandit Ji</option>
+						<option value="Seller">Seller</option>
+					</select>
+					{errors.role && (
+						<p className="mt-1 text-sm text-red-600">{errors.role}</p>
+					)}
+				</div>
+
+				<div>
 					<button
 						type="submit"
 						disabled={isLoading}
@@ -354,16 +401,26 @@ export default function RegisterPage() {
 					</button>
 				</div>
 			</form>
-			<div className="text-center text-sm">
-				<p className="text-gray-600">
-					Already have an account?{" "}
+			<div className="mt-6">
+				<div className="relative">
+					<div className="absolute inset-0 flex items-center">
+						<div className="w-full border-t border-gray-300"></div>
+					</div>
+					<div className="relative flex justify-center text-sm">
+						<span className="px-2 bg-white text-gray-500">
+							Already have an account?
+						</span>
+					</div>
+				</div>
+
+				<div className="mt-6">
 					<a
 						href="/auth/signin"
-						className="font-medium text-indigo-600 hover:text-indigo-500"
+						className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
 					>
 						Sign in
 					</a>
-				</p>
+				</div>
 			</div>
 		</div>
 	);
