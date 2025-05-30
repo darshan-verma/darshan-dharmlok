@@ -31,7 +31,11 @@ export async function PUT(req: Request) {
 		}
 
 		// If setting to Inactive and user is logged in, force logout
-		const updateData: any = { status };
+		const updateData: {
+			status: string;
+			isLoggedIn?: boolean;
+			lastLogoutAt?: Date;
+		} = { status };
 
 		if (status === "Inactive" && currentUser.isLoggedIn) {
 			updateData.isLoggedIn = false;

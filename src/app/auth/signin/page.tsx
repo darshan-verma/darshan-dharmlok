@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import Image from "next/image";
@@ -48,32 +49,20 @@ export default function SignInPage() {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!validateForm()) return;
-
 		setIsLoading(true);
 
 		try {
-			const response = await fetch("/api/auth/signin", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					email: formData.email,
-					password: formData.password,
-				}),
+			const response = await signIn("credentials", {
+				redirect: false,
+				email: formData.email,
+				password: formData.password,
 			});
-
-			const data = await response.json();
-
-			if (!response.ok) {
-				throw new Error(data.error || "Sign in failed");
+			console.log(response);
+			if (response?.error) {
+				throw new Error(response.error);
 			}
-
-			// Store user information in localStorage for later use
-			localStorage.setItem("userInfo", JSON.stringify(data.user));
-
 			toast.success("Sign in successful!");
-			router.push("/admin");
+			router.replace("/admin");
 		} catch (error) {
 			console.error("Sign in error:", error);
 			toast.error(error instanceof Error ? error.message : "Sign in failed");

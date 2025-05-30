@@ -17,10 +17,8 @@ import {
 	Settings,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "@/lib/toast";
+import { usePathname } from "next/navigation";	
+import { signOut } from "next-auth/react";
 
 import {
 	Sidebar,
@@ -37,56 +35,6 @@ import cn from "classnames";
 
 export function AdminSidebar({ className }: { className?: string }) {
 	const pathname = usePathname();
-	const router = useRouter();
-	const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-	const handleLogout = async () => {
-		if (isLoggingOut) return;
-
-		setIsLoggingOut(true);
-
-		try {
-			// Get the current user ID from localStorage or any other client-side storage
-			// This assumes you're storing the user info after login
-			const userInfo = localStorage.getItem("userInfo");
-			let userId = "";
-
-			if (userInfo) {
-				try {
-					const parsedUser = JSON.parse(userInfo);
-					userId = parsedUser.id;
-				} catch (e) {
-					console.error("Error parsing user info:", e);
-				}
-			}
-
-			const response = await fetch("/api/auth/signout", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({ userId }),
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(errorData.error || "Failed to log out");
-			}
-
-			// Clear any client-side state
-			localStorage.removeItem("userInfo");
-
-			// Redirect to sign-in page
-			router.push("/auth/signin");
-			// Force a full page reload to clear all state
-			window.location.href = "/auth/signin";
-		} catch (error) {
-			console.error("Logout failed:", error);
-			toast.error(error instanceof Error ? error.message : "Failed to log out");
-		} finally {
-			setIsLoggingOut(false);
-		}
-	};
 
 	return (
 		<Sidebar
@@ -360,16 +308,14 @@ export function AdminSidebar({ className }: { className?: string }) {
 						<span>Settings</span>
 					</SidebarMenuButton>
 					<SidebarMenuButton
-						onClick={handleLogout}
-						disabled={isLoggingOut}
+						onClick={() => signOut({ callbackUrl: "/auth/signin" })}
 						className={cn(
 							"gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all",
 							"hover:text-red-500 focus:text-red-500",
-							isLoggingOut ? "opacity-50 cursor-not-allowed" : ""
 						)}
 					>
 						<LogOut className="h-5 w-5" />
-						<span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
+						<span>Logout</span>
 					</SidebarMenuButton>
 				</div>
 			</SidebarFooter>

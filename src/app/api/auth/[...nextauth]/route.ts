@@ -4,7 +4,7 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcrypt";
 
-export default NextAuth({
+const handler = NextAuth({
 	adapter: PrismaAdapter(prisma),
 	secret: process.env.NEXTAUTH_SECRET,
 	session: {
@@ -12,6 +12,7 @@ export default NextAuth({
 	},
 	providers: [
 		CredentialsProvider({
+			id: "credentials",
 			name: "Email & Password",
 			credentials: {
 				email: {
@@ -26,6 +27,7 @@ export default NextAuth({
 				},
 			},
 			async authorize(credentials) {
+				console.log("Here at authorize");
 				if (!credentials?.email || !credentials?.password) {
 					throw new Error("Invalid credentials");
 				}
@@ -73,3 +75,5 @@ export default NextAuth({
 		error: "/auth/error",
 	},
 });
+
+export { handler as GET, handler as POST };

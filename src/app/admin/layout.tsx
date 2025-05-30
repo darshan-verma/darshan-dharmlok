@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-
 import { AdminSidebar } from "./components/Sidebar/sidebar";
 import {
 	SidebarProvider,
@@ -14,6 +13,8 @@ export default function AdminLayout({
 }: {
 	children: React.ReactNode;
 }) {
+
+
 	return (
 		<SidebarProvider defaultOpen={true}>
 			<div className="flex h-screen w-full">

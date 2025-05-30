@@ -14,6 +14,7 @@ export default function AdminRoute({
 	const router = useRouter();
 
 	useEffect(() => {
+		console.log("here");
 		if (status === "loading") return;
 
 		// If not authenticated, redirect to signin
