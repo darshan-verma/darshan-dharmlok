@@ -40,3 +40,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 eslint-config-nextjs-base
+/src/generated/prisma

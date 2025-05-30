@@ -99,9 +99,9 @@ export function AdminSidebar() {
 
 					<SidebarMenuItem>
 						<SidebarMenuButton
-						className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
-						isActive={pathname === "/admin/dharmguru"}
-						asChild
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/dharmguru"}
+							asChild
 						>
 							<Link href="/admin/dharmguru">
 								<HandHeart className="h-5 w-5 text-green-500" />

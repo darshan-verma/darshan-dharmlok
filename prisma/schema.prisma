@@ -1,0 +1,32 @@
+datasource db {
+    provider = "mongodb"
+    url = env("MONGODB_URI")
+}
+generator client {
+    provider = "prisma-client-js"
+    database = "mongoDb"
+}
+model User {
+    id String @id @default(auto()) @map("_id") @db.ObjectId
+    name String
+    phone String
+    email String @unique
+    userType String?
+    typeVendor String?
+    profileImageUrl String?
+    description String?
+    coverImageUrl String?
+    category String?
+    password String
+    address String?
+    city String?
+    state String?
+    country String?
+    social Int?
+    active Int?
+    rank Int?
+    pincode String?
+    availability Int?
+    kycApproved Int?
+    createdAt DateTime @default(now())
+}
