@@ -16,7 +16,7 @@ export default function RegisterPage() {
 		phone: "",
 		password: "",
 		confirmPassword: "",
-		role: "User",
+		userType: "User",
 	});
 	const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -40,8 +40,8 @@ export default function RegisterPage() {
 		if (formData.password !== formData.confirmPassword) {
 			newErrors.confirmPassword = "Passwords do not match";
 		}
-		if (!formData.role) {
-			newErrors.role = "Role is required";
+		if (!formData.userType) {
+			newErrors.userType = "User type is required";
 		}
 
 		setErrors(newErrors);
@@ -81,7 +81,7 @@ export default function RegisterPage() {
 			email: formData.email.trim(),
 			phone: formData.phone.trim(),
 			password: formData.password,
-			userType: formData.role,
+			userType: formData.userType,
 		};
 
 		console.log("Sending registration request to /api/auth/register...", {
@@ -371,12 +371,12 @@ export default function RegisterPage() {
 						Register as
 					</label>
 					<select
-						id="role"
-						name="role"
-						value={formData.role}
+						id="userType"
+						name="userType"
+						value={formData.userType}
 						onChange={handleChange}
 						className={`mt-1 block w-full rounded-md border ${
-							errors.role ? "border-red-500" : "border-gray-300"
+							errors.userType ? "border-red-500" : "border-gray-300"
 						} px-3 py-2 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm`}
 					>
 						<option value="User">User</option>

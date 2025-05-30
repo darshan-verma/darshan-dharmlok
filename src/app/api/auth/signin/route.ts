@@ -57,7 +57,16 @@ export async function POST(req: Request) {
 			);
 		}
 
-		// 3) Verify password
+		// 3) Check user status - only if the status field exists and is "Inactive"
+		if (user.status === "Inactive") {
+			console.error("[SignIn] Inactive user attempted login:", user.id);
+			return NextResponse.json(
+				{ error: "Your account has been deactivated. Please contact support." },
+				{ status: 403, headers: { "Content-Type": "application/json" } }
+			);
+		}
+
+		// 4) Verify password
 		console.log("[SignIn] Verifying password for user:", user.id);
 		const valid = await bcrypt.compare(password, user.password);
 		if (!valid) {
@@ -68,7 +77,22 @@ export async function POST(req: Request) {
 			);
 		}
 
-		// 4) Prepare response
+		// 5) Update login status and timestamp
+		// Use try/catch to handle potential errors if the fields don't exist yet
+		try {
+			await prisma.user.update({
+				where: { id: user.id },
+				data: {
+					lastLoginAt: new Date(),
+					isLoggedIn: true,
+				},
+			});
+		} catch (updateError) {
+			// Log the error but continue with the login process
+			console.error("[SignIn] Error updating login status:", updateError);
+		}
+
+		// 6) Prepare response
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { password: _, ...safeUser } = user;
 		console.log("[SignIn] Authentication successful for user:", user.id);
@@ -76,7 +100,11 @@ export async function POST(req: Request) {
 		return NextResponse.json(
 			{
 				message: "Sign in successful",
-				user: safeUser,
+				user: {
+					...safeUser,
+					isLoggedIn: true,
+					lastLoginAt: new Date(),
+				},
 			},
 			{
 				status: 200,

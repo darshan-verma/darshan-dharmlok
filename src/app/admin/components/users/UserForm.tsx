@@ -25,6 +25,7 @@ export default function UserForm({
 		name: "",
 		phone: "",
 		email: "",
+		userType: "User",
 		status: "Active",
 	},
 	onSubmit,
@@ -35,6 +36,7 @@ export default function UserForm({
 		name: initialData.name || "",
 		phone: initialData.phone || "",
 		email: initialData.email || "",
+		userType: initialData.userType || "User",
 		status: initialData.status || "Active",
 	});
 
@@ -128,6 +130,23 @@ export default function UserForm({
 				{formErrors.phone && (
 					<p className="text-sm text-red-500">{formErrors.phone}</p>
 				)}
+			</div>
+			<div className="space-y-2">
+				<Label htmlFor="userType">User Type *</Label>
+				<Select
+					value={userData.userType}
+					onValueChange={(value) => handleInputChange("userType", value)}
+				>
+					<SelectTrigger>
+						<SelectValue placeholder="Select user type" />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="User">User</SelectItem>
+						<SelectItem value="Admin">Admin</SelectItem>
+						<SelectItem value="Vendor">Vendor</SelectItem>
+						<SelectItem value="Moderator">Moderator</SelectItem>
+					</SelectContent>
+				</Select>
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="status">Status *</Label>

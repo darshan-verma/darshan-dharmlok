@@ -46,11 +46,26 @@ export function AdminSidebar({ className }: { className?: string }) {
 		setIsLoggingOut(true);
 
 		try {
+			// Get the current user ID from localStorage or any other client-side storage
+			// This assumes you're storing the user info after login
+			const userInfo = localStorage.getItem("userInfo");
+			let userId = "";
+
+			if (userInfo) {
+				try {
+					const parsedUser = JSON.parse(userInfo);
+					userId = parsedUser.id;
+				} catch (e) {
+					console.error("Error parsing user info:", e);
+				}
+			}
+
 			const response = await fetch("/api/auth/signout", {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 				},
+				body: JSON.stringify({ userId }),
 			});
 
 			if (!response.ok) {
@@ -59,6 +74,8 @@ export function AdminSidebar({ className }: { className?: string }) {
 			}
 
 			// Clear any client-side state
+			localStorage.removeItem("userInfo");
+
 			// Redirect to sign-in page
 			router.push("/auth/signin");
 			// Force a full page reload to clear all state

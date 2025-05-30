@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Eye, X, Check } from "lucide-react";
+import { Search, Eye, X, Check, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,7 +20,11 @@ export interface User {
 	name: string;
 	phone: string;
 	email: string;
+	userType: string;
 	status: string;
+	isLoggedIn?: boolean;
+	lastLoginAt?: Date;
+	lastLogoutAt?: Date;
 }
 
 interface UserTableProps {
@@ -29,34 +33,92 @@ interface UserTableProps {
 	onAddUser?: () => void;
 }
 
-export default function UserTable({
-	users,
-	setUsers,
-}: UserTableProps) {
+export default function UserTable({ users, setUsers }: UserTableProps) {
 	const [searchQuery, setSearchQuery] = useState("");
+	const [updatingUsers, setUpdatingUsers] = useState<Record<string, boolean>>(
+		{}
+	);
+
+	// Helper function to get color class based on user type
+	const getUserTypeColor = (userType: string) => {
+		switch (userType?.toLowerCase()) {
+			case "admin":
+				return "bg-purple-100 text-purple-800";
+			case "vendor":
+				return "bg-orange-100 text-orange-800";
+			case "moderator":
+				return "bg-blue-100 text-blue-800";
+			case "kathavachak":
+				return "bg-green-100 text-green-800";
+			case "dharmguru":
+				return "bg-yellow-100 text-yellow-800";
+			case "hotel/dharamshala":
+				return "bg-pink-100 text-pink-800";
+			case "pandit ji":
+				return "bg-indigo-100 text-indigo-800";
+			case "seller":
+				return "bg-red-100 text-red-800";
+			case "user":
+			default:
+				return "bg-gray-100 text-gray-800";
+		}
+	};
 
 	const handleStatusChange = async (userId: string, newStatus: string) => {
 		const user = users.find((u) => u.id === userId);
 		if (!user) return;
 
+		setUpdatingUsers((prev) => ({ ...prev, [userId]: true }));
 		const loadingToast = toast.loading("Updating user status...");
 
 		try {
-			// Simulate API call
-			await new Promise((resolve) => setTimeout(resolve, 500));
+			// Make API call to update user status
+			const response = await fetch("/api/users/status", {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					userId,
+					status: newStatus,
+				}),
+			});
 
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to update user status");
+			}
+
+			const updatedUser = await response.json();
+
+			// Update the users state with the updated user
 			setUsers(
 				users.map((user) =>
-					user.id === userId ? { ...user, status: newStatus } : user
+					user.id === userId
+						? {
+								...user,
+								status: newStatus,
+								isLoggedIn: updatedUser.isLoggedIn,
+						  }
+						: user
 				)
 			);
 
 			toast.dismiss(loadingToast);
 			toast.success(`User ${newStatus.toLowerCase()} successfully`);
+
+			// Show additional message if user was logged out as a result of deactivation
+			if (newStatus === "Inactive" && user.isLoggedIn) {
+				toast.info("User has been logged out due to account deactivation");
+			}
 		} catch (error) {
 			console.error("Error updating user status:", error);
 			toast.dismiss(loadingToast);
-			toast.error("Failed to update user status");
+			toast.error(
+				error instanceof Error ? error.message : "Failed to update user status"
+			);
+		} finally {
+			setUpdatingUsers((prev) => ({ ...prev, [userId]: false }));
 		}
 	};
 
@@ -64,7 +126,8 @@ export default function UserTable({
 		(user) =>
 			user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			user.phone.includes(searchQuery)
+			user.phone.includes(searchQuery) ||
+			user.userType.toLowerCase().includes(searchQuery.toLowerCase())
 	);
 
 	return (
@@ -89,7 +152,9 @@ export default function UserTable({
 							<TableHead>Name</TableHead>
 							<TableHead>Phone No.</TableHead>
 							<TableHead>Email</TableHead>
+							<TableHead>User Type</TableHead>
 							<TableHead>Status</TableHead>
+							<TableHead>Login State</TableHead>
 							<TableHead>Details</TableHead>
 							<TableHead>Action</TableHead>
 						</TableRow>
@@ -103,6 +168,15 @@ export default function UserTable({
 									<TableCell>{user.email}</TableCell>
 									<TableCell>
 										<span
+											className={`px-2 py-1 rounded-full text-xs font-medium ${getUserTypeColor(
+												user.userType
+											)}`}
+										>
+											{user.userType || "User"}
+										</span>
+									</TableCell>
+									<TableCell>
+										<span
 											className={`px-2 py-1 rounded-full text-xs font-medium ${
 												user.status === "Active"
 													? "bg-green-100 text-green-800"
@@ -111,6 +185,19 @@ export default function UserTable({
 										>
 											{user.status}
 										</span>
+									</TableCell>
+									<TableCell>
+										{user.isLoggedIn ? (
+											<span className="flex items-center text-green-600">
+												<LogIn className="h-4 w-4 mr-1" />
+												Online
+											</span>
+										) : (
+											<span className="flex items-center text-gray-500">
+												<LogOut className="h-4 w-4 mr-1" />
+												Offline
+											</span>
+										)}
 									</TableCell>
 									<TableCell>
 										<Button variant="ghost" size="sm" asChild>
@@ -127,9 +214,19 @@ export default function UserTable({
 												size="sm"
 												className="text-red-500 border-red-200 hover:bg-red-50"
 												onClick={() => handleStatusChange(user.id, "Inactive")}
+												disabled={updatingUsers[user.id]}
 											>
-												<X className="h-4 w-4 mr-1" />
-												Deactivate
+												{updatingUsers[user.id] ? (
+													<span className="flex items-center">
+														<span className="animate-spin h-4 w-4 mr-1 border-2 border-red-500 border-t-transparent rounded-full"></span>
+														Processing...
+													</span>
+												) : (
+													<>
+														<X className="h-4 w-4 mr-1" />
+														Deactivate
+													</>
+												)}
 											</Button>
 										) : (
 											<Button
@@ -137,9 +234,19 @@ export default function UserTable({
 												size="sm"
 												className="text-green-500 border-green-200 hover:bg-green-50"
 												onClick={() => handleStatusChange(user.id, "Active")}
+												disabled={updatingUsers[user.id]}
 											>
-												<Check className="h-4 w-4 mr-1" />
-												Activate
+												{updatingUsers[user.id] ? (
+													<span className="flex items-center">
+														<span className="animate-spin h-4 w-4 mr-1 border-2 border-green-500 border-t-transparent rounded-full"></span>
+														Processing...
+													</span>
+												) : (
+													<>
+														<Check className="h-4 w-4 mr-1" />
+														Activate
+													</>
+												)}
 											</Button>
 										)}
 									</TableCell>
@@ -147,7 +254,7 @@ export default function UserTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={6} className="text-center py-6">
+								<TableCell colSpan={8} className="text-center py-6">
 									No users found. Try a different search or add a new user.
 								</TableCell>
 							</TableRow>

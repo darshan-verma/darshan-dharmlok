@@ -69,6 +69,9 @@ export default function SignInPage() {
 				throw new Error(data.error || "Sign in failed");
 			}
 
+			// Store user information in localStorage for later use
+			localStorage.setItem("userInfo", JSON.stringify(data.user));
+
 			toast.success("Sign in successful!");
 			router.push("/admin");
 		} catch (error) {
