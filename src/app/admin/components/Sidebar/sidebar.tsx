@@ -17,7 +17,7 @@ import {
 	Settings,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";	
+import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 
 import {
@@ -311,7 +311,7 @@ export function AdminSidebar({ className }: { className?: string }) {
 						onClick={() => signOut({ callbackUrl: "/auth/signin" })}
 						className={cn(
 							"gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all",
-							"hover:text-red-500 focus:text-red-500",
+							"hover:text-red-500 focus:text-red-500"
 						)}
 					>
 						<LogOut className="h-5 w-5" />

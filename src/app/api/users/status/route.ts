@@ -1,4 +1,4 @@
-import prisma from "../../../../lib/prisma";
+import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function PUT(req: Request) {
@@ -20,32 +20,10 @@ export async function PUT(req: Request) {
 			);
 		}
 
-		// Get current user data
-		const currentUser = await prisma.user.findUnique({
-			where: { id: userId },
-			select: { isLoggedIn: true },
-		});
-
-		if (!currentUser) {
-			return NextResponse.json({ error: "User not found" }, { status: 404 });
-		}
-
-		// If setting to Inactive and user is logged in, force logout
-		const updateData: {
-			status: string;
-			isLoggedIn?: boolean;
-			lastLogoutAt?: Date;
-		} = { status };
-
-		if (status === "Inactive" && currentUser.isLoggedIn) {
-			updateData.isLoggedIn = false;
-			updateData.lastLogoutAt = new Date();
-		}
-
 		// Update user status in database
 		const updatedUser = await prisma.user.update({
 			where: { id: userId },
-			data: updateData,
+			data: { status },
 			select: {
 				id: true,
 				name: true,
@@ -53,7 +31,6 @@ export async function PUT(req: Request) {
 				phone: true,
 				userType: true,
 				status: true,
-				isLoggedIn: true,
 			},
 		});
 

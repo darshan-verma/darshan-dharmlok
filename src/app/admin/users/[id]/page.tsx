@@ -51,14 +51,31 @@ interface User {
 	name: string;
 	phone: string;
 	email: string;
-	status: string;
-	address: string;
-	joinedDate: string;
-	lastActive: string;
-	avatar?: string;
-	bio: string;
-	preferences: UserPreferences;
-	activities: Activity[];
+	userType?: string;
+	typeVendor?: string;
+	profileImageUrl?: string;
+	bio?: string;
+	coverImageUrl?: string;
+	category?: string;
+	address?: string;
+	city?: string;
+	state?: string;
+	country?: string;
+	social?: number;
+	active?: number;
+	rank?: number;
+	pincode?: string;
+	availability?: number;
+	kycApproved?: number;
+	status?: string;
+	isLoggedIn: boolean;
+	lastLogoutAt?: string | Date | null;
+	lastActiveAt?: string | Date | null;
+	lastLoginAt?: string | Date | null;
+	createdAt: string | Date;
+	// Client-side only properties
+	preferences?: UserPreferences;
+	activities?: Activity[];
 }
 
 interface FormErrors {
@@ -67,120 +84,6 @@ interface FormErrors {
 	phone?: string;
 	address?: string;
 }
-
-// Mock user data - in a real app, you would fetch this from an API
-const mockUserDetails: Record<string, User> = {
-	"1": {
-		id: "1",
-		name: "Rahul Sharma",
-		phone: "+91 9876543210",
-		email: "rahul.sharma@gmail.com",
-		status: "Active",
-		address: "123 Ganga Nagar, New Delhi, 110001",
-		joinedDate: "2023-05-15",
-		lastActive: "2023-06-24T08:30:00",
-		avatar: "/avatars/rahul.jpg",
-		bio: "Passionate about spiritual growth and seeking knowledge about Hindu traditions.",
-		preferences: {
-			notifications: true,
-			newsletter: true,
-			language: "Hindi",
-		},
-		activities: [
-			{ date: "2023-06-20", action: "Booked temple visit" },
-			{ date: "2023-06-15", action: "Purchased e-book" },
-			{ date: "2023-06-10", action: "Attended online puja" },
-		],
-	},
-	"2": {
-		id: "2",
-		name: "Priya Patel",
-		phone: "+91 8765432109",
-		email: "priya.patel@gmail.com",
-		status: "Active",
-		address: "456 Krishna Colony, Mumbai, 400001",
-		joinedDate: "2023-04-10",
-		lastActive: "2023-06-22T14:15:00",
-		avatar: "/avatars/priya.jpg",
-		bio: "Yoga practitioner and devotee interested in ancient scriptures.",
-		preferences: {
-			notifications: true,
-			newsletter: false,
-			language: "English",
-		},
-		activities: [
-			{ date: "2023-06-18", action: "Registered for event" },
-			{ date: "2023-06-05", action: "Downloaded audio book" },
-			{ date: "2023-05-25", action: "Made donation" },
-		],
-	},
-	"3": {
-		id: "3",
-		name: "Amit Kumar",
-		phone: "+91 7654321098",
-		email: "amit.kumar@gmail.com",
-		status: "Inactive",
-		address: "789 Ram Nagar, Bangalore, 560001",
-		joinedDate: "2023-03-22",
-		lastActive: "2023-05-10T11:45:00",
-		avatar: "/avatars/amit.jpg",
-		bio: "Scholar of Vedic studies with interest in comparative religion.",
-		preferences: {
-			notifications: false,
-			newsletter: true,
-			language: "Sanskrit",
-		},
-		activities: [
-			{ date: "2023-05-08", action: "Asked question to Dharmguru" },
-			{ date: "2023-04-30", action: "Booked pooja" },
-			{ date: "2023-04-15", action: "Updated profile" },
-		],
-	},
-	"4": {
-		id: "4",
-		name: "Deepika Singh",
-		phone: "+91 6543210987",
-		email: "deepika.singh@gmail.com",
-		status: "Active",
-		address: "321 Shiva Lane, Chennai, 600001",
-		joinedDate: "2023-02-14",
-		lastActive: "2023-06-23T16:20:00",
-		avatar: "/avatars/deepika.jpg",
-		bio: "Temple architecture enthusiast and regular volunteer at charitable events.",
-		preferences: {
-			notifications: true,
-			newsletter: true,
-			language: "Tamil",
-		},
-		activities: [
-			{ date: "2023-06-20", action: "Booked dharamshala stay" },
-			{ date: "2023-06-12", action: "Shared article" },
-			{ date: "2023-06-01", action: "Added temple review" },
-		],
-	},
-	"5": {
-		id: "5",
-		name: "Vikram Mehta",
-		phone: "+91 5432109876",
-		email: "vikram.mehta@gmail.com",
-		status: "Inactive",
-		address: "654 Hanuman Road, Jaipur, 302001",
-		joinedDate: "2023-01-30",
-		lastActive: "2023-04-15T09:10:00",
-		avatar: "/avatars/vikram.jpg",
-		bio: "Business professional with interest in dharmic principles and management.",
-		preferences: {
-			notifications: false,
-			newsletter: false,
-			language: "English",
-		},
-		activities: [
-			{ date: "2023-04-12", action: "Purchased merchandise" },
-			{ date: "2023-03-28", action: "Registered complaint" },
-			{ date: "2023-03-10", action: "Created account" },
-		],
-	},
-};
 
 export default function UserDetailPage() {
 	const params = useParams();
@@ -194,34 +97,144 @@ export default function UserDetailPage() {
 	const [imageError, setImageError] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
 
-	// Fix: Memoize the fetch function and add proper dependencies
-	const fetchUserData = useCallback(() => {
+	// Fetch user data from API
+	const fetchUserData = useCallback(async () => {
 		try {
+			console.log("Fetching user data for ID:", userId);
+
+			// Validate MongoDB ObjectId format
+			if (userId && !/^[0-9a-fA-F]{24}$/.test(userId)) {
+				console.error("Invalid MongoDB ObjectId format:", userId);
+				toast.error("Invalid user ID format");
+				router.push("/admin/users");
+				return;
+			}
+
 			const loadingToast = toast.loading("Loading user details...");
-			// In a real app, you would fetch user data from an API
-			setTimeout(() => {
-				const userData =
-					mockUserDetails[userId as keyof typeof mockUserDetails];
-				if (userData) {
-					setUser(userData);
-					setEditedUser({ ...userData });
-					toast.dismiss(loadingToast);
-				} else {
-					toast.dismiss(loadingToast);
-					toast.error("User not found");
-					router.push("/admin/users");
+
+			console.log("Making API request to:", `/api/users/${userId}`);
+
+			// Add timeout to prevent hanging requests
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+			try {
+				const response = await fetch(`/api/users/${userId}`, {
+					signal: controller.signal,
+				});
+				clearTimeout(timeoutId);
+
+				console.log("API response status:", response.status);
+
+				if (!response.ok) {
+					const errorText = await response.text();
+					console.error("Error response text:", errorText);
+
+					let errorData;
+					try {
+						errorData = JSON.parse(errorText);
+						console.error("Parsed error data:", errorData);
+					} catch (parseError) {
+						console.error(
+							"Failed to parse error response as JSON:",
+							parseError
+						);
+						errorData = { error: "Unknown error occurred" };
+					}
+
+					throw new Error(errorData.error || "Failed to fetch user");
 				}
-			}, 500);
+
+				const userData = await response.json();
+				console.log("User data received:", userData);
+
+				// Create a complete user object with fallbacks for missing properties
+				const completeUser: User = {
+					...userData,
+					id: userData.id,
+					name: userData.name || "",
+					email: userData.email || "",
+					phone: userData.phone || "",
+					address: userData.address || "",
+					userType: userData.userType || "Regular",
+					status: userData.status || "Active",
+					isLoggedIn: userData.isLoggedIn || false,
+					bio: userData.bio || "",
+					createdAt: userData.createdAt || new Date().toISOString(),
+					// Add client-side only properties
+					preferences: {
+						notifications: true,
+						newsletter: false,
+						language: "English",
+					},
+					activities: [],
+				};
+
+				setUser(completeUser);
+				setEditedUser({ ...completeUser });
+				toast.dismiss(loadingToast);
+			} catch (error) {
+				clearTimeout(timeoutId);
+				if (error instanceof Error) {
+					if (error.name === "AbortError") {
+						throw new Error("Request timed out. Please try again.");
+					}
+				}
+				throw error;
+			}
 		} catch (error) {
 			console.error("Error loading user:", error);
-			toast.error("Failed to load user details");
+			console.error(
+				"Error details:",
+				error instanceof Error
+					? {
+							name: error.name,
+							message: error.message,
+							stack: error.stack,
+					  }
+					: "Unknown error type"
+			);
+
+			toast.error(
+				error instanceof Error ? error.message : "Failed to load user details"
+			);
+
+			// Create a mock user as fallback for development
+			if (process.env.NODE_ENV !== "production") {
+				console.log("Using mock data as fallback in development");
+				const mockUser: User = {
+					id: userId || "mock-id",
+					name: "Test User",
+					email: "test@example.com",
+					phone: "1234567890",
+					address: "123 Test Street",
+					userType: "Regular",
+					status: "Active",
+					isLoggedIn: false,
+					bio: "This is a test user bio.",
+					createdAt: new Date().toISOString(),
+					preferences: {
+						notifications: true,
+						newsletter: false,
+						language: "English",
+					},
+					activities: [],
+				};
+				setUser(mockUser);
+				setEditedUser({ ...mockUser });
+				return;
+			}
+
+			router.push("/admin/users");
 		}
 	}, [userId, router]);
 
-	// Fix: Call the memoized function
+	// Call the fetch function when component mounts
 	useEffect(() => {
-		fetchUserData();
-	}, [fetchUserData]);
+		if (userId) {
+			fetchUserData();
+		}
+	}, [userId, fetchUserData]);
 
 	const validateForm = (userData: Partial<User>): boolean => {
 		const newErrors: FormErrors = {};
@@ -265,31 +278,72 @@ export default function UserDetailPage() {
 		const loadingToast = toast.loading("Saving changes...");
 
 		try {
-			// Simulate API call
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			// Prepare data for API
+			const dataToSave = {
+				name: editedUser.name,
+				email: editedUser.email,
+				phone: editedUser.phone,
+				address: editedUser.address,
+				bio: editedUser.bio || null,
+			};
 
-			// In a real app, you would save changes to the backend here
-			setUser(editedUser as User);
+			console.log("Sending data to API:", dataToSave); // Debug log
+
+			const response = await fetch(`/api/users/${userId}`, {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(dataToSave),
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				console.error("API Error:", errorData); // Debug log
+				throw new Error(errorData.error || "Failed to update user");
+			}
+
+			const updatedUser = await response.json();
+			console.log("Update successful:", updatedUser); // Debug log
+
+			setUser(updatedUser);
 			setIsEditing(false);
-
 			toast.dismiss(loadingToast);
 			toast.success("User details updated successfully!");
 		} catch (error) {
 			console.error("Error saving user:", error);
 			toast.dismiss(loadingToast);
-			toast.error("Failed to update user details");
+			toast.error(
+				error instanceof Error ? error.message : "Failed to update user details"
+			);
 		} finally {
 			setIsSaving(false);
 		}
 	};
 
-	const formatDate = (dateString: string) => {
-		const date = new Date(dateString);
+	const formatDate = (dateString: string | Date) => {
+		if (!dateString) return "N/A";
+		const date =
+			typeof dateString === "string" ? new Date(dateString) : dateString;
 		return new Intl.DateTimeFormat("en-IN", {
 			day: "2-digit",
 			month: "short",
 			year: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+			hour12: true,
 		}).format(date);
+	};
+
+	const getUserStatus = (user: User) => {
+		if (!user.status || user.status === "Inactive") return "Inactive";
+		return user.isLoggedIn ? "Active (Online)" : "Active (Offline)";
+	};
+
+	const getStatusColor = (status: string) => {
+		if (status === "Inactive") return "bg-red-100 text-red-800";
+		if (status === "Active (Online)") return "bg-green-100 text-green-800";
+		return "bg-blue-100 text-blue-800"; // Active (Offline)
 	};
 
 	const formatPhoneNumber = (value: string): string => {
@@ -326,9 +380,9 @@ export default function UserDetailPage() {
 				<Card className="md:col-span-1">
 					<CardHeader className="text-center">
 						<div className="w-24 h-24 mx-auto rounded-full bg-muted flex items-center justify-center mb-4">
-							{user?.avatar && !imageError ? (
+							{user?.profileImageUrl && !imageError ? (
 								<Image
-									src={user.avatar}
+									src={user.profileImageUrl}
 									alt={user.name}
 									width={96}
 									height={96}
@@ -340,17 +394,20 @@ export default function UserDetailPage() {
 								<User className="h-12 w-12 text-muted-foreground" />
 							)}
 						</div>
-						<CardTitle>{user?.name}</CardTitle>
-						<CardDescription>
+						<CardTitle className="text-center">{user?.name}</CardTitle>
+						<CardDescription className="flex flex-wrap justify-center items-center gap-2">
 							<span
-								className={`px-2 py-1 rounded-full text-xs font-medium ${
-									user?.status === "Active"
-										? "bg-green-100 text-green-800"
-										: "bg-red-100 text-red-800"
-								}`}
+								className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+									user ? getUserStatus(user) : "Inactive"
+								)}`}
 							>
-								{user?.status}
+								{user ? getUserStatus(user) : "Inactive"}
 							</span>
+							{user?.userType && (
+								<span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+									{user.userType}
+								</span>
+							)}
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-4">
@@ -365,9 +422,38 @@ export default function UserDetailPage() {
 						<div className="flex items-center gap-3">
 							<Calendar className="h-4 w-4 text-muted-foreground" />
 							<span>
-								Joined: {user?.joinedDate ? formatDate(user.joinedDate) : "N/A"}
+								Created At:{" "}
+								{user?.createdAt
+									? formatDate(user.createdAt.toString())
+									: "N/A"}
 							</span>
 						</div>
+						<div className="flex items-center gap-3">
+							<Calendar className="h-4 w-4 text-muted-foreground" />
+							<span>
+								Last Active:{" "}
+								{user?.lastActiveAt
+									? formatDate(user.lastActiveAt.toString())
+									: "N/A"}
+								{user?.isLoggedIn && " (Now)"}
+							</span>
+						</div>
+						{user?.isLoggedIn && user?.lastLoginAt && (
+							<div className="flex items-center gap-3">
+								<Calendar className="h-4 w-4 text-muted-foreground" />
+								<span>
+									Logged In: {formatDate(user.lastLoginAt.toString())}
+								</span>
+							</div>
+						)}
+						{!user?.isLoggedIn && user?.lastLogoutAt && (
+							<div className="flex items-center gap-3">
+								<Calendar className="h-4 w-4 text-muted-foreground" />
+								<span>
+									Logged Out: {formatDate(user.lastLogoutAt.toString())}
+								</span>
+							</div>
+						)}
 						<div className="flex items-center gap-3">
 							<MapPin className="h-4 w-4 text-muted-foreground" />
 							<span className="text-sm">{user?.address}</span>
@@ -483,30 +569,41 @@ export default function UserDetailPage() {
 														</p>
 													)}
 												</div>
-												<div className="space-y-2">
-													<Label htmlFor="status">Status</Label>
+												{/* <div className="space-y-2">
+													<Label htmlFor="userType">User Type</Label>
 													<Select
-														value={editedUser?.status}
+														value={editedUser?.userType}
 														onValueChange={(value) =>
 															setEditedUser({
 																...editedUser,
-																status: value,
+																userType: value,
 															})
 														}
 													>
-														<SelectTrigger id="status">
-															<SelectValue placeholder="Select status" />
+														<SelectTrigger id="userType">
+															<SelectValue placeholder="Select userType" />
 														</SelectTrigger>
 														<SelectContent>
 															<SelectGroup>
-																<SelectItem value="Active">Active</SelectItem>
-																<SelectItem value="Inactive">
-																	Inactive
+																<SelectItem value="User">User</SelectItem>
+																<SelectItem value="Vendor">Vendor</SelectItem>
+																<SelectItem value="Kathavachak">
+																	Kathavachak
+																</SelectItem>
+																<SelectItem value="Dharmguru">
+																	Dharmguru
+																</SelectItem>
+																<SelectItem value="Seller">Seller</SelectItem>
+																<SelectItem value="Hotel/Dharamshala">
+																	Hotel/Dharamshala
+																</SelectItem>
+																<SelectItem value="Pandit Ji">
+																	Pandit Ji
 																</SelectItem>
 															</SelectGroup>
 														</SelectContent>
 													</Select>
-												</div>
+												</div> */}
 											</div>
 											<div className="space-y-2">
 												<Label htmlFor="address">Address</Label>
@@ -539,46 +636,75 @@ export default function UserDetailPage() {
 														})
 													}
 													rows={4}
+													placeholder="Tell us about yourself"
 												/>
 											</div>
 										</>
 									) : (
-										<div className="space-y-4">
-											<div className="p-4 bg-muted/30 rounded-lg">
-												<h3 className="font-medium mb-2">About</h3>
-												<p className="text-muted-foreground">{user?.bio}</p>
-											</div>
-											<div className="grid grid-cols-1 md:grid-cols-2 gap-y-4">
-												<div>
-													<h3 className="text-sm text-muted-foreground">
+										<div className="space-y-6">
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
 														Full Name
 													</h3>
-													<p className="font-medium">{user?.name}</p>
+													<p className="font-medium text-foreground">
+														{user?.name}
+													</p>
 												</div>
-												<div>
-													<h3 className="text-sm text-muted-foreground">
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
 														Email
 													</h3>
-													<p className="font-medium">{user?.email}</p>
+													<p className="font-medium text-foreground">
+														{user?.email}
+													</p>
 												</div>
-												<div>
-													<h3 className="text-sm text-muted-foreground">
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
 														Phone
 													</h3>
-													<p className="font-medium">{user?.phone}</p>
+													<p className="font-medium text-foreground">
+														{user?.phone}
+													</p>
 												</div>
-												<div>
-													<h3 className="text-sm text-muted-foreground">
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														User Type
+													</h3>
+													<div className="flex items-center">
+														<span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+															{user?.userType || "Not specified"}
+														</span>
+													</div>
+												</div>
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
 														Status
 													</h3>
-													<p className="font-medium">{user?.status}</p>
+													<div className="flex items-center">
+														<span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+															{user?.status || "Not specified"}
+														</span>
+													</div>
 												</div>
-												<div className="md:col-span-2">
-													<h3 className="text-sm text-muted-foreground">
-														Address
-													</h3>
-													<p className="font-medium">{user?.address}</p>
-												</div>
+											</div>
+
+											<div className="space-y-2 pt-2 border-t border-border">
+												<h3 className="text-sm font-medium text-muted-foreground">
+													Address
+												</h3>
+												<p className="font-medium text-foreground">
+													{user?.address || "No address provided"}
+												</p>
+											</div>
+
+											<div className="space-y-2 pt-2 border-t border-border">
+												<h3 className="text-sm font-medium text-muted-foreground">
+													Bio
+												</h3>
+												<p className="font-medium text-foreground whitespace-pre-wrap">
+													{user?.bio || "No bio provided"}
+												</p>
 											</div>
 										</div>
 									)}
@@ -785,7 +911,7 @@ export default function UserDetailPage() {
 										Recent user activities and interactions.
 									</CardDescription>
 								</CardHeader>
-								<CardContent>
+								{/* <CardContent>
 									<div className="space-y-4">
 										{user?.activities.map(
 											(activity: Activity, index: number) => (
@@ -806,7 +932,7 @@ export default function UserDetailPage() {
 											)
 										)}
 									</div>
-								</CardContent>
+								</CardContent> */}
 							</Card>
 						</TabsContent>
 					</Tabs>

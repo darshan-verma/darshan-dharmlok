@@ -20,7 +20,7 @@ export default function AdminLayout({
 			<div className="flex h-screen w-full">
 				<AdminSidebar />
 				<div className="flex flex-1 flex-col">
-					<header className="bg-background border-b flex h-14 items-center px-4 lg:h-[60px] sticky top-0 z-10">
+					<header className="bg-background border-b flex h-14 shrink-0 items-center px-4 lg:h-[60px] sticky top-0 z-10">
 						<SidebarTrigger />
 						<div className="ml-4 flex items-center gap-4">
 							<h1 className="text-xl font-semibold">Dashboard</h1>

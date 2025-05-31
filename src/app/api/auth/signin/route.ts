@@ -76,22 +76,6 @@ export async function POST(req: Request) {
 				{ status: 401, headers: { "Content-Type": "application/json" } }
 			);
 		}
-
-		// 5) Update login status and timestamp
-		// Use try/catch to handle potential errors if the fields don't exist yet
-		try {
-			await prisma.user.update({
-				where: { id: user.id },
-				data: {
-					lastLoginAt: new Date(),
-					isLoggedIn: true,
-				},
-			});
-		} catch (updateError) {
-			// Log the error but continue with the login process
-			console.error("[SignIn] Error updating login status:", updateError);
-		}
-
 		// 6) Prepare response
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { password: _, ...safeUser } = user;
@@ -100,11 +84,7 @@ export async function POST(req: Request) {
 		return NextResponse.json(
 			{
 				message: "Sign in successful",
-				user: {
-					...safeUser,
-					isLoggedIn: true,
-					lastLoginAt: new Date(),
-				},
+				user: safeUser,
 			},
 			{
 				status: 200,

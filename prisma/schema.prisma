@@ -11,6 +11,7 @@ model User {
     name String
     phone String
     email String @unique
+    bio String?
     userType String?
     typeVendor String?
     profileImageUrl String?
@@ -29,8 +30,9 @@ model User {
     availability Int?
     kycApproved Int?
     status String? @default("Active")
-    isLoggedIn Boolean? @default(false)
-    lastLoginAt DateTime?
+    isLoggedIn Boolean @default(false)
     lastLogoutAt DateTime?
+    lastActiveAt DateTime?
+    lastLoginAt DateTime?
     createdAt DateTime @default(now())
 }
