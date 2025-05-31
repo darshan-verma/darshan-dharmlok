@@ -10,6 +10,8 @@ import {
 	Mail,
 	Calendar,
 	MapPin,
+	Plus,
+	Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +48,20 @@ interface UserPreferences {
 	language: string;
 }
 
+interface Address {
+	id?: string;
+	type: "home" | "work" | "other";
+	label?: string;
+	line1: string;
+	line2?: string;
+	city: string;
+	state?: string;
+	country: string;
+	pincode?: string;
+	createdAt?: string | Date;
+	updatedAt?: string | Date;
+}
+
 interface User {
 	id: string;
 	name: string;
@@ -57,14 +73,10 @@ interface User {
 	bio?: string;
 	coverImageUrl?: string;
 	category?: string;
-	address?: string;
-	city?: string;
-	state?: string;
-	country?: string;
+	addresses?: Address[];
 	social?: number;
 	active?: number;
 	rank?: number;
-	pincode?: string;
 	availability?: number;
 	kycApproved?: number;
 	status?: string;
@@ -82,7 +94,14 @@ interface FormErrors {
 	name?: string;
 	email?: string;
 	phone?: string;
-	address?: string;
+	addresses?: {
+		[key: string]: {
+			line1?: string;
+			city?: string;
+			country?: string;
+			label?: string;
+		};
+	};
 }
 
 export default function UserDetailPage() {
@@ -155,7 +174,7 @@ export default function UserDetailPage() {
 					name: userData.name || "",
 					email: userData.email || "",
 					phone: userData.phone || "",
-					address: userData.address || "",
+					addresses: userData.addresses || [],
 					userType: userData.userType || "Regular",
 					status: userData.status || "Active",
 					isLoggedIn: userData.isLoggedIn || false,
@@ -207,7 +226,14 @@ export default function UserDetailPage() {
 					name: "Test User",
 					email: "test@example.com",
 					phone: "1234567890",
-					address: "123 Test Street",
+					addresses: [
+						{
+							type: "home",
+							line1: "123 Test Street",
+							city: "Test City",
+							country: "India",
+						},
+					],
 					userType: "Regular",
 					status: "Active",
 					isLoggedIn: false,
@@ -259,8 +285,26 @@ export default function UserDetailPage() {
 			}
 		}
 
-		if (!userData.address?.trim()) {
-			newErrors.address = "Address is required";
+		if (userData.addresses) {
+			userData.addresses.forEach((address, index) => {
+				if (!address.line1?.trim()) {
+					newErrors.addresses = newErrors.addresses || {};
+					newErrors.addresses[index] = newErrors.addresses[index] || {};
+					newErrors.addresses[index].line1 = "Address line 1 is required";
+				}
+
+				if (!address.city?.trim()) {
+					newErrors.addresses = newErrors.addresses || {};
+					newErrors.addresses[index] = newErrors.addresses[index] || {};
+					newErrors.addresses[index].city = "City is required";
+				}
+
+				if (!address.country?.trim()) {
+					newErrors.addresses = newErrors.addresses || {};
+					newErrors.addresses[index] = newErrors.addresses[index] || {};
+					newErrors.addresses[index].country = "Country is required";
+				}
+			});
 		}
 
 		setErrors(newErrors);
@@ -283,7 +327,7 @@ export default function UserDetailPage() {
 				name: editedUser.name,
 				email: editedUser.email,
 				phone: editedUser.phone,
-				address: editedUser.address,
+				addresses: editedUser.addresses,
 				bio: editedUser.bio || null,
 			};
 
@@ -454,10 +498,29 @@ export default function UserDetailPage() {
 								</span>
 							</div>
 						)}
-						<div className="flex items-center gap-3">
-							<MapPin className="h-4 w-4 text-muted-foreground" />
-							<span className="text-sm">{user?.address}</span>
-						</div>
+						{user?.addresses && user.addresses.length > 0 && (
+							<div className="space-y-1 mt-2">
+								<div className="flex items-center gap-3">
+									<MapPin className="h-4 w-4 text-muted-foreground" />
+									<span className="font-medium">Addresses:</span>
+								</div>
+								{user.addresses.map((address, index) => (
+									<div key={index} className="ml-7 text-sm">
+										<span className="text-muted-foreground">
+											{address.type.charAt(0).toUpperCase() +
+												address.type.slice(1)}
+											{address.type === "other" && address.label
+												? ` (${address.label})`
+												: ""}
+											:
+										</span>{" "}
+										<span>
+											{address.city}, {address.country}
+										</span>
+									</div>
+								))}
+							</div>
+						)}
 					</CardContent>
 					<CardFooter>
 						<Button
@@ -569,61 +632,421 @@ export default function UserDetailPage() {
 														</p>
 													)}
 												</div>
-												{/* <div className="space-y-2">
-													<Label htmlFor="userType">User Type</Label>
-													<Select
-														value={editedUser?.userType}
-														onValueChange={(value) =>
-															setEditedUser({
-																...editedUser,
-																userType: value,
-															})
-														}
-													>
-														<SelectTrigger id="userType">
-															<SelectValue placeholder="Select userType" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectGroup>
-																<SelectItem value="User">User</SelectItem>
-																<SelectItem value="Vendor">Vendor</SelectItem>
-																<SelectItem value="Kathavachak">
-																	Kathavachak
-																</SelectItem>
-																<SelectItem value="Dharmguru">
-																	Dharmguru
-																</SelectItem>
-																<SelectItem value="Seller">Seller</SelectItem>
-																<SelectItem value="Hotel/Dharamshala">
-																	Hotel/Dharamshala
-																</SelectItem>
-																<SelectItem value="Pandit Ji">
-																	Pandit Ji
-																</SelectItem>
-															</SelectGroup>
-														</SelectContent>
-													</Select>
-												</div> */}
 											</div>
-											<div className="space-y-2">
-												<Label htmlFor="address">Address</Label>
-												<Input
-													id="address"
-													value={editedUser?.address || ""}
-													onChange={(e) =>
-														setEditedUser({
-															...editedUser,
-															address: e.target.value,
-														})
-													}
-													className={errors.address ? "border-red-500" : ""}
-												/>
-												{errors.address && (
-													<p className="text-sm text-red-500">
-														{errors.address}
-													</p>
+											{editedUser?.addresses && (
+												<div className="space-y-6 border p-4 rounded-lg">
+													<div className="flex justify-between items-center">
+														<h3 className="text-base font-medium">Addresses</h3>
+														<Button
+															type="button"
+															variant="outline"
+															size="sm"
+															onClick={() => {
+																setEditedUser((prev) => {
+																	if (!prev) return prev;
+																	return {
+																		...prev,
+																		addresses: [
+																			...(prev.addresses || []),
+																			{
+																				type: "home",
+																				line1: "",
+																				city: "",
+																				country: "India",
+																			},
+																		],
+																	};
+																});
+															}}
+														>
+															<Plus className="h-4 w-4 mr-2" />
+															Add Address
+														</Button>
+													</div>
+
+													{editedUser.addresses.map((address, index) => (
+														<div
+															key={index}
+															className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0"
+														>
+															<div className="flex justify-between items-center">
+																<div className="flex items-center gap-2">
+																	<MapPin className="h-4 w-4 text-muted-foreground" />
+																	<h4 className="font-medium">
+																		{address.type.charAt(0).toUpperCase() +
+																			address.type.slice(1)}{" "}
+																		Address
+																		{address.type === "other" && address.label
+																			? ` (${address.label})`
+																			: ""}
+																	</h4>
+																</div>
+																<Button
+																	type="button"
+																	variant="ghost"
+																	size="sm"
+																	className="text-red-500 hover:text-red-700 hover:bg-red-50"
+																	onClick={() => {
+																		setEditedUser((prev) => {
+																			if (!prev) return prev;
+																			return {
+																				...prev,
+																				addresses:
+																					prev.addresses?.filter(
+																						(_, addrIndex) =>
+																							addrIndex !== index
+																					) || [],
+																			};
+																		});
+																	}}
+																>
+																	<Trash2 className="h-4 w-4" />
+																</Button>
+															</div>
+
+															<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+																<div className="space-y-2">
+																	<Label htmlFor={`address-type-${index}`}>
+																		Address Type
+																	</Label>
+																	<Select
+																		value={address.type}
+																		onValueChange={(value) => {
+																			setEditedUser((prev) => {
+																				if (!prev) return prev;
+																				return {
+																					...prev,
+																					addresses: prev.addresses?.map(
+																						(addr, addrIndex) =>
+																							addrIndex === index
+																								? {
+																										...addr,
+																										type: value as
+																											| "home"
+																											| "work"
+																											| "other",
+																										// Clear label if not "other" type
+																										label:
+																											value === "other"
+																												? addr.label
+																												: undefined,
+																								  }
+																								: addr
+																					),
+																				};
+																			});
+																		}}
+																	>
+																		<SelectTrigger id={`address-type-${index}`}>
+																			<SelectValue placeholder="Select address type" />
+																		</SelectTrigger>
+																		<SelectContent>
+																			<SelectItem value="home">Home</SelectItem>
+																			<SelectItem value="work">Work</SelectItem>
+																			<SelectItem value="other">
+																				Other
+																			</SelectItem>
+																		</SelectContent>
+																	</Select>
+																</div>
+
+																{address.type === "other" && (
+																	<div className="space-y-2">
+																		<Label htmlFor={`address-label-${index}`}>
+																			Label
+																		</Label>
+																		<Input
+																			id={`address-label-${index}`}
+																			value={address.label || ""}
+																			onChange={(e) => {
+																				setEditedUser((prev) => {
+																					if (!prev) return prev;
+																					return {
+																						...prev,
+																						addresses: prev.addresses?.map(
+																							(addr, addrIndex) =>
+																								addrIndex === index
+																									? {
+																											...addr,
+																											label: e.target.value,
+																									  }
+																									: addr
+																						),
+																					};
+																				});
+																			}}
+																			placeholder="e.g., Parent's Home, Office"
+																			className={
+																				errors.addresses?.[index]?.label
+																					? "border-red-500"
+																					: ""
+																			}
+																		/>
+																		{errors.addresses?.[index]?.label && (
+																			<p className="text-sm text-red-500">
+																				{errors.addresses[index].label}
+																			</p>
+																		)}
+																	</div>
+																)}
+															</div>
+
+															<div className="space-y-2">
+																<Label htmlFor={`address-line1-${index}`}>
+																	Address Line 1
+																</Label>
+																<Input
+																	id={`address-line1-${index}`}
+																	value={address.line1 || ""}
+																	onChange={(e) => {
+																		setEditedUser((prev) => {
+																			if (!prev) return prev;
+																			return {
+																				...prev,
+																				addresses: prev.addresses?.map(
+																					(addr, addrIndex) =>
+																						addrIndex === index
+																							? {
+																									...addr,
+																									line1: e.target.value,
+																							  }
+																							: addr
+																				),
+																			};
+																		});
+																	}}
+																	placeholder="Street address, P.O. box, etc."
+																	className={
+																		errors.addresses?.[index]?.line1
+																			? "border-red-500"
+																			: ""
+																	}
+																/>
+																{errors.addresses?.[index]?.line1 && (
+																	<p className="text-sm text-red-500">
+																		{errors.addresses[index].line1}
+																	</p>
+																)}
+															</div>
+
+															<div className="space-y-2">
+																<Label htmlFor={`address-line2-${index}`}>
+																	Address Line 2 (Optional)
+																</Label>
+																<Input
+																	id={`address-line2-${index}`}
+																	value={address.line2 || ""}
+																	onChange={(e) => {
+																		setEditedUser((prev) => {
+																			if (!prev) return prev;
+																			return {
+																				...prev,
+																				addresses: prev.addresses?.map(
+																					(addr, addrIndex) =>
+																						addrIndex === index
+																							? {
+																									...addr,
+																									line2: e.target.value,
+																							  }
+																							: addr
+																				),
+																			};
+																		});
+																	}}
+																	placeholder="Apartment, suite, unit, building, floor, etc."
+																/>
+															</div>
+
+															<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+																<div className="space-y-2">
+																	<Label htmlFor={`address-city-${index}`}>
+																		City
+																	</Label>
+																	<Input
+																		id={`address-city-${index}`}
+																		value={address.city || ""}
+																		onChange={(e) => {
+																			setEditedUser((prev) => {
+																				if (!prev) return prev;
+																				return {
+																					...prev,
+																					addresses: prev.addresses?.map(
+																						(addr, addrIndex) =>
+																							addrIndex === index
+																								? {
+																										...addr,
+																										city: e.target.value,
+																								  }
+																								: addr
+																					),
+																				};
+																			});
+																		}}
+																		className={
+																			errors.addresses?.[index]?.city
+																				? "border-red-500"
+																				: ""
+																		}
+																	/>
+																	{errors.addresses?.[index]?.city && (
+																		<p className="text-sm text-red-500">
+																			{errors.addresses[index].city}
+																		</p>
+																	)}
+																</div>
+
+																<div className="space-y-2">
+																	<Label htmlFor={`address-state-${index}`}>
+																		State/Province (Optional)
+																	</Label>
+																	<Input
+																		id={`address-state-${index}`}
+																		value={address.state || ""}
+																		onChange={(e) => {
+																			setEditedUser((prev) => {
+																				if (!prev) return prev;
+																				return {
+																					...prev,
+																					addresses: prev.addresses?.map(
+																						(addr, addrIndex) =>
+																							addrIndex === index
+																								? {
+																										...addr,
+																										state: e.target.value,
+																								  }
+																								: addr
+																					),
+																				};
+																			});
+																		}}
+																	/>
+																</div>
+
+																<div className="space-y-2">
+																	<Label htmlFor={`address-pincode-${index}`}>
+																		PIN Code (Optional)
+																	</Label>
+																	<Input
+																		id={`address-pincode-${index}`}
+																		value={address.pincode || ""}
+																		onChange={(e) => {
+																			setEditedUser((prev) => {
+																				if (!prev) return prev;
+																				return {
+																					...prev,
+																					addresses: prev.addresses?.map(
+																						(addr, addrIndex) =>
+																							addrIndex === index
+																								? {
+																										...addr,
+																										pincode: e.target.value,
+																								  }
+																								: addr
+																					),
+																				};
+																			});
+																		}}
+																	/>
+																</div>
+															</div>
+
+															<div className="space-y-2">
+																<Label htmlFor={`address-country-${index}`}>
+																	Country
+																</Label>
+																<Input
+																	id={`address-country-${index}`}
+																	value={address.country || ""}
+																	onChange={(e) => {
+																		setEditedUser((prev) => {
+																			if (!prev) return prev;
+																			return {
+																				...prev,
+																				addresses: prev.addresses?.map(
+																					(addr, addrIndex) =>
+																						addrIndex === index
+																							? {
+																									...addr,
+																									country: e.target.value,
+																							  }
+																							: addr
+																				),
+																			};
+																		});
+																	}}
+																	className={
+																		errors.addresses?.[index]?.country
+																			? "border-red-500"
+																			: ""
+																	}
+																/>
+																{errors.addresses?.[index]?.country && (
+																	<p className="text-sm text-red-500">
+																		{errors.addresses[index].country}
+																	</p>
+																)}
+															</div>
+														</div>
+													))}
+
+													{editedUser.addresses.length === 0 && (
+														<div className="text-center py-4 text-muted-foreground">
+															No addresses added. Click "Add Address" to add
+															one.
+														</div>
+													)}
+												</div>
+											)}
+											{!isEditing &&
+												user?.addresses &&
+												user.addresses.length > 0 && (
+													<div className="space-y-4 pt-4 border-t border-border">
+														<div className="flex items-center gap-2">
+															<MapPin className="h-5 w-5 text-muted-foreground" />
+															<h3 className="text-base font-medium">
+																Addresses
+															</h3>
+														</div>
+														{user?.addresses && user.addresses.length > 0 ? (
+															<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+																{user.addresses.map((address, index) => (
+																	<div
+																		key={index}
+																		className="p-4 border rounded-lg bg-muted/30"
+																	>
+																		<div className="flex items-center gap-2 mb-2">
+																			<span className="font-semibold">
+																				{address.type.charAt(0).toUpperCase() +
+																					address.type.slice(1)}
+																				{address.type === "other" &&
+																				address.label
+																					? ` (${address.label})`
+																					: ""}
+																			</span>
+																		</div>
+																		<div className="space-y-1 text-sm">
+																			<p>{address.line1}</p>
+																			{address.line2 && <p>{address.line2}</p>}
+																			<p>
+																				{address.city}
+																				{address.state && `, ${address.state}`}
+																				{address.pincode &&
+																					` - ${address.pincode}`}
+																			</p>
+																			<p>{address.country}</p>
+																		</div>
+																	</div>
+																))}
+															</div>
+														) : (
+															<div className="p-4 border rounded-lg bg-muted/30 text-muted-foreground">
+																No addresses available for this user. Add an
+																address when editing user details.
+															</div>
+														)}
+													</div>
 												)}
-											</div>
+
 											<div className="space-y-2">
 												<Label htmlFor="bio">Bio</Label>
 												<Textarea
@@ -689,14 +1112,40 @@ export default function UserDetailPage() {
 												</div>
 											</div>
 
-											<div className="space-y-2 pt-2 border-t border-border">
-												<h3 className="text-sm font-medium text-muted-foreground">
-													Address
-												</h3>
-												<p className="font-medium text-foreground">
-													{user?.address || "No address provided"}
-												</p>
-											</div>
+											{user?.addresses && user.addresses.length > 0 && (
+												<div className="space-y-4 pt-2 border-t border-border">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Addresses
+													</h3>
+													{user.addresses.map((address, index) => (
+														<div key={index} className="space-y-1 mb-4">
+															<div className="flex items-center gap-2">
+																<MapPin className="h-4 w-4 text-muted-foreground" />
+																<h4 className="font-medium">
+																	{address.type.charAt(0).toUpperCase() +
+																		address.type.slice(1)}{" "}
+																	Address
+																	{address.type === "other" && address.label
+																		? ` (${address.label})`
+																		: ""}
+																</h4>
+															</div>
+															<p className="font-medium text-foreground ml-6">
+																{address.line1}
+																{address.line2 && `, ${address.line2}`}
+															</p>
+															<p className="font-medium text-foreground ml-6">
+																{address.city}
+																{address.state && `, ${address.state}`}
+																{address.pincode && ` - ${address.pincode}`}
+															</p>
+															<p className="font-medium text-foreground ml-6">
+																{address.country}
+															</p>
+														</div>
+													))}
+												</div>
+											)}
 
 											<div className="space-y-2 pt-2 border-t border-border">
 												<h3 className="text-sm font-medium text-muted-foreground">

@@ -7,7 +7,6 @@ export async function GET(
 	context: { params: { id: string } }
 ) {
 	try {
-		console.log("GET request for user with ID:", context.params.id);
 		const userId = context.params.id;
 
 		// Validate userId format for MongoDB ObjectId
@@ -28,13 +27,7 @@ export async function GET(
 			);
 		}
 
-		console.log("Attempting to find user in database with Prisma...");
 		try {
-			// Log the exact query we're about to execute
-			console.log(
-				`Executing Prisma query: prisma.user.findUnique({ where: { id: "${userId}" } })`
-			);
-
 			// First try with minimal fields to see if the user exists at all
 			const userExists = await prisma.user.findUnique({
 				where: { id: userId },
@@ -42,7 +35,6 @@ export async function GET(
 			});
 
 			if (!userExists) {
-				console.log("User not found with ID:", userId);
 				return NextResponse.json({ error: "User not found" }, { status: 404 });
 			}
 
@@ -60,14 +52,24 @@ export async function GET(
 					bio: true,
 					coverImageUrl: true,
 					category: true,
-					address: true,
-					city: true,
-					state: true,
-					country: true,
+					addresses: {
+						select: {
+							id: true,
+							type: true,
+							label: true,
+							line1: true,
+							line2: true,
+							city: true,
+							state: true,
+							country: true,
+							pincode: true,
+							createdAt: true,
+							updatedAt: true,
+						},
+					},
 					social: true,
 					active: true,
 					rank: true,
-					pincode: true,
 					availability: true,
 					kycApproved: true,
 					status: true,
@@ -79,31 +81,17 @@ export async function GET(
 				},
 			});
 
-			// console.log("Prisma query completed");
-			// console.log("User found successfully:", user.id);
 			return NextResponse.json(user);
 		} catch (prismaError) {
 			console.error("Prisma error during findUnique:", prismaError);
 			if (prismaError instanceof Error) {
-				console.error("Prisma error name:", prismaError.name);
 				console.error("Prisma error message:", prismaError.message);
-				console.error("Prisma error stack:", prismaError.stack);
 
 				// Check if the error is related to unknown fields
 				if (prismaError.message.includes("Unknown field")) {
-					// Extract the field name from the error message
-					const fieldMatch = prismaError.message.match(
-						/Unknown field `([^`]+)`/
-					);
-					const fieldName = fieldMatch ? fieldMatch[1] : "unknown";
-
-					console.log(
-						`Field '${fieldName}' not found in schema, trying without it`
-					);
-
-					// Try again without the problematic field
+					// Try again with basic fields only
 					try {
-						// Create a dynamic select object excluding the problematic field
+						// Create a select object with only basic fields
 						const selectFields = {
 							id: true,
 							name: true,
@@ -123,7 +111,6 @@ export async function GET(
 						});
 
 						if (basicUser) {
-							console.log("Retrieved user with limited fields");
 							return NextResponse.json(basicUser);
 						}
 					} catch (fallbackError) {
@@ -137,9 +124,7 @@ export async function GET(
 		console.error("Error fetching user:", error);
 		// More detailed error logging
 		if (error instanceof Error) {
-			console.error("Error name:", error.name);
 			console.error("Error message:", error.message);
-			console.error("Error stack:", error.stack);
 		}
 		return NextResponse.json(
 			{
@@ -156,7 +141,6 @@ export async function PUT(
 	context: { params: { id: string } }
 ) {
 	try {
-		console.log("PUT request for user with ID:", context.params.id);
 		const userId = context.params.id;
 
 		// Validate userId format for MongoDB ObjectId
@@ -180,7 +164,6 @@ export async function PUT(
 		let data;
 		try {
 			data = await request.json();
-			console.log("Update data received:", data);
 		} catch (parseError) {
 			console.error("Error parsing request body:", parseError);
 			return NextResponse.json(
@@ -190,8 +173,7 @@ export async function PUT(
 		}
 
 		// Validate required fields
-		if (!data.name || !data.email || !data.phone || !data.address) {
-			console.log("Missing required fields in update request");
+		if (!data.name || !data.email || !data.phone) {
 			return NextResponse.json(
 				{ error: "Missing required fields" },
 				{ status: 400 }
@@ -199,15 +181,14 @@ export async function PUT(
 		}
 
 		// Update user data - userType and status are not included as they're not editable by users
-		console.log("Attempting to update user in database...");
 		try {
+			// First, update the user's basic information
 			const updatedUser = await prisma.user.update({
 				where: { id: userId },
 				data: {
 					name: data.name,
 					email: data.email,
 					phone: data.phone,
-					address: data.address,
 					bio: data.bio || null,
 				},
 				select: {
@@ -221,14 +202,24 @@ export async function PUT(
 					bio: true,
 					coverImageUrl: true,
 					category: true,
-					address: true,
-					city: true,
-					state: true,
-					country: true,
+					addresses: {
+						select: {
+							id: true,
+							type: true,
+							label: true,
+							line1: true,
+							line2: true,
+							city: true,
+							state: true,
+							country: true,
+							pincode: true,
+							createdAt: true,
+							updatedAt: true,
+						},
+					},
 					social: true,
 					active: true,
 					rank: true,
-					pincode: true,
 					availability: true,
 					kycApproved: true,
 					status: true,
@@ -240,26 +231,141 @@ export async function PUT(
 				},
 			});
 
-			console.log("User updated successfully:", updatedUser.id);
+			// Handle address updates if provided
+			if (data.addresses && Array.isArray(data.addresses)) {
+				// Process each address in the array
+				for (const addressData of data.addresses) {
+					if (
+						!addressData.type ||
+						!["home", "work", "other"].includes(addressData.type)
+					) {
+						console.warn(
+							`Skipping address with invalid type: ${addressData.type}`
+						);
+						continue;
+					}
+
+					// For 'other' type, a label is required
+					if (addressData.type === "other" && !addressData.label) {
+						console.warn('Skipping "other" address with missing label');
+						continue;
+					}
+
+					// Required fields validation
+					if (!addressData.line1 || !addressData.city || !addressData.country) {
+						console.warn("Skipping address with missing required fields");
+						continue;
+					}
+
+					if (addressData.id) {
+						// Update existing address
+						await prisma.address.update({
+							where: { id: addressData.id },
+							data: {
+								type: addressData.type,
+								label: addressData.label,
+								line1: addressData.line1,
+								line2: addressData.line2 || null,
+								city: addressData.city,
+								state: addressData.state || null,
+								country: addressData.country,
+								pincode: addressData.pincode || null,
+							},
+						});
+					} else {
+						// Create new address
+						await prisma.address.create({
+							data: {
+								userId: userId,
+								type: addressData.type,
+								label: addressData.label,
+								line1: addressData.line1,
+								line2: addressData.line2 || null,
+								city: addressData.city,
+								state: addressData.state || null,
+								country: addressData.country,
+								pincode: addressData.pincode || null,
+							},
+						});
+					}
+				}
+
+				// Delete addresses that were removed (if any IDs were provided)
+				if (data.addressesToDelete && Array.isArray(data.addressesToDelete)) {
+					for (const addressId of data.addressesToDelete) {
+						await prisma.address.delete({
+							where: {
+								id: addressId,
+								userId: userId, // Ensure we only delete addresses belonging to this user
+							},
+						});
+					}
+				}
+
+				// Fetch the updated user with the latest addresses
+				const userWithUpdatedAddresses = await prisma.user.findUnique({
+					where: { id: userId },
+					select: {
+						id: true,
+						name: true,
+						email: true,
+						phone: true,
+						userType: true,
+						typeVendor: true,
+						profileImageUrl: true,
+						bio: true,
+						coverImageUrl: true,
+						category: true,
+						addresses: {
+							select: {
+								id: true,
+								type: true,
+								label: true,
+								line1: true,
+								line2: true,
+								city: true,
+								state: true,
+								country: true,
+								pincode: true,
+								createdAt: true,
+								updatedAt: true,
+							},
+						},
+						social: true,
+						active: true,
+						rank: true,
+						availability: true,
+						kycApproved: true,
+						status: true,
+						isLoggedIn: true,
+						lastLoginAt: true,
+						lastLogoutAt: true,
+						lastActiveAt: true,
+						createdAt: true,
+					},
+				});
+
+				// Return the complete updated user data
+				if (userWithUpdatedAddresses) {
+					return NextResponse.json(userWithUpdatedAddresses);
+				}
+			}
+
 			return NextResponse.json(updatedUser);
 		} catch (prismaError) {
 			console.error("Prisma error during update:", prismaError);
 			if (prismaError instanceof Error) {
-				console.error("Prisma error name:", prismaError.name);
 				console.error("Prisma error message:", prismaError.message);
-				console.error("Prisma error stack:", prismaError.stack);
 
 				// Try a simpler update if there's a field issue
 				if (prismaError.message.includes("Unknown field")) {
 					try {
-						console.log("Attempting simplified update with basic fields only");
 						const basicUpdate = await prisma.user.update({
 							where: { id: userId },
 							data: {
 								name: data.name,
 								email: data.email,
 								phone: data.phone,
-								address: data.address,
 								bio: data.bio || null,
 							},
 							select: {
@@ -267,12 +373,10 @@ export async function PUT(
 								name: true,
 								email: true,
 								phone: true,
-								address: true,
 								bio: true,
 							},
 						});
 
-						console.log("Basic update successful");
 						return NextResponse.json(basicUpdate);
 					} catch (fallbackError) {
 						console.error("Fallback update also failed:", fallbackError);
@@ -285,9 +389,7 @@ export async function PUT(
 		console.error("Error updating user:", error);
 		// More detailed error logging
 		if (error instanceof Error) {
-			console.error("Error name:", error.name);
 			console.error("Error message:", error.message);
-			console.error("Error stack:", error.stack);
 		}
 		return NextResponse.json(
 			{
