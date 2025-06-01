@@ -1007,43 +1007,38 @@ export default function UserDetailPage() {
 																Addresses
 															</h3>
 														</div>
-														{user?.addresses && user.addresses.length > 0 ? (
-															<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-																{user.addresses.map((address, index) => (
-																	<div
-																		key={index}
-																		className="p-4 border rounded-lg bg-muted/30"
-																	>
-																		<div className="flex items-center gap-2 mb-2">
-																			<span className="font-semibold">
+														<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+															{user.addresses.map((address, index) => (
+																<Card key={index} className="border-border">
+																	<CardHeader className="pb-2">
+																		<div className="flex items-center gap-2">
+																			<MapPin className="h-4 w-4 text-muted-foreground" />
+																			<CardTitle className="text-base">
 																				{address.type.charAt(0).toUpperCase() +
 																					address.type.slice(1)}
 																				{address.type === "other" &&
 																				address.label
 																					? ` (${address.label})`
 																					: ""}
-																			</span>
+																			</CardTitle>
 																		</div>
-																		<div className="space-y-1 text-sm">
-																			<p>{address.line1}</p>
-																			{address.line2 && <p>{address.line2}</p>}
-																			<p>
-																				{address.city}
-																				{address.state && `, ${address.state}`}
-																				{address.pincode &&
-																					` - ${address.pincode}`}
-																			</p>
-																			<p>{address.country}</p>
-																		</div>
-																	</div>
-																))}
-															</div>
-														) : (
-															<div className="p-4 border rounded-lg bg-muted/30 text-muted-foreground">
-																No addresses available for this user. Add an
-																address when editing user details.
-															</div>
-														)}
+																	</CardHeader>
+																	<CardContent className="text-sm space-y-1">
+																		<p className="font-medium">
+																			{address.line1}
+																			{address.line2 && `, ${address.line2}`}
+																		</p>
+																		<p>
+																			{address.city}
+																			{address.state && `, ${address.state}`}
+																			{address.pincode &&
+																				` - ${address.pincode}`}
+																		</p>
+																		<p>{address.country}</p>
+																	</CardContent>
+																</Card>
+															))}
+														</div>
 													</div>
 												)}
 
@@ -1111,42 +1106,6 @@ export default function UserDetailPage() {
 													</div>
 												</div>
 											</div>
-
-											{user?.addresses && user.addresses.length > 0 && (
-												<div className="space-y-4 pt-2 border-t border-border">
-													<h3 className="text-sm font-medium text-muted-foreground">
-														Addresses
-													</h3>
-													{user.addresses.map((address, index) => (
-														<div key={index} className="space-y-1 mb-4">
-															<div className="flex items-center gap-2">
-																<MapPin className="h-4 w-4 text-muted-foreground" />
-																<h4 className="font-medium">
-																	{address.type.charAt(0).toUpperCase() +
-																		address.type.slice(1)}{" "}
-																	Address
-																	{address.type === "other" && address.label
-																		? ` (${address.label})`
-																		: ""}
-																</h4>
-															</div>
-															<p className="font-medium text-foreground ml-6">
-																{address.line1}
-																{address.line2 && `, ${address.line2}`}
-															</p>
-															<p className="font-medium text-foreground ml-6">
-																{address.city}
-																{address.state && `, ${address.state}`}
-																{address.pincode && ` - ${address.pincode}`}
-															</p>
-															<p className="font-medium text-foreground ml-6">
-																{address.country}
-															</p>
-														</div>
-													))}
-												</div>
-											)}
-
 											<div className="space-y-2 pt-2 border-t border-border">
 												<h3 className="text-sm font-medium text-muted-foreground">
 													Bio
@@ -1155,6 +1114,44 @@ export default function UserDetailPage() {
 													{user?.bio || "No bio provided"}
 												</p>
 											</div>
+
+											{user?.addresses && user.addresses.length > 0 && (
+												<div className="space-y-4 pt-2 border-t border-border">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Addresses
+													</h3>
+													<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+														{user.addresses.map((address, index) => (
+															<Card key={index} className="border-border">
+																<CardHeader className="pb-2">
+																	<div className="flex items-center gap-2">
+																		<MapPin className="h-4 w-4 text-muted-foreground" />
+																		<CardTitle className="text-base">
+																			{address.type.charAt(0).toUpperCase() +
+																				address.type.slice(1)}
+																			{address.type === "other" && address.label
+																				? ` (${address.label})`
+																				: ""}
+																		</CardTitle>
+																	</div>
+																</CardHeader>
+																<CardContent className="text-sm space-y-1">
+																	<p className="font-medium">
+																		{address.line1}
+																		{address.line2 && `, ${address.line2}`}
+																	</p>
+																	<p>
+																		{address.city}
+																		{address.state && `, ${address.state}`}
+																		{address.pincode && ` - ${address.pincode}`}
+																	</p>
+																	<p>{address.country}</p>
+																</CardContent>
+															</Card>
+														))}
+													</div>
+												</div>
+											)}
 										</div>
 									)}
 								</CardContent>
@@ -1360,28 +1357,6 @@ export default function UserDetailPage() {
 										Recent user activities and interactions.
 									</CardDescription>
 								</CardHeader>
-								{/* <CardContent>
-									<div className="space-y-4">
-										{user?.activities.map(
-											(activity: Activity, index: number) => (
-												<div
-													key={index}
-													className="flex items-start gap-4 border-b border-border pb-4 last:border-0 last:pb-0"
-												>
-													<div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-														<Calendar className="h-4 w-4 text-primary" />
-													</div>
-													<div>
-														<p className="font-medium">{activity.action}</p>
-														<p className="text-sm text-muted-foreground">
-															{formatDate(activity.date)}
-														</p>
-													</div>
-												</div>
-											)
-										)}
-									</div>
-								</CardContent> */}
 							</Card>
 						</TabsContent>
 					</Tabs>
