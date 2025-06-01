@@ -1,921 +1,292 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import {
-	PlusCircle,
-	Search,
-	Eye,
-	Edit,
-	Trash2,
-	LogIn,
-	ThumbsUp,
-	ThumbsDown,
-	CheckCircle2,
-	CircleSlash,
-	Activity,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { useState, useEffect } from "react";
+import { toast } from "@/lib/toast";
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuSub,
-	DropdownMenuSubContent,
-	DropdownMenuSubTrigger,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useRouter } from "next/navigation";
-import { toast } from "@/lib/toast";
-
-// Mock data for initial display
-const mockKathavachaks = [
-	{
-		id: "1",
-		name: "Pandit Ramesh Sharma",
-		category: "Bhagavad Gita",
-		phone: "+91 9876543210",
-		email: "ramesh.sharma@gmail.com",
-		status: "Active",
-		rank: "Senior",
-		isApproved: true,
-	},
-	{
-		id: "2",
-		name: "Acharya Priya Joshi",
-		category: "Ramayana",
-		phone: "+91 8765432109",
-		email: "priya.joshi@gmail.com",
-		status: "Active",
-		rank: "Expert",
-		isApproved: true,
-	},
-	{
-		id: "3",
-		name: "Swami Amit Trivedi",
-		category: "Vedas",
-		phone: "+91 7654321098",
-		email: "amit.trivedi@gmail.com",
-		status: "Inactive",
-		rank: "Master",
-		isApproved: false,
-	},
-	{
-		id: "4",
-		name: "Pandit Deepika Singh",
-		category: "Puranas",
-		phone: "+91 6543210987",
-		email: "deepika.singh@gmail.com",
-		status: "Active",
-		rank: "Senior",
-		isApproved: true,
-	},
-	{
-		id: "5",
-		name: "Acharya Vikram Mehta",
-		category: "Upanishads",
-		phone: "+91 5432109876",
-		email: "vikram.mehta@gmail.com",
-		status: "Inactive",
-		rank: "Junior",
-		isApproved: false,
-	},
-];
-
-// Categories for Kathavachaks
-const kathavachakCategories = [
-	"Bhagavad Gita",
-	"Ramayana",
-	"Mahabharata",
-	"Vedas",
-	"Puranas",
-	"Upanishads",
-	"Bhakti Yoga",
-	"Other",
-];
-
-// Ranks for Kathavachaks
-const kathavachakRanks = ["Junior", "Senior", "Expert", "Master"];
-
-interface Kathavachak {
-	id: string;
-	name: string;
-	category: string;
-	phone: string;
-	email: string;
-	status: string;
-	rank: string;
-	isApproved: boolean;
-}
+import KathavachakTable, {
+	Kathavachak,
+} from "../components/kathavachak/KathavachakTable";
+import KathavachakForm from "../components/kathavachak/KathavachakForm";
 
 export default function KathavachakPage() {
-	const router = useRouter();
 	const [kathavachaks, setKathavachaks] = useState<Kathavachak[]>([]);
-	const [isLoading, setIsLoading] = useState(true);
-	const [searchTerm, setSearchTerm] = useState("");
-	const [isAddKathavachakOpen, setIsAddKathavachakOpen] = useState(false);
-	const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+	const [loading, setLoading] = useState(true);
+	const [isFormOpen, setIsFormOpen] = useState(false);
+	const [currentKathavachak, setCurrentKathavachak] =
+		useState<Partial<Kathavachak> | null>(null);
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [kathavachakToDelete, setKathavachakToDelete] = useState<{
 		id: string;
 		name: string;
 	} | null>(null);
-	const [newKathavachak, setNewKathavachak] = useState<Partial<Kathavachak>>({
-		name: "",
-		category: "",
-		phone: "",
-		email: "",
-		status: "Active",
-		rank: "",
-		isApproved: false,
-	});
-	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-	const validateForm = (data: Partial<Kathavachak>) => {
-		const errors: Record<string, string> = {};
-
-		// Name validation
-		if (!data.name?.trim()) {
-			errors.name = "Name is required";
-		} else if (data.name.length < 2) {
-			errors.name = "Name must be at least 2 characters";
-		}
-
-		// Category validation
-		if (!data.category) {
-			errors.category = "Category is required";
-		}
-
-		// Email validation
-		if (!data.email) {
-			errors.email = "Email is required";
-		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-			errors.email = "Please enter a valid email address";
-		}
-
-		// Phone validation (Indian format)
-		if (!data.phone) {
-			errors.phone = "Phone number is required";
-		} else if (!/^[6-9]\d{9}$/.test(data.phone.replace(/\D/g, ""))) {
-			errors.phone = "Please enter a valid 10-digit phone number";
-		}
-
-		// Rank validation
-		if (!data.rank) {
-			errors.rank = "Please select a rank";
-		}
-
-		return errors;
-	};
-
-	// Load kathavachaks from localStorage or use mock data
+	// Fetch kathavachaks on component mount
 	useEffect(() => {
-		const loadKathavachaks = async () => {
-			const loadingToast = toast.loading("Loading Kathavachaks...");
+		const fetchKathavachaks = async () => {
 			try {
-				// Simulate API call
-				await new Promise((resolve) => setTimeout(resolve, 1000));
+				setLoading(true);
 
-				try {
-					const saved = localStorage.getItem("kathavachaks");
-					const data = saved ? JSON.parse(saved) : mockKathavachaks;
-					setKathavachaks(data);
-					toast.dismiss(loadingToast);
-				} catch (error) {
-					console.error("Error loading kathavachaks:", error);
-					toast.dismiss(loadingToast);
-					toast.error("Failed to load Kathavachak data");
-					setKathavachaks(mockKathavachaks);
+				// Fetch users with userType=Kathavachak from our reusable API endpoint
+				const response = await fetch("/api/users?userType=Kathavachak");
+
+				if (!response.ok) {
+					throw new Error(`API error: ${response.status}`);
 				}
+
+				const data = await response.json();
+
+				// Map the user data to match Kathavachak structure
+				const mappedKathavachaks = data.users.map((user: any) => ({
+					id: user.id,
+					name: user.name || "",
+					category: user.category || "",
+					phone: user.phone || "",
+					email: user.email || "",
+					status: user.status || "Inactive",
+					rank: user.rank || "",
+					isApproved: user.kycApproved || false,
+				}));
+
+				setKathavachaks(mappedKathavachaks);
+				setLoading(false);
 			} catch (error) {
-				console.error("Error in loadKathavachaks:", error);
-				toast.dismiss(loadingToast);
-				toast.error("Failed to load Kathavachak data");
-				setKathavachaks(mockKathavachaks);
-			} finally {
-				setIsLoading(false);
+				console.error("Error fetching kathavachaks:", error);
+				toast.error("Failed to load kathavachaks");
+				setLoading(false);
 			}
 		};
 
-		loadKathavachaks();
+		fetchKathavachaks();
 	}, []);
 
-	// Save kathavachaks to localStorage whenever they change
-	useEffect(() => {
-		if (kathavachaks.length > 0) {
-			try {
-				localStorage.setItem("kathavachaks", JSON.stringify(kathavachaks));
-			} catch (error) {
-				console.error("Error saving kathavachaks:", error);
-				toast.error("Failed to save Kathavachak data");
-			}
-		}
-	}, [kathavachaks]);
+	const handleAddKathavachak = () => {
+		setCurrentKathavachak(null);
+		setIsFormOpen(true);
+	};
 
-	const handleAddKathavachak = async () => {
-		const validationErrors = validateForm(newKathavachak);
-		setFormErrors(validationErrors);
-
-		if (Object.keys(validationErrors).length > 0) {
-			return;
-		}
-
-		setIsLoading(true);
-		const loadingToast = toast.loading("Adding new Kathavachak...");
-
-		try {
-			// Simulate API call
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-
-			const newKavach = {
-				...newKathavachak,
-				id: Math.random().toString(36).substr(2, 9),
-				isApproved: newKathavachak.isApproved || false,
-			} as Kathavachak;
-
-			setKathavachaks([...kathavachaks, newKavach]);
-
-			// Reset form
-			setNewKathavachak({
-				name: "",
-				category: "",
-				phone: "",
-				email: "",
-				status: "Active",
-				rank: "",
-				isApproved: false,
-			});
-
-			// Clear errors
-			setFormErrors({});
-
-			// Close modal and show success
-			setIsAddKathavachakOpen(false);
-			toast.success("Kathavachak added successfully!");
-		} catch (error) {
-			console.error("Error adding kathavachak:", error);
-			toast.error("Failed to add Kathavachak");
-		} finally {
-			setIsLoading(false);
-			toast.dismiss(loadingToast);
-		}
+	const handleEditKathavachak = (kathavachak: Kathavachak) => {
+		setCurrentKathavachak(kathavachak);
+		setIsFormOpen(true);
 	};
 
 	const handleDeleteKathavachak = (id: string, name: string) => {
 		setKathavachakToDelete({ id, name });
-		setIsDeleteConfirmOpen(true);
+		setIsDeleteDialogOpen(true);
 	};
 
-	const confirmDeleteKathavachak = async () => {
+	const confirmDelete = async () => {
 		if (!kathavachakToDelete) return;
 
-		setIsLoading(true);
-		const loadingToast = toast.loading(
-			`Deleting ${kathavachakToDelete.name}...`
-		);
-
 		try {
-			// Simulate API call
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			// In a real app, this would be an API call
+			// await fetch(`/api/kathavachaks/${kathavachakToDelete.id}`, {
+			//   method: 'DELETE',
+			// });
 
+			// Update local state
 			setKathavachaks(
 				kathavachaks.filter((k) => k.id !== kathavachakToDelete.id)
 			);
-			toast.dismiss(loadingToast);
-			toast.success(`${kathavachakToDelete.name} deleted successfully`);
+			toast.success(`${kathavachakToDelete.name} has been deleted`);
 		} catch (error) {
 			console.error("Error deleting kathavachak:", error);
-			toast.dismiss(loadingToast);
-			toast.error(`Failed to delete ${kathavachakToDelete.name}`);
+			toast.error("Failed to delete kathavachak");
 		} finally {
+			setIsDeleteDialogOpen(false);
 			setKathavachakToDelete(null);
-			setIsDeleteConfirmOpen(false);
-			setIsLoading(false);
 		}
 	};
 
 	const handleUpdateStatus = async (id: string, newStatus: string) => {
-		const loadingToast = toast.loading("Updating status...");
 		try {
-			// Simulate API call
-			await new Promise((resolve) => setTimeout(resolve, 500));
+			// Call the API to update user status
+			const response = await fetch(`/api/users/status`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ userId: id, status: newStatus }),
+			});
 
+			if (!response.ok) {
+				throw new Error(`API error: ${response.status}`);
+			}
+
+			// Update local state
 			setKathavachaks(
 				kathavachaks.map((k) => (k.id === id ? { ...k, status: newStatus } : k))
 			);
-			toast.dismiss(loadingToast);
-			toast.success(`Status updated to ${newStatus}`);
+			toast.success("Status updated successfully");
 		} catch (error) {
 			console.error("Error updating status:", error);
-			toast.dismiss(loadingToast);
 			toast.error("Failed to update status");
 		}
 	};
 
 	const handleToggleApproval = async (id: string, currentStatus: boolean) => {
-		const loadingToast = toast.loading("Updating approval status...");
 		try {
-			// Simulate API call
-			await new Promise((resolve) => setTimeout(resolve, 500));
+			// Call the API to update user KYC approval status
+			const response = await fetch(`/api/users/${id}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ kycApproved: !currentStatus }),
+			});
 
+			if (!response.ok) {
+				throw new Error(`API error: ${response.status}`);
+			}
+
+			// Update local state
 			setKathavachaks(
 				kathavachaks.map((k) =>
 					k.id === id ? { ...k, isApproved: !currentStatus } : k
 				)
 			);
-			toast.dismiss(loadingToast);
 			toast.success(
 				`Kathavachak ${currentStatus ? "disapproved" : "approved"} successfully`
 			);
 		} catch (error) {
-			console.error("Error updating approval status:", error);
-			toast.dismiss(loadingToast);
+			console.error("Error toggling approval:", error);
 			toast.error("Failed to update approval status");
 		}
 	};
 
 	const handleLoginAsKathavachak = (kathavachak: Kathavachak) => {
-		const loadingToast = toast.loading(`Logging in as ${kathavachak.name}...`);
+		// This would typically involve setting authentication state
+		// For now, we'll just show a toast message
+		toast.info(
+			`Login as ${kathavachak.name} functionality would be implemented here`
+		);
 
+		// In a real implementation, you might do something like:
+		// router.push(`/admin/impersonate/${kathavachak.id}`);
+	};
+
+	const handleFormSubmit = async (kathavachakData: Omit<Kathavachak, "id">) => {
+		setIsSubmitting(true);
 		try {
-			// Simulate login
-			setTimeout(() => {
-				toast.dismiss(loadingToast);
-				toast.success(`Successfully logged in as ${kathavachak.name}`);
-				// In a real app, you would redirect to the kathavachak's dashboard
-			}, 1000);
+			if (currentKathavachak?.id) {
+				// Update existing kathavachak
+				// In a real app, this would be an API call
+				// await fetch(`/api/kathavachaks/${currentKathavachak.id}`, {
+				//   method: 'PUT',
+				//   headers: { 'Content-Type': 'application/json' },
+				//   body: JSON.stringify(kathavachakData),
+				// });
+
+				// Update local state
+				setKathavachaks(
+					kathavachaks.map((k) =>
+						k.id === currentKathavachak.id
+							? { ...kathavachakData, id: currentKathavachak.id }
+							: k
+					)
+				);
+				toast.success("Kathavachak updated successfully");
+			} else {
+				// Add new kathavachak
+				// In a real app, this would be an API call
+				// const response = await fetch('/api/kathavachaks', {
+				//   method: 'POST',
+				//   headers: { 'Content-Type': 'application/json' },
+				//   body: JSON.stringify(kathavachakData),
+				// });
+				// const newKathavachak = await response.json();
+
+				// Mock new kathavachak with generated ID
+				const newKathavachak: Kathavachak = {
+					...kathavachakData,
+					id: Date.now().toString(),
+				};
+
+				// Update local state
+				setKathavachaks([...kathavachaks, newKathavachak]);
+				toast.success("Kathavachak added successfully");
+			}
+
+			// Close form dialog
+			setIsFormOpen(false);
+			setCurrentKathavachak(null);
 		} catch (error) {
-			console.error("Error logging in as kathavachak:", error);
-			toast.dismiss(loadingToast);
-			toast.error("Failed to log in as Kathavachak");
+			console.error("Error saving kathavachak:", error);
+			toast.error("Failed to save kathavachak");
+		} finally {
+			setIsSubmitting(false);
 		}
 	};
 
-	const filteredKathavachaks = useMemo(() => {
-		return kathavachaks.filter((kathavachak) => {
-			const searchLower = searchTerm.toLowerCase();
-			return (
-				kathavachak.name.toLowerCase().includes(searchLower) ||
-				kathavachak.email.toLowerCase().includes(searchLower) ||
-				kathavachak.phone.includes(searchTerm) ||
-				kathavachak.category.toLowerCase().includes(searchLower)
-			);
-		});
-	}, [kathavachaks, searchTerm]);
-	if (isLoading) {
-		return <div>Loading kathavachaks...</div>; // Or a nice loading spinner
+	if (loading) {
+		return (
+			<div className="flex justify-center items-center h-screen">
+				Loading...
+			</div>
+		);
 	}
+
 	return (
-		<div className="p-6 space-y-6">
-			<div className="flex items-center justify-between">
-				<h1 className="text-2xl font-bold">Kathavachak Management</h1>
-				<Dialog
-					open={isAddKathavachakOpen}
-					onOpenChange={setIsAddKathavachakOpen}
-				>
-					<DialogTrigger asChild>
-						<Button className="flex items-center gap-2">
-							<PlusCircle className="h-4 w-4" />
-							Add Kathavachak
-						</Button>
-					</DialogTrigger>
-					<DialogContent className="sm:max-w-[500px]">
-						<DialogHeader>
-							<DialogTitle>Add New Kathavachak</DialogTitle>
-							<DialogDescription>
-								Fill in the details to add a new kathavachak to the system.
-								Fields marked with <span className="text-red-500">*</span> are
-								required.
-							</DialogDescription>
-						</DialogHeader>
-						<div className="space-y-4 py-2">
-							{/* Name Field */}
-							<div className="space-y-2">
-								<div className="flex items-center">
-									<Label htmlFor="name" className="text-sm font-medium w-32">
-										Name <span className="text-red-500">*</span>
-									</Label>
-									<div className="flex-1">
-										<Input
-											id="name"
-											value={newKathavachak.name}
-											onChange={(e) => {
-												setNewKathavachak({
-													...newKathavachak,
-													name: e.target.value,
-												});
-												if (formErrors.name)
-													setFormErrors({ ...formErrors, name: "" });
-											}}
-											className={`w-full ${
-												formErrors.name ? "border-red-500" : ""
-											}`}
-											placeholder="Enter full name"
-										/>
-									</div>
-								</div>
-								{formErrors.name && (
-									<p className="text-sm text-red-600 mt-1 ml-32 pl-2">
-										{formErrors.name}
-									</p>
-								)}
-							</div>
+		<div className="container mx-auto py-6">
+			<h1 className="text-2xl font-bold mb-6">Kathavachak Management</h1>
 
-							{/* Category Field */}
-							<div className="space-y-2">
-								<div className="flex items-center">
-									<Label
-										htmlFor="category"
-										className="text-sm font-medium w-32"
-									>
-										Category <span className="text-red-500">*</span>
-									</Label>
-									<div className="flex-1">
-										<Select
-											value={newKathavachak.category}
-											onValueChange={(value) => {
-												setNewKathavachak({
-													...newKathavachak,
-													category: value,
-												});
-												if (formErrors.category)
-													setFormErrors({ ...formErrors, category: "" });
-											}}
-										>
-											<SelectTrigger
-												className={`w-full ${
-													formErrors.category ? "border-red-500" : ""
-												}`}
-											>
-												<SelectValue placeholder="Select category" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectGroup>
-													{kathavachakCategories.map((category) => (
-														<SelectItem key={category} value={category}>
-															{category}
-														</SelectItem>
-													))}
-												</SelectGroup>
-											</SelectContent>
-										</Select>
-									</div>
-								</div>
-								{formErrors.category && (
-									<p className="text-sm text-red-600 mt-1 ml-32 pl-2">
-										{formErrors.category}
-									</p>
-								)}
-							</div>
+			<KathavachakTable
+				kathavachaks={kathavachaks}
+				setKathavachaks={setKathavachaks}
+				onAddKathavachak={handleAddKathavachak}
+				onEditKathavachak={handleEditKathavachak}
+				onDeleteKathavachak={handleDeleteKathavachak}
+				onUpdateStatus={handleUpdateStatus}
+				onToggleApproval={handleToggleApproval}
+				onLoginAsKathavachak={handleLoginAsKathavachak}
+			/>
 
-							{/* Email Field */}
-							<div className="space-y-2">
-								<div className="flex items-center">
-									<Label htmlFor="email" className="text-sm font-medium w-32">
-										Email <span className="text-red-500">*</span>
-									</Label>
-									<div className="flex-1">
-										<Input
-											id="email"
-											type="email"
-											value={newKathavachak.email}
-											onChange={(e) => {
-												setNewKathavachak({
-													...newKathavachak,
-													email: e.target.value,
-												});
-												if (formErrors.email)
-													setFormErrors({ ...formErrors, email: "" });
-											}}
-											className={`w-full ${
-												formErrors.email ? "border-red-500" : ""
-											}`}
-											placeholder="Enter email address"
-										/>
-									</div>
-								</div>
-								{formErrors.email && (
-									<p className="text-sm text-red-600 mt-1 ml-32 pl-2">
-										{formErrors.email}
-									</p>
-								)}
-							</div>
-
-							{/* Phone Field */}
-							<div className="space-y-2">
-								<div className="flex items-center">
-									<Label htmlFor="phone" className="text-sm font-medium w-32">
-										Phone <span className="text-red-500">*</span>
-									</Label>
-									<div className="flex-1">
-										<Input
-											id="phone"
-											type="tel"
-											value={newKathavachak.phone}
-											onChange={(e) => {
-												setNewKathavachak({
-													...newKathavachak,
-													phone: e.target.value,
-												});
-												if (formErrors.phone)
-													setFormErrors({ ...formErrors, phone: "" });
-											}}
-											className={`w-full ${
-												formErrors.phone ? "border-red-500" : ""
-											}`}
-											placeholder="Enter phone number"
-										/>
-									</div>
-								</div>
-								{formErrors.phone && (
-									<p className="text-sm text-red-600 mt-1 ml-32 pl-2">
-										{formErrors.phone}
-									</p>
-								)}
-							</div>
-
-							{/* Rank Field */}
-							<div className="space-y-2">
-								<div className="flex items-center">
-									<Label htmlFor="rank" className="text-sm font-medium w-32">
-										Rank <span className="text-red-500">*</span>
-									</Label>
-									<div className="flex-1">
-										<Select
-											value={newKathavachak.rank}
-											onValueChange={(value) => {
-												setNewKathavachak({
-													...newKathavachak,
-													rank: value,
-												});
-												if (formErrors.rank)
-													setFormErrors({ ...formErrors, rank: "" });
-											}}
-										>
-											<SelectTrigger
-												className={`w-full ${
-													formErrors.rank ? "border-red-500" : ""
-												}`}
-											>
-												<SelectValue placeholder="Select rank" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectGroup>
-													{kathavachakRanks.map((rank) => (
-														<SelectItem key={rank} value={rank}>
-															{rank}
-														</SelectItem>
-													))}
-												</SelectGroup>
-											</SelectContent>
-										</Select>
-									</div>
-								</div>
-								{formErrors.rank && (
-									<p className="text-sm text-red-600 mt-1 ml-32 pl-2">
-										{formErrors.rank}
-									</p>
-								)}
-							</div>
-
-							{/* Status Field */}
-							<div className="flex items-center">
-								<Label htmlFor="status" className="text-sm font-medium w-32">
-									Status
-								</Label>
-								<div className="flex-1">
-									<Select
-										value={newKathavachak.status}
-										onValueChange={(value) =>
-											setNewKathavachak({ ...newKathavachak, status: value })
-										}
-									>
-										<SelectTrigger className="w-full">
-											<SelectValue placeholder="Select status" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="Active">Active</SelectItem>
-											<SelectItem value="Inactive">Inactive</SelectItem>
-										</SelectContent>
-									</Select>
-								</div>
-							</div>
-
-							{/* Approved Checkbox */}
-							<div className="flex items-center pt-2">
-								<div className="w-32"></div>
-								<div className="flex items-center space-x-2">
-									<input
-										type="checkbox"
-										id="isApproved"
-										checked={newKathavachak.isApproved || false}
-										onChange={(e) =>
-											setNewKathavachak({
-												...newKathavachak,
-												isApproved: e.target.checked,
-											})
-										}
-										className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-									/>
-									<Label htmlFor="isApproved" className="text-sm font-medium">
-										Approved
-									</Label>
-								</div>
-							</div>
-						</div>
-						<DialogFooter className="pt-4">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => {
-									setIsAddKathavachakOpen(false);
-									setFormErrors({});
-								}}
-								disabled={isLoading}
-							>
-								Cancel
-							</Button>
-							<Button
-								type="submit"
-								onClick={handleAddKathavachak}
-								disabled={isLoading}
-								className="bg-primary hover:bg-primary/90"
-							>
-								{isLoading ? (
-									<>
-										<svg
-											className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-											xmlns="http://www.w3.org/2000/svg"
-											fill="none"
-											viewBox="0 0 24 24"
-										>
-											<circle
-												className="opacity-25"
-												cx="12"
-												cy="12"
-												r="10"
-												stroke="currentColor"
-												strokeWidth="4"
-											></circle>
-											<path
-												className="opacity-75"
-												fill="currentColor"
-												d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-											></path>
-										</svg>
-										Saving...
-									</>
-								) : (
-									"Add Kathavachak"
-								)}
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</Dialog>
-			</div>
-
-			<div className="flex items-center w-full max-w-sm space-x-2 mb-6">
-				<Input
-					type="text"
-					placeholder="Search kathavachaks..."
-					value={searchTerm}
-					onChange={(e) => setSearchTerm(e.target.value)}
-					className="flex-1"
-				/>
-				<Button type="submit" variant="outline" size="icon">
-					<Search className="h-4 w-4" />
-				</Button>
-			</div>
-
-			<div className="rounded-md border">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Name</TableHead>
-							<TableHead>Category</TableHead>
-							<TableHead>Phone No.</TableHead>
-							<TableHead>Email</TableHead>
-							<TableHead>Status</TableHead>
-							<TableHead>Rank</TableHead>
-							<TableHead>Approved</TableHead>
-							<TableHead>Details</TableHead>
-							<TableHead>Actions</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{filteredKathavachaks.length > 0 ? (
-							filteredKathavachaks.map((kathavachak: Kathavachak) => (
-								<TableRow key={kathavachak.id}>
-									<TableCell className="font-medium">
-										{kathavachak.name}
-									</TableCell>
-									<TableCell>{kathavachak.category}</TableCell>
-									<TableCell>{kathavachak.phone}</TableCell>
-									<TableCell>{kathavachak.email}</TableCell>
-									<TableCell>
-										<span
-											className={`px-2 py-1 rounded-full text-xs font-medium ${
-												kathavachak.status === "Active"
-													? "bg-green-100 text-green-800"
-													: "bg-red-100 text-red-800"
-											}`}
-										>
-											{kathavachak.status}
-										</span>
-									</TableCell>
-									<TableCell>
-										<span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-											{kathavachak.rank}
-										</span>
-									</TableCell>
-									<TableCell>
-										<span
-											className={`px-2 py-1 rounded-full text-xs font-medium ${
-												kathavachak.isApproved
-													? "bg-green-100 text-green-800"
-													: "bg-amber-100 text-amber-800"
-											}`}
-										>
-											{kathavachak.isApproved ? "Approved" : "Pending"}
-										</span>
-									</TableCell>
-									<TableCell>
-										<Button variant="ghost" size="sm" asChild>
-											<a href={`/admin/kathavachak/${kathavachak.id}`}>
-												<Eye className="h-4 w-4 mr-1" />
-												View
-											</a>
-										</Button>
-									</TableCell>
-									<TableCell>
-										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
-												<Button variant="ghost" size="sm">
-													Actions
-												</Button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end">
-												<DropdownMenuLabel>
-													Manage Kathavachak
-												</DropdownMenuLabel>
-												<DropdownMenuSeparator />
-												{!kathavachak.isApproved ? (
-													<DropdownMenuItem
-														onClick={() =>
-															handleToggleApproval(
-																kathavachak.id,
-																kathavachak.isApproved
-															)
-														}
-														className="text-green-600"
-													>
-														<ThumbsUp className="h-4 w-4 mr-2" />
-														Approve
-													</DropdownMenuItem>
-												) : (
-													<DropdownMenuItem
-														onClick={() =>
-															handleToggleApproval(
-																kathavachak.id,
-																kathavachak.isApproved
-															)
-														}
-														className="text-amber-600"
-													>
-														<ThumbsDown className="h-4 w-4 mr-2" />
-														Disapprove
-													</DropdownMenuItem>
-												)}
-												<DropdownMenuSub>
-													<DropdownMenuSubTrigger>
-														<Activity className="h-4 w-4 mr-2" />
-														Change Status
-													</DropdownMenuSubTrigger>
-													<DropdownMenuSubContent>
-														<DropdownMenuItem
-															onClick={() =>
-																handleUpdateStatus(kathavachak.id, "Active")
-															}
-															className={
-																kathavachak.status === "Active"
-																	? "bg-blue-50"
-																	: ""
-															}
-														>
-															<CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
-															Active
-														</DropdownMenuItem>
-														<DropdownMenuItem
-															onClick={() =>
-																handleUpdateStatus(kathavachak.id, "Inactive")
-															}
-															className={
-																kathavachak.status === "Inactive"
-																	? "bg-blue-50"
-																	: ""
-															}
-														>
-															<CircleSlash className="h-4 w-4 mr-2 text-gray-500" />
-															Inactive
-														</DropdownMenuItem>
-													</DropdownMenuSubContent>
-												</DropdownMenuSub>
-												<DropdownMenuItem
-													onClick={() =>
-														router.push(`/admin/kathavachak/${kathavachak.id}`)
-													}
-												>
-													<Edit className="h-4 w-4 mr-2" />
-													Edit
-												</DropdownMenuItem>
-												<DropdownMenuItem
-													className="flex items-center gap-2 text-red-600"
-													onSelect={(e) => {
-														e.preventDefault();
-														handleDeleteKathavachak(
-															kathavachak.id,
-															kathavachak.name
-														);
-													}}
-												>
-													<Trash2 className="h-4 w-4" />
-													Delete
-												</DropdownMenuItem>
-												<DropdownMenuItem
-													onClick={() => handleLoginAsKathavachak(kathavachak)}
-												>
-													<LogIn className="h-4 w-4 mr-2" />
-													Login as Kathavachak
-												</DropdownMenuItem>
-											</DropdownMenuContent>
-										</DropdownMenu>
-									</TableCell>
-								</TableRow>
-							))
-						) : (
-							<TableRow>
-								<TableCell colSpan={9} className="text-center py-6">
-									No kathavachaks found. Try a different search or add a new
-									kathavachak.
-								</TableCell>
-							</TableRow>
-						)}
-					</TableBody>
-				</Table>
-			</div>
+			{/* Form Dialog */}
+			<Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+				<DialogContent className="sm:max-w-[600px]">
+					<DialogHeader>
+						<DialogTitle>
+							{currentKathavachak?.id
+								? "Edit Kathavachak"
+								: "Add New Kathavachak"}
+						</DialogTitle>
+					</DialogHeader>
+					<KathavachakForm
+						initialData={currentKathavachak || undefined}
+						onSubmit={handleFormSubmit}
+						onCancel={() => setIsFormOpen(false)}
+						isLoading={isSubmitting}
+					/>
+				</DialogContent>
+			</Dialog>
 
 			{/* Delete Confirmation Dialog */}
-			<Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-				<DialogContent>
+			<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+				<DialogContent className="sm:max-w-[425px]">
 					<DialogHeader>
-						<DialogTitle>Are you sure?</DialogTitle>
-						<DialogDescription>
-							This action cannot be undone. This will permanently delete the
-							kathavachak{kathavachakToDelete?.name}.
-						</DialogDescription>
+						<DialogTitle>Confirm Deletion</DialogTitle>
 					</DialogHeader>
-					<DialogFooter>
-						<Button
-							variant="outline"
-							onClick={() => setIsDeleteConfirmOpen(false)}
+					<div className="py-4">
+						<p>
+							Are you sure you want to delete {kathavachakToDelete?.name}? This
+							action cannot be undone.
+						</p>
+					</div>
+					<div className="flex justify-end gap-2">
+						<button
+							className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+							onClick={() => setIsDeleteDialogOpen(false)}
 						>
 							Cancel
-						</Button>
-						<Button
-							variant="destructive"
-							onClick={confirmDeleteKathavachak}
-							disabled={isLoading}
+						</button>
+						<button
+							className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+							onClick={confirmDelete}
 						>
-							{isLoading ? "Deleting..." : "Delete"}
-						</Button>
-					</DialogFooter>
+							Delete
+						</button>
+					</div>
 				</DialogContent>
 			</Dialog>
 		</div>

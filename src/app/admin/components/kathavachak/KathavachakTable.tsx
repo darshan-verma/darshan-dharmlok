@@ -1,0 +1,408 @@
+"use client";
+
+import { useState } from "react";
+import {
+	Search,
+	Eye,
+	Edit,
+	Trash2,
+	LogIn,
+	ThumbsUp,
+	ThumbsDown,
+	CheckCircle2,
+	CircleSlash,
+	Activity,
+	PlusCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+
+// Define the Kathavachak interface
+export interface Kathavachak {
+	id: string;
+	name: string;
+	category: string;
+	phone: string;
+	email: string;
+	status: string;
+	rank: string;
+	isApproved: boolean;
+}
+
+interface KathavachakTableProps {
+	kathavachaks: Kathavachak[];
+	setKathavachaks: React.Dispatch<React.SetStateAction<Kathavachak[]>>;
+	onAddKathavachak?: () => void;
+	onEditKathavachak: (kathavachak: Kathavachak) => void;
+	onDeleteKathavachak: (id: string, name: string) => void;
+	onUpdateStatus: (id: string, newStatus: string) => Promise<void>;
+	onToggleApproval: (id: string, currentStatus: boolean) => Promise<void>;
+	onLoginAsKathavachak: (kathavachak: Kathavachak) => void;
+}
+
+// Categories for Kathavachaks
+export const kathavachakCategories = [
+	"Bhagavad Gita",
+	"Ramayana",
+	"Mahabharata",
+	"Vedas",
+	"Puranas",
+	"Upanishads",
+	"Bhakti Yoga",
+	"Other",
+];
+
+// Ranks for Kathavachaks
+export const kathavachakRanks = ["Junior", "Senior", "Expert", "Master"];
+
+export default function KathavachakTable({
+	kathavachaks,
+	onAddKathavachak,
+	onEditKathavachak,
+	onDeleteKathavachak,
+	onUpdateStatus,
+	onToggleApproval,
+	onLoginAsKathavachak,
+}: KathavachakTableProps) {
+	const [searchTerm, setSearchTerm] = useState("");
+	const [categoryFilter, setCategoryFilter] = useState<string>("all");
+	const [statusFilter, setStatusFilter] = useState<string>("all");
+	const [rankFilter, setRankFilter] = useState<string>("all");
+	const [approvalFilter, setApprovalFilter] = useState<string>("all");
+
+	// Filter kathavachaks based on search and filter criteria
+	const filteredKathavachaks = kathavachaks.filter((kathavachak) => {
+		// Apply search filter
+		const matchesSearch =
+			kathavachak.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			kathavachak.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			kathavachak.phone.includes(searchTerm) ||
+			kathavachak.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			kathavachak.rank.toLowerCase().includes(searchTerm.toLowerCase());
+
+		// Apply category filter
+		const matchesCategory =
+			categoryFilter === "all" || kathavachak.category === categoryFilter;
+
+		// Apply status filter
+		const matchesStatus =
+			statusFilter === "all" || kathavachak.status === statusFilter;
+
+		// Apply rank filter
+		const matchesRank = rankFilter === "all" || kathavachak.rank === rankFilter;
+
+		// Apply approval filter
+		const matchesApproval =
+			approvalFilter === "all" ||
+			(approvalFilter === "approved" && kathavachak.isApproved) ||
+			(approvalFilter === "notApproved" && !kathavachak.isApproved);
+
+		return (
+			matchesSearch &&
+			matchesCategory &&
+			matchesStatus &&
+			matchesRank &&
+			matchesApproval
+		);
+	});
+
+	return (
+		<div className="space-y-4">
+			<div className="flex flex-col space-y-4">
+				<div className="flex flex-col sm:flex-row justify-between gap-4">
+					{/* Search Bar */}
+					<div className="relative w-full sm:w-96">
+						<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+						<Input
+							type="search"
+							placeholder="Search kathavachaks..."
+							className="pl-8"
+							value={searchTerm}
+							onChange={(e) => setSearchTerm(e.target.value)}
+						/>
+					</div>
+
+					{/* Add Kathavachak Button */}
+					{onAddKathavachak && (
+						<Button onClick={onAddKathavachak} className="w-full sm:w-auto">
+							<PlusCircle className="h-4 w-4 mr-2" />
+							Add Kathavachak
+						</Button>
+					)}
+				</div>
+
+				{/* Filters */}
+				<div className="flex flex-wrap items-center gap-3 mb-4">
+					{/* Category Filter */}
+					<div className="w-40">
+						<Select value={categoryFilter} onValueChange={setCategoryFilter}>
+							<SelectTrigger className="h-8">
+								<SelectValue placeholder="Select category" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="all">All Categories</SelectItem>
+								{kathavachakCategories.map((category) => (
+									<SelectItem key={category} value={category}>
+										{category}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+
+					{/* Rank Filter */}
+					<div className="w-36">
+						<Select value={rankFilter} onValueChange={setRankFilter}>
+							<SelectTrigger className="h-8">
+								<SelectValue placeholder="Select rank" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="all">All Ranks</SelectItem>
+								{kathavachakRanks.map((rank) => (
+									<SelectItem key={rank} value={rank}>
+										{rank}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+
+					{/* Status Filter */}
+					<div className="w-32">
+						<Select value={statusFilter} onValueChange={setStatusFilter}>
+							<SelectTrigger className="h-8">
+								<SelectValue placeholder="Status" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="all">All Status</SelectItem>
+								<SelectItem value="Active">Active</SelectItem>
+								<SelectItem value="Inactive">Inactive</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+
+					{/* Approval Filter */}
+					<div className="w-32">
+						<Select value={approvalFilter} onValueChange={setApprovalFilter}>
+							<SelectTrigger className="h-8">
+								<SelectValue placeholder="Approval" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="all">All</SelectItem>
+								<SelectItem value="approved">Approved</SelectItem>
+								<SelectItem value="notApproved">Not Approved</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+				</div>
+
+				{/* Results Count */}
+				<div className="text-sm text-gray-500">
+					{filteredKathavachaks.length} kathavachak
+					{filteredKathavachaks.length !== 1 ? "s" : ""} found
+				</div>
+			</div>
+
+			<div className="rounded-md border">
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead>Name</TableHead>
+							<TableHead>Category</TableHead>
+							<TableHead>Phone</TableHead>
+							<TableHead>Email</TableHead>
+							<TableHead>Rank</TableHead>
+							<TableHead>Status</TableHead>
+							<TableHead>Approved</TableHead>
+							<TableHead>View</TableHead>
+							<TableHead>Actions</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{filteredKathavachaks.length > 0 ? (
+							filteredKathavachaks.map((kathavachak) => (
+								<TableRow key={kathavachak.id}>
+									<TableCell className="font-medium">
+										{kathavachak.name}
+									</TableCell>
+									<TableCell>{kathavachak.category}</TableCell>
+									<TableCell>{kathavachak.phone}</TableCell>
+									<TableCell>{kathavachak.email}</TableCell>
+									<TableCell>
+										<span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+											{kathavachak.rank}
+										</span>
+									</TableCell>
+									<TableCell>
+										<span
+											className={`px-2 py-1 rounded-full text-xs font-medium ${
+												kathavachak.status === "Active"
+													? "bg-green-100 text-green-800"
+													: "bg-red-100 text-red-800"
+											}`}
+										>
+											{kathavachak.status}
+										</span>
+									</TableCell>
+									<TableCell>
+										<span
+											className={`px-2 py-1 rounded-full text-xs font-medium ${
+												kathavachak.isApproved
+													? "bg-green-100 text-green-800"
+													: "bg-amber-100 text-amber-800"
+											}`}
+										>
+											{kathavachak.isApproved ? "Approved" : "Not Approved"}
+										</span>
+									</TableCell>
+									<TableCell>
+										<Button variant="ghost" size="sm" asChild>
+											<a href={`/admin/kathavachak/${kathavachak.id}`}>
+												<Eye className="h-4 w-4 mr-1" />
+												View
+											</a>
+										</Button>
+									</TableCell>
+									<TableCell>
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<Button variant="ghost" size="sm">
+													Actions
+												</Button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="end">
+												<DropdownMenuLabel>
+													Manage Kathavachak
+												</DropdownMenuLabel>
+												<DropdownMenuSeparator />
+												{!kathavachak.isApproved ? (
+													<DropdownMenuItem
+														onClick={() =>
+															onToggleApproval(
+																kathavachak.id,
+																kathavachak.isApproved
+															)
+														}
+														className="text-green-600"
+													>
+														<ThumbsUp className="h-4 w-4 mr-2" />
+														Approve
+													</DropdownMenuItem>
+												) : (
+													<DropdownMenuItem
+														onClick={() =>
+															onToggleApproval(
+																kathavachak.id,
+																kathavachak.isApproved
+															)
+														}
+														className="text-amber-600"
+													>
+														<ThumbsDown className="h-4 w-4 mr-2" />
+														Disapprove
+													</DropdownMenuItem>
+												)}
+												<DropdownMenuSub>
+													<DropdownMenuSubTrigger>
+														<Activity className="h-4 w-4 mr-2" />
+														Change Status
+													</DropdownMenuSubTrigger>
+													<DropdownMenuSubContent>
+														<DropdownMenuItem
+															onClick={() =>
+																onUpdateStatus(kathavachak.id, "Active")
+															}
+															className={
+																kathavachak.status === "Active"
+																	? "bg-blue-50"
+																	: ""
+															}
+														>
+															<CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
+															Active
+														</DropdownMenuItem>
+														<DropdownMenuItem
+															onClick={() =>
+																onUpdateStatus(kathavachak.id, "Inactive")
+															}
+															className={
+																kathavachak.status === "Inactive"
+																	? "bg-blue-50"
+																	: ""
+															}
+														>
+															<CircleSlash className="h-4 w-4 mr-2 text-gray-500" />
+															Inactive
+														</DropdownMenuItem>
+													</DropdownMenuSubContent>
+												</DropdownMenuSub>
+												<DropdownMenuItem
+													onClick={() => onEditKathavachak(kathavachak)}
+												>
+													<Edit className="h-4 w-4 mr-2" />
+													Edit
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													className="flex items-center gap-2 text-red-600"
+													onSelect={(e) => {
+														e.preventDefault();
+														onDeleteKathavachak(
+															kathavachak.id,
+															kathavachak.name
+														);
+													}}
+												>
+													<Trash2 className="h-4 w-4" />
+													Delete
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													onClick={() => onLoginAsKathavachak(kathavachak)}
+												>
+													<LogIn className="h-4 w-4 mr-2" />
+													Login as Kathavachak
+												</DropdownMenuItem>
+											</DropdownMenuContent>
+										</DropdownMenu>
+									</TableCell>
+								</TableRow>
+							))
+						) : (
+							<TableRow>
+								<TableCell colSpan={9} className="text-center py-6">
+									No kathavachaks found. Try a different search or add a new
+									kathavachak.
+								</TableCell>
+							</TableRow>
+						)}
+					</TableBody>
+				</Table>
+			</div>
+		</div>
+	);
+}

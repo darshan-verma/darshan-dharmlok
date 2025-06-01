@@ -12,6 +12,7 @@ import {
 	MapPin,
 	Plus,
 	Trash2,
+	ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,6 +116,7 @@ export default function UserDetailPage() {
 	const [editedUser, setEditedUser] = useState<Partial<User> | null>(null);
 	const [imageError, setImageError] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
+	const [showAddresses, setShowAddresses] = useState(false);
 
 	// Fetch user data from API
 	const fetchUserData = useCallback(async () => {
@@ -421,114 +423,129 @@ export default function UserDetailPage() {
 
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				{/* User Profile Card */}
-				<Card className="md:col-span-1">
-					<CardHeader className="text-center">
-						<div className="w-24 h-24 mx-auto rounded-full bg-muted flex items-center justify-center mb-4">
+				<Card className="md:col-span-1 h-fit">
+					<CardHeader className="text-center p-4 pb-2">
+						<div className="w-20 h-20 mx-auto rounded-full bg-muted flex items-center justify-center mb-3">
 							{user?.profileImageUrl && !imageError ? (
 								<Image
 									src={user.profileImageUrl}
 									alt={user.name}
-									width={96}
-									height={96}
+									width={80}
+									height={80}
 									className="w-full h-full rounded-full object-cover"
 									onError={() => setImageError(true)}
-									unoptimized={true} // Only needed if using external URLs
+									unoptimized={true}
 								/>
 							) : (
-								<User className="h-12 w-12 text-muted-foreground" />
+								<User className="h-10 w-10 text-muted-foreground" />
 							)}
 						</div>
-						<CardTitle className="text-center">{user?.name}</CardTitle>
-						<CardDescription className="flex flex-wrap justify-center items-center gap-2">
+						<CardTitle className="text-center text-lg">{user?.name}</CardTitle>
+						<CardDescription className="flex flex-wrap justify-center items-center gap-1.5">
 							<span
-								className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+								className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
 									user ? getUserStatus(user) : "Inactive"
 								)}`}
 							>
 								{user ? getUserStatus(user) : "Inactive"}
 							</span>
 							{user?.userType && (
-								<span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+								<span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-800">
 									{user.userType}
 								</span>
 							)}
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="space-y-4">
-						<div className="flex items-center gap-3">
-							<Phone className="h-4 w-4 text-muted-foreground" />
-							<span>{user?.phone}</span>
+					<CardContent className="space-y-3 p-4 pt-0">
+						<div className="flex items-center gap-2 text-sm">
+							<Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+							<span className="truncate">{user?.phone}</span>
 						</div>
-						<div className="flex items-center gap-3">
-							<Mail className="h-4 w-4 text-muted-foreground" />
-							<span>{user?.email}</span>
+						<div className="flex items-center gap-2 text-sm">
+							<Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+							<span className="truncate">{user?.email}</span>
 						</div>
-						<div className="flex items-center gap-3">
-							<Calendar className="h-4 w-4 text-muted-foreground" />
-							<span>
-								Created At:{" "}
-								{user?.createdAt
-									? formatDate(user.createdAt.toString())
-									: "N/A"}
-							</span>
-						</div>
-						<div className="flex items-center gap-3">
-							<Calendar className="h-4 w-4 text-muted-foreground" />
-							<span>
-								Last Active:{" "}
-								{user?.lastActiveAt
-									? formatDate(user.lastActiveAt.toString())
-									: "N/A"}
-								{user?.isLoggedIn && " (Now)"}
-							</span>
-						</div>
-						{user?.isLoggedIn && user?.lastLoginAt && (
-							<div className="flex items-center gap-3">
-								<Calendar className="h-4 w-4 text-muted-foreground" />
-								<span>
-									Logged In: {formatDate(user.lastLoginAt.toString())}
-								</span>
-							</div>
-						)}
-						{!user?.isLoggedIn && user?.lastLogoutAt && (
-							<div className="flex items-center gap-3">
-								<Calendar className="h-4 w-4 text-muted-foreground" />
-								<span>
-									Logged Out: {formatDate(user.lastLogoutAt.toString())}
-								</span>
-							</div>
-						)}
-						{user?.addresses && user.addresses.length > 0 && (
-							<div className="space-y-1 mt-2">
-								<div className="flex items-center gap-3">
-									<MapPin className="h-4 w-4 text-muted-foreground" />
-									<span className="font-medium">Addresses:</span>
+						<div className="flex items-start gap-2 text-xs text-muted-foreground">
+							<Calendar className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+							<div>
+								<div>
+									Created:{" "}
+									{user?.createdAt
+										? formatDate(user.createdAt.toString())
+										: "N/A"}
 								</div>
-								{user.addresses.map((address, index) => (
-									<div key={index} className="ml-7 text-sm">
-										<span className="text-muted-foreground">
-											{address.type.charAt(0).toUpperCase() +
-												address.type.slice(1)}
-											{address.type === "other" && address.label
-												? ` (${address.label})`
-												: ""}
-											:
-										</span>{" "}
-										<span>
-											{address.city}, {address.country}
-										</span>
+								<div>
+									Last Active:{" "}
+									{user?.lastActiveAt
+										? formatDate(user.lastActiveAt.toString())
+										: "N/A"}
+									{user?.isLoggedIn && " (Now)"}
+								</div>
+							</div>
+						</div>
+
+						{/* Addresses Box - Compact Version */}
+						{user?.addresses && user.addresses.length > 0 && (
+							<div className="mt-3 pt-3 border-t border-border">
+								<div>
+									<button
+										onClick={() => setShowAddresses(!showAddresses)}
+										className="w-full flex items-center gap-1.5 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50 rounded-md p-1 -ml-1 -mb-1"
+									>
+										<MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+										<span>Addresses ({user.addresses.length})</span>
+										<ChevronDown
+											className={`h-3.5 w-3.5 text-muted-foreground ml-auto transition-transform ${
+												showAddresses ? "rotate-180" : ""
+											}`}
+										/>
+									</button>
+									<div
+										className={`overflow-hidden transition-all duration-200 ease-in-out ${
+											showAddresses
+												? "max-h-[500px] opacity-100 mt-1"
+												: "max-h-0 opacity-0"
+										}`}
+									>
+										<div className="space-y-2 text-sm">
+											{user.addresses.map((address, index) => (
+												<div
+													key={index}
+													className="border border-border/50 rounded p-2 text-xs"
+												>
+													<div className="font-medium text-foreground/90">
+														{address.type.charAt(0).toUpperCase() +
+															address.type.slice(1)}
+														{address.type === "other" && address.label
+															? ` (${address.label})`
+															: ""}
+													</div>
+													<div className="mt-1 space-y-0.5 text-muted-foreground">
+														<p className="truncate">{address.line1}</p>
+														{address.line2 && (
+															<p className="truncate">{address.line2}</p>
+														)}
+														<p className="truncate">
+															{address.city}
+															{address.state && `, ${address.state}`}
+															{address.pincode && ` - ${address.pincode}`}
+														</p>
+													</div>
+												</div>
+											))}
+										</div>
 									</div>
-								))}
+								</div>
 							</div>
 						)}
 					</CardContent>
-					<CardFooter>
+					<CardFooter className="p-4 pt-0">
 						<Button
-							className="w-full"
+							className="w-full text-sm h-8"
 							variant={isEditing ? "outline" : "default"}
 							onClick={() => setIsEditing(!isEditing)}
 						>
-							{isEditing ? "Cancel Editing" : "Edit User"}
+							{isEditing ? "Cancel" : "Edit User"}
 						</Button>
 					</CardFooter>
 				</Card>
@@ -991,8 +1008,7 @@ export default function UserDetailPage() {
 
 													{editedUser.addresses.length === 0 && (
 														<div className="text-center py-4 text-muted-foreground">
-															No addresses added. Click "Add Address" to add
-															one.
+															No addresses added. Click &ldquo;Add Address&rdquo; to add one.
 														</div>
 													)}
 												</div>

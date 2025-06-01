@@ -13,6 +13,13 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/lib/toast";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 
 // Define the User interface
 export interface User {
@@ -109,7 +116,7 @@ export default function UserTable({ users, setUsers }: UserTableProps) {
 						? {
 								...user,
 								status: newStatus,
-							}
+						  }
 						: user
 				)
 			);
@@ -152,78 +159,53 @@ export default function UserTable({ users, setUsers }: UserTableProps) {
 	return (
 		<div className="space-y-6">
 			{/* Search and Filters */}
-			<div className="flex flex-col space-y-4">
-				<div className="flex flex-col sm:flex-row justify-between gap-3 items-start sm:items-end">
-					{/* Search Bar - Left aligned */}
+			<div className="space-y-4">
+				<div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+					{/* Search Bar */}
 					<div className="w-full sm:w-64">
-						<label htmlFor="search" className="sr-only">
-							Search
-						</label>
-						<div className="relative rounded-md shadow-sm border border-gray-300">
+						<div className="relative">
+							<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
 							<Input
-								id="search"
-								type="text"
+								type="search"
 								placeholder="Search users..."
+								className="w-full bg-background pl-8"
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
-								className="w-full pl-3 pr-10 py-2 border-0 focus:ring-0 focus:ring-offset-0"
 							/>
-							<div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-								<Search className="h-4 w-4 text-gray-400" />
-							</div>
 						</div>
 					</div>
 
-					{/* Filters - Right aligned */}
-					<div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+					{/* Filters */}
+					<div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
 						{/* User Type Filter */}
-						<div className="w-full sm:w-48">
-							<label htmlFor="userTypeFilter" className="sr-only">
-								User Type
-							</label>
-							<select
-								id="userTypeFilter"
-								value={userTypeFilter}
-								onChange={(e) => setUserTypeFilter(e.target.value)}
-								className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-							>
-								{userTypes.map((type) => (
-									<option key={type.value} value={type.value}>
-										{type.label}
-									</option>
-								))}
-							</select>
+						<div className="w-full sm:w-40">
+							<Select value={userTypeFilter} onValueChange={setUserTypeFilter}>
+								<SelectTrigger className="h-8">
+									<SelectValue placeholder="User Type" />
+								</SelectTrigger>
+								<SelectContent>
+									{userTypes.map((type) => (
+										<SelectItem key={type.value} value={type.value}>
+											{type.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
 						</div>
 
 						{/* Status Filter */}
-						<div className="w-full sm:w-40">
-							<label htmlFor="statusFilter" className="sr-only">
-								Status
-							</label>
-							<select
-								id="statusFilter"
-								value={statusFilter}
-								onChange={(e) => setStatusFilter(e.target.value)}
-								className="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-							>
-								<option value="all">All Statuses</option>
-								<option value="active">Active</option>
-								<option value="inactive">Inactive</option>
-							</select>
+						<div className="w-full sm:w-32">
+							<Select value={statusFilter} onValueChange={setStatusFilter}>
+								<SelectTrigger className="h-8">
+									<SelectValue placeholder="Status" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">All Status</SelectItem>
+									<SelectItem value="Active">Active</SelectItem>
+									<SelectItem value="Inactive">Inactive</SelectItem>
+								</SelectContent>
+							</Select>
 						</div>
-
-						{/* Clear Filters Button */}
-						<button
-							onClick={() => {
-								setUserTypeFilter("all");
-								setStatusFilter("all");
-								setSearchQuery("");
-							}}
-							className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center gap-2"
-						>
-							<X className="h-4 w-4" />
-							Clear Filters
-						</button>
 					</div>
 				</div>
 
