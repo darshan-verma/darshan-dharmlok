@@ -128,7 +128,7 @@ export default function KathavachakDetailPage() {
 			if (KathavachakId && !/^[0-9a-fA-F]{24}$/.test(KathavachakId)) {
 				console.error("Invalid MongoDB ObjectId format:", KathavachakId);
 				toast.error("Invalid Kathavachak ID format");
-				router.push("/admin/Kathavachaks");
+				router.push("/admin/kathavachak");
 				return;
 			}
 
@@ -256,7 +256,7 @@ export default function KathavachakDetailPage() {
 				return;
 			}
 
-			router.push("/admin/Kathavachaks");
+			router.push("/admin/kathavachak");
 		}
 	}, [KathavachakId, router]);
 
@@ -420,7 +420,7 @@ export default function KathavachakDetailPage() {
 				<Button
 					variant="outline"
 					size="icon"
-					onClick={() => router.push("/admin/Kathavachaks")}
+					onClick={() => router.push("/admin/kathavachak")}
 				>
 					<ArrowLeft className="h-4 w-4" />
 				</Button>
@@ -1119,9 +1119,7 @@ export default function KathavachakDetailPage() {
 													</h3>
 													<div className="flex items-center">
 														<span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-															{
-																kathavachak?.KathavachakType || "Not specified"
-															}
+															{kathavachak?.KathavachakType || "Not specified"}
 														</span>
 													</div>
 												</div>
