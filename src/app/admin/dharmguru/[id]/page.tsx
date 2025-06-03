@@ -251,7 +251,9 @@ export default function DharmguruDetailPage() {
 				const savedDharmgurus = localStorage.getItem("dharmgurus");
 				if (savedDharmgurus) {
 					const allDharmgurus = JSON.parse(savedDharmgurus);
-					dharmguruData = allDharmgurus.find((d: Dharmguru) => d.id === dharmguruId);
+					dharmguruData = allDharmgurus.find(
+						(d: Dharmguru) => d.id === dharmguruId
+					);
 				}
 			}
 

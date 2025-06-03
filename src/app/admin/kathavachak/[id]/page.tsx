@@ -8,11 +8,12 @@ import {
 	User,
 	Phone,
 	Mail,
-	Calendar,
 	MapPin,
 	Plus,
 	Trash2,
 	ChevronDown,
+	BookOpen,
+	Award,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,10 @@ import {
 } from "@/components/ui/select";
 import Image from "next/image";
 import { toast } from "@/lib/toast";
+import {
+	getRankColor,
+	getCategoryColor,
+} from "@/app/admin/components/kathavachak/KathavachakTable";
 
 interface Activity {
 	date: string;
@@ -122,19 +127,14 @@ export default function KathavachakDetailPage() {
 	// Fetch Kathavachak data from API
 	const fetchKathavachakData = useCallback(async () => {
 		try {
-			console.log("Fetching Kathavachak data for ID:", KathavachakId);
-
 			// Validate MongoDB ObjectId format
 			if (KathavachakId && !/^[0-9a-fA-F]{24}$/.test(KathavachakId)) {
-				console.error("Invalid MongoDB ObjectId format:", KathavachakId);
 				toast.error("Invalid Kathavachak ID format");
 				router.push("/admin/kathavachak");
 				return;
 			}
 
 			const loadingToast = toast.loading("Loading Kathavachak details...");
-
-			console.log("Making API request to:", `/api/users/${KathavachakId}`);
 
 			// Add timeout to prevent hanging requests
 			const controller = new AbortController();
@@ -146,21 +146,13 @@ export default function KathavachakDetailPage() {
 				});
 				clearTimeout(timeoutId);
 
-				console.log("API response status:", response.status);
-
 				if (!response.ok) {
 					const errorText = await response.text();
-					console.error("Error response text:", errorText);
 
 					let errorData;
 					try {
 						errorData = JSON.parse(errorText);
-						console.error("Parsed error data:", errorData);
-					} catch (parseError) {
-						console.error(
-							"Failed to parse error response as JSON:",
-							parseError
-						);
+					} catch {
 						errorData = { error: "Unknown error occurred" };
 					}
 
@@ -168,7 +160,6 @@ export default function KathavachakDetailPage() {
 				}
 
 				const KathavachakData = await response.json();
-				console.log("Kathavachak data received:", KathavachakData);
 
 				// Create a complete Kathavachak object with fallbacks for missing properties
 				const completeKathavachak: Kathavachak = {
@@ -205,18 +196,6 @@ export default function KathavachakDetailPage() {
 				throw error;
 			}
 		} catch (error) {
-			console.error("Error loading Kathavachak:", error);
-			console.error(
-				"Error details:",
-				error instanceof Error
-					? {
-							name: error.name,
-							message: error.message,
-							stack: error.stack,
-					  }
-					: "Unknown error type"
-			);
-
 			toast.error(
 				error instanceof Error
 					? error.message
@@ -225,7 +204,6 @@ export default function KathavachakDetailPage() {
 
 			// Create a mock Kathavachak as fallback for development
 			if (process.env.NODE_ENV !== "production") {
-				console.log("Using mock data as fallback in development");
 				const mockKathavachak: Kathavachak = {
 					id: KathavachakId || "mock-id",
 					name: "Test Kathavachak",
@@ -336,8 +314,6 @@ export default function KathavachakDetailPage() {
 				bio: editedKathavachak.bio || null,
 			};
 
-			console.log("Sending data to API:", dataToSave); // Debug log
-
 			const response = await fetch(`/api/users/${KathavachakId}`, {
 				method: "PUT",
 				headers: {
@@ -348,19 +324,16 @@ export default function KathavachakDetailPage() {
 
 			if (!response.ok) {
 				const errorData = await response.json();
-				console.error("API Error:", errorData); // Debug log
 				throw new Error(errorData.error || "Failed to update Kathavachak");
 			}
 
 			const updatedKathavachak = await response.json();
-			console.log("Update successful:", updatedKathavachak); // Debug log
 
 			setKathavachak(updatedKathavachak);
 			setIsEditing(false);
 			toast.dismiss(loadingToast);
 			toast.success("Kathavachak details updated successfully!");
 		} catch (error) {
-			console.error("Error saving Kathavachak:", error);
 			toast.dismiss(loadingToast);
 			toast.error(
 				error instanceof Error
@@ -476,21 +449,33 @@ export default function KathavachakDetailPage() {
 							<Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
 							<span className="truncate">{kathavachak?.email}</span>
 						</div>
-						<div className="flex items-start gap-2 text-xs text-muted-foreground">
-							<Calendar className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
-							<div>
-								<div>
-									Created:{" "}
-									{kathavachak?.createdAt
-										? formatDate(kathavachak.createdAt.toString())
-										: "N/A"}
+						<div className="pt-2 space-y-2">
+							<div className="flex items-center gap-2 text-sm">
+								<BookOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+								<div className="flex-1">
+									<span className="text-xs text-muted-foreground">
+										Category:{" "}
+									</span>
+									<span
+										className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
+											kathavachak?.category || ""
+										)} w-20`}
+									>
+										{kathavachak?.category || "Not specified"}
+									</span>
 								</div>
-								<div>
-									Last Active:{" "}
-									{kathavachak?.lastActiveAt
-										? formatDate(kathavachak.lastActiveAt.toString())
-										: "N/A"}
-									{kathavachak?.isLoggedIn && " (Now)"}
+							</div>
+							<div className="flex items-center gap-2 text-sm">
+								<Award className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+								<div className="flex-1">
+									<span className="text-xs text-muted-foreground">Rank: </span>
+									<span
+										className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getRankColor(
+											kathavachak?.rank || ""
+										)} w-20`}
+									>
+										{kathavachak?.rank || "Not specified"}
+									</span>
 								</div>
 							</div>
 						</div>
@@ -659,6 +644,28 @@ export default function KathavachakDetailPage() {
 															{errors.phone}
 														</p>
 													)}
+												</div>
+											</div>
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+												<div className="space-y-2">
+													<Label>Category</Label>
+													<span
+														className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
+															editedKathavachak?.category || ""
+														)} w-20`}
+													>
+														{editedKathavachak?.category || "Not specified"}
+													</span>
+												</div>
+												<div className="space-y-2">
+													<Label>Rank</Label>
+													<span
+														className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getRankColor(
+															editedKathavachak?.rank || ""
+														)} w-20`}
+													>
+														{editedKathavachak?.rank || "Not specified"}
+													</span>
 												</div>
 											</div>
 											{editedKathavachak?.addresses && (
@@ -1025,51 +1032,6 @@ export default function KathavachakDetailPage() {
 													)}
 												</div>
 											)}
-											{!isEditing &&
-												kathavachak?.addresses &&
-												kathavachak.addresses.length > 0 && (
-													<div className="space-y-4 pt-4 border-t border-border">
-														<div className="flex items-center gap-2">
-															<MapPin className="h-5 w-5 text-muted-foreground" />
-															<h3 className="text-base font-medium">
-																Addresses
-															</h3>
-														</div>
-														<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-															{kathavachak.addresses.map((address, index) => (
-																<Card key={index} className="border-border">
-																	<CardHeader className="pb-2">
-																		<div className="flex items-center gap-2">
-																			<MapPin className="h-4 w-4 text-muted-foreground" />
-																			<CardTitle className="text-base">
-																				{address.type.charAt(0).toUpperCase() +
-																					address.type.slice(1)}
-																				{address.type === "other" &&
-																				address.label
-																					? ` (${address.label})`
-																					: ""}
-																			</CardTitle>
-																		</div>
-																	</CardHeader>
-																	<CardContent className="text-sm space-y-1">
-																		<p className="font-medium">
-																			{address.line1}
-																			{address.line2 && `, ${address.line2}`}
-																		</p>
-																		<p>
-																			{address.city}
-																			{address.state && `, ${address.state}`}
-																			{address.pincode &&
-																				` - ${address.pincode}`}
-																		</p>
-																		<p>{address.country}</p>
-																	</CardContent>
-																</Card>
-															))}
-														</div>
-													</div>
-												)}
-
 											<div className="space-y-2">
 												<Label htmlFor="bio">Bio</Label>
 												<Textarea
@@ -1115,6 +1077,36 @@ export default function KathavachakDetailPage() {
 												</div>
 												<div className="space-y-2">
 													<h3 className="text-sm font-medium text-muted-foreground">
+														Member Since
+													</h3>
+													<p className="font-medium text-foreground">
+														{kathavachak?.createdAt
+															? formatDate(kathavachak.createdAt)
+															: "N/A"}
+													</p>
+												</div>
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Last Login
+													</h3>
+													<p className="font-medium text-foreground">
+														{kathavachak?.lastLoginAt
+															? formatDate(kathavachak.lastLoginAt)
+															: "Never"}
+													</p>
+												</div>
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Last Logout
+													</h3>
+													<p className="font-medium text-foreground">
+														{kathavachak?.lastLogoutAt
+															? formatDate(kathavachak.lastLogoutAt)
+															: "N/A"}
+													</p>
+												</div>
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
 														Kathavachak Type
 													</h3>
 													<div className="flex items-center">
@@ -1132,6 +1124,30 @@ export default function KathavachakDetailPage() {
 															{kathavachak?.status || "Not specified"}
 														</span>
 													</div>
+												</div>
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Category
+													</h3>
+													<span
+														className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
+															kathavachak?.category || ""
+														)} w-20`}
+													>
+														{kathavachak?.category || "Not specified"}
+													</span>
+												</div>
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Rank
+													</h3>
+													<span
+														className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getRankColor(
+															kathavachak?.rank || ""
+														)} w-20`}
+													>
+														{kathavachak?.rank || "Not specified"}
+													</span>
 												</div>
 											</div>
 											<div className="space-y-2 pt-2 border-t border-border">

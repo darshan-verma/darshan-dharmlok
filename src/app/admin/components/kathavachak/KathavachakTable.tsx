@@ -81,6 +81,46 @@ export const kathavachakCategories = [
 // Ranks for Kathavachaks
 export const kathavachakRanks = ["Junior", "Senior", "Expert", "Master"];
 
+// Function to get color based on rank
+export const getRankColor = (rank: string): string => {
+	switch (rank) {
+		case "Junior":
+			return "bg-blue-100 text-blue-800";
+		case "Senior":
+			return "bg-green-100 text-green-800";
+		case "Expert":
+			return "bg-purple-100 text-purple-800";
+		case "Master":
+			return "bg-amber-100 text-amber-800";
+		default:
+			return "bg-gray-100 text-gray-800";
+	}
+};
+
+// Function to get color based on category
+export const getCategoryColor = (category: string): string => {
+	switch (category) {
+		case "Bhagavad Gita":
+			return "bg-orange-100 text-orange-800";
+		case "Ramayana":
+			return "bg-rose-100 text-rose-800";
+		case "Mahabharata":
+			return "bg-indigo-100 text-indigo-800";
+		case "Vedas":
+			return "bg-emerald-100 text-emerald-800";
+		case "Puranas":
+			return "bg-cyan-100 text-cyan-800";
+		case "Upanishads":
+			return "bg-violet-100 text-violet-800";
+		case "Bhakti Yoga":
+			return "bg-fuchsia-100 text-fuchsia-800";
+		case "Other":
+			return "bg-slate-100 text-slate-800";
+		default:
+			return "bg-gray-100 text-gray-800";
+	}
+};
+
 export default function KathavachakTable({
 	kathavachaks,
 	onAddKathavachak,
@@ -251,17 +291,29 @@ export default function KathavachakTable({
 									<TableCell className="font-medium">
 										{kathavachak.name}
 									</TableCell>
-									<TableCell>{kathavachak.category}</TableCell>
+									<TableCell>
+										<span
+											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getCategoryColor(
+												kathavachak.category
+											)}`}
+										>
+											{kathavachak.category}
+										</span>
+									</TableCell>
 									<TableCell>{kathavachak.phone}</TableCell>
 									<TableCell>{kathavachak.email}</TableCell>
 									<TableCell>
-										<span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-											{kathavachak.rank}
+										<span
+											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getRankColor(
+												kathavachak.rank
+											)}`}
+										>
+											{kathavachak.rank || "Unranked"}
 										</span>
 									</TableCell>
 									<TableCell>
 										<span
-											className={`px-2 py-1 rounded-full text-xs font-medium ${
+											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
 												kathavachak.status === "Active"
 													? "bg-green-100 text-green-800"
 													: "bg-red-100 text-red-800"
@@ -272,7 +324,7 @@ export default function KathavachakTable({
 									</TableCell>
 									<TableCell>
 										<span
-											className={`px-2 py-1 rounded-full text-xs font-medium ${
+											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
 												kathavachak.isApproved
 													? "bg-green-100 text-green-800"
 													: "bg-amber-100 text-amber-800"

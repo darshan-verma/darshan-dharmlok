@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // Helper function to validate user data
-const validateUserData = (data: any, isUpdate: boolean = false) => {
+const validateUserData = (
+	data: Prisma.UserCreateInput,
+	isUpdate: boolean = false
+) => {
 	const errors: Record<string, string> = {};
 
 	if (!isUpdate || "name" in data) {
@@ -49,7 +53,7 @@ export async function GET(request: Request) {
 		const skip = (page - 1) * limit;
 
 		// Build filter conditions
-		const whereConditions: any = {};
+		const whereConditions: Prisma.UserWhereInput = {};
 
 		if (userType) {
 			whereConditions.userType = userType;
@@ -104,8 +108,6 @@ export async function GET(request: Request) {
 			},
 		});
 	} catch (error) {
-		console.error("Error fetching users:", error);
-
 		return NextResponse.json(
 			{
 				error: "Failed to fetch users",
@@ -119,8 +121,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
 	try {
 		const data = await request.json();
-		console.log("POST Request received with data:", data); // Log incoming request data
-		console.log("Rank value from request:", data.rank);
 
 		// Validate required fields
 		validateUserData(data, false);
@@ -154,16 +154,9 @@ export async function POST(request: Request) {
 			password: "defaultPassword123", // In production, generate a secure default password and send reset email
 		};
 
-		console.log(
-			"Creating user with data (including rank):",
-			JSON.stringify(userData, null, 2)
-		);
-
 		const user = await prisma.user.create({
 			data: userData,
 		});
-
-		console.log("User created with rank:", user.rank);
 
 		return NextResponse.json(
 			{
@@ -179,12 +172,12 @@ export async function POST(request: Request) {
 			},
 			{ status: 201 }
 		);
-	} catch (error: any) {
-		console.error("Error creating user:", error);
+	} catch (error: unknown) {
+		const err = error as { message?: string };
 
-		if (error.message.startsWith('{"')) {
+		if (err.message?.startsWith('{"')) {
 			return NextResponse.json(
-				{ error: "Validation failed", details: JSON.parse(error.message) },
+				{ error: "Validation failed", details: JSON.parse(err.message) },
 				{ status: 400 }
 			);
 		}
@@ -192,7 +185,7 @@ export async function POST(request: Request) {
 		return NextResponse.json(
 			{
 				error: "Failed to create user",
-				details: error.message || "Unknown error",
+				details: err.message || "Unknown error",
 			},
 			{ status: 500 }
 		);
@@ -202,8 +195,6 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
 	try {
 		const { id, ...data } = await request.json();
-		console.log("PUT Request received for user:", id, "with data:", data); // Log incoming request data
-		console.log("Rank value from request:", data.rank);
 
 		if (!id) {
 			return NextResponse.json(
@@ -225,7 +216,7 @@ export async function PUT(request: Request) {
 		}
 
 		// Update user - explicitly handle rank field
-		const updateData: any = {
+		const updateData: Prisma.UserUpdateInput = {
 			...(data.name !== undefined && { name: data.name }),
 			...(data.email !== undefined && { email: data.email }),
 			...(data.phone !== undefined && { phone: data.phone }),
@@ -241,19 +232,10 @@ export async function PUT(request: Request) {
 			...(data.status !== undefined && { status: data.status }),
 		};
 
-		// Log the data being used for update
-		console.log(
-			"Updating user with data (including rank):",
-			JSON.stringify(updateData, null, 2)
-		);
-
-		// Make sure to use the correct ID format for MongoDB
 		const updatedUser = await prisma.user.update({
 			where: { id },
 			data: updateData,
 		});
-
-		console.log("User updated with rank:", updatedUser.rank);
 
 		return NextResponse.json({
 			message: "User updated successfully",
@@ -276,12 +258,12 @@ export async function PUT(request: Request) {
 			lastLogoutAt: updatedUser.lastLogoutAt,
 			createdAt: updatedUser.createdAt,
 		});
-	} catch (error: any) {
-		console.error("Error updating user:", error);
+	} catch (error: unknown) {
+		const err = error as { message?: string };
 
-		if (error.message.startsWith('{"')) {
+		if (err.message?.startsWith('{"')) {
 			return NextResponse.json(
-				{ error: "Validation failed", details: JSON.parse(error.message) },
+				{ error: "Validation failed", details: JSON.parse(err.message) },
 				{ status: 400 }
 			);
 		}
@@ -289,7 +271,7 @@ export async function PUT(request: Request) {
 		return NextResponse.json(
 			{
 				error: "Failed to update user",
-				details: error.message || "Unknown error",
+				details: err.message || "Unknown error",
 			},
 			{ status: 500 }
 		);

@@ -13,6 +13,21 @@ import KathavachakTable, {
 } from "../components/kathavachak/KathavachakTable";
 import KathavachakForm from "../components/kathavachak/KathavachakForm";
 
+interface UserData {
+	id: string;
+	name?: string;
+	category?: string;
+	phone?: string;
+	email?: string;
+	status?: string;
+	rank?: string;
+	kycApproved?: boolean | number;
+}
+interface ApiErrorResponse {
+	details?: Record<string, unknown> | string[];
+	message?: string;
+}
+
 export default function KathavachakPage() {
 	const [kathavachaks, setKathavachaks] = useState<Kathavachak[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -29,10 +44,8 @@ export default function KathavachakPage() {
 	// Fetch kathavachaks on component mount
 	useEffect(() => {
 		const fetchKathavachaks = async () => {
+			setLoading(true);
 			try {
-				setLoading(true);
-
-				// Fetch users with userType=Kathavachak from our reusable API endpoint
 				const response = await fetch("/api/users?userType=Kathavachak");
 
 				if (!response.ok) {
@@ -42,7 +55,7 @@ export default function KathavachakPage() {
 				const data = await response.json();
 
 				// Map the user data to match Kathavachak structure
-				const mappedKathavachaks = data.users.map((user: any) => ({
+				const mappedKathavachaks = data.users.map((user: UserData) => ({
 					id: user.id,
 					name: user.name || "",
 					category: user.category || "",
@@ -54,10 +67,9 @@ export default function KathavachakPage() {
 				}));
 
 				setKathavachaks(mappedKathavachaks);
-				setLoading(false);
-			} catch (error) {
-				console.error("Error fetching kathavachaks:", error);
+			} catch {
 				toast.error("Failed to load kathavachaks");
+			} finally {
 				setLoading(false);
 			}
 		};
@@ -89,18 +101,21 @@ export default function KathavachakPage() {
 		if (!kathavachakToDelete) return;
 
 		try {
-			// In a real app, this would be an API call
-			// await fetch(`/api/kathavachaks/${kathavachakToDelete.id}`, {
-			//   method: 'DELETE',
-			// });
+			// Call the API to delete the kathavachak
+			const response = await fetch(`/api/users/${kathavachakToDelete.id}`, {
+				method: "DELETE",
+			});
+
+			if (!response.ok) {
+				throw new Error(`API error: ${response.status}`);
+			}
 
 			// Update local state
 			setKathavachaks(
 				kathavachaks.filter((k) => k.id !== kathavachakToDelete.id)
 			);
 			toast.success(`${kathavachakToDelete.name} has been deleted`);
-		} catch (error) {
-			console.error("Error deleting kathavachak:", error);
+		} catch {
 			toast.error("Failed to delete kathavachak");
 		} finally {
 			setIsDeleteDialogOpen(false);
@@ -126,8 +141,7 @@ export default function KathavachakPage() {
 				kathavachaks.map((k) => (k.id === id ? { ...k, status: newStatus } : k))
 			);
 			toast.success("Status updated successfully");
-		} catch (error) {
-			console.error("Error updating status:", error);
+		} catch {
 			toast.error("Failed to update status");
 		}
 	};
@@ -154,8 +168,7 @@ export default function KathavachakPage() {
 			toast.success(
 				`Kathavachak ${currentStatus ? "disapproved" : "approved"} successfully`
 			);
-		} catch (error) {
-			console.error("Error toggling approval:", error);
+		} catch {
 			toast.error("Failed to update approval status");
 		}
 	};
@@ -173,9 +186,6 @@ export default function KathavachakPage() {
 
 	const handleFormSubmit = async (kathavachakData: Omit<Kathavachak, "id">) => {
 		try {
-			console.log("1. Form submitted with data:", kathavachakData);
-			setIsSubmitting(true);
-
 			const url = currentKathavachak?.id
 				? `/api/users/${currentKathavachak.id}`
 				: "/api/users";
@@ -191,9 +201,6 @@ export default function KathavachakPage() {
 				rank: kathavachakData.rank || "", // Ensure rank is explicitly set
 			};
 
-			console.log("2. Sending request with data:", requestData);
-			console.log("2a. Rank value being sent:", requestData.rank);
-
 			const response = await fetch(url, {
 				method,
 				headers: {
@@ -202,13 +209,11 @@ export default function KathavachakPage() {
 				body: JSON.stringify(requestData),
 			});
 
-			const data = await response.json();
-			console.log("3. API Response:", data);
-			console.log("3a. Rank in API response:", data.rank);
-
 			if (!response.ok) {
-				throw new Error(data.error || "Failed to save kathavachak");
+				throw new Error("Failed to save kathavachak");
 			}
+
+			// const data = await response.json();
 
 			// Refresh the kathavachaks list
 			const fetchResponse = await fetch("/api/users?userType=Kathavachak");
@@ -218,7 +223,7 @@ export default function KathavachakPage() {
 			const { users } = await fetchResponse.json();
 
 			// Map the user data to match Kathavachak structure
-			const mappedKathavachaks = users.map((user: any) => ({
+			const mappedKathavachaks = users.map((user: UserData) => ({
 				id: user.id,
 				name: user.name || "",
 				category: user.category || "",
@@ -238,22 +243,33 @@ export default function KathavachakPage() {
 			);
 
 			setIsFormOpen(false);
-		} catch (error: any) {
-			console.error("Error saving kathavachak:", error);
-
-			if (error.details) {
-				// Handle validation errors
-				Object.values(error.details).forEach((message: any) => {
-					toast.error(String(message));
-				});
-			} else {
+			toast.success(
+				currentKathavachak?.id
+					? "Kathavachak updated successfully"
+					: "Kathavachak created successfully"
+			);
+		} catch (error: unknown) {
+			// Type guard for error with 'details'
+			if (typeof error === "object" && error !== null && "details" in error) {
+				const err = error as ApiErrorResponse;
+				if (Array.isArray(err.details)) {
+					err.details.forEach((message) => {
+						toast.error(String(message));
+					});
+				} else if (err.details && typeof err.details === "object") {
+					Object.values(err.details).forEach((message) => {
+						toast.error(String(message));
+					});
+				}
+			} else if (error instanceof Error) {
 				toast.error(error.message || "Failed to save kathavachak");
+			} else {
+				toast.error("Failed to save kathavachak");
 			}
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
-
 	if (loading) {
 		return (
 			<div className="flex justify-center items-center h-screen">

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function GET(
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -172,8 +173,12 @@ export async function PUT(
 			);
 		}
 
-		// Validate required fields
-		if (!data.name || !data.email || !data.phone) {
+		// Only validate required fields if they are being updated
+		if (
+			(data.name !== undefined && !data.name) ||
+			(data.email !== undefined && !data.email) ||
+			(data.phone !== undefined && !data.phone)
+		) {
 			return NextResponse.json(
 				{ error: "Missing required fields" },
 				{ status: 400 }
@@ -185,7 +190,7 @@ export async function PUT(
 			console.log("Updating user with data:", JSON.stringify(data, null, 2));
 			console.log("Rank value before update:", data.rank);
 
-			const updateData: any = {
+			const updateData: Prisma.UserUpdateInput = {
 				...(data.name !== undefined && { name: data.name }),
 				...(data.email !== undefined && { email: data.email }),
 				...(data.phone !== undefined && { phone: data.phone }),
@@ -202,7 +207,12 @@ export async function PUT(
 				// Explicitly include rank field
 				rank: data.rank || "",
 				...(data.kycApproved !== undefined && {
-					kycApproved: data.kycApproved,
+					kycApproved:
+						typeof data.kycApproved === "boolean"
+							? data.kycApproved
+								? 1
+								: 0
+							: data.kycApproved,
 				}),
 				...(data.isApproved !== undefined && {
 					kycApproved: data.isApproved ? 1 : 0,
@@ -410,6 +420,67 @@ export async function PUT(
 		return NextResponse.json(
 			{
 				error: "Failed to update user",
+				details: error instanceof Error ? error.message : "Unknown error",
+			},
+			{ status: 500 }
+		);
+	}
+}
+
+export async function DELETE(
+	_request: Request,
+	context: { params: { id: string } }
+) {
+	try {
+		const userId = context.params.id;
+
+		// Validate userId format for MongoDB ObjectId
+		if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
+			console.error("Invalid user ID format:", userId);
+			return NextResponse.json(
+				{ error: "Invalid user ID format" },
+				{ status: 400 }
+			);
+		}
+
+		// Check if prisma client is available
+		if (!prisma) {
+			console.error("Prisma client is not initialized");
+			return NextResponse.json(
+				{ error: "Database connection error" },
+				{ status: 500 }
+			);
+		}
+
+		// Check if user exists
+		const userExists = await prisma.user.findUnique({
+			where: { id: userId },
+			select: { id: true },
+		});
+
+		if (!userExists) {
+			return NextResponse.json({ error: "User not found" }, { status: 404 });
+		}
+
+		// Delete user's addresses first to avoid foreign key constraints
+		await prisma.address.deleteMany({
+			where: { userId: userId },
+		});
+
+		// Delete the user
+		await prisma.user.delete({
+			where: { id: userId },
+		});
+
+		return NextResponse.json(
+			{ message: "User deleted successfully" },
+			{ status: 200 }
+		);
+	} catch (error) {
+		console.error("Error deleting user:", error);
+		return NextResponse.json(
+			{
+				error: "Failed to delete user",
 				details: error instanceof Error ? error.message : "Unknown error",
 			},
 			{ status: 500 }
