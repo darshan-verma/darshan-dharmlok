@@ -2,16 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Image from "next/image";
 import {
 	ArrowLeft,
 	Save,
 	User,
 	Phone,
 	Mail,
-	Calendar,
 	MapPin,
+	Plus,
+	Trash2,
+	ChevronDown,
 	BookOpen,
+	Award,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,310 +36,258 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import Image from "next/image";
 import { toast } from "@/lib/toast";
+import {
+	getRankColor,
+	getCategoryColor,
+} from "@/app/admin/components/dharmguru/DharmguruTable";
 
-// Mock dharmguru data - in a real app, you would fetch this from an API
-const mockDharmguruDetails = {
-	"1": {
-		id: "1",
-		name: "Swami Anand Sharma",
-		category: "Spiritual Guidance",
-		phone: "+91 9876543210",
-		email: "anand.sharma@gmail.com",
-		status: "Active",
-		rank: "Senior",
-		address: "123 Ashram Road, Rishikesh, 249201",
-		joinedDate: "2023-05-15",
-		lastActive: "2023-06-24T08:30:00",
-		avatar: "/avatars/anand.jpg",
-		bio: "Experienced spiritual guide with 20 years of expertise in Vedantic philosophy. Has conducted over 300 workshops across India and abroad.",
-		preferences: {
-			notifications: true,
-			newsletter: true,
-			language: "Hindi",
-		},
-		activities: [
-			{ date: "2023-06-20", action: "Conducted meditation workshop" },
-			{ date: "2023-06-15", action: "Published new spiritual article" },
-			{ date: "2023-06-10", action: "Attended Dharma conference" },
-		],
-	},
-	"2": {
-		id: "2",
-		name: "Acharya Sunita Joshi",
-		category: "Meditation",
-		phone: "+91 8765432109",
-		email: "sunita.joshi@gmail.com",
-		status: "Active",
-		rank: "Expert",
-		address: "456 Shanti Nagar, Varanasi, 221001",
-		joinedDate: "2023-04-10",
-		lastActive: "2023-06-22T14:15:00",
-		avatar: "/avatars/sunita.jpg",
-		bio: "Meditation expert with deep knowledge of various meditation techniques. Specializes in mindfulness and transcendental meditation practices.",
-		preferences: {
-			notifications: true,
-			newsletter: false,
-			language: "English",
-		},
-		activities: [
-			{ date: "2023-06-18", action: "Conducted meditation retreat" },
-			{ date: "2023-06-05", action: "Released guided meditation series" },
-			{ date: "2023-05-25", action: "Participated in wellness summit" },
-		],
-	},
-	"3": {
-		id: "3",
-		name: "Guru Rajesh Trivedi",
-		category: "Yoga",
-		phone: "+91 7654321098",
-		email: "rajesh.trivedi@gmail.com",
-		status: "Inactive",
-		rank: "Master",
-		address: "789 Yoga Path, Mysore, 570001",
-		joinedDate: "2023-03-22",
-		lastActive: "2023-05-10T11:45:00",
-		avatar: "/avatars/rajesh.jpg",
-		bio: "Yoga master with expertise in Ashtanga and Hatha yoga. Has trained thousands of yoga practitioners and teachers worldwide.",
-		preferences: {
-			notifications: false,
-			newsletter: true,
-			language: "Sanskrit",
-		},
-		activities: [
-			{ date: "2023-05-08", action: "Published yoga research paper" },
-			{ date: "2023-04-30", action: "Conducted advanced asana workshop" },
-			{ date: "2023-04-15", action: "Gave interview for yoga documentary" },
-		],
-	},
-	"4": {
-		id: "4",
-		name: "Swamini Deepa Singh",
-		category: "Vedanta",
-		phone: "+91 6543210987",
-		email: "deepa.singh@gmail.com",
-		status: "Active",
-		rank: "Senior",
-		address: "321 Vedanta Bhavan, Haridwar, 249401",
-		joinedDate: "2023-02-14",
-		lastActive: "2023-06-23T16:20:00",
-		avatar: "/avatars/deepa.jpg",
-		bio: "Vedanta scholar with deep understanding of Advaita philosophy. Known for making complex philosophical concepts accessible to modern audiences.",
-		preferences: {
-			notifications: true,
-			newsletter: true,
-			language: "Hindi",
-		},
-		activities: [
-			{ date: "2023-06-20", action: "Conducted Vedanta discourse series" },
-			{ date: "2023-06-12", action: "Released new book on Advaita" },
-			{ date: "2023-06-01", action: "Organized youth philosophy workshop" },
-		],
-	},
-	"5": {
-		id: "5",
-		name: "Acharya Vikram Mehta",
-		category: "Ayurveda",
-		phone: "+91 5432109876",
-		email: "vikram.mehta@gmail.com",
-		status: "Inactive",
-		rank: "Junior",
-		address: "654 Ayush Marg, Jaipur, 302001",
-		joinedDate: "2023-01-30",
-		lastActive: "2023-04-15T09:10:00",
-		avatar: "/avatars/vikram.jpg",
-		bio: "Ayurvedic practitioner specializing in holistic wellness and natural remedies. Focuses on integrating ancient Ayurvedic wisdom with modern healthcare approaches.",
-		preferences: {
-			notifications: false,
-			newsletter: false,
-			language: "English",
-		},
-		activities: [
-			{ date: "2023-04-12", action: "Started online Ayurveda course" },
-			{ date: "2023-03-28", action: "Gave lecture at Ayurveda conference" },
-			{ date: "2023-03-10", action: "Published article in wellness journal" },
-		],
-	},
-};
-
-// Categories for Dharmgurus
-const dharmguruCategories = [
-	"Spiritual Guidance",
-	"Meditation",
-	"Yoga",
-	"Vedanta",
-	"Ayurveda",
-	"Astrology",
-	"Life Coaching",
-	"Other",
-];
-
-// Ranks for Dharmgurus
-const dharmguruRanks = ["Junior", "Senior", "Expert", "Master"];
-
-// Activity interface
 interface Activity {
 	date: string;
 	action: string;
 }
 
-// Add Dharmguru interface
+interface DharmguruPreferences {
+	notifications: boolean;
+	newsletter: boolean;
+	language: string;
+}
+
+interface Address {
+	id?: string;
+	type: "home" | "work" | "other";
+	label?: string;
+	line1: string;
+	line2?: string;
+	city: string;
+	state?: string;
+	country: string;
+	pincode?: string;
+	createdAt?: string | Date;
+	updatedAt?: string | Date;
+}
+
 interface Dharmguru {
 	id: string;
 	name: string;
-	email: string;
 	phone: string;
-	category: string;
-	status: string;
-	rank: string;
-	address: string;
-	joinedDate: string;
-	isApproved?: boolean;
-	avatar?: string;
+	email: string;
+	KathavachakType?: string;
+	typeVendor?: string;
+	profileImageUrl?: string;
 	bio?: string;
-	preferences: {
-		notifications: boolean;
-		newsletter: boolean;
-		language: string;
-	};
-	activities: { date: string; action: string }[];
+	coverImageUrl?: string;
+	category?: string;
+	addresses?: Address[];
+	social?: number;
+	active?: number;
+	rank?: string;
+	availability?: number;
+	kycApproved?: number;
+	status?: string;
+	isLoggedIn: boolean;
+	lastLogoutAt?: string | Date | null;
+	lastActiveAt?: string | Date | null;
+	lastLoginAt?: string | Date | null;
+	createdAt: string | Date;
+	// Client-side only properties
+	preferences?: DharmguruPreferences;
+	activities?: Activity[];
 }
 
 interface FormErrors {
 	name?: string;
 	email?: string;
 	phone?: string;
-	category?: string;
-	address?: string;
-	bio?: string;
-	rank?: string;
-	status?: string;
+	addresses?: {
+		[key: string]: {
+			line1?: string;
+			city?: string;
+			country?: string;
+			label?: string;
+		};
+	};
 }
 
 export default function DharmguruDetailPage() {
 	const params = useParams();
 	const router = useRouter();
-	const dharmguruId = params.id as string;
+	const DharmguruId = params.id as string;
 
 	const [dharmguru, setDharmguru] = useState<Dharmguru | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
-	const [editedDharmguru, setEditedDharmguru] = useState<Dharmguru | null>(
-		null
-	);
+	const [editedDharmguru, setEditedDharmguru] =
+		useState<Partial<Dharmguru> | null>(null);
 	const [imageError, setImageError] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
+	const [showAddresses, setShowAddresses] = useState(false);
 
-	// Memoize the fetch function and add proper dependencies
-	const fetchDharmguruData = useCallback(() => {
-		const loadingToast = toast.loading("Loading Dharmguru details...");
+	// Fetch Kathavachak data from API
+	const fetchDharmguruData = useCallback(async () => {
 		try {
-			// First check for detailed data in localStorage
-			const detailedData = localStorage.getItem(`dharmguru_${dharmguruId}`);
-			if (detailedData) {
-				const dharmguruData = JSON.parse(detailedData);
-				setDharmguru(dharmguruData);
-				setEditedDharmguru({ ...dharmguruData });
-				toast.dismiss(loadingToast);
+			// Validate MongoDB ObjectId format
+			if (DharmguruId && !/^[0-9a-fA-F]{24}$/.test(DharmguruId)) {
+				toast.error("Invalid Kathavachak ID format");
+				router.push("/admin/dharmguru");
 				return;
 			}
 
-			// If no detailed data, check mock data
-			let dharmguruData =
-				mockDharmguruDetails[dharmguruId as keyof typeof mockDharmguruDetails];
+			const loadingToast = toast.loading("Loading Kathavachak details...");
 
-			// If not found in mock data, check localStorage for basic data
-			if (!dharmguruData && typeof window !== "undefined") {
-				const savedDharmgurus = localStorage.getItem("dharmgurus");
-				if (savedDharmgurus) {
-					const allDharmgurus = JSON.parse(savedDharmgurus);
-					dharmguruData = allDharmgurus.find(
-						(d: Dharmguru) => d.id === dharmguruId
-					);
+			// Add timeout to prevent hanging requests
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+			try {
+				const response = await fetch(`/api/users/${DharmguruId}`, {
+					signal: controller.signal,
+				});
+				clearTimeout(timeoutId);
+
+				if (!response.ok) {
+					const errorText = await response.text();
+
+					let errorData;
+					try {
+						errorData = JSON.parse(errorText);
+					} catch {
+						errorData = { error: "Unknown error occurred" };
+					}
+
+					throw new Error(errorData.error || "Failed to fetch Dharmguru");
 				}
-			}
 
-			if (dharmguruData) {
-				// Ensure preferences are properly initialized
-				const dharmguruWithPreferences = {
-					...dharmguruData,
+				const DharmguruData = await response.json();
+
+				// Create a complete Kathavachak object with fallbacks for missing properties
+				const completeDharmguru: Dharmguru = {
+					...DharmguruData,
+					id: DharmguruData.id,
+					name: DharmguruData.name || "",
+					email: DharmguruData.email || "",
+					phone: DharmguruData.phone || "",
+					addresses: DharmguruData.addresses || [],
+					KathavachakType: DharmguruData.KathavachakType || "Regular",
+					status: DharmguruData.status || "Active",
+					isLoggedIn: DharmguruData.isLoggedIn || false,
+					bio: DharmguruData.bio || "",
+					createdAt: DharmguruData.createdAt || new Date().toISOString(),
+					// Add client-side only properties
 					preferences: {
-						notifications: dharmguruData.preferences?.notifications ?? true,
-						newsletter: dharmguruData.preferences?.newsletter ?? true,
-						language: dharmguruData.preferences?.language ?? "en",
+						notifications: true,
+						newsletter: false,
+						language: "English",
 					},
-					activities: dharmguruData.activities || [],
-					// Add any missing fields with default values
-					address: dharmguruData.address || "",
-					bio: dharmguruData.bio || "",
-					joinedDate:
-						dharmguruData.joinedDate || new Date().toISOString().split("T")[0],
+					activities: [],
 				};
-				setDharmguru(dharmguruWithPreferences);
-				setEditedDharmguru({ ...dharmguruWithPreferences });
-			} else {
-				// If dharmguru not found, redirect to dharmgurus list
+
+				setDharmguru(completeDharmguru);
+				setEditedDharmguru({ ...completeDharmguru });
 				toast.dismiss(loadingToast);
-				toast.error("Dharmguru not found");
-				setTimeout(() => {
-					router.push("/admin/dharmguru");
-				}, 1500);
+			} catch (error) {
+				clearTimeout(timeoutId);
+				if (error instanceof Error) {
+					if (error.name === "AbortError") {
+						throw new Error("Request timed out. Please try again.");
+					}
+				}
+				throw error;
 			}
 		} catch (error) {
-			toast.dismiss(loadingToast);
-			toast.error("Failed to load Dharmguru data");
-			console.error("Error loading Dharmguru data:", error);
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to load Dharmguru details"
+			);
+
+			// Create a mock Dharmguru as fallback for development
+			if (process.env.NODE_ENV !== "production") {
+				const mockDharmguru: Dharmguru = {
+					id: DharmguruId || "mock-id",
+					name: "Test Dharmguru",
+					email: "test@example.com",
+					phone: "1234567890",
+					addresses: [
+						{
+							type: "home",
+							line1: "123 Test Street",
+							city: "Test City",
+							country: "India",
+						},
+					],
+					KathavachakType: "Regular",
+					status: "Active",
+					isLoggedIn: false,
+					bio: "This is a test Dharmguru bio.",
+					createdAt: new Date().toISOString(),
+					preferences: {
+						notifications: true,
+						newsletter: false,
+						language: "English",
+					},
+					activities: [],
+				};
+				setDharmguru(mockDharmguru);
+				setEditedDharmguru({ ...mockDharmguru });
+				return;
+			}
+
+			router.push("/admin/dharmguru");
 		}
-	}, [dharmguruId, router]);
+	}, [DharmguruId, router]);
 
-	// Call the memoized function
+	// Call the fetch function when component mounts
 	useEffect(() => {
-		fetchDharmguruData();
-	}, [fetchDharmguruData]);
+		if (DharmguruId) {
+			fetchDharmguruData();
+		}
+	}, [DharmguruId, fetchDharmguruData]);
 
-	const validateForm = (data: Partial<Dharmguru>): boolean => {
+	const validateForm = (DharmguruData: Partial<Dharmguru>): boolean => {
 		const newErrors: FormErrors = {};
 
-		if (!data.name?.trim()) {
+		if (!DharmguruData.name?.trim()) {
 			newErrors.name = "Name is required";
 		}
 
-		if (!data.email?.trim()) {
+		if (!DharmguruData.email?.trim()) {
 			newErrors.email = "Email is required";
-		} else if (!/\S+@\S+\.\S+/.test(data.email)) {
+		} else if (!/\S+@\S+\.\S+/.test(DharmguruData.email)) {
 			newErrors.email = "Email is invalid";
 		}
 
-		if (!data.phone?.trim()) {
+		if (!DharmguruData.phone?.trim()) {
 			newErrors.phone = "Phone number is required";
 		} else {
 			const phoneRegex = /^(\+91[\s-]?)?[0-9]{10}$/;
-			if (!phoneRegex.test(data.phone.replace(/[\s-]/g, ""))) {
+			if (!phoneRegex.test(DharmguruData.phone.replace(/[\s-]/g, ""))) {
 				newErrors.phone =
 					"Please enter a valid 10-digit phone number with optional +91 prefix";
 			}
 		}
 
-		if (!data.category) {
-			newErrors.category = "Category is required";
-		}
+		if (DharmguruData.addresses) {
+			DharmguruData.addresses.forEach((address, index) => {
+				if (!address.line1?.trim()) {
+					newErrors.addresses = newErrors.addresses || {};
+					newErrors.addresses[index] = newErrors.addresses[index] || {};
+					newErrors.addresses[index].line1 = "Address line 1 is required";
+				}
 
-		if (!data.rank) {
-			newErrors.rank = "Rank is required";
-		}
+				if (!address.city?.trim()) {
+					newErrors.addresses = newErrors.addresses || {};
+					newErrors.addresses[index] = newErrors.addresses[index] || {};
+					newErrors.addresses[index].city = "City is required";
+				}
 
-		if (!data.address?.trim()) {
-			newErrors.address = "Address is required";
-		}
-
-		if (!data.bio?.trim()) {
-			newErrors.bio = "Bio is required";
-		} else if (data.bio.length < 50) {
-			newErrors.bio = "Bio should be at least 50 characters long";
-		}
-
-		if (!data.status) {
-			newErrors.status = "Status is required";
+				if (!address.country?.trim()) {
+					newErrors.addresses = newErrors.addresses || {};
+					newErrors.addresses[index] = newErrors.addresses[index] || {};
+					newErrors.addresses[index].country = "Country is required";
+				}
+			});
 		}
 
 		setErrors(newErrors);
@@ -345,132 +295,97 @@ export default function DharmguruDetailPage() {
 	};
 
 	const handleSaveChanges = async () => {
-		if (!editedDharmguru || !validateForm(editedDharmguru)) {
+		if (!editedDharmguru) return;
+
+		if (!validateForm(editedDharmguru)) {
 			return;
 		}
 
 		setIsSaving(true);
-		const toastId = toast.loading("Saving changes...");
+		const loadingToast = toast.loading("Saving changes...");
 
 		try {
-			// Prepare the simplified dharmguru data for the list view
-			const simplifiedDharmguru = {
-				id: editedDharmguru.id,
+			// Prepare data for API
+			const dataToSave = {
 				name: editedDharmguru.name,
-				category: editedDharmguru.category,
-				phone: editedDharmguru.phone,
 				email: editedDharmguru.email,
-				status: editedDharmguru.status,
-				rank: editedDharmguru.rank,
-				isApproved: dharmguru?.isApproved || false, // Preserve the approval status
+				phone: editedDharmguru.phone,
+				addresses: editedDharmguru.addresses,
+				bio: editedDharmguru.bio || null,
 			};
 
-			// Update the dharmguru in localStorage
-			if (typeof window !== "undefined") {
-				const savedDharmgurus = localStorage.getItem("dharmgurus");
-				let allDharmgurus = [];
+			const response = await fetch(`/api/users/${DharmguruId}`, {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(dataToSave),
+			});
 
-				if (savedDharmgurus) {
-					allDharmgurus = JSON.parse(savedDharmgurus);
-					// Find the index of the dharmguru to update
-					const index = allDharmgurus.findIndex(
-						(d: Dharmguru) => d.id === dharmguruId
-					);
-					if (index !== -1) {
-						// Update existing dharmguru
-						allDharmgurus[index] = simplifiedDharmguru;
-					} else {
-						// Add new dharmguru if not found
-						allDharmgurus.push(simplifiedDharmguru);
-					}
-				} else {
-					allDharmgurus = [simplifiedDharmguru];
-				}
-
-				localStorage.setItem("dharmgurus", JSON.stringify(allDharmgurus));
-
-				// Also save the detailed data in a separate key for the detail view
-				localStorage.setItem(
-					`dharmguru_${dharmguruId}`,
-					JSON.stringify(editedDharmguru)
-				);
-
-				// Update the local state with the saved data
-				setDharmguru(editedDharmguru);
-				setIsEditing(false);
-				toast.dismiss(toastId);
-				toast.success("Dharmguru details updated successfully!");
-
-				// Redirect back to the list page
-				router.push("/admin/dharmguru");
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to update Dharmguru");
 			}
+
+			const updatedDharmguru = await response.json();
+
+			setDharmguru(updatedDharmguru);
+			setIsEditing(false);
+			toast.dismiss(loadingToast);
+			toast.success("Dharmguru details updated successfully!");
 		} catch (error) {
-			console.error("Error saving Dharmguru data:", error);
-			toast.dismiss(toastId);
-			toast.error("Failed to save changes. Please try again.");
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to update Dharmguru details"
+			);
 		} finally {
 			setIsSaving(false);
 		}
 	};
 
-	const handleCancelEdit = () => {
-		if (dharmguru) {
-			setEditedDharmguru({ ...dharmguru });
-			setIsEditing(false);
-			toast.info("Changes discarded");
-		}
-	};
-
-	const handleInputChange = (
-		e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-	) => {
-		if (!editedDharmguru) return;
-
-		const { name, value } = e.target;
-		setEditedDharmguru({
-			...editedDharmguru,
-			[name]: value,
-		});
-	};
-
-	const handlePreferenceChange = (name: string, value: string | boolean) => {
-		if (!editedDharmguru) return;
-
-		setEditedDharmguru({
-			...editedDharmguru,
-			preferences: {
-				...editedDharmguru.preferences,
-				[name]: value,
-			},
-		});
-
-		// Show feedback for preference changes
-		if (typeof value === "boolean") {
-			const preferenceName =
-				name === "notifications" ? "Notifications" : "Newsletter";
-			toast.info(`${preferenceName} ${value ? "enabled" : "disabled"}`);
-		}
-	};
-
-	const formatDate = (dateString: string) => {
+	const formatDate = (dateString: string | Date) => {
 		if (!dateString) return "N/A";
-		const date = new Date(dateString);
-		if (isNaN(date.getTime())) return "Invalid date";
+		const date =
+			typeof dateString === "string" ? new Date(dateString) : dateString;
 		return new Intl.DateTimeFormat("en-IN", {
 			day: "2-digit",
 			month: "short",
 			year: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+			hour12: true,
 		}).format(date);
 	};
 
-	if (!dharmguru) {
-		return (
-			<div className="p-6 flex items-center justify-center">
-				<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-				<span className="ml-3">Loading dharmguru details...</span>
-			</div>
-		);
-	}
+	const getDharmguruStatus = (Dharmguru: Dharmguru) => {
+		if (!Dharmguru.status || Dharmguru.status === "Inactive")
+			return "Inactive";
+		return Dharmguru.isLoggedIn ? "Active (Online)" : "Active (Offline)";
+	};
+
+	const getStatusColor = (status: string) => {
+		if (status === "Inactive") return "bg-red-100 text-red-800";
+		if (status === "Active (Online)") return "bg-green-100 text-green-800";
+		return "bg-blue-100 text-blue-800"; // Active (Offline)
+	};
+
+	const formatPhoneNumber = (value: string): string => {
+		// Remove all non-digit characters
+		const cleaned = value.replace(/\D/g, "");
+
+		// If it starts with 91, add +91
+		if (cleaned.startsWith("91") && cleaned.length >= 10) {
+			return `+91 ${cleaned.substring(2, 12)}`;
+		}
+		// If it's 10 digits, format as is
+		else if (cleaned.length <= 10) {
+			return cleaned;
+		}
+		// Default return the cleaned value
+		return cleaned;
+	};
 
 	return (
 		<div className="p-6 space-y-6">
@@ -487,70 +402,145 @@ export default function DharmguruDetailPage() {
 
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				{/* Dharmguru Profile Card */}
-				<Card className="md:col-span-1">
-					<CardHeader className="text-center">
-						<div className="w-24 h-24 mx-auto rounded-full bg-muted flex items-center justify-center mb-4">
-							{dharmguru.avatar && !imageError ? (
+				<Card className="md:col-span-1 h-fit">
+					<CardHeader className="text-center p-4 pb-2">
+						<div className="w-20 h-20 mx-auto rounded-full bg-muted flex items-center justify-center mb-3">
+							{dharmguru?.profileImageUrl && !imageError ? (
 								<Image
-									src={dharmguru.avatar}
+									src={dharmguru.profileImageUrl}
 									alt={dharmguru.name}
-									width={96}
-									height={96}
+									width={80}
+									height={80}
 									className="w-full h-full rounded-full object-cover"
 									onError={() => setImageError(true)}
-									unoptimized={true} // Only needed if using external URLs
+									unoptimized={true}
 								/>
 							) : (
-								<User className="h-12 w-12 text-muted-foreground" />
+								<User className="h-10 w-10 text-muted-foreground" />
 							)}
 						</div>
-						<CardTitle>{dharmguru.name}</CardTitle>
-						<CardDescription>
-							<div className="flex flex-col gap-2 items-center">
-								<span
-									className={`px-2 py-1 rounded-full text-xs font-medium ${
-										dharmguru.status === "Active"
-											? "bg-green-100 text-green-800"
-											: "bg-red-100 text-red-800"
-									}`}
-								>
-									{dharmguru.status}
+						<CardTitle className="text-center text-lg">
+							{dharmguru?.name}
+						</CardTitle>
+						<CardDescription className="flex flex-wrap justify-center items-center gap-1.5">
+							<span
+								className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+									dharmguru
+										? getStatusColor(getDharmguruStatus(dharmguru))
+										: "bg-red-100 text-red-800"
+								}`}
+							>
+								{dharmguru ? getDharmguruStatus(dharmguru) : "Inactive"}
+							</span>
+							{dharmguru?.KathavachakType && (
+								<span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-800">
+									{dharmguru.KathavachakType}
 								</span>
-								<span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-									{dharmguru.rank}
-								</span>
-							</div>
+							)}
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="space-y-4">
-						<div className="flex items-center gap-3">
-							<BookOpen className="h-4 w-4 text-muted-foreground" />
-							<span>{dharmguru.category}</span>
+
+					<CardContent className="space-y-3 p-4 pt-0">
+						<div className="flex items-center gap-2 text-sm">
+							<Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+							<span className="truncate">{dharmguru?.phone}</span>
 						</div>
-						<div className="flex items-center gap-3">
-							<Phone className="h-4 w-4 text-muted-foreground" />
-							<span>{dharmguru.phone}</span>
+						<div className="flex items-center gap-2 text-sm">
+							<Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+							<span className="truncate">{dharmguru?.email}</span>
 						</div>
-						<div className="flex items-center gap-3">
-							<Mail className="h-4 w-4 text-muted-foreground" />
-							<span>{dharmguru.email}</span>
+						<div className="pt-2 space-y-2">
+							<div className="flex items-center gap-2 text-sm">
+								<BookOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+								<div className="flex-1">
+									<span className="text-xs text-muted-foreground">
+										Category:{" "}
+									</span>
+									<span
+										className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
+											dharmguru?.category || ""
+										)} w-20`}
+									>
+										{dharmguru?.category || "Not specified"}
+									</span>
+								</div>
+							</div>
+							<div className="flex items-center gap-2 text-sm">
+								<Award className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+								<div className="flex-1">
+									<span className="text-xs text-muted-foreground">Rank: </span>
+									<span
+										className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getRankColor(
+											dharmguru?.rank || ""
+										)} w-20`}
+									>
+										{dharmguru?.rank || "Not specified"}
+									</span>
+								</div>
+							</div>
 						</div>
-						<div className="flex items-center gap-3">
-							<Calendar className="h-4 w-4 text-muted-foreground" />
-							<span>Joined: {formatDate(dharmguru.joinedDate)}</span>
-						</div>
-						<div className="flex items-center gap-3">
-							<MapPin className="h-4 w-4 text-muted-foreground" />
-							<span className="text-sm">{dharmguru.address}</span>
-						</div>
+
+						{/* Addresses Box – Compact Version */}
+						{dharmguru?.addresses && dharmguru.addresses.length > 0 && (
+							<div className="mt-3 pt-3 border-t border-border">
+								<button
+									onClick={() => setShowAddresses(!showAddresses)}
+									className="w-full flex items-center gap-1.5 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50 rounded-md p-1 -ml-1 -mb-1"
+								>
+									<MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+									<span>Addresses ({dharmguru.addresses.length})</span>
+									<ChevronDown
+										className={`h-3.5 w-3.5 text-muted-foreground ml-auto transition-transform ${
+											showAddresses ? "rotate-180" : ""
+										}`}
+									/>
+								</button>
+								<div
+									className={`overflow-hidden transition-all duration-200 ease-in-out ${
+										showAddresses
+											? "max-h-[500px] opacity-100 mt-1"
+											: "max-h-0 opacity-0"
+									}`}
+								>
+									<div className="space-y-2 text-sm">
+										{dharmguru.addresses.map((address, index) => (
+											<div
+												key={index}
+												className="border border-border/50 rounded p-2 text-xs"
+											>
+												<div className="font-medium text-foreground/90">
+													{address.type.charAt(0).toUpperCase() +
+														address.type.slice(1)}
+													{address.type === "other" && address.label
+														? ` (${address.label})`
+														: ""}
+												</div>
+												<div className="mt-1 space-y-0.5 text-muted-foreground">
+													<p className="truncate">{address.line1}</p>
+													{address.line2 && (
+														<p className="truncate">{address.line2}</p>
+													)}
+													<p className="truncate">
+														{address.city}
+														{address.state && `, ${address.state}`}
+														{address.pincode && ` - ${address.pincode}`}
+													</p>
+												</div>
+											</div>
+										))}
+									</div>
+								</div>
+							</div>
+						)}
 					</CardContent>
-					<CardFooter>
+
+					<CardFooter className="p-4 pt-0">
 						<Button
-							className="w-full"
+							className="w-full text-sm h-8"
 							variant={isEditing ? "outline" : "default"}
 							onClick={() => setIsEditing(!isEditing)}
 						>
-							{isEditing ? "Cancel Editing" : "Edit Dharmguru"}
+							{isEditing ? "Cancel" : "Edit Dharmguru"}
 						</Button>
 					</CardFooter>
 				</Card>
@@ -569,7 +559,7 @@ export default function DharmguruDetailPage() {
 								<CardHeader>
 									<CardTitle>Personal Information</CardTitle>
 									<CardDescription>
-										Update dharmguru&apos;s personal details and contact
+										Update Dharmguru&apos;s personal details and contact
 										information.
 									</CardDescription>
 								</CardHeader>
@@ -581,9 +571,13 @@ export default function DharmguruDetailPage() {
 													<Label htmlFor="name">Full Name</Label>
 													<Input
 														id="name"
-														name="name"
 														value={editedDharmguru?.name || ""}
-														onChange={handleInputChange}
+														onChange={(e) =>
+															setEditedDharmguru({
+																...editedDharmguru,
+																name: e.target.value,
+															})
+														}
 														className={errors.name ? "border-red-500" : ""}
 													/>
 													{errors.name && (
@@ -596,10 +590,14 @@ export default function DharmguruDetailPage() {
 													<Label htmlFor="email">Email</Label>
 													<Input
 														id="email"
-														name="email"
 														type="email"
 														value={editedDharmguru?.email || ""}
-														onChange={handleInputChange}
+														onChange={(e) =>
+															setEditedDharmguru({
+																...editedDharmguru,
+																email: e.target.value,
+															})
+														}
 														className={errors.email ? "border-red-500" : ""}
 													/>
 													{errors.email && (
@@ -610,212 +608,633 @@ export default function DharmguruDetailPage() {
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor="phone">Phone</Label>
-													<Input
-														id="phone"
-														name="phone"
-														value={editedDharmguru?.phone || ""}
-														onChange={handleInputChange}
-														className={errors.phone ? "border-red-500" : ""}
-													/>
+													<div className="relative">
+														<Input
+															id="phone"
+															type="tel"
+															value={editedDharmguru?.phone || ""}
+															onChange={(e) => {
+																// Format the input value
+																const formatted = formatPhoneNumber(
+																	e.target.value
+																);
+																setEditedDharmguru({
+																	...editedDharmguru,
+																	phone: formatted,
+																});
+																// Clear error when typing
+																if (errors.phone) {
+																	setErrors({
+																		...errors,
+																		phone: undefined,
+																	});
+																}
+															}}
+															placeholder="+91 9876543210"
+															className={`pl-12 ${
+																errors.phone ? "border-red-500" : ""
+															}`}
+														/>
+														<span className="absolute left-3 top-2.5 text-sm text-muted-foreground">
+															+91
+														</span>
+													</div>
 													{errors.phone && (
 														<p className="text-sm text-red-500">
 															{errors.phone}
 														</p>
 													)}
 												</div>
+											</div>
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
 												<div className="space-y-2">
-													<Label htmlFor="category">Category</Label>
-													<Select
-														value={editedDharmguru?.category || ""}
-														onValueChange={(value) =>
-															setEditedDharmguru((prev) =>
-																prev
-																	? {
-																			...prev,
-																			category: value,
-																	  }
-																	: null
-															)
-														}
-														// className={errors.category ? "border-red-500" : ""}
+													<Label>Category</Label>
+													<span
+														className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
+															dharmguru?.category || ""
+														)} w-20`}
 													>
-														<SelectTrigger id="category">
-															<SelectValue placeholder="Select category" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectGroup>
-																{dharmguruCategories.map((category) => (
-																	<SelectItem key={category} value={category}>
-																		{category}
-																	</SelectItem>
-																))}
-															</SelectGroup>
-														</SelectContent>
-													</Select>
-													{errors.category && (
-														<p className="text-sm text-red-500">
-															{errors.category}
-														</p>
-													)}
+														{dharmguru?.category || "Not specified"}
+													</span>
 												</div>
 												<div className="space-y-2">
-													<Label htmlFor="rank">Rank</Label>
-													<Select
-														value={editedDharmguru?.rank || ""}
-														onValueChange={(value) =>
-															setEditedDharmguru((prev) =>
-																prev
-																	? {
-																			...prev,
-																			rank: value,
-																	  }
-																	: null
-															)
-														}
-														// className={errors.rank ? "border-red-500" : ""}
+													<Label>Rank</Label>
+													<span
+														className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getRankColor(
+															dharmguru?.rank || ""
+														)} w-20`}
 													>
-														<SelectTrigger id="rank">
-															<SelectValue placeholder="Select rank" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectGroup>
-																{dharmguruRanks.map((rank) => (
-																	<SelectItem key={rank} value={rank}>
-																		{rank}
-																	</SelectItem>
-																))}
-															</SelectGroup>
-														</SelectContent>
-													</Select>
-													{errors.rank && (
-														<p className="text-sm text-red-500">
-															{errors.rank}
-														</p>
-													)}
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor="status">Status</Label>
-													<Select
-														value={editedDharmguru?.status || ""}
-														onValueChange={(value) =>
-															setEditedDharmguru((prev) =>
-																prev
-																	? {
-																			...prev,
-																			status: value,
-																	  }
-																	: null
-															)
-														}
-														// className={errors.status ? "border-red-500" : ""}
-													>
-														<SelectTrigger id="status">
-															<SelectValue placeholder="Select status" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectGroup>
-																<SelectItem value="Active">Active</SelectItem>
-																<SelectItem value="Inactive">
-																	Inactive
-																</SelectItem>
-															</SelectGroup>
-														</SelectContent>
-													</Select>
-													{errors.status && (
-														<p className="text-sm text-red-500">
-															{errors.status}
-														</p>
-													)}
+														{dharmguru?.rank || "Not specified"}
+													</span>
 												</div>
 											</div>
-											<div className="space-y-2">
-												<Label htmlFor="address">Address</Label>
-												<Input
-													id="address"
-													name="address"
-													value={editedDharmguru?.address || ""}
-													onChange={handleInputChange}
-													className={errors.address ? "border-red-500" : ""}
-												/>
-												{errors.address && (
-													<p className="text-sm text-red-500">
-														{errors.address}
-													</p>
-												)}
-											</div>
+											{dharmguru?.addresses && (
+												<div className="space-y-6 border p-4 rounded-lg">
+													<div className="flex justify-between items-center">
+														<h3 className="text-base font-medium">Addresses</h3>
+														<Button
+															type="button"
+															variant="outline"
+															size="sm"
+															onClick={() => {
+																setEditedDharmguru((prev) => {
+																	if (!prev) return prev;
+																	return {
+																		...prev,
+																		addresses: [
+																			...(prev.addresses || []),
+																			{
+																				type: "home",
+																				line1: "",
+																				city: "",
+																				country: "India",
+																			},
+																		],
+																	};
+																});
+															}}
+														>
+															<Plus className="h-4 w-4 mr-2" />
+															Add Address
+														</Button>
+													</div>
+
+													{dharmguru.addresses.map((address, index) => (
+														<div
+															key={index}
+															className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0"
+														>
+															<div className="flex justify-between items-center">
+																<div className="flex items-center gap-2">
+																	<MapPin className="h-4 w-4 text-muted-foreground" />
+																	<h4 className="font-medium">
+																		{address.type.charAt(0).toUpperCase() +
+																			address.type.slice(1)}{" "}
+																		Address
+																		{address.type === "other" && address.label
+																			? ` (${address.label})`
+																			: ""}
+																	</h4>
+																</div>
+																<Button
+																	type="button"
+																	variant="ghost"
+																	size="sm"
+																	className="text-red-500 hover:text-red-700 hover:bg-red-50"
+																	onClick={() => {
+																		setEditedDharmguru((prev) => {
+																			if (!prev) return prev;
+																			return {
+																				...prev,
+																				addresses:
+																					prev.addresses?.filter(
+																						(_, addrIndex) =>
+																							addrIndex !== index
+																					) || [],
+																			};
+																		});
+																	}}
+																>
+																	<Trash2 className="h-4 w-4" />
+																</Button>
+															</div>
+
+															<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+																<div className="space-y-2">
+																	<Label htmlFor={`address-type-${index}`}>
+																		Address Type
+																	</Label>
+																	<Select
+																		value={address.type}
+																		onValueChange={(value) => {
+																			setEditedDharmguru((prev) => {
+																				if (!prev) return prev;
+																				return {
+																					...prev,
+																					addresses: prev.addresses?.map(
+																						(addr, addrIndex) =>
+																							addrIndex === index
+																								? {
+																										...addr,
+																										type: value as
+																											| "home"
+																											| "work"
+																											| "other",
+																										// Clear label if not "other" type
+																										label:
+																											value === "other"
+																												? addr.label
+																												: undefined,
+																								  }
+																								: addr
+																					),
+																				};
+																			});
+																		}}
+																	>
+																		<SelectTrigger id={`address-type-${index}`}>
+																			<SelectValue placeholder="Select address type" />
+																		</SelectTrigger>
+																		<SelectContent>
+																			<SelectItem value="home">Home</SelectItem>
+																			<SelectItem value="work">Work</SelectItem>
+																			<SelectItem value="other">
+																				Other
+																			</SelectItem>
+																		</SelectContent>
+																	</Select>
+																</div>
+
+																{address.type === "other" && (
+																	<div className="space-y-2">
+																		<Label htmlFor={`address-label-${index}`}>
+																			Label
+																		</Label>
+																		<Input
+																			id={`address-label-${index}`}
+																			value={address.label || ""}
+																			onChange={(e) => {
+																				setEditedDharmguru((prev) => {
+																					if (!prev) return prev;
+																					return {
+																						...prev,
+																						addresses: prev.addresses?.map(
+																							(addr, addrIndex) =>
+																								addrIndex === index
+																									? {
+																											...addr,
+																											label: e.target.value,
+																									  }
+																									: addr
+																						),
+																					};
+																				});
+																			}}
+																			placeholder="e.g., Parent's Home, Office"
+																			className={
+																				errors.addresses?.[index]?.label
+																					? "border-red-500"
+																					: ""
+																			}
+																		/>
+																		{errors.addresses?.[index]?.label && (
+																			<p className="text-sm text-red-500">
+																				{errors.addresses[index].label}
+																			</p>
+																		)}
+																	</div>
+																)}
+															</div>
+
+															<div className="space-y-2">
+																<Label htmlFor={`address-line1-${index}`}>
+																	Address Line 1
+																</Label>
+																<Input
+																	id={`address-line1-${index}`}
+																	value={address.line1 || ""}
+																	onChange={(e) => {
+																		setEditedDharmguru((prev) => {
+																			if (!prev) return prev;
+																			return {
+																				...prev,
+																				addresses: prev.addresses?.map(
+																					(addr, addrIndex) =>
+																						addrIndex === index
+																							? {
+																									...addr,
+																									line1: e.target.value,
+																							  }
+																							: addr
+																				),
+																			};
+																		});
+																	}}
+																	placeholder="Street address, P.O. box, etc."
+																	className={
+																		errors.addresses?.[index]?.line1
+																			? "border-red-500"
+																			: ""
+																	}
+																/>
+																{errors.addresses?.[index]?.line1 && (
+																	<p className="text-sm text-red-500">
+																		{errors.addresses[index].line1}
+																	</p>
+																)}
+															</div>
+
+															<div className="space-y-2">
+																<Label htmlFor={`address-line2-${index}`}>
+																	Address Line 2 (Optional)
+																</Label>
+																<Input
+																	id={`address-line2-${index}`}
+																	value={address.line2 || ""}
+																	onChange={(e) => {
+																		setEditedDharmguru((prev) => {
+																			if (!prev) return prev;
+																			return {
+																				...prev,
+																				addresses: prev.addresses?.map(
+																					(addr, addrIndex) =>
+																						addrIndex === index
+																							? {
+																									...addr,
+																									line2: e.target.value,
+																							  }
+																							: addr
+																				),
+																			};
+																		});
+																	}}
+																	placeholder="Apartment, suite, unit, building, floor, etc."
+																/>
+															</div>
+
+															<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+																<div className="space-y-2">
+																	<Label htmlFor={`address-city-${index}`}>
+																		City
+																	</Label>
+																	<Input
+																		id={`address-city-${index}`}
+																		value={address.city || ""}
+																		onChange={(e) => {
+																			setEditedDharmguru((prev) => {
+																				if (!prev) return prev;
+																				return {
+																					...prev,
+																					addresses: prev.addresses?.map(
+																						(addr, addrIndex) =>
+																							addrIndex === index
+																								? {
+																										...addr,
+																										city: e.target.value,
+																								  }
+																								: addr
+																					),
+																				};
+																			});
+																		}}
+																		className={
+																			errors.addresses?.[index]?.city
+																				? "border-red-500"
+																				: ""
+																		}
+																	/>
+																	{errors.addresses?.[index]?.city && (
+																		<p className="text-sm text-red-500">
+																			{errors.addresses[index].city}
+																		</p>
+																	)}
+																</div>
+
+																<div className="space-y-2">
+																	<Label htmlFor={`address-state-${index}`}>
+																		State/Province (Optional)
+																	</Label>
+																	<Input
+																		id={`address-state-${index}`}
+																		value={address.state || ""}
+																		onChange={(e) => {
+																			setEditedDharmguru((prev) => {
+																				if (!prev) return prev;
+																				return {
+																					...prev,
+																					addresses: prev.addresses?.map(
+																						(addr, addrIndex) =>
+																							addrIndex === index
+																								? {
+																										...addr,
+																										state: e.target.value,
+																								  }
+																								: addr
+																					),
+																				};
+																			});
+																		}}
+																	/>
+																</div>
+
+																<div className="space-y-2">
+																	<Label htmlFor={`address-pincode-${index}`}>
+																		PIN Code (Optional)
+																	</Label>
+																	<Input
+																		id={`address-pincode-${index}`}
+																		value={address.pincode || ""}
+																		onChange={(e) => {
+																			setEditedDharmguru((prev) => {
+																				if (!prev) return prev;
+																				return {
+																					...prev,
+																					addresses: prev.addresses?.map(
+																						(addr, addrIndex) =>
+																							addrIndex === index
+																								? {
+																										...addr,
+																										pincode: e.target.value,
+																								  }
+																								: addr
+																					),
+																				};
+																			});
+																		}}
+																	/>
+																</div>
+															</div>
+
+															<div className="space-y-2">
+																<Label htmlFor={`address-country-${index}`}>
+																	Country
+																</Label>
+																<Input
+																	id={`address-country-${index}`}
+																	value={address.country || ""}
+																	onChange={(e) => {
+																		setEditedDharmguru((prev) => {
+																			if (!prev) return prev;
+																			return {
+																				...prev,
+																				addresses: prev.addresses?.map(
+																					(addr, addrIndex) =>
+																						addrIndex === index
+																							? {
+																									...addr,
+																									country: e.target.value,
+																							  }
+																							: addr
+																				),
+																			};
+																		});
+																	}}
+																	className={
+																		errors.addresses?.[index]?.country
+																			? "border-red-500"
+																			: ""
+																	}
+																/>
+																{errors.addresses?.[index]?.country && (
+																	<p className="text-sm text-red-500">
+																		{errors.addresses[index].country}
+																	</p>
+																)}
+															</div>
+														</div>
+													))}
+
+													{editedDharmguru?.addresses?.length === 0 && (
+														<div className="text-center py-4 text-muted-foreground">
+															No addresses added. Click &ldquo;Add
+															Address&rdquo; to add one.
+														</div>
+													)}
+												</div>
+											)}
 											<div className="space-y-2">
 												<Label htmlFor="bio">Bio</Label>
 												<Textarea
 													id="bio"
-													name="bio"
 													value={editedDharmguru?.bio || ""}
-													onChange={handleInputChange}
+													onChange={(e) =>
+														setEditedDharmguru({
+															...editedDharmguru,
+															bio: e.target.value,
+														})
+													}
 													rows={4}
-													className={errors.bio ? "border-red-500" : ""}
+													placeholder="Tell us about yourself"
 												/>
-												{errors.bio && (
-													<p className="text-sm text-red-500">{errors.bio}</p>
-												)}
 											</div>
 										</>
 									) : (
-										<div className="space-y-4">
-											<div className="p-4 bg-muted/30 rounded-lg">
-												<h3 className="font-medium mb-2">About</h3>
-												<p className="text-muted-foreground">{dharmguru.bio}</p>
-											</div>
-											<div className="grid grid-cols-1 md:grid-cols-2 gap-y-4">
-												<div>
-													<h3 className="text-sm text-muted-foreground">
+										<div className="space-y-6">
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
 														Full Name
 													</h3>
-													<p className="font-medium">{dharmguru.name}</p>
+													<p className="font-medium text-foreground">
+														{dharmguru?.name}
+													</p>
 												</div>
-												<div>
-													<h3 className="text-sm text-muted-foreground">
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
 														Email
 													</h3>
-													<p className="font-medium">{dharmguru.email}</p>
+													<p className="font-medium text-foreground">
+														{dharmguru?.email}
+													</p>
 												</div>
-												<div>
-													<h3 className="text-sm text-muted-foreground">
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
 														Phone
 													</h3>
-													<p className="font-medium">{dharmguru.phone}</p>
+													<p className="font-medium text-foreground">
+														{dharmguru?.phone}
+													</p>
 												</div>
-												<div>
-													<h3 className="text-sm text-muted-foreground">
-														Category
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Member Since
 													</h3>
-													<p className="font-medium">{dharmguru.category}</p>
+													<p className="font-medium text-foreground">
+														{dharmguru?.createdAt
+															? formatDate(dharmguru.createdAt)
+															: "N/A"}
+													</p>
 												</div>
-												<div>
-													<h3 className="text-sm text-muted-foreground">
-														Rank
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Last Login
 													</h3>
-													<p className="font-medium">{dharmguru.rank}</p>
+													<p className="font-medium text-foreground">
+														{dharmguru?.lastLoginAt
+															? formatDate(dharmguru.lastLoginAt)
+															: "Never"}
+													</p>
 												</div>
-												<div>
-													<h3 className="text-sm text-muted-foreground">
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Last Logout
+													</h3>
+													<p className="font-medium text-foreground">
+														{dharmguru?.lastLogoutAt
+															? formatDate(dharmguru.lastLogoutAt)
+															: "N/A"}
+													</p>
+												</div>
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Dharmguru Type
+													</h3>
+													<div className="flex items-center">
+														<span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+															{dharmguru?.KathavachakType || "Not specified"}
+														</span>
+													</div>
+												</div>
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
 														Status
 													</h3>
-													<p className="font-medium">{dharmguru.status}</p>
+													<div className="flex items-center">
+														<span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+															{dharmguru?.status || "Not specified"}
+														</span>
+													</div>
 												</div>
-												<div className="md:col-span-2">
-													<h3 className="text-sm text-muted-foreground">
-														Address
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Category
 													</h3>
-													<p className="font-medium">{dharmguru.address}</p>
+													<span
+														className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
+															dharmguru?.category || ""
+														)} w-20`}
+													>
+														{dharmguru?.category || "Not specified"}
+													</span>
+												</div>
+												<div className="space-y-2">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Rank
+													</h3>
+													<span
+														className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getRankColor(
+															dharmguru?.rank || ""
+														)} w-20`}
+													>
+														{dharmguru?.rank || "Not specified"}
+													</span>
 												</div>
 											</div>
+											<div className="space-y-2 pt-2 border-t border-border">
+												<h3 className="text-sm font-medium text-muted-foreground">
+													Bio
+												</h3>
+												<p className="font-medium text-foreground whitespace-pre-wrap">
+													{dharmguru?.bio || "No bio provided"}
+												</p>
+											</div>
+
+											{dharmguru?.addresses &&
+												dharmguru.addresses.length > 0 && (
+													<div className="space-y-4 pt-2 border-t border-border">
+														<h3 className="text-sm font-medium text-muted-foreground">
+															Addresses
+														</h3>
+														<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+															{dharmguru.addresses.map((address, index) => (
+																<Card key={index} className="border-border">
+																	<CardHeader className="pb-2">
+																		<div className="flex items-center gap-2">
+																			<MapPin className="h-4 w-4 text-muted-foreground" />
+																			<CardTitle className="text-base">
+																				{address.type.charAt(0).toUpperCase() +
+																					address.type.slice(1)}
+																				{address.type === "other" &&
+																				address.label
+																					? ` (${address.label})`
+																					: ""}
+																			</CardTitle>
+																		</div>
+																	</CardHeader>
+																	<CardContent className="text-sm space-y-1">
+																		<p className="font-medium">
+																			{address.line1}
+																			{address.line2 && `, ${address.line2}`}
+																		</p>
+																		<p>
+																			{address.city}
+																			{address.state && `, ${address.state}`}
+																			{address.pincode &&
+																				` - ${address.pincode}`}
+																		</p>
+																		<p>{address.country}</p>
+																	</CardContent>
+																</Card>
+															))}
+														</div>
+													</div>
+												)}
 										</div>
 									)}
 								</CardContent>
 								{isEditing && (
 									<CardFooter>
-										<Button onClick={handleSaveChanges} className="w-full">
-											<Save className="h-4 w-4 mr-2" />
-											Save Changes
+										<Button onClick={handleSaveChanges} disabled={isSaving}>
+											{isSaving ? (
+												<>
+													<svg
+														className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+														xmlns="http://www.w3.org/2000/svg"
+														fill="none"
+														viewBox="0 0 24 24"
+													>
+														<circle
+															className="opacity-25"
+															cx="12"
+															cy="12"
+															r="10"
+															stroke="currentColor"
+															strokeWidth="4"
+														></circle>
+														<path
+															className="opacity-75"
+															fill="currentColor"
+															d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+														></path>
+													</svg>
+													Saving...
+												</>
+											) : (
+												<>
+													<Save className="h-4 w-4 mr-2" />
+													Save Changes
+												</>
+											)}
 										</Button>
 									</CardFooter>
 								)}
@@ -827,7 +1246,7 @@ export default function DharmguruDetailPage() {
 								<CardHeader>
 									<CardTitle>Dharmguru Preferences</CardTitle>
 									<CardDescription>
-										Manage notification settings and dharmguru preferences.
+										Manage notification settings and Dharmguru preferences.
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
@@ -842,13 +1261,22 @@ export default function DharmguruDetailPage() {
 														type="checkbox"
 														id="notifications"
 														checked={
-															editedDharmguru?.preferences.notifications ||
+															editedDharmguru?.preferences?.notifications ||
 															false
 														}
 														onChange={(e) =>
-															handlePreferenceChange(
-																"notifications",
-																e.target.checked
+															setEditedDharmguru((prev) =>
+																prev
+																	? {
+																			...prev,
+																			preferences: {
+																				...prev.preferences,
+																				notifications: e.target.checked,
+																				language: e.target.value,
+																				newsletter: e.target.checked,
+																			},
+																	  }
+																	: null
 															)
 														}
 														className="h-4 w-4"
@@ -862,12 +1290,22 @@ export default function DharmguruDetailPage() {
 														type="checkbox"
 														id="newsletter"
 														checked={
-															editedDharmguru?.preferences.newsletter || false
+															editedDharmguru?.preferences?.newsletter ||
+															false
 														}
 														onChange={(e) =>
-															handlePreferenceChange(
-																"newsletter",
-																e.target.checked
+															setEditedDharmguru((prev) =>
+																prev
+																	? {
+																			...prev,
+																			preferences: {
+																				...prev.preferences,
+																				notifications: e.target.checked,
+																				language: e.target.value,
+																				newsletter: e.target.checked,
+																			},
+																	  }
+																	: null
 															)
 														}
 														className="h-4 w-4"
@@ -876,9 +1314,26 @@ export default function DharmguruDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="language">Preferred Language</Label>
 													<Select
-														value={editedDharmguru?.preferences.language || ""}
+														value={
+															editedDharmguru?.preferences?.language || ""
+														}
 														onValueChange={(value) =>
-															handlePreferenceChange("language", value)
+															setEditedDharmguru((prev) =>
+																prev
+																	? {
+																			...prev,
+																			preferences: {
+																				...prev.preferences,
+																				language: value,
+																				notifications:
+																					prev.preferences?.notifications ??
+																					false, // Provide default value
+																				newsletter:
+																					prev.preferences?.newsletter ?? false, // Provide default value
+																			},
+																	  }
+																	: null
+															)
 														}
 													>
 														<SelectTrigger id="language">
@@ -906,7 +1361,7 @@ export default function DharmguruDetailPage() {
 															Email Notifications
 														</h3>
 														<p className="font-medium">
-															{dharmguru.preferences.notifications
+															{dharmguru?.preferences?.notifications
 																? "Enabled"
 																: "Disabled"}
 														</p>
@@ -916,7 +1371,7 @@ export default function DharmguruDetailPage() {
 															Newsletter
 														</h3>
 														<p className="font-medium">
-															{dharmguru.preferences.newsletter
+															{dharmguru?.preferences?.newsletter
 																? "Subscribed"
 																: "Not Subscribed"}
 														</p>
@@ -926,7 +1381,7 @@ export default function DharmguruDetailPage() {
 															Preferred Language
 														</h3>
 														<p className="font-medium">
-															{dharmguru.preferences.language}
+															{dharmguru?.preferences?.language}
 														</p>
 													</div>
 												</div>
@@ -950,80 +1405,14 @@ export default function DharmguruDetailPage() {
 								<CardHeader>
 									<CardTitle>Activity Log</CardTitle>
 									<CardDescription>
-										Recent dharmguru activities and interactions.
+										Recent Dharmguru activities and interactions.
 									</CardDescription>
 								</CardHeader>
-								<CardContent>
-									<div className="space-y-4">
-										{dharmguru.activities.map(
-											(activity: Activity, index: number) => (
-												<div
-													key={index}
-													className="flex items-start gap-4 border-b border-border pb-4 last:border-0 last:pb-0"
-												>
-													<div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-														<Calendar className="h-4 w-4 text-primary" />
-													</div>
-													<div>
-														<p className="font-medium">{activity.action}</p>
-														<p className="text-sm text-muted-foreground">
-															{formatDate(activity.date)}
-														</p>
-													</div>
-												</div>
-											)
-										)}
-									</div>
-								</CardContent>
 							</Card>
 						</TabsContent>
 					</Tabs>
 				</div>
 			</div>
-			<CardFooter className="flex justify-end gap-2">
-				{isEditing ? (
-					<>
-						<Button
-							variant="outline"
-							onClick={handleCancelEdit}
-							disabled={isSaving}
-						>
-							Cancel
-						</Button>
-						<Button onClick={handleSaveChanges} disabled={isSaving}>
-							{isSaving ? (
-								<>
-									<svg
-										className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-									>
-										<circle
-											className="opacity-25"
-											cx="12"
-											cy="12"
-											r="10"
-											stroke="currentColor"
-											strokeWidth="4"
-										></circle>
-										<path
-											className="opacity-75"
-											fill="currentColor"
-											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-										></path>
-									</svg>
-									Saving...
-								</>
-							) : (
-								"Save Changes"
-							)}
-						</Button>
-					</>
-				) : (
-					<Button onClick={() => setIsEditing(true)}>Edit Dharmguru</Button>
-				)}
-			</CardFooter>
 		</div>
 	);
 }

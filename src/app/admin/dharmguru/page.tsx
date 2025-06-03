@@ -1,735 +1,343 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-	PlusCircle,
-	Search,
-	Eye,
-	Edit,
-	Trash2,
-	LogIn,
-	ThumbsUp,
-	ThumbsDown,
-	Activity,
-	CheckCircle2,
-	CircleSlash,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+import { toast } from "@/lib/toast";
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuSub,
-	DropdownMenuSubContent,
-	DropdownMenuSubTrigger,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useRouter } from "next/navigation";
-import { toast } from "@/lib/toast";
+import DharmguruTable, {
+	Dharmguru,
+} from "../components/dharmguru/DharmguruTable";
+import DharmguruForm from "../components/dharmguru/DharmguruForm";
 
-// Mock data for initial display
-const mockDharmgurus = [
-	{
-		id: "1",
-		name: "Swami Anand Sharma",
-		category: "Spiritual Guidance",
-		phone: "+91 9876543210",
-		email: "anand.sharma@gmail.com",
-		status: "Active",
-		rank: "Senior",
-		isApproved: true,
-	},
-	{
-		id: "2",
-		name: "Acharya Sunita Joshi",
-		category: "Meditation",
-		phone: "+91 8765432109",
-		email: "sunita.joshi@gmail.com",
-		status: "Active",
-		rank: "Expert",
-		isApproved: true,
-	},
-	{
-		id: "3",
-		name: "Guru Rajesh Trivedi",
-		category: "Yoga",
-		phone: "+91 7654321098",
-		email: "rajesh.trivedi@gmail.com",
-		status: "Inactive",
-		rank: "Master",
-		isApproved: false,
-	},
-	{
-		id: "4",
-		name: "Swamini Deepa Singh",
-		category: "Vedanta",
-		phone: "+91 6543210987",
-		email: "deepa.singh@gmail.com",
-		status: "Active",
-		rank: "Senior",
-		isApproved: true,
-	},
-	{
-		id: "5",
-		name: "Acharya Vikram Mehta",
-		category: "Ayurveda",
-		phone: "+91 5432109876",
-		email: "vikram.mehta@gmail.com",
-		status: "Inactive",
-		rank: "Junior",
-		isApproved: false,
-	},
-];
-
-// Categories for Dharmgurus
-const dharmguruCategories = [
-	"Spiritual Guidance",
-	"Meditation",
-	"Yoga",
-	"Vedanta",
-	"Ayurveda",
-	"Astrology",
-	"Life Coaching",
-	"Other",
-];
-
-// Ranks for Dharmguru
-interface Dharmguru {
+interface UserData {
 	id: string;
-	name: string;
-	category: string;
-	phone: string;
-	email: string;
-	status: string;
-	rank: string;
-	isApproved: boolean;
+	name?: string;
+	category?: string;
+	phone?: string;
+	email?: string;
+	status?: string;
+	rank?: string;
+	kycApproved?: boolean | number;
+}
+interface ApiErrorResponse {
+	details?: Record<string, unknown> | string[];
+	message?: string;
 }
 
 export default function DharmguruPage() {
-	const router = useRouter();
-	const [isLoading, setIsLoading] = useState(false);
-	const [dharmgurus, setDharmgurus] = useState(() => {
-		if (typeof window !== "undefined") {
-			try {
-				const saved = localStorage.getItem("dharmgurus");
-				return saved ? JSON.parse(saved) : mockDharmgurus;
-			} catch{
-				toast.error("Failed to load Dharmguru data");
-				return mockDharmgurus;
-			}
-		}
-		return mockDharmgurus;
-	});
-
-	// Save to localStorage whenever dharmgurus change
-	useEffect(() => {
-		if (typeof window !== "undefined") {
-			try {
-				localStorage.setItem("dharmgurus", JSON.stringify(dharmgurus));
-			} catch{
-				toast.error("Failed to save Dharmguru data");
-			}
-		}
-	}, [dharmgurus]);
-
-	const [isAddDharmguruOpen, setIsAddDharmguruOpen] = useState(false);
-	const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+	const [dharmgurus, setDharmgurus] = useState<Dharmguru[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [isFormOpen, setIsFormOpen] = useState(false);
+	const [currentDharmguru, setCurrentDharmguru] =
+		useState<Partial<Dharmguru> | null>(null);
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [dharmguruToDelete, setDharmguruToDelete] = useState<{
 		id: string;
 		name: string;
 	} | null>(null);
-	const [newDharmguru, setNewDharmguru] = useState<
-		Omit<Dharmguru, "id"> & { id?: string }
-	>({
-		name: "",
-		category: "",
-		phone: "",
-		email: "",
-		status: "Active",
-		rank: "",
-		isApproved: false,
-	});
-	const [searchQuery, setSearchQuery] = useState("");
-	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-	const validateForm = (dharmguruData: typeof newDharmguru) => {
-		const errors: Record<string, string> = {};
+	// Fetch dharmgurus on component mount
+	useEffect(() => {
+		const fetchDharmgurus = async () => {
+			setLoading(true);
+			try {
+				const response = await fetch("/api/users?userType=Dharmguru");
 
-		// Name validation
-		if (!dharmguruData.name.trim()) {
-			errors.name = "Name is required";
-		} else if (dharmguruData.name.length < 2) {
-			errors.name = "Name must be at least 2 characters";
-		}
+				if (!response.ok) {
+					throw new Error(`API error: ${response.status}`);
+				}
 
-		// Category validation
-		if (!dharmguruData.category.trim()) {
-			errors.category = "Category is required";
-		}
+				const data = await response.json();
 
-		// Email validation
-		if (!dharmguruData.email) {
-			errors.email = "Email is required";
-		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dharmguruData.email)) {
-			errors.email = "Please enter a valid email address";
-		}
+				// Map the user data to match Kathavachak structure
+				const mappedDharmgurus = data.users.map((user: UserData) => ({
+					id: user.id,
+					name: user.name || "",
+					category: user.category || "",
+					phone: user.phone || "",
+					email: user.email || "",
+					status: user.status || "Inactive",
+					rank: user.rank || "",
+					isApproved: user.kycApproved || false,
+				}));
 
-		// Phone validation (assuming Indian phone numbers)
-		if (!dharmguruData.phone) {
-			errors.phone = "Phone number is required";
-		} else if (
-			!/^[6-9]\d{9}$/.test(dharmguruData.phone.replace(/[^0-9]/g, ""))
-		) {
-			errors.phone = "Please enter a valid 10-digit phone number";
-		}
+				setDharmgurus(mappedDharmgurus);
+			} catch {
+				toast.error("Failed to load dharmgurus");
+			} finally {
+				setLoading(false);
+			}
+		};
 
-		// Rank validation
-		if (!dharmguruData.rank) {
-			errors.rank = "Please select a rank";
-		}
+		fetchDharmgurus();
+	}, []);
 
-		return errors;
+	const handleAddDharmguru = () => {
+		setCurrentDharmguru(null);
+		setIsFormOpen(true);
 	};
 
-	const handleAddDharmguru = async () => {
-		const errors = validateForm(newDharmguru);
-		setFormErrors(errors);
+	const handleEditDharmguru = (dharmguru: Dharmguru) => {
+		// Ensure rank is properly passed as a string
+		const dharmguruWithStringRank = {
+			...dharmguru,
+			rank: dharmguru.rank || "", // Ensure rank is a string
+		};
+		setCurrentDharmguru(dharmguruWithStringRank);
+		setIsFormOpen(true);
+	};
 
-		if (Object.keys(errors).length > 0) {
-			return;
-		}
+	const handleDeleteDharmguru = (id: string, name: string) => {
+		setDharmguruToDelete({ id, name });
+		setIsDeleteDialogOpen(true);
+	};
 
-		setIsLoading(true);
-		const loadingToast = toast.loading("Adding new dharmguru...");
+	const confirmDelete = async () => {
+		if (!dharmguruToDelete) return;
 
 		try {
-			// Simulate API call
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-
-			const id = (dharmgurus.length + 1).toString();
-			const updatedDharmgurus = [...dharmgurus, { ...newDharmguru, id }];
-			setDharmgurus(updatedDharmgurus);
-
-			// Reset form
-			setNewDharmguru({
-				name: "",
-				category: "",
-				phone: "",
-				email: "",
-				status: "Active",
-				rank: "",
-				isApproved: false,
+			// Call the API to delete the dharmguru
+			const response = await fetch(`/api/users/${dharmguruToDelete.id}`, {
+				method: "DELETE",
 			});
 
-			setIsAddDharmguruOpen(false);
-			toast.success("Dharmguru added successfully");
+			if (!response.ok) {
+				throw new Error(`API error: ${response.status}`);
+			}
+
+			// Update local state
+			setDharmgurus(
+				dharmgurus.filter((d) => d.id !== dharmguruToDelete.id)
+			);
+			toast.success(`${dharmguruToDelete.name} has been deleted`);
 		} catch {
-			toast.error("Failed to add dharmguru");
+			toast.error("Failed to delete dharmguru");
 		} finally {
-			setIsLoading(false);
-			toast.dismiss(loadingToast);
+			setIsDeleteDialogOpen(false);
+			setDharmguruToDelete(null);
 		}
 	};
 
-	const handleStatusChange = (dharmguruId: string, newStatus: string) => {
+	const handleUpdateStatus = async (id: string, newStatus: string) => {
 		try {
+			// Call the API to update user status
+			const response = await fetch(`/api/users/status`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ userId: id, status: newStatus }),
+			});
+
+			if (!response.ok) {
+				throw new Error(`API error: ${response.status}`);
+			}
+
+			// Update local state
 			setDharmgurus(
-				dharmgurus.map((dharmguru: Dharmguru) =>
-					dharmguru.id === dharmguruId
-						? { ...dharmguru, status: newStatus }
-						: dharmguru
-				)
+				dharmgurus.map((d) => (d.id === id ? { ...d, status: newStatus } : d))
 			);
-			toast.success(`Status updated to ${newStatus}`);
+			toast.success("Status updated successfully");
 		} catch {
 			toast.error("Failed to update status");
 		}
 	};
 
-	const handleApprovalChange = (dharmguruId: string, isApproved: boolean) => {
+	const handleToggleApproval = async (id: string, currentStatus: boolean) => {
 		try {
+			// Call the API to update user KYC approval status
+			const response = await fetch(`/api/users/${id}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ kycApproved: !currentStatus }),
+			});
+
+			if (!response.ok) {
+				throw new Error(`API error: ${response.status}`);
+			}
+
+			// Update local state
 			setDharmgurus(
-				dharmgurus.map((dharmguru: Dharmguru) =>
-					dharmguru.id === dharmguruId
-						? { ...dharmguru, isApproved }
-						: dharmguru
+				dharmgurus.map((d) =>
+					d.id === id ? { ...d, isApproved: !currentStatus } : d
 				)
 			);
 			toast.success(
-				`Dharmguru ${isApproved ? "approved" : "disapproved"} successfully`
+				`Dharmguru ${currentStatus ? "disapproved" : "approved"} successfully`
 			);
 		} catch {
 			toast.error("Failed to update approval status");
 		}
 	};
 
-	const handleDeleteDharmguru = (id: string, name: string) => {
-		setDharmguruToDelete({ id, name });
-		setIsDeleteConfirmOpen(true);
+	const handleLoginAsDharmguru = (dharmguru: Dharmguru) => {
+		// This would typically involve setting authentication state
+		// For now, we'll just show a toast message
+		toast.info(
+			`Login as ${dharmguru.name} functionality would be implemented here`
+		);
+
+		// In a real implementation, you might do something like:
+		// router.push(`/admin/impersonate/${kathavachak.id}`);
 	};
 
-	const confirmDeleteDharmguru = async () => {
-		if (!dharmguruToDelete) return;
-
-		setIsLoading(true);
-		const loadingToast = toast.loading(`Deleting ${dharmguruToDelete.name}...`);
-
+	const handleFormSubmit = async (dharmguruData: Omit<Dharmguru, "id">) => {
 		try {
-			// Simulate API call
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			const url = currentDharmguru?.id
+				? `/api/users/${currentDharmguru.id}`
+				: "/api/users";
 
-			setDharmgurus(
-				dharmgurus.filter((d: Dharmguru) => d.id !== dharmguruToDelete.id)
+			const method = currentDharmguru?.id ? "PUT" : "POST";
+
+			// Ensure rank is included in the request data
+			const requestData = {
+				...(currentDharmguru?.id && { id: currentDharmguru.id }),
+				...dharmguruData,
+				userType: "Dharmguru",
+				isApproved: dharmguruData.isApproved || false,
+				rank: dharmguruData.rank || "", // Ensure rank is explicitly set
+			};
+
+			const response = await fetch(url, {
+				method,
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(requestData),
+			});
+
+			if (!response.ok) {
+				throw new Error("Failed to save kathavachak");
+			}
+
+			// const data = await response.json();
+
+			// Refresh the kathavachaks list
+			const fetchResponse = await fetch("/api/users?userType=Dharmguru");
+			if (!fetchResponse.ok) {
+				throw new Error("Failed to fetch updated dharmgurus");
+			}
+			const { users } = await fetchResponse.json();
+
+			// Map the user data to match Kathavachak structure
+			const mappedDharmgurus = users.map((user: UserData) => ({
+				id: user.id,
+				name: user.name || "",
+				category: user.category || "",
+				phone: user.phone || "",
+				email: user.email || "",
+				status: user.status || "Inactive",
+				rank: user.rank || "",
+				isApproved: user.kycApproved || false,
+			}));
+
+			setDharmgurus(mappedDharmgurus);
+
+			toast.success(
+				currentDharmguru?.id
+					? "Dharmguru updated successfully"
+					: "Dharmguru created successfully"
 			);
-			toast.dismiss(loadingToast);
-			toast.success(`${dharmguruToDelete.name} deleted successfully`);
-		} catch {
-			toast.dismiss(loadingToast);
-			toast.error(`Failed to delete ${dharmguruToDelete.name}`);
+
+			setIsFormOpen(false);
+			toast.success(
+				currentDharmguru?.id
+					? "Dharmguru updated successfully"
+					: "Dharmguru created successfully"
+			);
+		} catch (error: unknown) {
+			// Type guard for error with 'details'
+			if (typeof error === "object" && error !== null && "details" in error) {
+				const err = error as ApiErrorResponse;
+				if (Array.isArray(err.details)) {
+					err.details.forEach((message) => {
+						toast.error(String(message));
+					});
+				} else if (err.details && typeof err.details === "object") {
+					Object.values(err.details).forEach((message) => {
+						toast.error(String(message));
+					});
+				}
+			} else if (error instanceof Error) {
+				toast.error(error.message || "Failed to save kathavachak");
+			} else {
+				toast.error("Failed to save kathavachak");
+			}
 		} finally {
-			setDharmguruToDelete(null);
-			setIsDeleteConfirmOpen(false);
-			setIsLoading(false);
+			setIsSubmitting(false);
 		}
 	};
-
-	const handleLoginAsDharmguru = (dharmguru: Dharmguru) => {
-		const loadingToast = toast.loading(`Logging in as ${dharmguru.name}...`);
-		// In a real app, you would implement a secure way to login as the dharmguru
-		setTimeout(() => {
-			toast.dismiss(loadingToast);
-			toast.success(`Successfully logged in as ${dharmguru.name}`);
-			// Redirect to dharmguru dashboard or perform other actions
-		}, 1000);
-	};
-
-	const filteredDharmgurus = dharmgurus.filter(
-		(dharmguru: Dharmguru) =>
-			dharmguru.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			dharmguru.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			dharmguru.phone.includes(searchQuery) ||
-			dharmguru.category.toLowerCase().includes(searchQuery.toLowerCase())
-	);
+	if (loading) {
+		return (
+			<div className="flex justify-center items-center h-screen">
+				Loading...
+			</div>
+		);
+	}
 
 	return (
-		<div className="p-6 space-y-6">
-			<div className="flex items-center justify-between">
-				<h1 className="text-2xl font-bold">Dharmguru Management</h1>
-				<Dialog open={isAddDharmguruOpen} onOpenChange={setIsAddDharmguruOpen}>
-					<DialogTrigger asChild>
-						<Button className="flex items-center gap-2">
-							<PlusCircle className="h-4 w-4" />
-							Add Dharmguru
-						</Button>
-					</DialogTrigger>
-					<DialogContent className="sm:max-w-[425px]">
-						<DialogHeader>
-							<DialogTitle>Add New Dharmguru</DialogTitle>
-							<DialogDescription>
-								Fill in the details below to add a new dharmguru.
-							</DialogDescription>
-						</DialogHeader>
-						<div className="grid gap-4 py-4">
-							<div className="space-y-2">
-								<Label htmlFor="name">Full Name *</Label>
-								<Input
-									id="name"
-									value={newDharmguru.name}
-									onChange={(e) => {
-										setNewDharmguru({ ...newDharmguru, name: e.target.value });
-										if (formErrors.name)
-											setFormErrors({ ...formErrors, name: "" });
-									}}
-									placeholder="Enter full name"
-									className={formErrors.name ? "border-red-500" : ""}
-								/>
-								{formErrors.name && (
-									<p className="text-sm text-red-500">{formErrors.name}</p>
-								)}
-							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								<Label htmlFor="category" className="text-right">
-									Category *
-								</Label>
-								<Select
-									value={newDharmguru.category}
-									onValueChange={(value) =>
-										setNewDharmguru({ ...newDharmguru, category: value })
-									}
-								>
-									<SelectTrigger className="col-span-3">
-										<SelectValue placeholder="Select category" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectGroup>
-											{dharmguruCategories.map((category) => (
-												<SelectItem key={category} value={category}>
-													{category}
-												</SelectItem>
-											))}
-										</SelectGroup>
-									</SelectContent>
-								</Select>
-							</div>
-							<div className="grid grid-cols-4 items-center gap-4">
-								
-							</div>
+		<div className="container mx-auto py-6">
+			<h1 className="text-2xl font-bold mb-6">Dharmguru Management</h1>
 
-							<div className="space-y-2">
-								<Label htmlFor="email">Email *</Label>
-								<Input
-									id="email"
-									type="email"
-									value={newDharmguru.email}
-									onChange={(e) => {
-										setNewDharmguru({ ...newDharmguru, email: e.target.value });
-										if (formErrors.email)
-											setFormErrors({ ...formErrors, email: "" });
-									}}
-									placeholder="Enter email address"
-									className={formErrors.email ? "border-red-500" : ""}
-								/>
-								{formErrors.email && (
-									<p className="text-sm text-red-500">{formErrors.email}</p>
-								)}
-							</div>
+			<DharmguruTable
+				dharmgurus={dharmgurus}
+				setDharmgurus={setDharmgurus}
+				onAddDharmguru={handleAddDharmguru}
+				onEditDharmguru={handleEditDharmguru}
+				onDeleteDharmguru={handleDeleteDharmguru}
+				onUpdateStatus={handleUpdateStatus}
+				onToggleApproval={handleToggleApproval}
+				onLoginAsDharmguru={handleLoginAsDharmguru}
+			/>
 
-							<div className="space-y-2">
-								<Label htmlFor="phone">Phone Number *</Label>
-								<Input
-									id="phone"
-									type="tel"
-									value={newDharmguru.phone}
-									onChange={(e) => {
-										setNewDharmguru({ ...newDharmguru, phone: e.target.value });
-										if (formErrors.phone)
-											setFormErrors({ ...formErrors, phone: "" });
-									}}
-									placeholder="Enter phone number"
-									className={formErrors.phone ? "border-red-500" : ""}
-								/>
-								{formErrors.phone && (
-									<p className="text-sm text-red-500">{formErrors.phone}</p>
-								)}
-							</div>
-
-							<div className="space-y-2">
-								<Label htmlFor="rank">Rank *</Label>
-								<Select
-									value={newDharmguru.rank}
-									onValueChange={(value) => {
-										setNewDharmguru({ ...newDharmguru, rank: value });
-										if (formErrors.rank)
-											setFormErrors({ ...formErrors, rank: "" });
-									}}
-								>
-									<SelectTrigger
-										className={formErrors.rank ? "border-red-500" : ""}
-									>
-										<SelectValue placeholder="Select rank" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="Junior">Junior</SelectItem>
-										<SelectItem value="Senior">Senior</SelectItem>
-										<SelectItem value="Expert">Expert</SelectItem>
-										<SelectItem value="Master">Master</SelectItem>
-									</SelectContent>
-								</Select>
-								{formErrors.rank && (
-									<p className="text-sm text-red-500">{formErrors.rank}</p>
-								)}
-							</div>
-
-							<div className="space-y-2">
-								<Label htmlFor="status">Status *</Label>
-								<Select
-									value={newDharmguru.status}
-									onValueChange={(value) =>
-										setNewDharmguru({ ...newDharmguru, status: value })
-									}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Select status" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="Active">Active</SelectItem>
-										<SelectItem value="Inactive">Inactive</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="flex items-center space-x-2">
-								<input
-									type="checkbox"
-									id="isApproved"
-									checked={newDharmguru.isApproved}
-									onChange={(e) =>
-										setNewDharmguru({
-											...newDharmguru,
-											isApproved: e.target.checked,
-										})
-									}
-									className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-								/>
-								<Label htmlFor="isApproved">Approved</Label>
-							</div>
-						</div>
-						<DialogFooter>
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => {
-									setIsAddDharmguruOpen(false);
-									setFormErrors({});
-								}}
-							>
-								Cancel
-							</Button>
-							<Button
-								type="submit"
-								onClick={handleAddDharmguru}
-								disabled={isLoading}
-							>
-								{isLoading ? "Saving..." : "Save Dharmguru"}
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</Dialog>
-			</div>
-
-			<div className="flex items-center w-full max-w-sm space-x-2 mb-6">
-				<Input
-					type="text"
-					placeholder="Search dharmgurus..."
-					value={searchQuery}
-					onChange={(e) => setSearchQuery(e.target.value)}
-					className="flex-1"
-				/>
-				<Button type="submit" variant="outline" size="icon">
-					<Search className="h-4 w-4" />
-				</Button>
-			</div>
-
-			<div className="rounded-md border">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Name</TableHead>
-							<TableHead>Category</TableHead>
-							<TableHead>Phone No.</TableHead>
-							<TableHead>Email</TableHead>
-							<TableHead>Status</TableHead>
-							<TableHead>Rank</TableHead>
-							<TableHead>Approved</TableHead>
-							<TableHead>Details</TableHead>
-							<TableHead>Actions</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{filteredDharmgurus.length > 0 ? (
-							filteredDharmgurus.map((dharmguru: Dharmguru) => (
-								<TableRow key={dharmguru.id}>
-									<TableCell className="font-medium">
-										{dharmguru.name}
-									</TableCell>
-									<TableCell>{dharmguru.category}</TableCell>
-									<TableCell>{dharmguru.phone}</TableCell>
-									<TableCell>{dharmguru.email}</TableCell>
-									<TableCell>
-										<span
-											className={`px-2 py-1 rounded-full text-xs font-medium ${
-												dharmguru.status === "Active"
-													? "bg-green-100 text-green-800"
-													: "bg-red-100 text-red-800"
-											}`}
-										>
-											{dharmguru.status}
-										</span>
-									</TableCell>
-									<TableCell>
-										<span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-											{dharmguru.rank}
-										</span>
-									</TableCell>
-									<TableCell>
-										<span
-											className={`px-2 py-1 rounded-full text-xs font-medium ${
-												dharmguru.isApproved
-													? "bg-green-100 text-green-800"
-													: "bg-amber-100 text-amber-800"
-											}`}
-										>
-											{dharmguru.isApproved ? "Approved" : "Pending"}
-										</span>
-									</TableCell>
-									<TableCell>
-										<Button variant="ghost" size="sm" asChild>
-											<a href={`/admin/dharmguru/${dharmguru.id}`}>
-												<Eye className="h-4 w-4 mr-1" />
-												View
-											</a>
-										</Button>
-									</TableCell>
-									<TableCell>
-										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
-												<Button variant="ghost" size="sm">
-													Actions
-												</Button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end">
-												<DropdownMenuLabel>Manage Dharmguru</DropdownMenuLabel>
-												<DropdownMenuSeparator />
-												{!dharmguru.isApproved ? (
-													<DropdownMenuItem
-														onClick={() =>
-															handleApprovalChange(dharmguru.id, true)
-														}
-														className="text-green-600"
-													>
-														<ThumbsUp className="h-4 w-4 mr-2" />
-														Approve
-													</DropdownMenuItem>
-												) : (
-													<DropdownMenuItem
-														onClick={() =>
-															handleApprovalChange(dharmguru.id, false)
-														}
-														className="text-amber-600"
-													>
-														<ThumbsDown className="h-4 w-4 mr-2" />
-														Disapprove
-													</DropdownMenuItem>
-												)}
-												<DropdownMenuSub>
-													<DropdownMenuSubTrigger>
-														<Activity className="h-4 w-4 mr-2" />
-														Change Status
-													</DropdownMenuSubTrigger>
-													<DropdownMenuSubContent>
-														<DropdownMenuItem
-															onClick={() =>
-																handleStatusChange(dharmguru.id, "Active")
-															}
-															className={
-																dharmguru.status === "Active"
-																	? "bg-blue-50"
-																	: ""
-															}
-														>
-															<CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
-															Active
-														</DropdownMenuItem>
-														<DropdownMenuItem
-															onClick={() =>
-																handleStatusChange(dharmguru.id, "Inactive")
-															}
-															className={
-																dharmguru.status === "Inactive"
-																	? "bg-blue-50"
-																	: ""
-															}
-														>
-															<CircleSlash className="h-4 w-4 mr-2 text-gray-500" />
-															Inactive
-														</DropdownMenuItem>
-													</DropdownMenuSubContent>
-												</DropdownMenuSub>
-												<DropdownMenuItem
-													onClick={() =>
-														router.push(`/admin/dharmguru/${dharmguru.id}`)
-													}
-												>
-													<Edit className="h-4 w-4 mr-2" />
-													Edit
-												</DropdownMenuItem>
-												<DropdownMenuItem
-													onClick={() =>
-														handleDeleteDharmguru(dharmguru.id, dharmguru.name)
-													}
-													className="text-red-600"
-												>
-													<Trash2 className="h-4 w-4 mr-2" />
-													Delete
-												</DropdownMenuItem>
-												<DropdownMenuItem
-													onClick={() => handleLoginAsDharmguru(dharmguru)}
-												>
-													<LogIn className="h-4 w-4 mr-2" />
-													Login as Dharmguru
-												</DropdownMenuItem>
-											</DropdownMenuContent>
-										</DropdownMenu>
-									</TableCell>
-								</TableRow>
-							))
-						) : (
-							<TableRow>
-								<TableCell colSpan={9} className="text-center py-6">
-									No dharmgurus found. Try a different search or add a new
-									dharmguru.
-								</TableCell>
-							</TableRow>
-						)}
-					</TableBody>
-				</Table>
-			</div>
+			{/* Form Dialog */}
+			<Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+				<DialogContent className="sm:max-w-[600px]">
+					<DialogHeader>
+						<DialogTitle>
+							{currentDharmguru?.id
+								? "Edit Dharmguru"
+								: "Add New Dharmguru"}
+						</DialogTitle>
+					</DialogHeader>
+					<DharmguruForm
+						initialData={currentDharmguru || undefined}
+						onSubmit={handleFormSubmit}
+						onCancel={() => setIsFormOpen(false)}
+						isLoading={isSubmitting}
+					/>
+				</DialogContent>
+			</Dialog>
 
 			{/* Delete Confirmation Dialog */}
-			<Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-				<DialogContent>
+			<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+				<DialogContent className="sm:max-w-[425px]">
 					<DialogHeader>
 						<DialogTitle>Confirm Deletion</DialogTitle>
-						<DialogDescription>
+					</DialogHeader>
+					<div className="py-4">
+						<p>
 							Are you sure you want to delete {dharmguruToDelete?.name}? This
 							action cannot be undone.
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<Button
-							variant="outline"
-							onClick={() => setIsDeleteConfirmOpen(false)}
-							disabled={isLoading}
+						</p>
+					</div>
+					<div className="flex justify-end gap-2">
+						<button
+							className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+							onClick={() => setIsDeleteDialogOpen(false)}
 						>
 							Cancel
-						</Button>
-						<Button
-							variant="destructive"
-							onClick={confirmDeleteDharmguru}
-							disabled={isLoading}
+						</button>
+						<button
+							className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+							onClick={confirmDelete}
 						>
-							{isLoading ? "Deleting..." : "Delete"}
-						</Button>
-					</DialogFooter>
+							Delete
+						</button>
+					</div>
 				</DialogContent>
 			</Dialog>
 		</div>
