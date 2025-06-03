@@ -77,7 +77,7 @@ interface Kathavachak {
 	addresses?: Address[];
 	social?: number;
 	active?: number;
-	rank?: number;
+	rank?: string;
 	availability?: number;
 	kycApproved?: number;
 	status?: string;

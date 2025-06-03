@@ -180,17 +180,46 @@ export async function PUT(
 			);
 		}
 
-		// Update user data - userType and status are not included as they're not editable by users
+		// Update user data
 		try {
-			// First, update the user's basic information
+			console.log("Updating user with data:", JSON.stringify(data, null, 2));
+			console.log("Rank value before update:", data.rank);
+
+			const updateData: any = {
+				...(data.name !== undefined && { name: data.name }),
+				...(data.email !== undefined && { email: data.email }),
+				...(data.phone !== undefined && { phone: data.phone }),
+				...(data.userType !== undefined && { userType: data.userType }),
+				...(data.typeVendor !== undefined && { typeVendor: data.typeVendor }),
+				...(data.category !== undefined && { category: data.category }),
+				...(data.profileImageUrl !== undefined && {
+					profileImageUrl: data.profileImageUrl,
+				}),
+				...(data.coverImageUrl !== undefined && {
+					coverImageUrl: data.coverImageUrl,
+				}),
+				...(data.bio !== undefined && { bio: data.bio }),
+				// Explicitly include rank field
+				rank: data.rank || "",
+				...(data.kycApproved !== undefined && {
+					kycApproved: data.kycApproved,
+				}),
+				...(data.isApproved !== undefined && {
+					kycApproved: data.isApproved ? 1 : 0,
+				}),
+				...(data.status !== undefined && { status: data.status }),
+				...(data.social !== undefined && { social: data.social }),
+				...(data.active !== undefined && { active: data.active }),
+				...(data.availability !== undefined && {
+					availability: data.availability,
+				}),
+			};
+
+			console.log("Final update data:", JSON.stringify(updateData, null, 2));
+
 			const updatedUser = await prisma.user.update({
 				where: { id: userId },
-				data: {
-					name: data.name,
-					email: data.email,
-					phone: data.phone,
-					bio: data.bio || null,
-				},
+				data: updateData,
 				select: {
 					id: true,
 					name: true,
@@ -202,21 +231,6 @@ export async function PUT(
 					bio: true,
 					coverImageUrl: true,
 					category: true,
-					addresses: {
-						select: {
-							id: true,
-							type: true,
-							label: true,
-							line1: true,
-							line2: true,
-							city: true,
-							state: true,
-							country: true,
-							pincode: true,
-							createdAt: true,
-							updatedAt: true,
-						},
-					},
 					social: true,
 					active: true,
 					rank: true,
@@ -230,6 +244,8 @@ export async function PUT(
 					createdAt: true,
 				},
 			});
+
+			console.log("User updated with rank:", updatedUser.rank);
 
 			// Handle address updates if provided
 			if (data.addresses && Array.isArray(data.addresses)) {

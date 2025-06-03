@@ -91,21 +91,28 @@ export default function KathavachakForm({
 	};
 
 	const handleSubmit = async () => {
+		console.log("Form submit triggered with data:", kathavachakData);
 		const errors = validateForm(kathavachakData);
 		setFormErrors(errors);
 
 		// If there are errors, don't proceed
 		if (Object.keys(errors).length > 0) {
+			console.log("Form validation errors:", errors);
 			return;
 		}
 
-		await onSubmit(kathavachakData);
+		try {
+			await onSubmit(kathavachakData);
+		} catch (error) {
+			console.error("Error in form submission:", error);
+		}
 	};
 
 	const handleInputChange = (
 		field: keyof typeof kathavachakData,
 		value: string | boolean
 	) => {
+		console.log(`Field ${field} changed to:`, value);
 		setKathavachakData({ ...kathavachakData, [field]: value });
 
 		// Clear error for this field if it exists

@@ -21,7 +21,7 @@ model User {
     password String
     social Int?
     active Int?
-    rank Int?
+    rank String?
     availability Int?
     kycApproved Int?
     status String? @default("Active")

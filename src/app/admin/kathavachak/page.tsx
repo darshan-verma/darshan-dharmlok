@@ -71,7 +71,12 @@ export default function KathavachakPage() {
 	};
 
 	const handleEditKathavachak = (kathavachak: Kathavachak) => {
-		setCurrentKathavachak(kathavachak);
+		// Ensure rank is properly passed as a string
+		const kathavachakWithStringRank = {
+			...kathavachak,
+			rank: kathavachak.rank || "", // Ensure rank is a string
+		};
+		setCurrentKathavachak(kathavachakWithStringRank);
 		setIsFormOpen(true);
 	};
 
@@ -167,53 +172,83 @@ export default function KathavachakPage() {
 	};
 
 	const handleFormSubmit = async (kathavachakData: Omit<Kathavachak, "id">) => {
-		setIsSubmitting(true);
 		try {
-			if (currentKathavachak?.id) {
-				// Update existing kathavachak
-				// In a real app, this would be an API call
-				// await fetch(`/api/kathavachaks/${currentKathavachak.id}`, {
-				//   method: 'PUT',
-				//   headers: { 'Content-Type': 'application/json' },
-				//   body: JSON.stringify(kathavachakData),
-				// });
+			console.log("1. Form submitted with data:", kathavachakData);
+			setIsSubmitting(true);
 
-				// Update local state
-				setKathavachaks(
-					kathavachaks.map((k) =>
-						k.id === currentKathavachak.id
-							? { ...kathavachakData, id: currentKathavachak.id }
-							: k
-					)
-				);
-				toast.success("Kathavachak updated successfully");
-			} else {
-				// Add new kathavachak
-				// In a real app, this would be an API call
-				// const response = await fetch('/api/kathavachaks', {
-				//   method: 'POST',
-				//   headers: { 'Content-Type': 'application/json' },
-				//   body: JSON.stringify(kathavachakData),
-				// });
-				// const newKathavachak = await response.json();
+			const url = currentKathavachak?.id
+				? `/api/users/${currentKathavachak.id}`
+				: "/api/users";
 
-				// Mock new kathavachak with generated ID
-				const newKathavachak: Kathavachak = {
-					...kathavachakData,
-					id: Date.now().toString(),
-				};
+			const method = currentKathavachak?.id ? "PUT" : "POST";
 
-				// Update local state
-				setKathavachaks([...kathavachaks, newKathavachak]);
-				toast.success("Kathavachak added successfully");
+			// Ensure rank is included in the request data
+			const requestData = {
+				...(currentKathavachak?.id && { id: currentKathavachak.id }),
+				...kathavachakData,
+				userType: "Kathavachak",
+				isApproved: kathavachakData.isApproved || false,
+				rank: kathavachakData.rank || "", // Ensure rank is explicitly set
+			};
+
+			console.log("2. Sending request with data:", requestData);
+			console.log("2a. Rank value being sent:", requestData.rank);
+
+			const response = await fetch(url, {
+				method,
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(requestData),
+			});
+
+			const data = await response.json();
+			console.log("3. API Response:", data);
+			console.log("3a. Rank in API response:", data.rank);
+
+			if (!response.ok) {
+				throw new Error(data.error || "Failed to save kathavachak");
 			}
 
-			// Close form dialog
+			// Refresh the kathavachaks list
+			const fetchResponse = await fetch("/api/users?userType=Kathavachak");
+			if (!fetchResponse.ok) {
+				throw new Error("Failed to fetch updated kathavachaks");
+			}
+			const { users } = await fetchResponse.json();
+
+			// Map the user data to match Kathavachak structure
+			const mappedKathavachaks = users.map((user: any) => ({
+				id: user.id,
+				name: user.name || "",
+				category: user.category || "",
+				phone: user.phone || "",
+				email: user.email || "",
+				status: user.status || "Inactive",
+				rank: user.rank || "",
+				isApproved: user.kycApproved || false,
+			}));
+
+			setKathavachaks(mappedKathavachaks);
+
+			toast.success(
+				currentKathavachak?.id
+					? "Kathavachak updated successfully"
+					: "Kathavachak created successfully"
+			);
+
 			setIsFormOpen(false);
-			setCurrentKathavachak(null);
-		} catch (error) {
+		} catch (error: any) {
 			console.error("Error saving kathavachak:", error);
-			toast.error("Failed to save kathavachak");
+
+			if (error.details) {
+				// Handle validation errors
+				Object.values(error.details).forEach((message: any) => {
+					toast.error(String(message));
+				});
+			} else {
+				toast.error(error.message || "Failed to save kathavachak");
+			}
 		} finally {
 			setIsSubmitting(false);
 		}
