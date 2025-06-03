@@ -55,7 +55,7 @@ export default function UserTable({ users, setUsers }: UserTableProps) {
 		{ value: "dharmguru", label: "Dharmguru" },
 		{ value: "vendor", label: "Vendor" },
 		{ value: "hotel/dharamshala", label: "Hotel/Dharamshala" },
-		{ value: "pandit ji", label: "Pandit Ji" },
+		{ value: "panditji", label: "Pandit Ji" },
 		{ value: "seller", label: "Seller" },
 	];
 
@@ -74,7 +74,7 @@ export default function UserTable({ users, setUsers }: UserTableProps) {
 				return "bg-yellow-100 text-yellow-800";
 			case "hotel/dharamshala":
 				return "bg-pink-100 text-pink-800";
-			case "pandit ji":
+			case "panditji":
 				return "bg-indigo-100 text-indigo-800";
 			case "seller":
 				return "bg-red-100 text-red-800";

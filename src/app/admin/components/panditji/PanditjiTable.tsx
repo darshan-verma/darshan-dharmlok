@@ -43,8 +43,8 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 
-// Define the Dharmguru interface
-export interface Dharmguru {
+// Define the Panditji interface
+export interface Panditji {
 	id: string;
 	name: string;
 	category: string;
@@ -55,19 +55,19 @@ export interface Dharmguru {
 	isApproved: boolean;
 }
 
-interface DharmguruTableProps {
-	dharmgurus: Dharmguru[];
-	setDharmgurus: React.Dispatch<React.SetStateAction<Dharmguru[]>>;
-	onAddDharmguru?: () => void;
-	onEditDharmguru: (dharmguru: Dharmguru) => void;
-	onDeleteDharmguru: (id: string, name: string) => void;
+interface PanditjiTableProps {
+	panditjis: Panditji[];
+	setPanditjis: React.Dispatch<React.SetStateAction<Panditji[]>>;
+	onAddPanditji?: () => void;
+	onEditPanditji: (panditji: Panditji) => void;
+	onDeletePanditji: (id: string, name: string) => void;
 	onUpdateStatus: (id: string, newStatus: string) => Promise<void>;
 	onToggleApproval: (id: string, currentStatus: boolean) => Promise<void>;
-	onLoginAsDharmguru: (dharmguru: Dharmguru) => void;
+	onLoginAsPanditji: (panditji: Panditji) => void;
 }
 
-// Categories for Kathavachaks
-export const DharmguruCategories = [
+// Categories for Panditji
+export const panditjiCategories = [
 	"Bhagavad Gita",
 	"Ramayana",
 	"Mahabharata",
@@ -78,8 +78,8 @@ export const DharmguruCategories = [
 	"Other",
 ];
 
-// Ranks for Kathavachaks
-export const DharmguruRanks = ["Junior", "Senior", "Expert", "Master"];
+// Ranks for Panditji
+export const panditjiRanks = ["Junior", "Senior", "Expert", "Master"];
 
 // Function to get color based on rank
 export const getRankColor = (rank: string): string => {
@@ -121,47 +121,47 @@ export const getCategoryColor = (category: string): string => {
 	}
 };
 
-export default function DharmguruTable({
-	dharmgurus,
-	onAddDharmguru,
-	onEditDharmguru,
-	onDeleteDharmguru,
+export default function PanditjiTable({
+	panditjis,
+	onAddPanditji,
+	onEditPanditji,
+	onDeletePanditji,
 	onUpdateStatus,
 	onToggleApproval,
-	onLoginAsDharmguru,
-}: DharmguruTableProps) {
+	onLoginAsPanditji,
+}: PanditjiTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [rankFilter, setRankFilter] = useState<string>("all");
 	const [approvalFilter, setApprovalFilter] = useState<string>("all");
 
-	// Filter dharmgurus based on search and filter criteria
-	const filteredDharmgurus = dharmgurus.filter((dharmguru) => {
+	// Filter panditjis based on search and filter criteria
+	const filteredPanditjis = panditjis.filter((panditji) => {
 		// Apply search filter
 		const matchesSearch =
-			dharmguru.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			dharmguru.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			dharmguru.phone.includes(searchTerm) ||
-			dharmguru.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			dharmguru.rank.toLowerCase().includes(searchTerm.toLowerCase());
+			panditji.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			panditji.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			panditji.phone.includes(searchTerm) ||
+			panditji.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			panditji.rank.toLowerCase().includes(searchTerm.toLowerCase());
 
 		// Apply category filter
 		const matchesCategory =
-			categoryFilter === "all" || dharmguru.category === categoryFilter;
+			categoryFilter === "all" || panditji.category === categoryFilter;
 
 		// Apply status filter
 		const matchesStatus =
-			statusFilter === "all" || dharmguru.status === statusFilter;
+			statusFilter === "all" || panditji.status === statusFilter;
 
 		// Apply rank filter
-		const matchesRank = rankFilter === "all" || dharmguru.rank === rankFilter;
+		const matchesRank = rankFilter === "all" || panditji.rank === rankFilter;
 
 		// Apply approval filter
 		const matchesApproval =
 			approvalFilter === "all" ||
-			(approvalFilter === "approved" && dharmguru.isApproved) ||
-			(approvalFilter === "notApproved" && !dharmguru.isApproved);
+			(approvalFilter === "approved" && panditji.isApproved) ||
+			(approvalFilter === "notApproved" && !panditji.isApproved);
 
 		return (
 			matchesSearch &&
@@ -181,18 +181,18 @@ export default function DharmguruTable({
 						<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
 						<Input
 							type="search"
-							placeholder="Search kathavachaks..."
+							placeholder="Search panditjis..."
 							className="pl-8"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 						/>
 					</div>
 
-					{/* Add Dharmguru Button */}
-					{onAddDharmguru && (
-						<Button onClick={onAddDharmguru} className="w-full sm:w-auto">
+					{/* Add Panditji Button */}
+					{onAddPanditji && (
+						<Button onClick={onAddPanditji} className="w-full sm:w-auto">
 							<PlusCircle className="h-4 w-4 mr-2" />
-							Add Dharmguru
+							Add Panditji
 						</Button>
 					)}
 				</div>
@@ -207,7 +207,7 @@ export default function DharmguruTable({
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value="all">All Categories</SelectItem>
-								{DharmguruCategories.map((category) => (
+								{panditjiCategories.map((category) => (
 									<SelectItem key={category} value={category}>
 										{category}
 									</SelectItem>
@@ -224,7 +224,7 @@ export default function DharmguruTable({
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value="all">All Ranks</SelectItem>
-								{DharmguruRanks.map((rank) => (
+								{panditjiRanks.map((rank) => (
 									<SelectItem key={rank} value={rank}>
 										{rank}
 									</SelectItem>
@@ -264,8 +264,8 @@ export default function DharmguruTable({
 
 				{/* Results Count */}
 				<div className="text-sm text-gray-500">
-					{filteredDharmgurus.length} dharmguru
-					{filteredDharmgurus.length !== 1 ? "s" : ""} found
+					{filteredPanditjis.length} panditji
+					{filteredPanditjis.length !== 1 ? "s" : ""} found
 				</div>
 			</div>
 
@@ -285,57 +285,55 @@ export default function DharmguruTable({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{filteredDharmgurus.length > 0 ? (
-							filteredDharmgurus.map((dharmguru) => (
-								<TableRow key={dharmguru.id}>
-									<TableCell className="font-medium">
-										{dharmguru.name}
-									</TableCell>
+						{filteredPanditjis.length > 0 ? (
+							filteredPanditjis.map((panditji) => (
+								<TableRow key={panditji.id}>
+									<TableCell className="font-medium">{panditji.name}</TableCell>
 									<TableCell>
 										<span
 											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getCategoryColor(
-												dharmguru.category
+												panditji.category
 											)}`}
 										>
-											{dharmguru.category}
+											{panditji.category}
 										</span>
 									</TableCell>
-									<TableCell>{dharmguru.phone}</TableCell>
-									<TableCell>{dharmguru.email}</TableCell>
+									<TableCell>{panditji.phone}</TableCell>
+									<TableCell>{panditji.email}</TableCell>
 									<TableCell>
 										<span
 											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getRankColor(
-												dharmguru.rank
+												panditji.rank
 											)}`}
 										>
-											{dharmguru.rank || "Unranked"}
+											{panditji.rank || "Unranked"}
 										</span>
 									</TableCell>
 									<TableCell>
 										<span
 											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-												dharmguru.status === "Active"
+												panditji.status === "Active"
 													? "bg-green-100 text-green-800"
 													: "bg-red-100 text-red-800"
 											}`}
 										>
-											{dharmguru.status}
+											{panditji.status}
 										</span>
 									</TableCell>
 									<TableCell>
 										<span
 											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-												dharmguru.isApproved
+												panditji.isApproved
 													? "bg-green-100 text-green-800"
 													: "bg-amber-100 text-amber-800"
 											}`}
 										>
-											{dharmguru.isApproved ? "Approved" : "Not Approved"}
+											{panditji.isApproved ? "Approved" : "Not Approved"}
 										</span>
 									</TableCell>
 									<TableCell>
 										<Button variant="ghost" size="sm" asChild>
-											<a href={`/admin/dharmguru/${dharmguru.id}`}>
+											<a href={`/admin/panditji/${panditji.id}`}>
 												<Eye className="h-4 w-4 mr-1" />
 												View
 											</a>
@@ -349,17 +347,12 @@ export default function DharmguruTable({
 												</Button>
 											</DropdownMenuTrigger>
 											<DropdownMenuContent align="end">
-												<DropdownMenuLabel>
-													Manage Dharmguru
-												</DropdownMenuLabel>
+												<DropdownMenuLabel>Manage Panditji</DropdownMenuLabel>
 												<DropdownMenuSeparator />
-												{!dharmguru.isApproved ? (
+												{!panditji.isApproved ? (
 													<DropdownMenuItem
 														onClick={() =>
-															onToggleApproval(
-																dharmguru.id,
-																dharmguru.isApproved
-															)
+															onToggleApproval(panditji.id, panditji.isApproved)
 														}
 														className="text-green-600"
 													>
@@ -369,10 +362,7 @@ export default function DharmguruTable({
 												) : (
 													<DropdownMenuItem
 														onClick={() =>
-															onToggleApproval(
-																dharmguru.id,
-																dharmguru.isApproved
-															)
+															onToggleApproval(panditji.id, panditji.isApproved)
 														}
 														className="text-amber-600"
 													>
@@ -388,12 +378,10 @@ export default function DharmguruTable({
 													<DropdownMenuSubContent>
 														<DropdownMenuItem
 															onClick={() =>
-																onUpdateStatus(dharmguru.id, "Active")
+																onUpdateStatus(panditji.id, "Active")
 															}
 															className={
-																dharmguru.status === "Active"
-																	? "bg-blue-50"
-																	: ""
+																panditji.status === "Active" ? "bg-blue-50" : ""
 															}
 														>
 															<CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
@@ -401,10 +389,10 @@ export default function DharmguruTable({
 														</DropdownMenuItem>
 														<DropdownMenuItem
 															onClick={() =>
-																onUpdateStatus(dharmguru.id, "Inactive")
+																onUpdateStatus(panditji.id, "Inactive")
 															}
 															className={
-																dharmguru.status === "Inactive"
+																panditji.status === "Inactive"
 																	? "bg-blue-50"
 																	: ""
 															}
@@ -415,7 +403,7 @@ export default function DharmguruTable({
 													</DropdownMenuSubContent>
 												</DropdownMenuSub>
 												<DropdownMenuItem
-													onClick={() => onEditDharmguru(dharmguru)}
+													onClick={() => onEditPanditji(panditji)}
 												>
 													<Edit className="h-4 w-4 mr-2" />
 													Edit
@@ -424,20 +412,17 @@ export default function DharmguruTable({
 													className="flex items-center gap-2 text-red-600"
 													onSelect={(e) => {
 														e.preventDefault();
-														onDeleteDharmguru(
-															dharmguru.id,
-															dharmguru.name
-														);
+														onDeletePanditji(panditji.id, panditji.name);
 													}}
 												>
 													<Trash2 className="h-4 w-4" />
 													Delete
 												</DropdownMenuItem>
 												<DropdownMenuItem
-													onClick={() => onLoginAsDharmguru(dharmguru)}
+													onClick={() => onLoginAsPanditji(panditji)}
 												>
 													<LogIn className="h-4 w-4 mr-2" />
-													Login as Dharmguru
+													Login as Panditji
 												</DropdownMenuItem>
 											</DropdownMenuContent>
 										</DropdownMenu>
@@ -447,8 +432,8 @@ export default function DharmguruTable({
 						) : (
 							<TableRow>
 								<TableCell colSpan={9} className="text-center py-6">
-									No kathavachaks found. Try a different search or add a new
-									kathavachak.
+									No panditjis found. Try a different search or add a new
+									panditji.
 								</TableCell>
 							</TableRow>
 						)}

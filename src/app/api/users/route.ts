@@ -56,7 +56,10 @@ export async function GET(request: Request) {
 		const whereConditions: Prisma.UserWhereInput = {};
 
 		if (userType) {
-			whereConditions.userType = userType;
+			whereConditions.userType = {
+				equals: userType,
+				mode: "insensitive", // Make the search case-insensitive
+			};
 		}
 
 		if (status) {
@@ -142,7 +145,7 @@ export async function POST(request: Request) {
 			name: data.name,
 			email: data.email,
 			phone: data.phone,
-			userType: data.userType || "Kathavachak",
+			userType: data.userType, // Remove default "Kathavachak" to prevent overriding Panditji
 			typeVendor: data.typeVendor,
 			category: data.category,
 			bio: data.bio,

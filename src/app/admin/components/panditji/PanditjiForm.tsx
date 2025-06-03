@@ -11,20 +11,16 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import {
-	Dharmguru,
-	DharmguruCategories,
-	DharmguruRanks,
-} from "./DharmguruTable";
+import { Panditji, panditjiCategories, panditjiRanks } from "./PanditjiTable";
 
-interface DharmguruFormProps {
-	initialData?: Partial<Dharmguru>;
-	onSubmit: (dharmguruData: Omit<Dharmguru, "id">) => Promise<void>;
+interface PanditjiFormProps {
+	initialData?: Partial<Panditji>;
+	onSubmit: (panditjiData: Omit<Panditji, "id">) => Promise<void>;
 	onCancel: () => void;
 	isLoading?: boolean;
 }
 
-export default function DharmguruForm({
+export default function PanditjiForm({
 	initialData = {
 		name: "",
 		category: "",
@@ -37,10 +33,8 @@ export default function DharmguruForm({
 	onSubmit,
 	onCancel,
 	isLoading = false,
-}: DharmguruFormProps) {
-	const [dharmguruData, setDharmguruData] = useState<
-		Omit<Dharmguru, "id">
-	>({
+}: PanditjiFormProps) {
+	const [panditjiData, setPanditjiData] = useState<Omit<Panditji, "id">>({
 		name: initialData.name || "",
 		category: initialData.category || "",
 		phone: initialData.phone || "",
@@ -53,7 +47,7 @@ export default function DharmguruForm({
 
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-	const validateForm = (data: typeof dharmguruData) => {
+	const validateForm = (data: typeof panditjiData) => {
 		const errors: Record<string, string> = {};
 
 		// Name validation
@@ -91,8 +85,8 @@ export default function DharmguruForm({
 	};
 
 	const handleSubmit = async () => {
-		console.log("Form submit triggered with data:", dharmguruData);
-		const errors = validateForm(dharmguruData);
+		console.log("Form submit triggered with data:", panditjiData);
+		const errors = validateForm(panditjiData);
 		setFormErrors(errors);
 
 		// If there are errors, don't proceed
@@ -102,18 +96,18 @@ export default function DharmguruForm({
 		}
 
 		try {
-			await onSubmit(dharmguruData);
+			await onSubmit(panditjiData);
 		} catch (error) {
 			console.error("Error in form submission:", error);
 		}
 	};
 
 	const handleInputChange = (
-		field: keyof typeof dharmguruData,
+		field: keyof typeof panditjiData,
 		value: string | boolean
 	) => {
 		console.log(`Field ${field} changed to:`, value);
-		setDharmguruData({ ...dharmguruData, [field]: value });
+		setPanditjiData({ ...panditjiData, [field]: value });
 
 		// Clear error for this field if it exists
 		if (formErrors[field]) {
@@ -127,7 +121,7 @@ export default function DharmguruForm({
 				<Label htmlFor="name">Full Name *</Label>
 				<Input
 					id="name"
-					value={dharmguruData.name}
+					value={panditjiData.name}
 					onChange={(e) => handleInputChange("name", e.target.value)}
 					placeholder="Enter full name"
 					className={formErrors.name ? "border-red-500" : ""}
@@ -142,7 +136,7 @@ export default function DharmguruForm({
 				<Input
 					id="email"
 					type="email"
-					value={dharmguruData.email}
+					value={panditjiData.email}
 					onChange={(e) => handleInputChange("email", e.target.value)}
 					placeholder="Enter email address"
 					className={formErrors.email ? "border-red-500" : ""}
@@ -157,7 +151,7 @@ export default function DharmguruForm({
 				<Input
 					id="phone"
 					type="tel"
-					value={dharmguruData.phone}
+					value={panditjiData.phone}
 					onChange={(e) => handleInputChange("phone", e.target.value)}
 					placeholder="Enter phone number"
 					className={formErrors.phone ? "border-red-500" : ""}
@@ -170,7 +164,7 @@ export default function DharmguruForm({
 			<div className="space-y-2">
 				<Label htmlFor="category">Category *</Label>
 				<Select
-					value={dharmguruData.category}
+					value={panditjiData.category}
 					onValueChange={(value) => handleInputChange("category", value)}
 				>
 					<SelectTrigger
@@ -180,7 +174,7 @@ export default function DharmguruForm({
 						<SelectValue placeholder="Select category" />
 					</SelectTrigger>
 					<SelectContent>
-						{DharmguruCategories.map((category) => (
+						{panditjiCategories.map((category) => (
 							<SelectItem key={category} value={category}>
 								{category}
 							</SelectItem>
@@ -195,7 +189,7 @@ export default function DharmguruForm({
 			<div className="space-y-2">
 				<Label htmlFor="rank">Rank *</Label>
 				<Select
-					value={dharmguruData.rank}
+					value={panditjiData.rank}
 					onValueChange={(value) => handleInputChange("rank", value)}
 				>
 					<SelectTrigger
@@ -205,7 +199,7 @@ export default function DharmguruForm({
 						<SelectValue placeholder="Select rank" />
 					</SelectTrigger>
 					<SelectContent>
-						{DharmguruRanks.map((rank) => (
+						{panditjiRanks.map((rank) => (
 							<SelectItem key={rank} value={rank}>
 								{rank}
 							</SelectItem>
@@ -220,7 +214,7 @@ export default function DharmguruForm({
 			<div className="space-y-2">
 				<Label htmlFor="status">Status *</Label>
 				<Select
-					value={dharmguruData.status}
+					value={panditjiData.status}
 					onValueChange={(value) => handleInputChange("status", value)}
 				>
 					<SelectTrigger id="status">
@@ -237,7 +231,7 @@ export default function DharmguruForm({
 				<input
 					type="checkbox"
 					id="isApproved"
-					checked={dharmguruData.isApproved}
+					checked={panditjiData.isApproved}
 					onChange={(e) => handleInputChange("isApproved", e.target.checked)}
 					className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
 				/>
@@ -254,7 +248,7 @@ export default function DharmguruForm({
 					Cancel
 				</Button>
 				<Button type="submit" onClick={handleSubmit} disabled={isLoading}>
-					{isLoading ? "Saving..." : "Save Dharmguru"}
+					{isLoading ? "Saving..." : "Save Panditji"}
 				</Button>
 			</div>
 		</div>

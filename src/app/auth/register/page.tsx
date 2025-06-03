@@ -383,7 +383,7 @@ export default function RegisterPage() {
 						<option value="Kathavachak">Kathavachak</option>
 						<option value="Dharmguru">Dharmguru</option>
 						<option value="Hotel/Dharamshala">Hotel/Dharamshala</option>
-						<option value="Pandit Ji">Pandit Ji</option>
+						<option value="Panditji">Pandit Ji</option>
 						<option value="Seller">Seller</option>
 					</select>
 					{errors.role && (
