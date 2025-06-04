@@ -699,7 +699,7 @@ export default function PanditjiDetailPage() {
 														</Button>
 													</div>
 
-													{panditji.addresses.map((address, index) => (
+													{editedPanditji?.addresses?.map((address, index) => (
 														<div
 															key={index}
 															className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0"
@@ -765,7 +765,7 @@ export default function PanditjiDetailPage() {
 																											value === "other"
 																												? addr.label
 																												: undefined,
-																								  }
+																								}
 																								: addr
 																					),
 																				};
@@ -804,7 +804,7 @@ export default function PanditjiDetailPage() {
 																									? {
 																											...addr,
 																											label: e.target.value,
-																									  }
+																									}
 																									: addr
 																						),
 																					};

@@ -699,7 +699,7 @@ export default function DharmguruDetailPage() {
 														</Button>
 													</div>
 
-													{dharmguru.addresses.map((address, index) => (
+													{editedDharmguru?.addresses?.map((address, index) => (
 														<div
 															key={index}
 															className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0"
@@ -765,7 +765,7 @@ export default function DharmguruDetailPage() {
 																											value === "other"
 																												? addr.label
 																												: undefined,
-																								  }
+																									}
 																								: addr
 																					),
 																				};
@@ -1003,7 +1003,7 @@ export default function DharmguruDetailPage() {
 																							? {
 																									...addr,
 																									country: e.target.value,
-																							  }
+																							}
 																							: addr
 																				),
 																			};
