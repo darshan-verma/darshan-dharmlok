@@ -144,9 +144,15 @@ export function AdminSidebar({ className }: { className?: string }) {
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all">
-							<Building2 className="h-5 w-5 text-cyan-500" />
-							<span>Hotel/Dharamshala Vendor</span>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/hotel_dharamshala_vendor"}
+							asChild
+						>
+							<Link href="/admin/hotel_dharamshala_vendor">
+								<Building2 className="h-5 w-5 text-cyan-500" />
+								<span>Hotel/Dharamshala Vendor</span>
+							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
