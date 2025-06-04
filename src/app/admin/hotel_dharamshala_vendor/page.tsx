@@ -8,8 +8,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import HotelDharamshalaTable, { HotelDharamshala } from "../components/hotel_dharamshala_vendor/HotelDharamshalaTable";
+import HotelDharamshalaTable, {
+	HotelDharamshala,
+} from "../components/hotel_dharamshala_vendor/HotelDharamshalaTable";
 import HotelDharamshalaForm from "../components/hotel_dharamshala_vendor/HotelDharamshalaForm";
+import Pagination from "../components/Pagination/Pagination";
+import { usePagination } from "../hooks/usePagination";
 
 interface UserData {
 	id: string;
@@ -25,7 +29,9 @@ interface ApiErrorResponse {
 }
 
 export default function HotelDharamshalaPage() {
-	const [HotelDharamshalas, setHotelDharamshalas] = useState<HotelDharamshala[]>([]);
+	const [HotelDharamshalas, setHotelDharamshalas] = useState<
+		HotelDharamshala[]
+	>([]);
 	const [loading, setLoading] = useState(true);
 	const [isFormOpen, setIsFormOpen] = useState(false);
 	const [currentHotelDharamshala, setCurrentHotelDharamshala] =
@@ -36,6 +42,7 @@ export default function HotelDharamshalaPage() {
 		id: string;
 		name: string;
 	} | null>(null);
+	const [pagination, handlePageChange, updatePagination] = usePagination(1, 12);
 
 	// Fetch HotelDharamshalas on component mount
 	useEffect(() => {
@@ -43,76 +50,38 @@ export default function HotelDharamshalaPage() {
 			setLoading(true);
 			try {
 				// First try to fetch with the standard "HotelDharamshala" format
-				const response = await fetch("/api/users?userType=HotelDharamshala");
+				const response = await fetch(
+					`/api/users?userType=HotelDharamshala&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+				);
 
 				if (!response.ok) {
 					throw new Error(`API error: ${response.status}`);
 				}
 
 				const data = await response.json();
-				console.log("API Response for HotelDharamshala:", data); // Debug log to see what's being returned
 
-				// Check if users array exists and has items
-				if (!data.users || data.users.length === 0) {
-					console.log(
-						"No HotelDharamshala users found with 'HotelDharamshala' userType, checking for 'HotelDharamshala'"
-					);
+				// Map the user data to match HotelDharamshala structure
+				const mappedHotelDharamshalas = data.users.map((user: UserData) => ({
+					id: user.id,
+					name: user.name || "",
+					phone: user.phone || "",
+					email: user.email || "",
+					status: user.status || "Active",
+					kycApproved: user.kycApproved || false,
+				}));
 
-					// Try to fetch with the alternative "HotelDharamshala" format as a fallback
-					const altResponse = await fetch("/api/users?userType=HotelDharamshala");
-
-					if (!altResponse.ok) {
-						console.log("No users found with 'HotelDharamshala' userType either");
-						setHotelDharamshalas([]);
-						setLoading(false);
-						return;
-					}
-
-					const altData = await altResponse.json();
-					console.log("API Response for 'HotelDharamshala':", altData);
-
-					if (!altData.users || altData.users.length === 0) {
-						console.log(
-							"No HotelDharamshala users found in the database with either format"
-						);
-						setHotelDharamshalas([]);
-						setLoading(false);
-						return;
-					}
-
-					// Map the alternative format user data
-					const mappedHotelDharamshala = altData.users.map((user: UserData) => ({
-						id: user.id,
-						name: user.name || "",
-						phone: user.phone || "",
-						email: user.email || "",
-						status: user.status || "Inactive",
-						isApproved: user.kycApproved || false,
-					}));
-
-					setHotelDharamshalas(mappedHotelDharamshala);
-				} else {
-					// Map the user data to match HotelDharamshala structure
-					const mappedHotelDharamshala = data.users.map((user: UserData) => ({
-						id: user.id,
-						name: user.name || "",
-						phone: user.phone || "",
-						email: user.email || "",
-						status: user.status || "Inactive",
-						isApproved: user.kycApproved || false,
-					}));
-
-					setHotelDharamshalas(mappedHotelDharamshala);
-				}
-			} catch {
-				toast.error("Failed to load HotelDharamshalas");
+				setHotelDharamshalas(mappedHotelDharamshalas);
+				updatePagination(data.total, data.pagination.totalPages);
+			} catch (error) {
+				console.error("Error fetching HotelDharamshalas:", error);
+				toast.error("Failed to load HotelDharamshalas.");
 			} finally {
 				setLoading(false);
 			}
 		};
 
 		fetchHotelDharamshalas();
-	}, []);
+	}, [pagination.currentPage]);
 
 	const handleAddHotelDharamshala = () => {
 		setCurrentHotelDharamshala(null);
@@ -134,16 +103,21 @@ export default function HotelDharamshalaPage() {
 
 		try {
 			// Call the API to delete the HotelDharamshala
-			const response = await fetch(`/api/users/${HotelDharamshalaToDelete.id}`, {
-				method: "DELETE",
-			});
+			const response = await fetch(
+				`/api/users/${HotelDharamshalaToDelete.id}`,
+				{
+					method: "DELETE",
+				}
+			);
 
 			if (!response.ok) {
 				throw new Error(`API error: ${response.status}`);
 			}
 
 			// Update local state
-			setHotelDharamshalas(HotelDharamshalas.filter((d) => d.id !== HotelDharamshalaToDelete.id));
+			setHotelDharamshalas(
+				HotelDharamshalas.filter((d) => d.id !== HotelDharamshalaToDelete.id)
+			);
 			toast.success(`${HotelDharamshalaToDelete.name} has been deleted`);
 		} catch {
 			toast.error("Failed to delete HotelDharamshala");
@@ -168,7 +142,9 @@ export default function HotelDharamshalaPage() {
 
 			// Update local state
 			setHotelDharamshalas(
-				HotelDharamshalas.map((d) => (d.id === id ? { ...d, status: newStatus } : d))
+				HotelDharamshalas.map((d) =>
+					d.id === id ? { ...d, status: newStatus } : d
+				)
 			);
 			toast.success("Status updated successfully");
 		} catch {
@@ -196,14 +172,18 @@ export default function HotelDharamshalaPage() {
 				)
 			);
 			toast.success(
-				`HotelDharamshala ${currentStatus ? "disapproved" : "approved"} successfully`
+				`HotelDharamshala ${
+					currentStatus ? "disapproved" : "approved"
+				} successfully`
 			);
 		} catch {
 			toast.error("Failed to update approval status");
 		}
 	};
 
-	const handleLoginAsHotelDharamshala = (HotelDharamshala: HotelDharamshala) => {
+	const handleLoginAsHotelDharamshala = (
+		HotelDharamshala: HotelDharamshala
+	) => {
 		// This would typically involve setting authentication state
 		// For now, we'll just show a toast message
 		toast.info(
@@ -214,7 +194,9 @@ export default function HotelDharamshalaPage() {
 		// router.push(`/admin/impersonate/${HotelDharamshala.id}`);
 	};
 
-	const handleFormSubmit = async (HotelDharamshalaData: Omit<HotelDharamshala, "id">) => {
+	const handleFormSubmit = async (
+		HotelDharamshalaData: Omit<HotelDharamshala, "id">
+	) => {
 		setIsSubmitting(true);
 		try {
 			const url = currentHotelDharamshala?.id
@@ -294,6 +276,7 @@ export default function HotelDharamshalaPage() {
 			setIsSubmitting(false);
 		}
 	};
+
 	if (loading) {
 		return (
 			<div className="flex justify-center items-center h-screen">
@@ -314,7 +297,15 @@ export default function HotelDharamshalaPage() {
 				onDeleteHotelDharamshala={handleDeleteHotelDharamshala}
 				onUpdateStatus={handleUpdateStatus}
 				onToggleApproval={handleToggleApproval}
-                onLoginAsHotelDharamshala={handleLoginAsHotelDharamshala}
+				onLoginAsHotelDharamshala={handleLoginAsHotelDharamshala}
+			/>
+
+			<Pagination
+				currentPage={pagination.currentPage}
+				totalPages={pagination.totalPages}
+				totalItems={pagination.totalItems}
+				itemsPerPage={pagination.itemsPerPage}
+				onPageChange={handlePageChange}
 			/>
 
 			{/* Form Dialog */}
@@ -322,7 +313,9 @@ export default function HotelDharamshalaPage() {
 				<DialogContent className="sm:max-w-[600px]">
 					<DialogHeader>
 						<DialogTitle>
-							{currentHotelDharamshala?.id ? "Edit Hotel Dharamshala" : "Add New Hotel Dharamshala"}
+							{currentHotelDharamshala?.id
+								? "Edit Hotel Dharamshala"
+								: "Add New Hotel Dharamshala"}
 						</DialogTitle>
 					</DialogHeader>
 					<HotelDharamshalaForm
@@ -342,8 +335,8 @@ export default function HotelDharamshalaPage() {
 					</DialogHeader>
 					<div className="py-4">
 						<p>
-							Are you sure you want to delete {HotelDharamshalaToDelete?.name}? This
-							action cannot be undone.
+							Are you sure you want to delete {HotelDharamshalaToDelete?.name}?
+							This action cannot be undone.
 						</p>
 					</div>
 					<div className="flex justify-end gap-2">

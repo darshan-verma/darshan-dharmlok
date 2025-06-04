@@ -12,6 +12,8 @@ import DharmguruTable, {
 	Dharmguru,
 } from "../components/dharmguru/DharmguruTable";
 import DharmguruForm from "../components/dharmguru/DharmguruForm";
+import Pagination from "../components/Pagination/Pagination";
+import { usePagination } from "../hooks/usePagination";
 
 interface UserData {
 	id: string;
@@ -40,13 +42,16 @@ export default function DharmguruPage() {
 		id: string;
 		name: string;
 	} | null>(null);
+	const [pagination, handlePageChange, updatePagination] = usePagination(1, 12);
 
 	// Fetch dharmgurus on component mount
 	useEffect(() => {
 		const fetchDharmgurus = async () => {
 			setLoading(true);
 			try {
-				const response = await fetch("/api/users?userType=Dharmguru");
+				const response = await fetch(
+					`/api/users?userType=Dharmguru&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+				);
 
 				if (!response.ok) {
 					throw new Error(`API error: ${response.status}`);
@@ -54,19 +59,20 @@ export default function DharmguruPage() {
 
 				const data = await response.json();
 
-				// Map the user data to match Kathavachak structure
+				// Map the user data to match Dharmguru structure
 				const mappedDharmgurus = data.users.map((user: UserData) => ({
 					id: user.id,
 					name: user.name || "",
 					category: user.category || "",
 					phone: user.phone || "",
 					email: user.email || "",
-					status: user.status || "Inactive",
+					status: user.status || "Active",
 					rank: user.rank || "",
 					isApproved: user.kycApproved || false,
 				}));
 
 				setDharmgurus(mappedDharmgurus);
+				updatePagination(data.total, data.pagination.totalPages);
 			} catch {
 				toast.error("Failed to load dharmgurus");
 			} finally {
@@ -75,7 +81,7 @@ export default function DharmguruPage() {
 		};
 
 		fetchDharmgurus();
-	}, []);
+	}, [pagination.currentPage]);
 
 	const handleAddDharmguru = () => {
 		setCurrentDharmguru(null);
@@ -111,9 +117,7 @@ export default function DharmguruPage() {
 			}
 
 			// Update local state
-			setDharmgurus(
-				dharmgurus.filter((d) => d.id !== dharmguruToDelete.id)
-			);
+			setDharmgurus(dharmgurus.filter((d) => d.id !== dharmguruToDelete.id));
 			toast.success(`${dharmguruToDelete.name} has been deleted`);
 		} catch {
 			toast.error("Failed to delete dharmguru");
@@ -216,7 +220,9 @@ export default function DharmguruPage() {
 			// const data = await response.json();
 
 			// Refresh the kathavachaks list
-			const fetchResponse = await fetch("/api/users?userType=Dharmguru");
+			const fetchResponse = await fetch(
+				`/api/users?userType=Dharmguru&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+			);
 			if (!fetchResponse.ok) {
 				throw new Error("Failed to fetch updated dharmgurus");
 			}
@@ -229,7 +235,7 @@ export default function DharmguruPage() {
 				category: user.category || "",
 				phone: user.phone || "",
 				email: user.email || "",
-				status: user.status || "Inactive",
+				status: user.status || "Active",
 				rank: user.rank || "",
 				isApproved: user.kycApproved || false,
 			}));
@@ -270,6 +276,7 @@ export default function DharmguruPage() {
 			setIsSubmitting(false);
 		}
 	};
+
 	if (loading) {
 		return (
 			<div className="flex justify-center items-center h-screen">
@@ -293,14 +300,20 @@ export default function DharmguruPage() {
 				onLoginAsDharmguru={handleLoginAsDharmguru}
 			/>
 
+			<Pagination
+				currentPage={pagination.currentPage}
+				totalPages={pagination.totalPages}
+				totalItems={pagination.totalItems}
+				itemsPerPage={pagination.itemsPerPage}
+				onPageChange={handlePageChange}
+			/>
+
 			{/* Form Dialog */}
 			<Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
 				<DialogContent className="sm:max-w-[600px]">
 					<DialogHeader>
 						<DialogTitle>
-							{currentDharmguru?.id
-								? "Edit Dharmguru"
-								: "Add New Dharmguru"}
+							{currentDharmguru?.id ? "Edit Dharmguru" : "Add New Dharmguru"}
 						</DialogTitle>
 					</DialogHeader>
 					<DharmguruForm

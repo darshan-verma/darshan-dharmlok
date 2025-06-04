@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import PanditjiTable, { Panditji } from "../components/panditji/PanditjiTable";
 import PanditjiForm from "../components/panditji/PanditjiForm";
+import Pagination from "../components/Pagination/Pagination";
+import { usePagination } from "../hooks/usePagination";
 
 interface UserData {
 	id: string;
@@ -38,6 +40,7 @@ export default function PanditjiPage() {
 		id: string;
 		name: string;
 	} | null>(null);
+	const [pagination, handlePageChange, updatePagination] = usePagination(1, 12);
 
 	// Fetch panditjis on component mount
 	useEffect(() => {
@@ -45,7 +48,9 @@ export default function PanditjiPage() {
 			setLoading(true);
 			try {
 				// First try to fetch with the standard "Panditji" format
-				const response = await fetch("/api/users?userType=Panditji");
+				const response = await fetch(
+					`/api/users?userType=Panditji&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+				);
 
 				if (!response.ok) {
 					throw new Error(`API error: ${response.status}`);
@@ -61,7 +66,9 @@ export default function PanditjiPage() {
 					);
 
 					// Try to fetch with the alternative "Pandit Ji" format as a fallback
-					const altResponse = await fetch("/api/users?userType=Pandit Ji");
+					const altResponse = await fetch(
+						`/api/users?userType=Pandit Ji&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+					);
 
 					if (!altResponse.ok) {
 						console.log("No users found with 'Pandit Ji' userType either");
@@ -110,6 +117,7 @@ export default function PanditjiPage() {
 
 					setPanditjis(mappedPanditjis);
 				}
+				updatePagination(data.total, data.pagination.totalPages);
 			} catch {
 				toast.error("Failed to load panditjis");
 			} finally {
@@ -118,7 +126,7 @@ export default function PanditjiPage() {
 		};
 
 		fetchPanditjis();
-	}, []);
+	}, [pagination.currentPage]);
 
 	const handleAddPanditji = () => {
 		setCurrentPanditji(null);
@@ -261,7 +269,9 @@ export default function PanditjiPage() {
 			}
 
 			// Refresh the panditjis list
-			const fetchResponse = await fetch("/api/users?userType=Panditji");
+			const fetchResponse = await fetch(
+				`/api/users?userType=Panditji&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+			);
 			if (!fetchResponse.ok) {
 				throw new Error("Failed to fetch updated panditjis");
 			}
@@ -309,6 +319,7 @@ export default function PanditjiPage() {
 			setIsSubmitting(false);
 		}
 	};
+
 	if (loading) {
 		return (
 			<div className="flex justify-center items-center h-screen">
@@ -330,6 +341,14 @@ export default function PanditjiPage() {
 				onUpdateStatus={handleUpdateStatus}
 				onToggleApproval={handleToggleApproval}
 				onLoginAsPanditji={handleLoginAsPanditji}
+			/>
+
+			<Pagination
+				currentPage={pagination.currentPage}
+				totalPages={pagination.totalPages}
+				totalItems={pagination.totalItems}
+				itemsPerPage={pagination.itemsPerPage}
+				onPageChange={handlePageChange}
 			/>
 
 			{/* Form Dialog */}

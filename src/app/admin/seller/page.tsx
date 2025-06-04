@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import SellerTable, { Seller } from "../components/seller/SellerTable";
 import SellerForm from "../components/seller/SellerForm";
+import Pagination from "../components/Pagination/Pagination";
+import { usePagination } from "../hooks/usePagination";
 
 interface UserData {
 	id: string;
@@ -28,91 +30,54 @@ export default function SellerPage() {
 	const [sellers, setSellers] = useState<Seller[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [isFormOpen, setIsFormOpen] = useState(false);
-	const [currentSeller, setCurrentSeller] =
-		useState<Partial<Seller> | null>(null);
+	const [currentSeller, setCurrentSeller] = useState<Partial<Seller> | null>(
+		null
+	);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [sellerToDelete, setSellerToDelete] = useState<{
 		id: string;
 		name: string;
 	} | null>(null);
+	const [pagination, handlePageChange, updatePagination] = usePagination(1, 12);
 
 	// Fetch sellers on component mount
 	useEffect(() => {
 		const fetchSellers = async () => {
 			setLoading(true);
 			try {
-				// First try to fetch with the standard "Seller" format
-				const response = await fetch("/api/users?userType=Seller");
+				const response = await fetch(
+					`/api/users?userType=Seller&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+				);
 
 				if (!response.ok) {
 					throw new Error(`API error: ${response.status}`);
 				}
 
 				const data = await response.json();
-				console.log("API Response for Seller:", data); // Debug log to see what's being returned
 
-				// Check if users array exists and has items
-				if (!data.users || data.users.length === 0) {
-					console.log(
-						"No Seller users found with 'Seller' userType, checking for 'Seller'"
-					);
+				// Map the user data to match Seller structure
+				const mappedSellers = data.users.map((user: UserData) => ({
+					id: user.id,
+					name: user.name || "",
+					phone: user.phone || "",
+					email: user.email || "",
+					status: user.status || "Active",
+					kycApproved: user.kycApproved || false,
+				}));
 
-					// Try to fetch with the alternative "Seller" format as a fallback
-					const altResponse = await fetch("/api/users?userType=Seller");
-
-					if (!altResponse.ok) {
-						console.log("No users found with 'Seller' userType either");
-						setSellers([]);
-						setLoading(false);
-						return;
-					}
-
-					const altData = await altResponse.json();
-					console.log("API Response for 'Seller':", altData);
-
-					if (!altData.users || altData.users.length === 0) {
-						console.log(
-							"No Seller users found in the database with either format"
-						);
-						setSellers([]);
-						setLoading(false);
-						return;
-					}
-
-					// Map the alternative format user data
-					const mappedSeller = altData.users.map((user: UserData) => ({
-						id: user.id,
-						name: user.name || "",
-						phone: user.phone || "",
-						email: user.email || "",
-						status: user.status || "Inactive",
-						isApproved: user.kycApproved || false,
-					}));
-
-					setSellers(mappedSeller);
-				} else {
-					// Map the user data to match Seller structure
-					const mappedSeller = data.users.map((user: UserData) => ({
-						id: user.id,
-						name: user.name || "",
-						phone: user.phone || "",
-						email: user.email || "",
-						status: user.status || "Inactive",
-						isApproved: user.kycApproved || false,
-					}));
-
-					setSellers(mappedSeller);
-				}
-			} catch {
-				toast.error("Failed to load sellers");
+				setSellers(mappedSellers);
+				updatePagination(data.total, data.pagination.totalPages);
+			} catch (error) {
+				console.error("Error fetching sellers:", error);
+				toast.error("Failed to load sellers.");
 			} finally {
 				setLoading(false);
 			}
 		};
 
 		fetchSellers();
-	}, []);
+	}, [pagination.currentPage]);
 
 	const handleAddSeller = () => {
 		setCurrentSeller(null);
@@ -314,7 +279,15 @@ export default function SellerPage() {
 				onDeleteSeller={handleDeleteSeller}
 				onUpdateStatus={handleUpdateStatus}
 				onToggleApproval={handleToggleApproval}
-                onLoginAsSeller={handleLoginAsSeller}
+				onLoginAsSeller={handleLoginAsSeller}
+			/>
+
+			<Pagination
+				currentPage={pagination.currentPage}
+				totalPages={pagination.totalPages}
+				totalItems={pagination.totalItems}
+				itemsPerPage={pagination.itemsPerPage}
+				onPageChange={handlePageChange}
 			/>
 
 			{/* Form Dialog */}

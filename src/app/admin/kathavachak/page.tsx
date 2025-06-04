@@ -12,6 +12,8 @@ import KathavachakTable, {
 	Kathavachak,
 } from "../components/kathavachak/KathavachakTable";
 import KathavachakForm from "../components/kathavachak/KathavachakForm";
+import Pagination from "../components/Pagination/Pagination";
+import { usePagination } from "../hooks/usePagination";
 
 interface UserData {
 	id: string;
@@ -29,6 +31,7 @@ interface ApiErrorResponse {
 }
 
 export default function KathavachakPage() {
+	const [pagination, handlePageChange, updatePagination] = usePagination(1, 12);
 	const [kathavachaks, setKathavachaks] = useState<Kathavachak[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [isFormOpen, setIsFormOpen] = useState(false);
@@ -46,7 +49,9 @@ export default function KathavachakPage() {
 		const fetchKathavachaks = async () => {
 			setLoading(true);
 			try {
-				const response = await fetch("/api/users?userType=Kathavachak");
+				const response = await fetch(
+					`/api/users?userType=Kathavachak&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+				);
 
 				if (!response.ok) {
 					throw new Error(`API error: ${response.status}`);
@@ -67,6 +72,7 @@ export default function KathavachakPage() {
 				}));
 
 				setKathavachaks(mappedKathavachaks);
+				updatePagination(data.total, data.pagination.totalPages);
 			} catch {
 				toast.error("Failed to load kathavachaks");
 			} finally {
@@ -75,7 +81,7 @@ export default function KathavachakPage() {
 		};
 
 		fetchKathavachaks();
-	}, []);
+	}, [pagination.currentPage]);
 
 	const handleAddKathavachak = () => {
 		setCurrentKathavachak(null);
@@ -291,6 +297,14 @@ export default function KathavachakPage() {
 				onUpdateStatus={handleUpdateStatus}
 				onToggleApproval={handleToggleApproval}
 				onLoginAsKathavachak={handleLoginAsKathavachak}
+			/>
+
+			<Pagination
+				currentPage={pagination.currentPage}
+				totalPages={pagination.totalPages}
+				totalItems={pagination.totalItems}
+				itemsPerPage={pagination.itemsPerPage}
+				onPageChange={handlePageChange}
 			/>
 
 			{/* Form Dialog */}
