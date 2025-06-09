@@ -123,6 +123,7 @@ export default function PanditjiDetailPage() {
 	const [imageError, setImageError] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [showAddresses, setShowAddresses] = useState(false);
+	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 
 	// Fetch Panditji data from API
 	const fetchPanditjiData = useCallback(async () => {
@@ -311,6 +312,7 @@ export default function PanditjiDetailPage() {
 				email: editedPanditji.email,
 				phone: editedPanditji.phone,
 				addresses: editedPanditji.addresses,
+				addressesToDelete,
 				bio: editedPanditji.bio || null,
 			};
 
@@ -330,9 +332,11 @@ export default function PanditjiDetailPage() {
 			const updatedPanditji = await response.json();
 
 			setPanditji(updatedPanditji);
+			setEditedPanditji(updatedPanditji);
 			setIsEditing(false);
 			toast.dismiss(loadingToast);
 			toast.success("Panditji details updated successfully!");
+			setAddressesToDelete([]);
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(
@@ -724,14 +728,21 @@ export default function PanditjiDetailPage() {
 																	onClick={() => {
 																		setEditedPanditji((prev) => {
 																			if (!prev) return prev;
+																			const addr = prev.addresses?.[index];
+																			if (addr?.id) {
+																				setAddressesToDelete((prevDel) => [
+																					...prevDel,
+																					addr.id!,
+																				]);
+																				}
 																			return {
 																				...prev,
 																				addresses:
 																					prev.addresses?.filter(
 																						(_, addrIndex) =>
 																							addrIndex !== index
-																					) || [],
-																			};
+																						) || [],
+																				};
 																		});
 																	}}
 																>

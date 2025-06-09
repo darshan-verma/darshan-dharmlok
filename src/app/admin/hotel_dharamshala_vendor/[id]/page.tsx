@@ -107,7 +107,8 @@ export default function HotelDharamshalaDetailPage() {
 	const router = useRouter();
 	const HotelDharamshalaId = params.id as string;
 
-	const [HotelDharamshala, setHotelDharamshala] = useState<HotelDharamshala | null>(null);
+	const [HotelDharamshala, setHotelDharamshala] =
+		useState<HotelDharamshala | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
 	const [editedHotelDharamshala, setEditedHotelDharamshala] =
@@ -115,6 +116,7 @@ export default function HotelDharamshalaDetailPage() {
 	const [imageError, setImageError] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [showAddresses, setShowAddresses] = useState(false);
+	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 
 	// Fetch HotelDharamshala data from API
 	const fetchHotelDharamshalaData = useCallback(async () => {
@@ -148,7 +150,9 @@ export default function HotelDharamshalaDetailPage() {
 						errorData = { error: "Unknown error occurred" };
 					}
 
-					throw new Error(errorData.error || "Failed to fetch HotelDharamshala");
+					throw new Error(
+						errorData.error || "Failed to fetch HotelDharamshala"
+					);
 				}
 
 				const HotelDharamshalaData = await response.json();
@@ -161,7 +165,8 @@ export default function HotelDharamshalaDetailPage() {
 					email: HotelDharamshalaData.email || "",
 					phone: HotelDharamshalaData.phone || "",
 					addresses: HotelDharamshalaData.addresses || [],
-					HotelDharamshalaType: HotelDharamshalaData.HotelDharamshalaType || "Regular",
+					HotelDharamshalaType:
+						HotelDharamshalaData.HotelDharamshalaType || "Regular",
 					status: HotelDharamshalaData.status || "Active",
 					isLoggedIn: HotelDharamshalaData.isLoggedIn || false,
 					bio: HotelDharamshalaData.bio || "",
@@ -237,7 +242,9 @@ export default function HotelDharamshalaDetailPage() {
 		}
 	}, [HotelDharamshalaId, fetchHotelDharamshalaData]);
 
-	const validateForm = (HotelDharamshalaData: Partial<HotelDharamshala>): boolean => {
+	const validateForm = (
+		HotelDharamshalaData: Partial<HotelDharamshala>
+	): boolean => {
 		const newErrors: FormErrors = {};
 
 		if (!HotelDharamshalaData.name?.trim()) {
@@ -303,6 +310,7 @@ export default function HotelDharamshalaDetailPage() {
 				email: editedHotelDharamshala.email,
 				phone: editedHotelDharamshala.phone,
 				addresses: editedHotelDharamshala.addresses,
+				addressesToDelete,
 				bio: editedHotelDharamshala.bio || null,
 			};
 
@@ -322,9 +330,11 @@ export default function HotelDharamshalaDetailPage() {
 			const updatedHotelDharamshala = await response.json();
 
 			setHotelDharamshala(updatedHotelDharamshala);
+			setEditedHotelDharamshala(updatedHotelDharamshala);
 			setIsEditing(false);
 			toast.dismiss(loadingToast);
 			toast.success("HotelDharamshala details updated successfully!");
+			setAddressesToDelete([]);
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(
@@ -418,11 +428,15 @@ export default function HotelDharamshalaDetailPage() {
 							<span
 								className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
 									HotelDharamshala
-										? getStatusColor(getHotelDharamshalaStatus(HotelDharamshala))
+										? getStatusColor(
+												getHotelDharamshalaStatus(HotelDharamshala)
+										  )
 										: "bg-red-100 text-red-800"
 								}`}
 							>
-								{HotelDharamshala ? getHotelDharamshalaStatus(HotelDharamshala) : "Inactive"}
+								{HotelDharamshala
+									? getHotelDharamshalaStatus(HotelDharamshala)
+									: "Inactive"}
 							</span>
 							{HotelDharamshala?.HotelDharamshalaType && (
 								<span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-800">
@@ -443,57 +457,58 @@ export default function HotelDharamshalaDetailPage() {
 						</div>
 
 						{/* Addresses Box – Compact Version */}
-						{HotelDharamshala?.addresses && HotelDharamshala.addresses.length > 0 && (
-							<div className="mt-3 pt-3 border-t border-border">
-								<button
-									onClick={() => setShowAddresses(!showAddresses)}
-									className="w-full flex items-center gap-1.5 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50 rounded-md p-1 -ml-1 -mb-1"
-								>
-									<MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-									<span>Addresses ({HotelDharamshala.addresses.length})</span>
-									<ChevronDown
-										className={`h-3.5 w-3.5 text-muted-foreground ml-auto transition-transform ${
-											showAddresses ? "rotate-180" : ""
+						{HotelDharamshala?.addresses &&
+							HotelDharamshala.addresses.length > 0 && (
+								<div className="mt-3 pt-3 border-t border-border">
+									<button
+										onClick={() => setShowAddresses(!showAddresses)}
+										className="w-full flex items-center gap-1.5 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50 rounded-md p-1 -ml-1 -mb-1"
+									>
+										<MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+										<span>Addresses ({HotelDharamshala.addresses.length})</span>
+										<ChevronDown
+											className={`h-3.5 w-3.5 text-muted-foreground ml-auto transition-transform ${
+												showAddresses ? "rotate-180" : ""
+											}`}
+										/>
+									</button>
+									<div
+										className={`overflow-hidden transition-all duration-200 ease-in-out ${
+											showAddresses
+												? "max-h-[500px] opacity-100 mt-1"
+												: "max-h-0 opacity-0"
 										}`}
-									/>
-								</button>
-								<div
-									className={`overflow-hidden transition-all duration-200 ease-in-out ${
-										showAddresses
-											? "max-h-[500px] opacity-100 mt-1"
-											: "max-h-0 opacity-0"
-									}`}
-								>
-									<div className="space-y-2 text-sm">
-										{HotelDharamshala.addresses.map((address, index) => (
-											<div
-												key={index}
-												className="border border-border/50 rounded p-2 text-xs"
-											>
-												<div className="font-medium text-foreground/90">
-													{address.type.charAt(0).toUpperCase() +
-														address.type.slice(1)}
-													{address.type === "other" && address.label
-														? ` (${address.label})`
-														: ""}
+									>
+										<div className="space-y-2 text-sm">
+											{HotelDharamshala.addresses.map((address, index) => (
+												<div
+													key={index}
+													className="border border-border/50 rounded p-2 text-xs"
+												>
+													<div className="font-medium text-foreground/90">
+														{address.type.charAt(0).toUpperCase() +
+															address.type.slice(1)}
+														{address.type === "other" && address.label
+															? ` (${address.label})`
+															: ""}
+													</div>
+													<div className="mt-1 space-y-0.5 text-muted-foreground">
+														<p className="truncate">{address.line1}</p>
+														{address.line2 && (
+															<p className="truncate">{address.line2}</p>
+														)}
+														<p className="truncate">
+															{address.city}
+															{address.state && `, ${address.state}`}
+															{address.pincode && ` - ${address.pincode}`}
+														</p>
+													</div>
 												</div>
-												<div className="mt-1 space-y-0.5 text-muted-foreground">
-													<p className="truncate">{address.line1}</p>
-													{address.line2 && (
-														<p className="truncate">{address.line2}</p>
-													)}
-													<p className="truncate">
-														{address.city}
-														{address.state && `, ${address.state}`}
-														{address.pincode && ` - ${address.pincode}`}
-													</p>
-												</div>
-											</div>
-										))}
+											))}
+										</div>
 									</div>
 								</div>
-							</div>
-						)}
+							)}
 					</CardContent>
 
 					<CardFooter className="p-4 pt-0">
@@ -511,7 +526,9 @@ export default function HotelDharamshalaDetailPage() {
 				<div className="md:col-span-2">
 					<Tabs defaultValue="details">
 						<TabsList className="grid grid-cols-3 mb-4">
-							<TabsTrigger value="details">Hotel Dharamshala Details</TabsTrigger>
+							<TabsTrigger value="details">
+								Hotel Dharamshala Details
+							</TabsTrigger>
 							<TabsTrigger value="preferences">Preferences</TabsTrigger>
 							<TabsTrigger value="activity">Activity Log</TabsTrigger>
 						</TabsList>
@@ -639,54 +656,155 @@ export default function HotelDharamshalaDetailPage() {
 														</Button>
 													</div>
 
-													{editedHotelDharamshala?.addresses?.map((address, index) => (
-														<div
-															key={index}
-															className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0"
-														>
-															<div className="flex justify-between items-center">
-																<div className="flex items-center gap-2">
-																	<MapPin className="h-4 w-4 text-muted-foreground" />
-																	<h4 className="font-medium">
-																		{address.type.charAt(0).toUpperCase() +
-																			address.type.slice(1)}{" "}
-																		Address
-																		{address.type === "other" && address.label
-																			? ` (${address.label})`
-																			: ""}
-																	</h4>
+													{editedHotelDharamshala?.addresses?.map(
+														(address, index) => (
+															<div
+																key={index}
+																className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0"
+															>
+																<div className="flex justify-between items-center">
+																	<div className="flex items-center gap-2">
+																		<MapPin className="h-4 w-4 text-muted-foreground" />
+																		<h4 className="font-medium">
+																			{address.type.charAt(0).toUpperCase() +
+																				address.type.slice(1)}{" "}
+																			Address
+																			{address.type === "other" && address.label
+																				? ` (${address.label})`
+																				: ""}
+																		</h4>
+																	</div>
+																	<Button
+																		type="button"
+																		variant="ghost"
+																		size="sm"
+																		className="text-red-500 hover:text-red-700 hover:bg-red-50"
+																		onClick={() => {
+																			setEditedHotelDharamshala((prev) => {
+																				if (!prev) return prev;
+																				const addr = prev.addresses?.[index];
+																				if (addr?.id) {
+																					setAddressesToDelete((prevDel) => [
+																						...prevDel,
+																						addr.id!,
+																					]);
+																				}
+																				return {
+																					...prev,
+																					addresses:
+																						prev.addresses?.filter(
+																							(_, addrIndex) =>
+																								addrIndex !== index
+																						) || [],
+																				};
+																			});
+																		}}
+																	>
+																		<Trash2 className="h-4 w-4" />
+																	</Button>
 																</div>
-																<Button
-																	type="button"
-																	variant="ghost"
-																	size="sm"
-																	className="text-red-500 hover:text-red-700 hover:bg-red-50"
-																	onClick={() => {
-																		setEditedHotelDharamshala((prev) => {
-																			if (!prev) return prev;
-																			return {
-																				...prev,
-																				addresses:
-																					prev.addresses?.filter(
-																						(_, addrIndex) =>
-																							addrIndex !== index
-																					) || [],
-																			};
-																		});
-																	}}
-																>
-																	<Trash2 className="h-4 w-4" />
-																</Button>
-															</div>
 
-															<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+																<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+																	<div className="space-y-2">
+																		<Label htmlFor={`address-type-${index}`}>
+																			Address Type
+																		</Label>
+																		<Select
+																			value={address.type}
+																			onValueChange={(value) => {
+																				setEditedHotelDharamshala((prev) => {
+																					if (!prev) return prev;
+																					return {
+																						...prev,
+																						addresses: prev.addresses?.map(
+																							(addr, addrIndex) =>
+																								addrIndex === index
+																									? {
+																											...addr,
+																											type: value as
+																												| "home"
+																												| "work"
+																												| "other",
+																											// Clear label if not "other" type
+																											label:
+																												value === "other"
+																													? addr.label
+																													: undefined,
+																									  }
+																									: addr
+																						),
+																					};
+																				});
+																			}}
+																		>
+																			<SelectTrigger
+																				id={`address-type-${index}`}
+																			>
+																				<SelectValue placeholder="Select address type" />
+																			</SelectTrigger>
+																			<SelectContent>
+																				<SelectItem value="home">
+																					Home
+																				</SelectItem>
+																				<SelectItem value="work">
+																					Work
+																				</SelectItem>
+																				<SelectItem value="other">
+																					Other
+																				</SelectItem>
+																			</SelectContent>
+																		</Select>
+																	</div>
+
+																	{address.type === "other" && (
+																		<div className="space-y-2">
+																			<Label htmlFor={`address-label-${index}`}>
+																				Label
+																			</Label>
+																			<Input
+																				id={`address-label-${index}`}
+																				value={address.label || ""}
+																				onChange={(e) => {
+																					setEditedHotelDharamshala((prev) => {
+																						if (!prev) return prev;
+																						return {
+																							...prev,
+																							addresses: prev.addresses?.map(
+																								(addr, addrIndex) =>
+																									addrIndex === index
+																										? {
+																												...addr,
+																												label: e.target.value,
+																										  }
+																										: addr
+																							),
+																						};
+																					});
+																				}}
+																				placeholder="e.g., Parent's Home, Office"
+																				className={
+																					errors.addresses?.[index]?.label
+																						? "border-red-500"
+																						: ""
+																				}
+																			/>
+																			{errors.addresses?.[index]?.label && (
+																				<p className="text-sm text-red-500">
+																					{errors.addresses[index].label}
+																				</p>
+																			)}
+																		</div>
+																	)}
+																</div>
+
 																<div className="space-y-2">
-																	<Label htmlFor={`address-type-${index}`}>
-																		Address Type
+																	<Label htmlFor={`address-line1-${index}`}>
+																		Address Line 1
 																	</Label>
-																	<Select
-																		value={address.type}
-																		onValueChange={(value) => {
+																	<Input
+																		id={`address-line1-${index}`}
+																		value={address.line1 || ""}
+																		onChange={(e) => {
 																			setEditedHotelDharamshala((prev) => {
 																				if (!prev) return prev;
 																				return {
@@ -696,43 +814,63 @@ export default function HotelDharamshalaDetailPage() {
 																							addrIndex === index
 																								? {
 																										...addr,
-																										type: value as
-																											| "home"
-																											| "work"
-																											| "other",
-																										// Clear label if not "other" type
-																										label:
-																											value === "other"
-																												? addr.label
-																												: undefined,
-																								}
+																										line1: e.target.value,
+																								  }
 																								: addr
 																					),
 																				};
 																			});
 																		}}
-																	>
-																		<SelectTrigger id={`address-type-${index}`}>
-																			<SelectValue placeholder="Select address type" />
-																		</SelectTrigger>
-																		<SelectContent>
-																			<SelectItem value="home">Home</SelectItem>
-																			<SelectItem value="work">Work</SelectItem>
-																			<SelectItem value="other">
-																				Other
-																			</SelectItem>
-																		</SelectContent>
-																	</Select>
+																		placeholder="Street address, P.O. box, etc."
+																		className={
+																			errors.addresses?.[index]?.line1
+																				? "border-red-500"
+																				: ""
+																		}
+																	/>
+																	{errors.addresses?.[index]?.line1 && (
+																		<p className="text-sm text-red-500">
+																			{errors.addresses[index].line1}
+																		</p>
+																	)}
 																</div>
 
-																{address.type === "other" && (
+																<div className="space-y-2">
+																	<Label htmlFor={`address-line2-${index}`}>
+																		Address Line 2 (Optional)
+																	</Label>
+																	<Input
+																		id={`address-line2-${index}`}
+																		value={address.line2 || ""}
+																		onChange={(e) => {
+																			setEditedHotelDharamshala((prev) => {
+																				if (!prev) return prev;
+																				return {
+																					...prev,
+																					addresses: prev.addresses?.map(
+																						(addr, addrIndex) =>
+																							addrIndex === index
+																								? {
+																										...addr,
+																										line2: e.target.value,
+																								  }
+																								: addr
+																					),
+																				};
+																			});
+																		}}
+																		placeholder="Apartment, suite, unit, building, floor, etc."
+																	/>
+																</div>
+
+																<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 																	<div className="space-y-2">
-																		<Label htmlFor={`address-label-${index}`}>
-																			Label
+																		<Label htmlFor={`address-city-${index}`}>
+																			City
 																		</Label>
 																		<Input
-																			id={`address-label-${index}`}
-																			value={address.label || ""}
+																			id={`address-city-${index}`}
+																			value={address.city || ""}
 																			onChange={(e) => {
 																				setEditedHotelDharamshala((prev) => {
 																					if (!prev) return prev;
@@ -743,103 +881,88 @@ export default function HotelDharamshalaDetailPage() {
 																								addrIndex === index
 																									? {
 																											...addr,
-																											label: e.target.value,
-																									}
+																											city: e.target.value,
+																									  }
 																									: addr
 																						),
 																					};
 																				});
 																			}}
-																			placeholder="e.g., Parent's Home, Office"
 																			className={
-																				errors.addresses?.[index]?.label
+																				errors.addresses?.[index]?.city
 																					? "border-red-500"
 																					: ""
 																			}
 																		/>
-																		{errors.addresses?.[index]?.label && (
+																		{errors.addresses?.[index]?.city && (
 																			<p className="text-sm text-red-500">
-																				{errors.addresses[index].label}
+																				{errors.addresses[index].city}
 																			</p>
 																		)}
 																	</div>
-																)}
-															</div>
 
-															<div className="space-y-2">
-																<Label htmlFor={`address-line1-${index}`}>
-																	Address Line 1
-																</Label>
-																<Input
-																	id={`address-line1-${index}`}
-																	value={address.line1 || ""}
-																	onChange={(e) => {
-																		setEditedHotelDharamshala((prev) => {
-																			if (!prev) return prev;
-																			return {
-																				...prev,
-																				addresses: prev.addresses?.map(
-																					(addr, addrIndex) =>
-																						addrIndex === index
-																							? {
-																									...addr,
-																									line1: e.target.value,
-																							  }
-																							: addr
-																				),
-																			};
-																		});
-																	}}
-																	placeholder="Street address, P.O. box, etc."
-																	className={
-																		errors.addresses?.[index]?.line1
-																			? "border-red-500"
-																			: ""
-																	}
-																/>
-																{errors.addresses?.[index]?.line1 && (
-																	<p className="text-sm text-red-500">
-																		{errors.addresses[index].line1}
-																	</p>
-																)}
-															</div>
+																	<div className="space-y-2">
+																		<Label htmlFor={`address-state-${index}`}>
+																			State/Province (Optional)
+																		</Label>
+																		<Input
+																			id={`address-state-${index}`}
+																			value={address.state || ""}
+																			onChange={(e) => {
+																				setEditedHotelDharamshala((prev) => {
+																					if (!prev) return prev;
+																					return {
+																						...prev,
+																						addresses: prev.addresses?.map(
+																							(addr, addrIndex) =>
+																								addrIndex === index
+																									? {
+																											...addr,
+																											state: e.target.value,
+																									  }
+																									: addr
+																						),
+																					};
+																				});
+																			}}
+																		/>
+																	</div>
 
-															<div className="space-y-2">
-																<Label htmlFor={`address-line2-${index}`}>
-																	Address Line 2 (Optional)
-																</Label>
-																<Input
-																	id={`address-line2-${index}`}
-																	value={address.line2 || ""}
-																	onChange={(e) => {
-																		setEditedHotelDharamshala((prev) => {
-																			if (!prev) return prev;
-																			return {
-																				...prev,
-																				addresses: prev.addresses?.map(
-																					(addr, addrIndex) =>
-																						addrIndex === index
-																							? {
-																									...addr,
-																									line2: e.target.value,
-																							  }
-																							: addr
-																				),
-																			};
-																		});
-																	}}
-																	placeholder="Apartment, suite, unit, building, floor, etc."
-																/>
-															</div>
+																	<div className="space-y-2">
+																		<Label htmlFor={`address-pincode-${index}`}>
+																			PIN Code (Optional)
+																		</Label>
+																		<Input
+																			id={`address-pincode-${index}`}
+																			value={address.pincode || ""}
+																			onChange={(e) => {
+																				setEditedHotelDharamshala((prev) => {
+																					if (!prev) return prev;
+																					return {
+																						...prev,
+																						addresses: prev.addresses?.map(
+																							(addr, addrIndex) =>
+																								addrIndex === index
+																									? {
+																											...addr,
+																											pincode: e.target.value,
+																									  }
+																									: addr
+																						),
+																					};
+																				});
+																			}}
+																		/>
+																	</div>
+																</div>
 
-															<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 																<div className="space-y-2">
-																	<Label htmlFor={`address-city-${index}`}>
-																		City
+																	<Label htmlFor={`address-country-${index}`}>
+																		Country
 																	</Label>
 																	<Input
-																		id={`address-city-${index}`}
-																		value={address.city || ""}
+																		id={`address-country-${index}`}
+																		value={address.country || ""}
 																		onChange={(e) => {
 																			setEditedHotelDharamshala((prev) => {
 																				if (!prev) return prev;
@@ -850,7 +973,7 @@ export default function HotelDharamshalaDetailPage() {
 																							addrIndex === index
 																								? {
 																										...addr,
-																										city: e.target.value,
+																										country: e.target.value,
 																								  }
 																								: addr
 																					),
@@ -858,111 +981,20 @@ export default function HotelDharamshalaDetailPage() {
 																			});
 																		}}
 																		className={
-																			errors.addresses?.[index]?.city
+																			errors.addresses?.[index]?.country
 																				? "border-red-500"
 																				: ""
 																		}
 																	/>
-																	{errors.addresses?.[index]?.city && (
+																	{errors.addresses?.[index]?.country && (
 																		<p className="text-sm text-red-500">
-																			{errors.addresses[index].city}
+																			{errors.addresses[index].country}
 																		</p>
 																	)}
 																</div>
-
-																<div className="space-y-2">
-																	<Label htmlFor={`address-state-${index}`}>
-																		State/Province (Optional)
-																	</Label>
-																	<Input
-																		id={`address-state-${index}`}
-																		value={address.state || ""}
-																		onChange={(e) => {
-																			setEditedHotelDharamshala((prev) => {
-																				if (!prev) return prev;
-																				return {
-																					...prev,
-																					addresses: prev.addresses?.map(
-																						(addr, addrIndex) =>
-																							addrIndex === index
-																								? {
-																										...addr,
-																										state: e.target.value,
-																								  }
-																								: addr
-																					),
-																				};
-																			});
-																		}}
-																	/>
-																</div>
-
-																<div className="space-y-2">
-																	<Label htmlFor={`address-pincode-${index}`}>
-																		PIN Code (Optional)
-																	</Label>
-																	<Input
-																		id={`address-pincode-${index}`}
-																		value={address.pincode || ""}
-																		onChange={(e) => {
-																			setEditedHotelDharamshala((prev) => {
-																				if (!prev) return prev;
-																				return {
-																					...prev,
-																					addresses: prev.addresses?.map(
-																						(addr, addrIndex) =>
-																							addrIndex === index
-																								? {
-																										...addr,
-																										pincode: e.target.value,
-																								  }
-																								: addr
-																					),
-																				};
-																			});
-																		}}
-																	/>
-																</div>
 															</div>
-
-															<div className="space-y-2">
-																<Label htmlFor={`address-country-${index}`}>
-																	Country
-																</Label>
-																<Input
-																	id={`address-country-${index}`}
-																	value={address.country || ""}
-																	onChange={(e) => {
-																		setEditedHotelDharamshala((prev) => {
-																			if (!prev) return prev;
-																			return {
-																				...prev,
-																				addresses: prev.addresses?.map(
-																					(addr, addrIndex) =>
-																						addrIndex === index
-																							? {
-																									...addr,
-																									country: e.target.value,
-																							  }
-																							: addr
-																				),
-																			};
-																		});
-																	}}
-																	className={
-																		errors.addresses?.[index]?.country
-																			? "border-red-500"
-																			: ""
-																	}
-																/>
-																{errors.addresses?.[index]?.country && (
-																	<p className="text-sm text-red-500">
-																		{errors.addresses[index].country}
-																	</p>
-																)}
-															</div>
-														</div>
-													))}
+														)
+													)}
 
 													{editedHotelDharamshala?.addresses?.length === 0 && (
 														<div className="text-center py-4 text-muted-foreground">
@@ -1051,7 +1083,8 @@ export default function HotelDharamshalaDetailPage() {
 													</h3>
 													<div className="flex items-center">
 														<span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-															{HotelDharamshala?.HotelDharamshalaType || "Not specified"}
+															{HotelDharamshala?.HotelDharamshalaType ||
+																"Not specified"}
 														</span>
 													</div>
 												</div>
@@ -1082,36 +1115,40 @@ export default function HotelDharamshalaDetailPage() {
 															Addresses
 														</h3>
 														<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-															{HotelDharamshala.addresses.map((address, index) => (
-																<Card key={index} className="border-border">
-																	<CardHeader className="pb-2">
-																		<div className="flex items-center gap-2">
-																			<MapPin className="h-4 w-4 text-muted-foreground" />
-																			<CardTitle className="text-base">
-																				{address.type.charAt(0).toUpperCase() +
-																					address.type.slice(1)}
-																				{address.type === "other" &&
-																				address.label
-																					? ` (${address.label})`
-																					: ""}
-																			</CardTitle>
-																		</div>
-																	</CardHeader>
-																	<CardContent className="text-sm space-y-1">
-																		<p className="font-medium">
-																			{address.line1}
-																			{address.line2 && `, ${address.line2}`}
-																		</p>
-																		<p>
-																			{address.city}
-																			{address.state && `, ${address.state}`}
-																			{address.pincode &&
-																				` - ${address.pincode}`}
-																		</p>
-																		<p>{address.country}</p>
-																	</CardContent>
-																</Card>
-															))}
+															{HotelDharamshala.addresses.map(
+																(address, index) => (
+																	<Card key={index} className="border-border">
+																		<CardHeader className="pb-2">
+																			<div className="flex items-center gap-2">
+																				<MapPin className="h-4 w-4 text-muted-foreground" />
+																				<CardTitle className="text-base">
+																					{address.type
+																						.charAt(0)
+																						.toUpperCase() +
+																						address.type.slice(1)}
+																					{address.type === "other" &&
+																					address.label
+																						? ` (${address.label})`
+																						: ""}
+																				</CardTitle>
+																			</div>
+																		</CardHeader>
+																		<CardContent className="text-sm space-y-1">
+																			<p className="font-medium">
+																				{address.line1}
+																				{address.line2 && `, ${address.line2}`}
+																			</p>
+																			<p>
+																				{address.city}
+																				{address.state && `, ${address.state}`}
+																				{address.pincode &&
+																					` - ${address.pincode}`}
+																			</p>
+																			<p>{address.country}</p>
+																		</CardContent>
+																	</Card>
+																)
+															)}
 														</div>
 													</div>
 												)}
@@ -1162,7 +1199,8 @@ export default function HotelDharamshalaDetailPage() {
 								<CardHeader>
 									<CardTitle>Hotel Dharamshala Preferences</CardTitle>
 									<CardDescription>
-										Manage notification settings and Hotel Dharamshala preferences.
+										Manage notification settings and Hotel Dharamshala
+										preferences.
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
@@ -1177,8 +1215,8 @@ export default function HotelDharamshalaDetailPage() {
 														type="checkbox"
 														id="notifications"
 														checked={
-															editedHotelDharamshala?.preferences?.notifications ||
-															false
+															editedHotelDharamshala?.preferences
+																?.notifications || false
 														}
 														onChange={(e) =>
 															setEditedHotelDharamshala((prev) =>
@@ -1231,7 +1269,8 @@ export default function HotelDharamshalaDetailPage() {
 													<Label htmlFor="language">Preferred Language</Label>
 													<Select
 														value={
-															editedHotelDharamshala?.preferences?.language || ""
+															editedHotelDharamshala?.preferences?.language ||
+															""
 														}
 														onValueChange={(value) =>
 															setEditedHotelDharamshala((prev) =>

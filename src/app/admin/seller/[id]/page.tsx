@@ -115,6 +115,7 @@ export default function SellerDetailPage() {
 	const [imageError, setImageError] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [showAddresses, setShowAddresses] = useState(false);
+	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 
 	// Fetch seller data from API
 	const fetchSellerData = useCallback(async () => {
@@ -303,6 +304,7 @@ export default function SellerDetailPage() {
 				email: editedSeller.email,
 				phone: editedSeller.phone,
 				addresses: editedSeller.addresses,
+				addressesToDelete,
 				bio: editedSeller.bio || null,
 			};
 
@@ -322,9 +324,11 @@ export default function SellerDetailPage() {
 			const updatedSeller = await response.json();
 
 			setSeller(updatedSeller);
+			setEditedSeller(updatedSeller);
 			setIsEditing(false);
 			toast.dismiss(loadingToast);
 			toast.success("seller details updated successfully!");
+			setAddressesToDelete([]);
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(
@@ -664,13 +668,20 @@ export default function SellerDetailPage() {
 																	onClick={() => {
 																		setEditedSeller((prev) => {
 																			if (!prev) return prev;
+																			const addr = prev.addresses?.[index];
+																			if (addr?.id) {
+																				setAddressesToDelete((prevDel) => [
+																					...prevDel,
+																					addr.id!,
+																				]);
+																			}
 																			return {
 																				...prev,
 																				addresses:
 																					prev.addresses?.filter(
 																						(_, addrIndex) =>
 																							addrIndex !== index
-																					) || [],
+																						) || [],
 																			};
 																		});
 																	}}

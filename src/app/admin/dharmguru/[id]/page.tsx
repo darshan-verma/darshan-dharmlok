@@ -123,6 +123,7 @@ export default function DharmguruDetailPage() {
 	const [imageError, setImageError] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [showAddresses, setShowAddresses] = useState(false);
+	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 
 	// Fetch Kathavachak data from API
 	const fetchDharmguruData = useCallback(async () => {
@@ -311,6 +312,7 @@ export default function DharmguruDetailPage() {
 				email: editedDharmguru.email,
 				phone: editedDharmguru.phone,
 				addresses: editedDharmguru.addresses,
+				addressesToDelete,
 				bio: editedDharmguru.bio || null,
 			};
 
@@ -330,9 +332,11 @@ export default function DharmguruDetailPage() {
 			const updatedDharmguru = await response.json();
 
 			setDharmguru(updatedDharmguru);
+			setEditedDharmguru(updatedDharmguru);
 			setIsEditing(false);
 			toast.dismiss(loadingToast);
 			toast.success("Dharmguru details updated successfully!");
+			setAddressesToDelete([]);
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(
@@ -360,8 +364,7 @@ export default function DharmguruDetailPage() {
 	};
 
 	const getDharmguruStatus = (Dharmguru: Dharmguru) => {
-		if (!Dharmguru.status || Dharmguru.status === "Inactive")
-			return "Inactive";
+		if (!Dharmguru.status || Dharmguru.status === "Inactive") return "Inactive";
 		return Dharmguru.isLoggedIn ? "Active (Online)" : "Active (Offline)";
 	};
 
@@ -724,6 +727,13 @@ export default function DharmguruDetailPage() {
 																	onClick={() => {
 																		setEditedDharmguru((prev) => {
 																			if (!prev) return prev;
+																			const addr = prev.addresses?.[index];
+																			if (addr?.id) {
+																				setAddressesToDelete((prevDel) => [
+																					...prevDel,
+																					addr.id!,
+																				]);
+																			}
 																			return {
 																				...prev,
 																				addresses:
@@ -765,7 +775,7 @@ export default function DharmguruDetailPage() {
 																											value === "other"
 																												? addr.label
 																												: undefined,
-																									}
+																								  }
 																								: addr
 																					),
 																				};
@@ -1003,7 +1013,7 @@ export default function DharmguruDetailPage() {
 																							? {
 																									...addr,
 																									country: e.target.value,
-																							}
+																							  }
 																							: addr
 																				),
 																			};
@@ -1290,8 +1300,7 @@ export default function DharmguruDetailPage() {
 														type="checkbox"
 														id="newsletter"
 														checked={
-															editedDharmguru?.preferences?.newsletter ||
-															false
+															editedDharmguru?.preferences?.newsletter || false
 														}
 														onChange={(e) =>
 															setEditedDharmguru((prev) =>
@@ -1314,9 +1323,7 @@ export default function DharmguruDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="language">Preferred Language</Label>
 													<Select
-														value={
-															editedDharmguru?.preferences?.language || ""
-														}
+														value={editedDharmguru?.preferences?.language || ""}
 														onValueChange={(value) =>
 															setEditedDharmguru((prev) =>
 																prev

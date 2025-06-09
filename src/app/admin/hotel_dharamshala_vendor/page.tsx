@@ -193,6 +193,7 @@ export default function HotelDharamshalaPage() {
 		// In a real implementation, you might do something like:
 		// router.push(`/admin/impersonate/${HotelDharamshala.id}`);
 	};
+	
 
 	const handleFormSubmit = async (
 		HotelDharamshalaData: Omit<HotelDharamshala, "id">

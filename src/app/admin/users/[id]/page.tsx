@@ -117,6 +117,7 @@ export default function UserDetailPage() {
 	const [imageError, setImageError] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [showAddresses, setShowAddresses] = useState(false);
+	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 
 	// Fetch user data from API
 	const fetchUserData = useCallback(async () => {
@@ -330,6 +331,7 @@ export default function UserDetailPage() {
 				email: editedUser.email,
 				phone: editedUser.phone,
 				addresses: editedUser.addresses,
+				addressesToDelete,
 				bio: editedUser.bio || null,
 			};
 
@@ -353,9 +355,11 @@ export default function UserDetailPage() {
 			console.log("Update successful:", updatedUser); // Debug log
 
 			setUser(updatedUser);
+			setEditedUser(updatedUser);
 			setIsEditing(false);
 			toast.dismiss(loadingToast);
 			toast.success("User details updated successfully!");
+			setAddressesToDelete([]);
 		} catch (error) {
 			console.error("Error saving user:", error);
 			toast.dismiss(loadingToast);
@@ -706,6 +710,13 @@ export default function UserDetailPage() {
 																	onClick={() => {
 																		setEditedUser((prev) => {
 																			if (!prev) return prev;
+																			const addr = prev.addresses?.[index];
+																			if (addr?.id) {
+																				setAddressesToDelete((prevDel) => [
+																					...prevDel,
+																					addr.id!,
+																				]);
+																			}
 																			return {
 																				...prev,
 																				addresses:
