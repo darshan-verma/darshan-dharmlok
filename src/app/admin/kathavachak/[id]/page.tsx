@@ -123,6 +123,7 @@ export default function KathavachakDetailPage() {
 	const [imageError, setImageError] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [showAddresses, setShowAddresses] = useState(false);
+	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 
 	// Fetch Kathavachak data from API
 	const fetchKathavachakData = useCallback(async () => {
@@ -310,9 +311,13 @@ export default function KathavachakDetailPage() {
 				name: editedKathavachak.name,
 				email: editedKathavachak.email,
 				phone: editedKathavachak.phone,
+				// addresses: editedKathavachak.addresses,
 				addresses: editedKathavachak.addresses,
+				addressesToDelete,
 				bio: editedKathavachak.bio || null,
+				
 			};
+			
 
 			const response = await fetch(`/api/users/${KathavachakId}`, {
 				method: "PUT",
@@ -330,9 +335,11 @@ export default function KathavachakDetailPage() {
 			const updatedKathavachak = await response.json();
 
 			setKathavachak(updatedKathavachak);
+			setEditedKathavachak(updatedKathavachak); 
 			setIsEditing(false);
 			toast.dismiss(loadingToast);
 			toast.success("Kathavachak details updated successfully!");
+			setAddressesToDelete([]);
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(
@@ -724,6 +731,13 @@ export default function KathavachakDetailPage() {
 																	onClick={() => {
 																		setEditedKathavachak((prev) => {
 																			if (!prev) return prev;
+																			const addr = prev.addresses?.[index];
+																			if (addr?.id) {
+																				setAddressesToDelete((prevDel) => [
+																					...prevDel,
+																					addr.id!,
+																				]);
+																			}
 																			return {
 																				...prev,
 																				addresses:

@@ -317,15 +317,17 @@ export async function PUT(
 				}
 
 				// Delete addresses that were removed (if any IDs were provided)
-				if (data.addressesToDelete && Array.isArray(data.addressesToDelete)) {
-					for (const addressId of data.addressesToDelete) {
-						await prisma.address.delete({
-							where: {
-								id: addressId,
-								userId: userId, // Ensure we only delete addresses belonging to this user
-							},
-						});
-					}
+				if (
+					data.addressesToDelete &&
+					Array.isArray(data.addressesToDelete) &&
+					data.addressesToDelete.length > 0
+				) {
+					await prisma.address.deleteMany({
+						where: {
+							id: { in: data.addressesToDelete },
+							userId: userId,
+						},
+					});
 				}
 
 				// Fetch the updated user with the latest addresses
