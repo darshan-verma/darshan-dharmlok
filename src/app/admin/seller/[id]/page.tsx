@@ -12,6 +12,7 @@ import {
 	Plus,
 	Trash2,
 	ChevronDown,
+	Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,23 +106,25 @@ interface FormErrors {
 export default function SellerDetailPage() {
 	const params = useParams();
 	const router = useRouter();
-	const SellerId = params.id as string;
+	const sellerId = params.id as string;
 
 	const [seller, setSeller] = useState<seller | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
-	const [editedSeller, setEditedSeller] =
-		useState<Partial<seller> | null>(null);
+	const [editedSeller, setEditedSeller] = useState<Partial<seller> | null>(
+		null
+	);
 	const [imageError, setImageError] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [showAddresses, setShowAddresses] = useState(false);
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
+	const [isUploadingImage, setIsUploadingImage] = useState(false); // ✅ Correct
 
 	// Fetch seller data from API
 	const fetchSellerData = useCallback(async () => {
 		try {
 			// Validate MongoDB ObjectId format
-			if (SellerId && !/^[0-9a-fA-F]{24}$/.test(SellerId)) {
+			if (sellerId && !/^[0-9a-fA-F]{24}$/.test(sellerId)) {
 				toast.error("Invalid seller ID format");
 				router.push("/admin/seller");
 				return;
@@ -134,7 +137,7 @@ export default function SellerDetailPage() {
 			const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
 			try {
-				const response = await fetch(`/api/users/${SellerId}`, {
+				const response = await fetch(`/api/users/${sellerId}`, {
 					signal: controller.signal,
 				});
 				clearTimeout(timeoutId);
@@ -190,15 +193,13 @@ export default function SellerDetailPage() {
 			}
 		} catch (error) {
 			toast.error(
-				error instanceof Error
-					? error.message
-					: "Failed to load seller details"
+				error instanceof Error ? error.message : "Failed to load seller details"
 			);
 
 			// Create a mock seller as fallback for development
 			if (process.env.NODE_ENV !== "production") {
 				const mockSeller: seller = {
-					id: SellerId || "mock-id",
+					id: sellerId || "mock-id",
 					name: "Test seller",
 					email: "test@example.com",
 					phone: "1234567890",
@@ -229,14 +230,14 @@ export default function SellerDetailPage() {
 
 			router.push("/admin/seller");
 		}
-	}, [SellerId, router]);
+	}, [sellerId, router]);
 
 	// Call the fetch function when component mounts
 	useEffect(() => {
-		if (SellerId) {
+		if (sellerId) {
 			fetchSellerData();
 		}
-	}, [SellerId, fetchSellerData]);
+	}, [sellerId, fetchSellerData]);
 
 	const validateForm = (SellerData: Partial<seller>): boolean => {
 		const newErrors: FormErrors = {};
@@ -308,7 +309,7 @@ export default function SellerDetailPage() {
 				bio: editedSeller.bio || null,
 			};
 
-			const response = await fetch(`/api/users/${SellerId}`, {
+			const response = await fetch(`/api/users/${sellerId}`, {
 				method: "PUT",
 				headers: {
 					"Content-Type": "application/json",
@@ -356,8 +357,7 @@ export default function SellerDetailPage() {
 	};
 
 	const getSellerStatus = (seller: seller) => {
-		if (!seller.status || seller.status === "Inactive")
-			return "Inactive";
+		if (!seller.status || seller.status === "Inactive") return "Inactive";
 		return seller.isLoggedIn ? "Active (Online)" : "Active (Offline)";
 	};
 
@@ -383,6 +383,73 @@ export default function SellerDetailPage() {
 		return cleaned;
 	};
 
+	// ✅ Image upload function is correctly implemented
+	const handleImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+
+		// Validate file type
+		const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+		if (!validTypes.includes(file.type)) {
+			toast.error("Please select a valid image file (JPEG, PNG, or WebP)");
+			return;
+		}
+
+		// Validate file size (5MB limit)
+		const maxSize = 5 * 1024 * 1024;
+		if (file.size > maxSize) {
+			toast.error("Image size must be less than 5MB");
+			return;
+		}
+
+		setIsUploadingImage(true);
+		const loadingToast = toast.loading("Uploading image...");
+
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("userId", sellerId); // ✅ Using correct sellerId
+
+			const response = await fetch("/api/upload/profile-image", {
+				method: "POST",
+				body: formData,
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to upload image");
+			}
+
+			const { imageUrl } = await response.json();
+
+			setEditedSeller((prev) =>
+				prev ? { ...prev, profileImageUrl: imageUrl } : null
+			);
+			setImageError(false);
+
+			toast.dismiss(loadingToast);
+			toast.success("Profile image updated successfully!");
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to upload image"
+			);
+		} finally {
+			setIsUploadingImage(false);
+		}
+	};
+
+	// ✅ Remove image function is correctly implemented
+	const handleRemoveImage = () => {
+		setEditedSeller((prev) =>
+			prev ? { ...prev, profileImageUrl: undefined } : null
+		);
+		setImageError(false);
+		toast.success("Profile image removed");
+	};
+
 	return (
 		<div className="p-6 space-y-6">
 			<div className="flex items-center gap-4">
@@ -400,19 +467,77 @@ export default function SellerDetailPage() {
 				{/* seller Profile Card */}
 				<Card className="md:col-span-1 h-fit">
 					<CardHeader className="text-center p-4 pb-2">
-						<div className="w-20 h-20 mx-auto rounded-full bg-muted flex items-center justify-center mb-3">
-							{seller?.profileImageUrl && !imageError ? (
-								<Image
-									src={seller.profileImageUrl}
-									alt={seller.name}
-									width={80}
-									height={80}
-									className="w-full h-full rounded-full object-cover"
-									onError={() => setImageError(true)}
-									unoptimized={true}
-								/>
-							) : (
-								<User className="h-10 w-10 text-muted-foreground" />
+						{/* ✅ Profile image container is correctly structured */}
+						<div className="relative w-20 h-20 mx-auto mb-3">
+							<div className="w-full h-full rounded-full bg-muted flex items-center justify-center overflow-hidden">
+								{(isEditing
+									? editedSeller?.profileImageUrl
+									: seller?.profileImageUrl) && !imageError ? (
+									<Image
+										src={
+											isEditing
+												? editedSeller?.profileImageUrl!
+												: seller?.profileImageUrl!
+										}
+										alt={
+											isEditing
+												? editedSeller?.name || "Seller"
+												: seller?.name || "Seller"
+										}
+										width={80}
+										height={80}
+										className="w-full h-full rounded-full object-cover"
+										onError={() => setImageError(true)}
+										unoptimized={true}
+									/>
+								) : (
+									<User className="h-10 w-10 text-muted-foreground" />
+								)}
+							</div>
+
+							{/* ✅ Upload overlay is correctly implemented */}
+							{isEditing && (
+								<div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group">
+									<input
+										type="file"
+										accept="image/jpeg,image/jpg,image/png,image/webp"
+										onChange={handleImageUpload}
+										className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+										disabled={isUploadingImage}
+									/>
+									{isUploadingImage ? (
+										<div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+									) : (
+										<Upload className="h-6 w-6 text-white" />
+									)}
+								</div>
+							)}
+
+							{/* ✅ Plus icon for adding image is correctly implemented */}
+							{isEditing && !editedSeller?.profileImageUrl && !imageError && (
+								<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
+									<input
+										type="file"
+										accept="image/jpeg,image/jpg,image/png,image/webp"
+										onChange={handleImageUpload}
+										className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+										disabled={isUploadingImage}
+									/>
+									<Plus className="h-3 w-3 text-primary-foreground" />
+								</div>
+							)}
+
+							{/* ✅ Remove image button is correctly implemented */}
+							{isEditing && editedSeller?.profileImageUrl && !imageError && (
+								<Button
+									type="button"
+									variant="destructive"
+									size="sm"
+									className="absolute -top-2 -right-2 w-6 h-6 rounded-full p-0"
+									onClick={handleRemoveImage}
+								>
+									<Trash2 className="h-3 w-3" />
+								</Button>
 							)}
 						</div>
 						<CardTitle className="text-center text-lg">
@@ -681,7 +806,7 @@ export default function SellerDetailPage() {
 																					prev.addresses?.filter(
 																						(_, addrIndex) =>
 																							addrIndex !== index
-																						) || [],
+																					) || [],
 																			};
 																		});
 																	}}
@@ -716,7 +841,7 @@ export default function SellerDetailPage() {
 																											value === "other"
 																												? addr.label
 																												: undefined,
-																								}
+																								  }
 																								: addr
 																					),
 																				};
@@ -755,7 +880,7 @@ export default function SellerDetailPage() {
 																									? {
 																											...addr,
 																											label: e.target.value,
-																									}
+																									  }
 																									: addr
 																						),
 																					};
@@ -1086,46 +1211,43 @@ export default function SellerDetailPage() {
 												</p>
 											</div>
 
-											{seller?.addresses &&
-												seller.addresses.length > 0 && (
-													<div className="space-y-4 pt-2 border-t border-border">
-														<h3 className="text-sm font-medium text-muted-foreground">
-															Addresses
-														</h3>
-														<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-															{seller.addresses.map((address, index) => (
-																<Card key={index} className="border-border">
-																	<CardHeader className="pb-2">
-																		<div className="flex items-center gap-2">
-																			<MapPin className="h-4 w-4 text-muted-foreground" />
-																			<CardTitle className="text-base">
-																				{address.type.charAt(0).toUpperCase() +
-																					address.type.slice(1)}
-																				{address.type === "other" &&
-																				address.label
-																					? ` (${address.label})`
-																					: ""}
-																			</CardTitle>
-																		</div>
-																	</CardHeader>
-																	<CardContent className="text-sm space-y-1">
-																		<p className="font-medium">
-																			{address.line1}
-																			{address.line2 && `, ${address.line2}`}
-																		</p>
-																		<p>
-																			{address.city}
-																			{address.state && `, ${address.state}`}
-																			{address.pincode &&
-																				` - ${address.pincode}`}
-																		</p>
-																		<p>{address.country}</p>
-																	</CardContent>
-																</Card>
-															))}
-														</div>
+											{seller?.addresses && seller.addresses.length > 0 && (
+												<div className="space-y-4 pt-2 border-t border-border">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Addresses
+													</h3>
+													<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+														{seller.addresses.map((address, index) => (
+															<Card key={index} className="border-border">
+																<CardHeader className="pb-2">
+																	<div className="flex items-center gap-2">
+																		<MapPin className="h-4 w-4 text-muted-foreground" />
+																		<CardTitle className="text-base">
+																			{address.type.charAt(0).toUpperCase() +
+																				address.type.slice(1)}
+																			{address.type === "other" && address.label
+																				? ` (${address.label})`
+																				: ""}
+																		</CardTitle>
+																	</div>
+																</CardHeader>
+																<CardContent className="text-sm space-y-1">
+																	<p className="font-medium">
+																		{address.line1}
+																		{address.line2 && `, ${address.line2}`}
+																	</p>
+																	<p>
+																		{address.city}
+																		{address.state && `, ${address.state}`}
+																		{address.pincode && ` - ${address.pincode}`}
+																	</p>
+																	<p>{address.country}</p>
+																</CardContent>
+															</Card>
+														))}
 													</div>
-												)}
+												</div>
+											)}
 										</div>
 									)}
 								</CardContent>
@@ -1188,8 +1310,7 @@ export default function SellerDetailPage() {
 														type="checkbox"
 														id="notifications"
 														checked={
-															editedSeller?.preferences?.notifications ||
-															false
+															editedSeller?.preferences?.notifications || false
 														}
 														onChange={(e) =>
 															setEditedSeller((prev) =>
@@ -1217,8 +1338,7 @@ export default function SellerDetailPage() {
 														type="checkbox"
 														id="newsletter"
 														checked={
-															editedSeller?.preferences?.newsletter ||
-															false
+															editedSeller?.preferences?.newsletter || false
 														}
 														onChange={(e) =>
 															setEditedSeller((prev) =>
@@ -1241,9 +1361,7 @@ export default function SellerDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="language">Preferred Language</Label>
 													<Select
-														value={
-															editedSeller?.preferences?.language || ""
-														}
+														value={editedSeller?.preferences?.language || ""}
 														onValueChange={(value) =>
 															setEditedSeller((prev) =>
 																prev

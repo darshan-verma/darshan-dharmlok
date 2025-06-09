@@ -13,6 +13,7 @@ import {
 	Plus,
 	Trash2,
 	ChevronDown,
+	Upload, // Add Upload icon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,6 +119,7 @@ export default function UserDetailPage() {
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [showAddresses, setShowAddresses] = useState(false);
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
+	const [isUploadingImage, setIsUploadingImage] = useState(false); // Add image upload state
 
 	// Fetch user data from API
 	const fetchUserData = useCallback(async () => {
@@ -412,6 +414,76 @@ export default function UserDetailPage() {
 		return cleaned;
 	};
 
+	// Add image upload function
+	const handleImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+
+		// Validate file type
+		const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+		if (!validTypes.includes(file.type)) {
+			toast.error("Please select a valid image file (JPEG, PNG, or WebP)");
+			return;
+		}
+
+		// Validate file size (5MB limit)
+		const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+		if (file.size > maxSize) {
+			toast.error("Image size must be less than 5MB");
+			return;
+		}
+
+		setIsUploadingImage(true);
+		const loadingToast = toast.loading("Uploading image...");
+
+		try {
+			// Create FormData for file upload
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("userId", userId);
+
+			// Upload to your image upload endpoint
+			const response = await fetch("/api/upload/profile-image", {
+				method: "POST",
+				body: formData,
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to upload image");
+			}
+
+			const { imageUrl } = await response.json();
+
+			// Update local state with new image URL
+			setEditedUser((prev) =>
+				prev ? { ...prev, profileImageUrl: imageUrl } : null
+			);
+			setImageError(false);
+
+			toast.dismiss(loadingToast);
+			toast.success("Profile image updated successfully!");
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to upload image"
+			);
+		} finally {
+			setIsUploadingImage(false);
+		}
+	};
+
+	// Add function to remove profile image
+	const handleRemoveImage = () => {
+		setEditedUser((prev) =>
+			prev ? { ...prev, profileImageUrl: undefined } : null
+		);
+		setImageError(false);
+		toast.success("Profile image removed");
+	};
+
 	return (
 		<div className="p-6 space-y-6">
 			<div className="flex items-center gap-4">
@@ -429,19 +501,77 @@ export default function UserDetailPage() {
 				{/* User Profile Card */}
 				<Card className="md:col-span-1 h-fit">
 					<CardHeader className="text-center p-4 pb-2">
-						<div className="w-20 h-20 mx-auto rounded-full bg-muted flex items-center justify-center mb-3">
-							{user?.profileImageUrl && !imageError ? (
-								<Image
-									src={user.profileImageUrl}
-									alt={user.name}
-									width={80}
-									height={80}
-									className="w-full h-full rounded-full object-cover"
-									onError={() => setImageError(true)}
-									unoptimized={true}
-								/>
-							) : (
-								<User className="h-10 w-10 text-muted-foreground" />
+						{/* Profile image with upload functionality */}
+						<div className="relative w-20 h-20 mx-auto mb-3">
+							<div className="w-full h-full rounded-full bg-muted flex items-center justify-center overflow-hidden">
+								{(isEditing
+									? editedUser?.profileImageUrl
+									: user?.profileImageUrl) && !imageError ? (
+									<Image
+										src={
+											isEditing
+												? editedUser?.profileImageUrl!
+												: user?.profileImageUrl!
+										}
+										alt={
+											isEditing
+												? editedUser?.name || "User"
+												: user?.name || "User"
+										}
+										width={80}
+										height={80}
+										className="w-full h-full rounded-full object-cover"
+										onError={() => setImageError(true)}
+										unoptimized={true}
+									/>
+								) : (
+									<User className="h-10 w-10 text-muted-foreground" />
+								)}
+							</div>
+
+							{/* Upload overlay - only shown in edit mode */}
+							{isEditing && (
+								<div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group">
+									<input
+										type="file"
+										accept="image/jpeg,image/jpg,image/png,image/webp"
+										onChange={handleImageUpload}
+										className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+										disabled={isUploadingImage}
+									/>
+									{isUploadingImage ? (
+										<div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+									) : (
+										<Upload className="h-6 w-6 text-white" />
+									)}
+								</div>
+							)}
+
+							{/* Plus icon for adding image when no image exists */}
+							{isEditing && !editedUser?.profileImageUrl && !imageError && (
+								<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
+									<input
+										type="file"
+										accept="image/jpeg,image/jpg,image/png,image/webp"
+										onChange={handleImageUpload}
+										className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+										disabled={isUploadingImage}
+									/>
+									<Plus className="h-3 w-3 text-primary-foreground" />
+								</div>
+							)}
+
+							{/* Remove image button */}
+							{isEditing && editedUser?.profileImageUrl && !imageError && (
+								<Button
+									type="button"
+									variant="destructive"
+									size="sm"
+									className="absolute -top-2 -right-2 w-6 h-6 rounded-full p-0"
+									onClick={handleRemoveImage}
+								>
+									<Trash2 className="h-3 w-3" />
+								</Button>
 							)}
 						</div>
 						<CardTitle className="text-center text-lg">{user?.name}</CardTitle>
@@ -1019,7 +1149,8 @@ export default function UserDetailPage() {
 
 													{editedUser.addresses.length === 0 && (
 														<div className="text-center py-4 text-muted-foreground">
-															No addresses added. Click &ldquo;Add Address&rdquo; to add one.
+															No addresses added. Click &ldquo;Add
+															Address&rdquo; to add one.
 														</div>
 													)}
 												</div>

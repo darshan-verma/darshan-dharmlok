@@ -14,6 +14,7 @@ import {
 	ChevronDown,
 	BookOpen,
 	Award,
+	Upload, // Add Upload icon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ import {
 	getCategoryColor,
 } from "@/app/admin/components/kathavachak/KathavachakTable";
 
+// Interface definitions for type safety
 interface Activity {
 	date: string;
 	action: string;
@@ -55,9 +57,9 @@ interface KathavachakPreferences {
 }
 
 interface Address {
-	id?: string;
+	id?: string; // Optional because new addresses won't have an ID yet
 	type: "home" | "work" | "other";
-	label?: string;
+	label?: string; // Required only for "other" type addresses
 	line1: string;
 	line2?: string;
 	city: string;
@@ -91,7 +93,7 @@ interface Kathavachak {
 	lastActiveAt?: string | Date | null;
 	lastLoginAt?: string | Date | null;
 	createdAt: string | Date;
-	// Client-side only properties
+	// Client-side only properties (not stored in database)
 	preferences?: KathavachakPreferences;
 	activities?: Activity[];
 }
@@ -115,20 +117,22 @@ export default function KathavachakDetailPage() {
 	const router = useRouter();
 	const KathavachakId = params.id as string;
 
-	const [kathavachak, setKathavachak] = useState<Kathavachak | null>(null);
-	const [isEditing, setIsEditing] = useState(false);
-	const [isSaving, setIsSaving] = useState(false);
+	// State management for the component
+	const [kathavachak, setKathavachak] = useState<Kathavachak | null>(null); // Original kathavachak data from server
+	const [isEditing, setIsEditing] = useState(false); // Controls whether form is in edit mode
+	const [isSaving, setIsSaving] = useState(false); // Loading state for save operation
 	const [editedKathavachak, setEditedKathavachak] =
-		useState<Partial<Kathavachak> | null>(null);
-	const [imageError, setImageError] = useState(false);
-	const [errors, setErrors] = useState<FormErrors>({});
-	const [showAddresses, setShowAddresses] = useState(false);
+		useState<Partial<Kathavachak> | null>(null); // Draft data being edited
+	const [imageError, setImageError] = useState(false); // Handles profile image loading errors
+	const [errors, setErrors] = useState<FormErrors>({}); // Form validation errors
+	const [showAddresses, setShowAddresses] = useState(false); // Controls address dropdown visibility
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
+	const [isUploadingImage, setIsUploadingImage] = useState(false); // Add image upload state
 
 	// Fetch Kathavachak data from API
 	const fetchKathavachakData = useCallback(async () => {
 		try {
-			// Validate MongoDB ObjectId format
+			// Validate MongoDB ObjectId format before making API call
 			if (KathavachakId && !/^[0-9a-fA-F]{24}$/.test(KathavachakId)) {
 				toast.error("Invalid Kathavachak ID format");
 				router.push("/admin/kathavachak");
@@ -137,9 +141,9 @@ export default function KathavachakDetailPage() {
 
 			const loadingToast = toast.loading("Loading Kathavachak details...");
 
-			// Add timeout to prevent hanging requests
+			// Add timeout to prevent hanging requests (10 second timeout)
 			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+			const timeoutId = setTimeout(() => controller.abort(), 10000);
 
 			try {
 				const response = await fetch(`/api/users/${KathavachakId}`, {
@@ -175,7 +179,7 @@ export default function KathavachakDetailPage() {
 					isLoggedIn: KathavachakData.isLoggedIn || false,
 					bio: KathavachakData.bio || "",
 					createdAt: KathavachakData.createdAt || new Date().toISOString(),
-					// Add client-side only properties
+					// Add client-side only properties (not stored in database)
 					preferences: {
 						notifications: true,
 						newsletter: false,
@@ -184,6 +188,7 @@ export default function KathavachakDetailPage() {
 					activities: [],
 				};
 
+				// Set both original and edited data to the fetched data
 				setKathavachak(completeKathavachak);
 				setEditedKathavachak({ ...completeKathavachak });
 				toast.dismiss(loadingToast);
@@ -203,7 +208,7 @@ export default function KathavachakDetailPage() {
 					: "Failed to load Kathavachak details"
 			);
 
-			// Create a mock Kathavachak as fallback for development
+			// Create a mock Kathavachak as fallback for development environment
 			if (process.env.NODE_ENV !== "production") {
 				const mockKathavachak: Kathavachak = {
 					id: KathavachakId || "mock-id",
@@ -235,20 +240,23 @@ export default function KathavachakDetailPage() {
 				return;
 			}
 
+			// Redirect to kathavachak list if loading fails in production
 			router.push("/admin/kathavachak");
 		}
 	}, [KathavachakId, router]);
 
-	// Call the fetch function when component mounts
+	// Call the fetch function when component mounts or ID changes
 	useEffect(() => {
 		if (KathavachakId) {
 			fetchKathavachakData();
 		}
 	}, [KathavachakId, fetchKathavachakData]);
 
+	// Form validation function
 	const validateForm = (KathavachakData: Partial<Kathavachak>): boolean => {
 		const newErrors: FormErrors = {};
 
+		// Validate required fields
 		if (!KathavachakData.name?.trim()) {
 			newErrors.name = "Name is required";
 		}
@@ -262,6 +270,7 @@ export default function KathavachakDetailPage() {
 		if (!KathavachakData.phone?.trim()) {
 			newErrors.phone = "Phone number is required";
 		} else {
+			// Validate Indian phone number format
 			const phoneRegex = /^(\+91[\s-]?)?[0-9]{10}$/;
 			if (!phoneRegex.test(KathavachakData.phone.replace(/[\s-]/g, ""))) {
 				newErrors.phone =
@@ -269,6 +278,7 @@ export default function KathavachakDetailPage() {
 			}
 		}
 
+		// Validate addresses if they exist
 		if (KathavachakData.addresses) {
 			KathavachakData.addresses.forEach((address, index) => {
 				if (!address.line1?.trim()) {
@@ -295,9 +305,11 @@ export default function KathavachakDetailPage() {
 		return Object.keys(newErrors).length === 0;
 	};
 
+	// Handle saving changes to the kathavachak
 	const handleSaveChanges = async () => {
 		if (!editedKathavachak) return;
 
+		// Validate form before saving
 		if (!validateForm(editedKathavachak)) {
 			return;
 		}
@@ -306,19 +318,17 @@ export default function KathavachakDetailPage() {
 		const loadingToast = toast.loading("Saving changes...");
 
 		try {
-			// Prepare data for API
+			// Prepare data for API - only send necessary fields
 			const dataToSave = {
 				name: editedKathavachak.name,
 				email: editedKathavachak.email,
 				phone: editedKathavachak.phone,
-				// addresses: editedKathavachak.addresses,
-				addresses: editedKathavachak.addresses,
-				addressesToDelete,
+				addresses: editedKathavachak.addresses, // Updated/new addresses
+				addressesToDelete, // Array of address IDs to delete
 				bio: editedKathavachak.bio || null,
-				
 			};
-			
 
+			// Send PUT request to update user
 			const response = await fetch(`/api/users/${KathavachakId}`, {
 				method: "PUT",
 				headers: {
@@ -334,12 +344,16 @@ export default function KathavachakDetailPage() {
 
 			const updatedKathavachak = await response.json();
 
+			// Update local state with fresh data from server
 			setKathavachak(updatedKathavachak);
-			setEditedKathavachak(updatedKathavachak); 
+			setEditedKathavachak(updatedKathavachak);
 			setIsEditing(false);
+
+			// Clear the deletion queue since changes are saved
+			setAddressesToDelete([]);
+
 			toast.dismiss(loadingToast);
 			toast.success("Kathavachak details updated successfully!");
-			setAddressesToDelete([]);
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(
@@ -350,6 +364,73 @@ export default function KathavachakDetailPage() {
 		} finally {
 			setIsSaving(false);
 		}
+	};
+
+	// Add image upload function
+	const handleImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+
+		// Validate file type
+		const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+		if (!validTypes.includes(file.type)) {
+			toast.error("Please select a valid image file (JPEG, PNG, or WebP)");
+			return;
+		}
+
+		// Validate file size (5MB limit)
+		const maxSize = 5 * 1024 * 1024;
+		if (file.size > maxSize) {
+			toast.error("Image size must be less than 5MB");
+			return;
+		}
+
+		setIsUploadingImage(true);
+		const loadingToast = toast.loading("Uploading image...");
+
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("userId", KathavachakId);
+
+			const response = await fetch("/api/upload/profile-image", {
+				method: "POST",
+				body: formData,
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to upload image");
+			}
+
+			const { imageUrl } = await response.json();
+
+			setEditedKathavachak((prev) =>
+				prev ? { ...prev, profileImageUrl: imageUrl } : null
+			);
+			setImageError(false);
+
+			toast.dismiss(loadingToast);
+			toast.success("Profile image updated successfully!");
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to upload image"
+			);
+		} finally {
+			setIsUploadingImage(false);
+		}
+	};
+
+	// Add function to remove profile image
+	const handleRemoveImage = () => {
+		setEditedKathavachak((prev) =>
+			prev ? { ...prev, profileImageUrl: undefined } : null
+		);
+		setImageError(false);
+		toast.success("Profile image removed");
 	};
 
 	const formatDate = (dateString: string | Date) => {
@@ -378,11 +459,12 @@ export default function KathavachakDetailPage() {
 		return "bg-blue-100 text-blue-800"; // Active (Offline)
 	};
 
+	// Helper function to format phone numbers for display
 	const formatPhoneNumber = (value: string): string => {
 		// Remove all non-digit characters
 		const cleaned = value.replace(/\D/g, "");
 
-		// If it starts with 91, add +91
+		// If it starts with 91, add +91 prefix
 		if (cleaned.startsWith("91") && cleaned.length >= 10) {
 			return `+91 ${cleaned.substring(2, 12)}`;
 		}
@@ -396,6 +478,7 @@ export default function KathavachakDetailPage() {
 
 	return (
 		<div className="p-6 space-y-6">
+			{/* Header with back button and title */}
 			<div className="flex items-center gap-4">
 				<Button
 					variant="outline"
@@ -408,27 +491,90 @@ export default function KathavachakDetailPage() {
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-				{/* Kathavachak Profile Card */}
+				{/* Left sidebar - Kathavachak Profile Card */}
 				<Card className="md:col-span-1 h-fit">
 					<CardHeader className="text-center p-4 pb-2">
-						<div className="w-20 h-20 mx-auto rounded-full bg-muted flex items-center justify-center mb-3">
-							{kathavachak?.profileImageUrl && !imageError ? (
-								<Image
-									src={kathavachak.profileImageUrl}
-									alt={kathavachak.name}
-									width={80}
-									height={80}
-									className="w-full h-full rounded-full object-cover"
-									onError={() => setImageError(true)}
-									unoptimized={true}
-								/>
-							) : (
-								<User className="h-10 w-10 text-muted-foreground" />
+						{/* Profile image with upload functionality */}
+						<div className="relative w-20 h-20 mx-auto mb-3">
+							<div className="w-full h-full rounded-full bg-muted flex items-center justify-center overflow-hidden">
+								{(isEditing
+									? editedKathavachak?.profileImageUrl
+									: kathavachak?.profileImageUrl) && !imageError ? (
+									<Image
+										src={
+											isEditing
+												? editedKathavachak?.profileImageUrl!
+												: kathavachak?.profileImageUrl!
+										}
+										alt={
+											isEditing
+												? editedKathavachak?.name || "Kathavachak"
+												: kathavachak?.name || "Kathavachak"
+										}
+										width={80}
+										height={80}
+										className="w-full h-full rounded-full object-cover"
+										onError={() => setImageError(true)}
+										unoptimized={true}
+									/>
+								) : (
+									<User className="h-10 w-10 text-muted-foreground" />
+								)}
+							</div>
+
+							{/* Upload overlay - only shown in edit mode */}
+							{isEditing && (
+								<div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group">
+									<input
+										type="file"
+										accept="image/jpeg,image/jpg,image/png,image/webp"
+										onChange={handleImageUpload}
+										className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+										disabled={isUploadingImage}
+									/>
+									{isUploadingImage ? (
+										<div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+									) : (
+										<Upload className="h-6 w-6 text-white" />
+									)}
+								</div>
 							)}
+
+							{/* Plus icon for adding image when no image exists */}
+							{isEditing &&
+								!editedKathavachak?.profileImageUrl &&
+								!imageError && (
+									<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
+										<input
+											type="file"
+											accept="image/jpeg,image/jpg,image/png,image/webp"
+											onChange={handleImageUpload}
+											className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+											disabled={isUploadingImage}
+										/>
+										<Plus className="h-3 w-3 text-primary-foreground" />
+									</div>
+								)}
+
+							{/* Remove image button */}
+							{isEditing &&
+								editedKathavachak?.profileImageUrl &&
+								!imageError && (
+									<Button
+										type="button"
+										variant="destructive"
+										size="sm"
+										className="absolute -top-2 -right-2 w-6 h-6 rounded-full p-0"
+										onClick={handleRemoveImage}
+									>
+										<Trash2 className="h-3 w-3" />
+									</Button>
+								)}
 						</div>
 						<CardTitle className="text-center text-lg">
 							{kathavachak?.name}
 						</CardTitle>
+						{/* Status badges */}
 						<CardDescription className="flex flex-wrap justify-center items-center gap-1.5">
 							<span
 								className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
@@ -447,7 +593,9 @@ export default function KathavachakDetailPage() {
 						</CardDescription>
 					</CardHeader>
 
+					{/* Contact information and badges */}
 					<CardContent className="space-y-3 p-4 pt-0">
+						{/* Phone and email display */}
 						<div className="flex items-center gap-2 text-sm">
 							<Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
 							<span className="truncate">{kathavachak?.phone}</span>
@@ -456,6 +604,8 @@ export default function KathavachakDetailPage() {
 							<Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
 							<span className="truncate">{kathavachak?.email}</span>
 						</div>
+
+						{/* Category and rank information */}
 						<div className="pt-2 space-y-2">
 							<div className="flex items-center gap-2 text-sm">
 								<BookOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -487,7 +637,7 @@ export default function KathavachakDetailPage() {
 							</div>
 						</div>
 
-						{/* Addresses Box – Compact Version */}
+						{/* Collapsible addresses section */}
 						{kathavachak?.addresses && kathavachak.addresses.length > 0 && (
 							<div className="mt-3 pt-3 border-t border-border">
 								<button
@@ -502,6 +652,7 @@ export default function KathavachakDetailPage() {
 										}`}
 									/>
 								</button>
+								{/* Animated dropdown for addresses */}
 								<div
 									className={`overflow-hidden transition-all duration-200 ease-in-out ${
 										showAddresses
@@ -530,7 +681,7 @@ export default function KathavachakDetailPage() {
 													<p className="truncate">
 														{address.city}
 														{address.state && `, ${address.state}`}
-														{address.pincode && ` - ${address.pincode}`}
+														{address.pincode && ` - ${address.pincode}`}
 													</p>
 												</div>
 											</div>
@@ -541,6 +692,7 @@ export default function KathavachakDetailPage() {
 						)}
 					</CardContent>
 
+					{/* Edit/Cancel button */}
 					<CardFooter className="p-4 pt-0">
 						<Button
 							className="w-full text-sm h-8"
@@ -552,7 +704,7 @@ export default function KathavachakDetailPage() {
 					</CardFooter>
 				</Card>
 
-				{/* Tabs Section */}
+				{/* Right side - Tabbed content area */}
 				<div className="md:col-span-2">
 					<Tabs defaultValue="details">
 						<TabsList className="grid grid-cols-3 mb-4">
@@ -561,6 +713,7 @@ export default function KathavachakDetailPage() {
 							<TabsTrigger value="activity">Activity Log</TabsTrigger>
 						</TabsList>
 
+						{/* Main details tab */}
 						<TabsContent value="details" className="space-y-4">
 							<Card>
 								<CardHeader>
@@ -573,6 +726,8 @@ export default function KathavachakDetailPage() {
 								<CardContent className="space-y-4">
 									{isEditing ? (
 										<>
+											{/* Edit mode - Form fields */}
+											{/* Basic information fields */}
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												<div className="space-y-2">
 													<Label htmlFor="name">Full Name</Label>
@@ -621,7 +776,7 @@ export default function KathavachakDetailPage() {
 															type="tel"
 															value={editedKathavachak?.phone || ""}
 															onChange={(e) => {
-																// Format the input value
+																// Format the input value automatically
 																const formatted = formatPhoneNumber(
 																	e.target.value
 																);
@@ -629,7 +784,7 @@ export default function KathavachakDetailPage() {
 																	...editedKathavachak,
 																	phone: formatted,
 																});
-																// Clear error when typing
+																// Clear error when user starts typing
 																if (errors.phone) {
 																	setErrors({
 																		...errors,
@@ -653,6 +808,8 @@ export default function KathavachakDetailPage() {
 													)}
 												</div>
 											</div>
+
+											{/* Read-only category and rank display */}
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
 												<div className="space-y-2">
 													<Label>Category</Label>
@@ -675,10 +832,13 @@ export default function KathavachakDetailPage() {
 													</span>
 												</div>
 											</div>
+
+											{/* Address management section */}
 											{editedKathavachak?.addresses && (
 												<div className="space-y-6 border p-4 rounded-lg">
 													<div className="flex justify-between items-center">
 														<h3 className="text-base font-medium">Addresses</h3>
+														{/* Add new address button */}
 														<Button
 															type="button"
 															variant="outline"
@@ -706,6 +866,7 @@ export default function KathavachakDetailPage() {
 														</Button>
 													</div>
 
+													{/* Render each address form */}
 													{editedKathavachak.addresses.map((address, index) => (
 														<div
 															key={index}
@@ -723,6 +884,7 @@ export default function KathavachakDetailPage() {
 																			: ""}
 																	</h4>
 																</div>
+																{/* Delete address button */}
 																<Button
 																	type="button"
 																	variant="ghost"
@@ -732,12 +894,14 @@ export default function KathavachakDetailPage() {
 																		setEditedKathavachak((prev) => {
 																			if (!prev) return prev;
 																			const addr = prev.addresses?.[index];
+																			// If address has an ID, mark it for deletion
 																			if (addr?.id) {
 																				setAddressesToDelete((prevDel) => [
 																					...prevDel,
 																					addr.id!,
 																				]);
 																			}
+																			// Remove from current addresses array
 																			return {
 																				...prev,
 																				addresses:
@@ -753,7 +917,9 @@ export default function KathavachakDetailPage() {
 																</Button>
 															</div>
 
+															{/* Address form fields */}
 															<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+																{/* Address type selector */}
 																<div className="space-y-2">
 																	<Label htmlFor={`address-type-${index}`}>
 																		Address Type
@@ -799,6 +965,7 @@ export default function KathavachakDetailPage() {
 																	</Select>
 																</div>
 
+																{/* Custom label for "other" type addresses */}
 																{address.type === "other" && (
 																	<div className="space-y-2">
 																		<Label htmlFor={`address-label-${index}`}>
@@ -840,6 +1007,7 @@ export default function KathavachakDetailPage() {
 																)}
 															</div>
 
+															{/* Address line 1 (required) */}
 															<div className="space-y-2">
 																<Label htmlFor={`address-line1-${index}`}>
 																	Address Line 1
@@ -878,6 +1046,7 @@ export default function KathavachakDetailPage() {
 																)}
 															</div>
 
+															{/* Address line 2 (optional) */}
 															<div className="space-y-2">
 																<Label htmlFor={`address-line2-${index}`}>
 																	Address Line 2 (Optional)
@@ -906,6 +1075,7 @@ export default function KathavachakDetailPage() {
 																/>
 															</div>
 
+															{/* City, State, PIN code */}
 															<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 																<div className="space-y-2">
 																	<Label htmlFor={`address-city-${index}`}>
@@ -999,6 +1169,7 @@ export default function KathavachakDetailPage() {
 																</div>
 															</div>
 
+															{/* Country field */}
 															<div className="space-y-2">
 																<Label htmlFor={`address-country-${index}`}>
 																	Country
@@ -1038,6 +1209,7 @@ export default function KathavachakDetailPage() {
 														</div>
 													))}
 
+													{/* Show message when no addresses exist */}
 													{editedKathavachak.addresses.length === 0 && (
 														<div className="text-center py-4 text-muted-foreground">
 															No addresses added. Click &ldquo;Add
@@ -1046,6 +1218,8 @@ export default function KathavachakDetailPage() {
 													)}
 												</div>
 											)}
+
+											{/* Bio field */}
 											<div className="space-y-2">
 												<Label htmlFor="bio">Bio</Label>
 												<Textarea
@@ -1063,7 +1237,9 @@ export default function KathavachakDetailPage() {
 											</div>
 										</>
 									) : (
+										// View mode - Display data
 										<div className="space-y-6">
+											{/* Personal information grid */}
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 												<div className="space-y-2">
 													<h3 className="text-sm font-medium text-muted-foreground">
@@ -1164,6 +1340,8 @@ export default function KathavachakDetailPage() {
 													</span>
 												</div>
 											</div>
+
+											{/* Bio section */}
 											<div className="space-y-2 pt-2 border-t border-border">
 												<h3 className="text-sm font-medium text-muted-foreground">
 													Bio
@@ -1173,6 +1351,7 @@ export default function KathavachakDetailPage() {
 												</p>
 											</div>
 
+											{/* Addresses display in card layout */}
 											{kathavachak?.addresses &&
 												kathavachak.addresses.length > 0 && (
 													<div className="space-y-4 pt-2 border-t border-border">
@@ -1216,11 +1395,13 @@ export default function KathavachakDetailPage() {
 										</div>
 									)}
 								</CardContent>
+								{/* Save button - only shown in edit mode */}
 								{isEditing && (
 									<CardFooter>
 										<Button onClick={handleSaveChanges} disabled={isSaving}>
 											{isSaving ? (
 												<>
+													{/* Loading spinner */}
 													<svg
 														className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
 														xmlns="http://www.w3.org/2000/svg"
@@ -1255,6 +1436,7 @@ export default function KathavachakDetailPage() {
 							</Card>
 						</TabsContent>
 
+						{/* Preferences tab (client-side only) */}
 						<TabsContent value="preferences" className="space-y-4">
 							<Card>
 								<CardHeader>
@@ -1414,6 +1596,7 @@ export default function KathavachakDetailPage() {
 							</Card>
 						</TabsContent>
 
+						{/* Activity log tab (placeholder) */}
 						<TabsContent value="activity" className="space-y-4">
 							<Card>
 								<CardHeader>

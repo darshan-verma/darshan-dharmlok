@@ -14,6 +14,7 @@ import {
 	ChevronDown,
 	BookOpen,
 	Award,
+	Upload, // Add Upload icon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,6 +125,7 @@ export default function PanditjiDetailPage() {
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [showAddresses, setShowAddresses] = useState(false);
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
+	const [isUploadingImage, setIsUploadingImage] = useState(false); // Add image upload state
 
 	// Fetch Panditji data from API
 	const fetchPanditjiData = useCallback(async () => {
@@ -349,6 +351,72 @@ export default function PanditjiDetailPage() {
 		}
 	};
 
+	const handleImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+
+		// Validate file type
+		const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+		if (!validTypes.includes(file.type)) {
+			toast.error("Please select a valid image file (JPEG, PNG, or WebP)");
+			return;
+		}
+
+		// Validate file size (5MB limit)
+		const maxSize = 5 * 1024 * 1024;
+		if (file.size > maxSize) {
+			toast.error("Image size must be less than 5MB");
+			return;
+		}
+
+		setIsUploadingImage(true);
+		const loadingToast = toast.loading("Uploading image...");
+
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("userId", PanditjiId);
+
+			const response = await fetch("/api/upload/profile-image", {
+				method: "POST",
+				body: formData,
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to upload image");
+			}
+
+			const { imageUrl } = await response.json();
+
+			setEditedPanditji((prev) =>
+				prev ? { ...prev, profileImageUrl: imageUrl } : null
+			);
+			setImageError(false);
+
+			toast.dismiss(loadingToast);
+			toast.success("Profile image updated successfully!");
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to upload image"
+			);
+		} finally {
+			setIsUploadingImage(false);
+		}
+	};
+
+	// Add function to remove profile image
+	const handleRemoveImage = () => {
+		setEditedPanditji((prev) =>
+			prev ? { ...prev, profileImageUrl: undefined } : null
+		);
+		setImageError(false);
+		toast.success("Profile image removed");
+	};
+
 	const formatDate = (dateString: string | Date) => {
 		if (!dateString) return "N/A";
 		const date =
@@ -364,8 +432,7 @@ export default function PanditjiDetailPage() {
 	};
 
 	const getPanditjiStatus = (Panditji: Panditji) => {
-		if (!Panditji.status || Panditji.status === "Inactive")
-			return "Inactive";
+		if (!Panditji.status || Panditji.status === "Inactive") return "Inactive";
 		return Panditji.isLoggedIn ? "Active (Online)" : "Active (Offline)";
 	};
 
@@ -408,19 +475,77 @@ export default function PanditjiDetailPage() {
 				{/* Panditji Profile Card */}
 				<Card className="md:col-span-1 h-fit">
 					<CardHeader className="text-center p-4 pb-2">
-						<div className="w-20 h-20 mx-auto rounded-full bg-muted flex items-center justify-center mb-3">
-							{panditji?.profileImageUrl && !imageError ? (
-								<Image
-									src={panditji.profileImageUrl}
-									alt={panditji.name}
-									width={80}
-									height={80}
-									className="w-full h-full rounded-full object-cover"
-									onError={() => setImageError(true)}
-									unoptimized={true}
-								/>
-							) : (
-								<User className="h-10 w-10 text-muted-foreground" />
+						{/* Profile image with upload functionality */}
+						<div className="relative w-20 h-20 mx-auto mb-3">
+							<div className="w-full h-full rounded-full bg-muted flex items-center justify-center overflow-hidden">
+								{(isEditing
+									? editedPanditji?.profileImageUrl
+									: panditji?.profileImageUrl) && !imageError ? (
+									<Image
+										src={
+											isEditing
+												? editedPanditji?.profileImageUrl!
+												: panditji?.profileImageUrl!
+										}
+										alt={
+											isEditing
+												? editedPanditji?.name || "Panditji"
+												: panditji?.name || "Panditji"
+										}
+										width={80}
+										height={80}
+										className="w-full h-full rounded-full object-cover"
+										onError={() => setImageError(true)}
+										unoptimized={true}
+									/>
+								) : (
+									<User className="h-10 w-10 text-muted-foreground" />
+								)}
+							</div>
+
+							{/* Upload overlay - only shown in edit mode */}
+							{isEditing && (
+								<div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group">
+									<input
+										type="file"
+										accept="image/jpeg,image/jpg,image/png,image/webp"
+										onChange={handleImageUpload}
+										className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+										disabled={isUploadingImage}
+									/>
+									{isUploadingImage ? (
+										<div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+									) : (
+										<Upload className="h-6 w-6 text-white" />
+									)}
+								</div>
+							)}
+
+							{/* Plus icon for adding image when no image exists */}
+							{isEditing && !editedPanditji?.profileImageUrl && !imageError && (
+								<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
+									<input
+										type="file"
+										accept="image/jpeg,image/jpg,image/png,image/webp"
+										onChange={handleImageUpload}
+										className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+										disabled={isUploadingImage}
+									/>
+									<Plus className="h-3 w-3 text-primary-foreground" />
+								</div>
+							)}
+
+							{/* Remove image button */}
+							{isEditing && editedPanditji?.profileImageUrl && !imageError && (
+								<Button
+									type="button"
+									variant="destructive"
+									size="sm"
+									className="absolute -top-2 -right-2 w-6 h-6 rounded-full p-0"
+									onClick={handleRemoveImage}
+								>
+									<Trash2 className="h-3 w-3" />
+								</Button>
 							)}
 						</div>
 						<CardTitle className="text-center text-lg">
@@ -734,15 +859,15 @@ export default function PanditjiDetailPage() {
 																					...prevDel,
 																					addr.id!,
 																				]);
-																				}
+																			}
 																			return {
 																				...prev,
 																				addresses:
 																					prev.addresses?.filter(
 																						(_, addrIndex) =>
 																							addrIndex !== index
-																						) || [],
-																				};
+																					) || [],
+																			};
 																		});
 																	}}
 																>
@@ -776,7 +901,7 @@ export default function PanditjiDetailPage() {
 																											value === "other"
 																												? addr.label
 																												: undefined,
-																								}
+																								  }
 																								: addr
 																					),
 																				};
@@ -815,7 +940,7 @@ export default function PanditjiDetailPage() {
 																									? {
 																											...addr,
 																											label: e.target.value,
-																									}
+																									  }
 																									: addr
 																						),
 																					};
@@ -1170,46 +1295,43 @@ export default function PanditjiDetailPage() {
 												</p>
 											</div>
 
-											{panditji?.addresses &&
-												panditji.addresses.length > 0 && (
-													<div className="space-y-4 pt-2 border-t border-border">
-														<h3 className="text-sm font-medium text-muted-foreground">
-															Addresses
-														</h3>
-														<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-															{panditji.addresses.map((address, index) => (
-																<Card key={index} className="border-border">
-																	<CardHeader className="pb-2">
-																		<div className="flex items-center gap-2">
-																			<MapPin className="h-4 w-4 text-muted-foreground" />
-																			<CardTitle className="text-base">
-																				{address.type.charAt(0).toUpperCase() +
-																					address.type.slice(1)}
-																				{address.type === "other" &&
-																				address.label
-																					? ` (${address.label})`
-																					: ""}
-																			</CardTitle>
-																		</div>
-																	</CardHeader>
-																	<CardContent className="text-sm space-y-1">
-																		<p className="font-medium">
-																			{address.line1}
-																			{address.line2 && `, ${address.line2}`}
-																		</p>
-																		<p>
-																			{address.city}
-																			{address.state && `, ${address.state}`}
-																			{address.pincode &&
-																				` - ${address.pincode}`}
-																		</p>
-																		<p>{address.country}</p>
-																	</CardContent>
-																</Card>
-															))}
-														</div>
+											{panditji?.addresses && panditji.addresses.length > 0 && (
+												<div className="space-y-4 pt-2 border-t border-border">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Addresses
+													</h3>
+													<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+														{panditji.addresses.map((address, index) => (
+															<Card key={index} className="border-border">
+																<CardHeader className="pb-2">
+																	<div className="flex items-center gap-2">
+																		<MapPin className="h-4 w-4 text-muted-foreground" />
+																		<CardTitle className="text-base">
+																			{address.type.charAt(0).toUpperCase() +
+																				address.type.slice(1)}
+																			{address.type === "other" && address.label
+																				? ` (${address.label})`
+																				: ""}
+																		</CardTitle>
+																	</div>
+																</CardHeader>
+																<CardContent className="text-sm space-y-1">
+																	<p className="font-medium">
+																		{address.line1}
+																		{address.line2 && `, ${address.line2}`}
+																	</p>
+																	<p>
+																		{address.city}
+																		{address.state && `, ${address.state}`}
+																		{address.pincode && ` - ${address.pincode}`}
+																	</p>
+																	<p>{address.country}</p>
+																</CardContent>
+															</Card>
+														))}
 													</div>
-												)}
+												</div>
+											)}
 										</div>
 									)}
 								</CardContent>
@@ -1301,8 +1423,7 @@ export default function PanditjiDetailPage() {
 														type="checkbox"
 														id="newsletter"
 														checked={
-															editedPanditji?.preferences?.newsletter ||
-															false
+															editedPanditji?.preferences?.newsletter || false
 														}
 														onChange={(e) =>
 															setEditedPanditji((prev) =>
@@ -1325,9 +1446,7 @@ export default function PanditjiDetailPage() {
 												<div className="space-y-2">
 													<Label htmlFor="language">Preferred Language</Label>
 													<Select
-														value={
-															editedPanditji?.preferences?.language || ""
-														}
+														value={editedPanditji?.preferences?.language || ""}
 														onValueChange={(value) =>
 															setEditedPanditji((prev) =>
 																prev

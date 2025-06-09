@@ -14,6 +14,7 @@ import {
 	ChevronDown,
 	BookOpen,
 	Award,
+	Upload, // Add Upload icon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,7 +114,7 @@ interface FormErrors {
 export default function DharmguruDetailPage() {
 	const params = useParams();
 	const router = useRouter();
-	const DharmguruId = params.id as string;
+	const dharmguruId = params.id as string;
 
 	const [dharmguru, setDharmguru] = useState<Dharmguru | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
@@ -124,12 +125,13 @@ export default function DharmguruDetailPage() {
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [showAddresses, setShowAddresses] = useState(false);
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
+	const [isUploadingImage, setIsUploadingImage] = useState(false); // Add image upload state
 
 	// Fetch Kathavachak data from API
 	const fetchDharmguruData = useCallback(async () => {
 		try {
 			// Validate MongoDB ObjectId format
-			if (DharmguruId && !/^[0-9a-fA-F]{24}$/.test(DharmguruId)) {
+			if (dharmguruId && !/^[0-9a-fA-F]{24}$/.test(dharmguruId)) {
 				toast.error("Invalid Kathavachak ID format");
 				router.push("/admin/dharmguru");
 				return;
@@ -142,7 +144,7 @@ export default function DharmguruDetailPage() {
 			const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
 			try {
-				const response = await fetch(`/api/users/${DharmguruId}`, {
+				const response = await fetch(`/api/users/${dharmguruId}`, {
 					signal: controller.signal,
 				});
 				clearTimeout(timeoutId);
@@ -206,7 +208,7 @@ export default function DharmguruDetailPage() {
 			// Create a mock Dharmguru as fallback for development
 			if (process.env.NODE_ENV !== "production") {
 				const mockDharmguru: Dharmguru = {
-					id: DharmguruId || "mock-id",
+					id: dharmguruId || "mock-id",
 					name: "Test Dharmguru",
 					email: "test@example.com",
 					phone: "1234567890",
@@ -237,14 +239,14 @@ export default function DharmguruDetailPage() {
 
 			router.push("/admin/dharmguru");
 		}
-	}, [DharmguruId, router]);
+	}, [dharmguruId, router]);
 
 	// Call the fetch function when component mounts
 	useEffect(() => {
-		if (DharmguruId) {
+		if (dharmguruId) {
 			fetchDharmguruData();
 		}
-	}, [DharmguruId, fetchDharmguruData]);
+	}, [dharmguruId, fetchDharmguruData]);
 
 	const validateForm = (DharmguruData: Partial<Dharmguru>): boolean => {
 		const newErrors: FormErrors = {};
@@ -316,7 +318,7 @@ export default function DharmguruDetailPage() {
 				bio: editedDharmguru.bio || null,
 			};
 
-			const response = await fetch(`/api/users/${DharmguruId}`, {
+			const response = await fetch(`/api/users/${dharmguruId}`, {
 				method: "PUT",
 				headers: {
 					"Content-Type": "application/json",
@@ -390,6 +392,73 @@ export default function DharmguruDetailPage() {
 		return cleaned;
 	};
 
+	// Add image upload function
+	const handleImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+
+		// Validate file type
+		const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+		if (!validTypes.includes(file.type)) {
+			toast.error("Please select a valid image file (JPEG, PNG, or WebP)");
+			return;
+		}
+
+		// Validate file size (5MB limit)
+		const maxSize = 5 * 1024 * 1024;
+		if (file.size > maxSize) {
+			toast.error("Image size must be less than 5MB");
+			return;
+		}
+
+		setIsUploadingImage(true);
+		const loadingToast = toast.loading("Uploading image...");
+
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("userId", dharmguruId);
+
+			const response = await fetch("/api/upload/profile-image", {
+				method: "POST",
+				body: formData,
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to upload image");
+			}
+
+			const { imageUrl } = await response.json();
+
+			setEditedDharmguru((prev) =>
+				prev ? { ...prev, profileImageUrl: imageUrl } : null
+			);
+			setImageError(false);
+
+			toast.dismiss(loadingToast);
+			toast.success("Profile image updated successfully!");
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to upload image"
+			);
+		} finally {
+			setIsUploadingImage(false);
+		}
+	};
+
+	// Add function to remove profile image
+	const handleRemoveImage = () => {
+		setEditedDharmguru((prev) =>
+			prev ? { ...prev, profileImageUrl: undefined } : null
+		);
+		setImageError(false);
+		toast.success("Profile image removed");
+	};
+
 	return (
 		<div className="p-6 space-y-6">
 			<div className="flex items-center gap-4">
@@ -407,19 +476,79 @@ export default function DharmguruDetailPage() {
 				{/* Dharmguru Profile Card */}
 				<Card className="md:col-span-1 h-fit">
 					<CardHeader className="text-center p-4 pb-2">
-						<div className="w-20 h-20 mx-auto rounded-full bg-muted flex items-center justify-center mb-3">
-							{dharmguru?.profileImageUrl && !imageError ? (
-								<Image
-									src={dharmguru.profileImageUrl}
-									alt={dharmguru.name}
-									width={80}
-									height={80}
-									className="w-full h-full rounded-full object-cover"
-									onError={() => setImageError(true)}
-									unoptimized={true}
-								/>
-							) : (
-								<User className="h-10 w-10 text-muted-foreground" />
+						{/* Profile image with upload functionality */}
+						<div className="relative w-20 h-20 mx-auto mb-3">
+							<div className="w-full h-full rounded-full bg-muted flex items-center justify-center overflow-hidden">
+								{(isEditing
+									? editedDharmguru?.profileImageUrl
+									: dharmguru?.profileImageUrl) && !imageError ? (
+									<Image
+										src={
+											isEditing
+												? editedDharmguru?.profileImageUrl!
+												: dharmguru?.profileImageUrl!
+										}
+										alt={
+											isEditing
+												? editedDharmguru?.name || "Dharmguru"
+												: dharmguru?.name || "Dharmguru"
+										}
+										width={80}
+										height={80}
+										className="w-full h-full rounded-full object-cover"
+										onError={() => setImageError(true)}
+										unoptimized={true}
+									/>
+								) : (
+									<User className="h-10 w-10 text-muted-foreground" />
+								)}
+							</div>
+
+							{/* Upload overlay - only shown in edit mode */}
+							{isEditing && (
+								<div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group">
+									<input
+										type="file"
+										accept="image/jpeg,image/jpg,image/png,image/webp"
+										onChange={handleImageUpload}
+										className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+										disabled={isUploadingImage}
+									/>
+									{isUploadingImage ? (
+										<div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+									) : (
+										<Upload className="h-6 w-6 text-white" />
+									)}
+								</div>
+							)}
+
+							{/* Plus icon for adding image when no image exists */}
+							{isEditing &&
+								!editedDharmguru?.profileImageUrl &&
+								!imageError && (
+									<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
+										<input
+											type="file"
+											accept="image/jpeg,image/jpg,image/png,image/webp"
+											onChange={handleImageUpload}
+											className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+											disabled={isUploadingImage}
+										/>
+										<Plus className="h-3 w-3 text-primary-foreground" />
+									</div>
+								)}
+
+							{/* Remove image button */}
+							{isEditing && editedDharmguru?.profileImageUrl && !imageError && (
+								<Button
+									type="button"
+									variant="destructive"
+									size="sm"
+									className="absolute -top-2 -right-2 w-6 h-6 rounded-full p-0"
+									onClick={handleRemoveImage}
+								>
+									<Trash2 className="h-3 w-3" />
+								</Button>
 							)}
 						</div>
 						<CardTitle className="text-center text-lg">
