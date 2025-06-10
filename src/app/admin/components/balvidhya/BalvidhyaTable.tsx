@@ -104,7 +104,7 @@ const getTypeIcon = (type: string) =>
 		<ImageIcon className="h-3 w-3" />
 	);
 
-type Balvidhya = {
+export type Balvidhya = {
 	id: string;
 	name: string;
 	description?: string;

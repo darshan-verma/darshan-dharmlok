@@ -12,7 +12,9 @@ import {
 import BalvidhyaTable, {
 	Balvidhya,
 } from "../components/balvidhya/BalvidhyaTable";
-import BalvidhyaForm from "../components/balvidhya/BalvidhyaForm";
+import BalvidhyaForm, {
+	BalvidhyaSubmitData,
+} from "../components/balvidhya/BalvidhyaForm";
 import Pagination from "../components/Pagination/Pagination";
 import { usePagination } from "../hooks/usePagination";
 
@@ -217,12 +219,7 @@ export default function BalvidhyaPage() {
 		router.push(`/admin/balvidhya/${balvidhya.id}`);
 	};
 
-	const handleFormSubmit = async (
-		formDataFromForm: Omit<
-			Balvidhya,
-			"id" | "dateAdded" | "createdAt" | "updatedAt"
-		> & { thumbnailUrl?: string | null }
-	) => {
+	const handleFormSubmit = async (balvidhyaData: BalvidhyaSubmitData) => {
 		setIsSubmitting(true);
 		const loadingToastId = toast.loading(
 			currentBalvidhya?.id ? "Updating content..." : "Creating content..."
@@ -234,16 +231,10 @@ export default function BalvidhyaPage() {
 
 			const method = currentBalvidhya?.id ? "PUT" : "POST";
 
-			// Prepare request data: ensure only fields expected by the API are sent.
-			// Specifically, do not send dateAdded, createdAt, or updatedAt.
-			const { dateAdded, createdAt, updatedAt, ...dataToSend } =
-				formDataFromForm as any; // Cast to any to allow destructuring potentially non-existent fields
-
 			const requestData = {
-				...dataToSend,
-				// Ensure thumbnailUrl is explicitly null if it's meant to be cleared and is an empty string from form
+				...balvidhyaData,
 				thumbnailUrl:
-					dataToSend.thumbnailUrl === "" ? null : dataToSend.thumbnailUrl,
+					balvidhyaData.thumbnailUrl === "" ? null : balvidhyaData.thumbnailUrl,
 			};
 
 			const response = await fetch(url, {
@@ -263,18 +254,15 @@ export default function BalvidhyaPage() {
 				);
 			}
 
-			const savedContent = await response.json(); // API returns mapped content
+			const savedContent = await response.json();
 
-			// Update local state
 			if (currentBalvidhya?.id) {
-				// Update existing content
 				setBalvidhyas(
 					balvidhyas.map((b) =>
 						b.id === currentBalvidhya.id ? savedContent : b
 					)
 				);
 			} else {
-				// Add new content
 				setBalvidhyas([savedContent, ...balvidhyas]);
 			}
 
@@ -288,9 +276,7 @@ export default function BalvidhyaPage() {
 			setIsFormOpen(false);
 			setCurrentBalvidhya(null);
 		} catch (error: unknown) {
-			// Catch specific error
 			toast.dismiss(loadingToastId);
-			// Type guard for error with 'details'
 			if (typeof error === "object" && error !== null && "details" in error) {
 				const err = error as ApiErrorResponse;
 				if (Array.isArray(err.details)) {

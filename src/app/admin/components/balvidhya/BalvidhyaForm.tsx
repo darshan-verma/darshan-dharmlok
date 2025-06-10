@@ -36,7 +36,7 @@ const balvidhyaCategories = [
 ];
 
 // Define the shape of data the form will submit
-interface BalvidhyaSubmitData {
+export interface BalvidhyaSubmitData {
 	name: string;
 	description: string;
 	type: string;
