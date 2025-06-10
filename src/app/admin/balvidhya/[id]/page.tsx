@@ -242,9 +242,9 @@ export default function BalvidhyaDetailPage() {
 		}
 	};
 
-	const handleRemoveImage = () => {
+	const handleRemoveThumbnailUrl = () => {
 		setEditedBalvidhya((prev: any) =>
-			prev ? { ...prev, thumbnailUrl: undefined } : null
+			prev ? { ...prev, thumbnailUrl: "" } : null
 		);
 		setImageError(false);
 		toast.success("Thumbnail removed");
@@ -254,13 +254,6 @@ export default function BalvidhyaDetailPage() {
 		setEditedBalvidhya((prev: any) =>
 			prev ? { ...prev, videoUrl: "" } : null
 		);
-	};
-
-	const handleRemoveThumbnailUrl = () => {
-		setEditedBalvidhya((prev: any) =>
-			prev ? { ...prev, thumbnailUrl: "" } : null
-		);
-		setImageError(false);
 	};
 
 	const handleRemoveVideoFile = () => {
@@ -312,61 +305,80 @@ export default function BalvidhyaDetailPage() {
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<Card className="md:col-span-1 h-fit">
 					<CardHeader className="text-center p-4 pb-2">
-						<div className="relative w-20 h-20 mx-auto mb-3">
-							<div className="w-full h-full rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-								{(isEditing
-									? editedBalvidhya?.thumbnailUrl
-									: balvidhya?.thumbnailUrl) && !imageError ? (
-									<Image
-										src={
-											isEditing
-												? editedBalvidhya?.thumbnailUrl!
-												: balvidhya?.thumbnailUrl!
-										}
-										alt={
-											isEditing
-												? editedBalvidhya?.name || "Content"
-												: balvidhya?.name || "Content"
-										}
-										width={80}
-										height={80}
-										className="w-full h-full rounded-lg object-cover"
-										onError={() => setImageError(true)}
-										unoptimized={true}
-									/>
-								) : (
-									<ImageIcon className="h-10 w-10 text-muted-foreground" />
+						<div className="flex flex-col items-center mb-3">
+							<div className="flex w-full justify-end">
+								{/* Thumbnail delete button placed where the add button is (top right of the thumbnail area) */}
+								{isEditing && editedBalvidhya?.thumbnailUrl && (
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon"
+										onClick={handleRemoveThumbnailUrl}
+										title="Remove thumbnail"
+										tabIndex={-1}
+										className="mb-2 bg-white hover:bg-gray-100"
+										style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}
+									>
+										<Trash2 className="h-4 w-4 text-red-500" />
+									</Button>
 								)}
 							</div>
-							{isEditing && (
-								<div className="absolute inset-0 rounded-lg bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group">
-									<input
-										type="file"
-										accept="image/jpeg,image/jpg,image/png,image/webp"
-										onChange={handleImageUpload}
-										className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-										disabled={isUploadingImage}
-									/>
-									{isUploadingImage ? (
-										<div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+							<div className="relative w-20 h-20">
+								{/* ...existing image and upload controls... */}
+								<div className="w-full h-full rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+									{(isEditing
+										? editedBalvidhya?.thumbnailUrl
+										: balvidhya?.thumbnailUrl) && !imageError ? (
+										<Image
+											src={
+												isEditing
+													? editedBalvidhya?.thumbnailUrl!
+													: balvidhya?.thumbnailUrl!
+											}
+											alt={
+												isEditing
+													? editedBalvidhya?.name || "Content"
+													: balvidhya?.name || "Content"
+											}
+											width={80}
+											height={80}
+											className="w-full h-full rounded-lg object-cover"
+											onError={() => setImageError(true)}
+											unoptimized={true}
+										/>
 									) : (
-										<Upload className="h-6 w-6 text-white" />
+										<ImageIcon className="h-10 w-10 text-muted-foreground" />
 									)}
 								</div>
-							)}
-
-							{isEditing && !editedBalvidhya?.thumbnailUrl && !imageError && (
-								<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
-									<input
-										type="file"
-										accept="image/jpeg,image/jpg,image/png,image/webp"
-										onChange={handleImageUpload}
-										className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-										disabled={isUploadingImage}
-									/>
-									<Plus className="h-3 w-3 text-primary-foreground" />
-								</div>
-							)}
+								{isEditing && (
+									<div className="absolute inset-0 rounded-lg bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group">
+										<input
+											type="file"
+											accept="image/jpeg,image/jpg,image/png,image/webp"
+											onChange={handleImageUpload}
+											className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+											disabled={isUploadingImage}
+										/>
+										{isUploadingImage ? (
+											<div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+										) : (
+											<Upload className="h-6 w-6 text-white" />
+										)}
+									</div>
+								)}
+								{isEditing && !editedBalvidhya?.thumbnailUrl && !imageError && (
+									<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
+										<input
+											type="file"
+											accept="image/jpeg,image/jpg,image/png,image/webp"
+											onChange={handleImageUpload}
+											className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+											disabled={isUploadingImage}
+										/>
+										<Plus className="h-3 w-3 text-primary-foreground" />
+									</div>
+								)}
+							</div>
 						</div>
 						<CardTitle className="text-center text-lg">
 							{balvidhya?.name}
@@ -655,7 +667,7 @@ export default function BalvidhyaDetailPage() {
 											</div>
 											<div className="space-y-2">
 												<Label htmlFor="videoUrl">Video URL (Optional)</Label>
-                                                            	{editedBalvidhya?.videoUrl && (
+												{editedBalvidhya?.videoUrl && (
 													<Button
 														type="button"
 														variant="ghost"
@@ -680,7 +692,7 @@ export default function BalvidhyaDetailPage() {
 													}
 													placeholder="https://example.com/video"
 												/>
-											
+
 												<p className="text-xs text-gray-500">
 													Provide a direct link to a video (YouTube, Vimeo,
 													etc.)
