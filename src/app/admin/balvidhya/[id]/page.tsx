@@ -173,6 +173,9 @@ export default function BalvidhyaDetailPage() {
 				status: editedBalvidhya.status,
 				trending: !!editedBalvidhya.trending,
 				thumbnailUrl: editedBalvidhya.thumbnailUrl || null,
+				videoUrl: editedBalvidhya.videoUrl ?? null,
+				bookFile: editedBalvidhya.bookFile ?? null,
+				videoFile: editedBalvidhya.videoFile ?? null,
 			};
 			const response = await fetch(`/api/balvidhya/${balvidhyaId}`, {
 				method: "PUT",
@@ -181,8 +184,8 @@ export default function BalvidhyaDetailPage() {
 			});
 			if (!response.ok) throw new Error("Failed to update content");
 			const updatedBalvidhya = await response.json();
-			setBalvidhya(updatedBalvidhya);
-			setEditedBalvidhya(updatedBalvidhya);
+			setBalvidhya(updatedBalvidhya); // <-- ensure view mode updates
+			setEditedBalvidhya(updatedBalvidhya); // <-- ensure edit mode updates
 			setIsEditing(false);
 			toast.dismiss(loadingToast);
 			toast.success("Content updated successfully!");
@@ -245,6 +248,25 @@ export default function BalvidhyaDetailPage() {
 		);
 		setImageError(false);
 		toast.success("Thumbnail removed");
+	};
+
+	const handleRemoveVideoUrl = () => {
+		setEditedBalvidhya((prev: any) =>
+			prev ? { ...prev, videoUrl: "" } : null
+		);
+	};
+
+	const handleRemoveThumbnailUrl = () => {
+		setEditedBalvidhya((prev: any) =>
+			prev ? { ...prev, thumbnailUrl: "" } : null
+		);
+		setImageError(false);
+	};
+
+	const handleRemoveVideoFile = () => {
+		setEditedBalvidhya((prev: any) =>
+			prev ? { ...prev, videoFile: "" } : null
+		);
 	};
 
 	const formatDate = (dateString: string | Date) => {
@@ -332,6 +354,7 @@ export default function BalvidhyaDetailPage() {
 									)}
 								</div>
 							)}
+
 							{isEditing && !editedBalvidhya?.thumbnailUrl && !imageError && (
 								<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
 									<input
@@ -343,17 +366,6 @@ export default function BalvidhyaDetailPage() {
 									/>
 									<Plus className="h-3 w-3 text-primary-foreground" />
 								</div>
-							)}
-							{isEditing && editedBalvidhya?.thumbnailUrl && !imageError && (
-								<Button
-									type="button"
-									variant="destructive"
-									size="sm"
-									className="absolute -top-2 -right-2 w-6 h-6 rounded-full p-0"
-									onClick={handleRemoveImage}
-								>
-									<Trash2 className="h-3 w-3" />
-								</Button>
 							)}
 						</div>
 						<CardTitle className="text-center text-lg">
@@ -641,6 +653,130 @@ export default function BalvidhyaDetailPage() {
 													</div>
 												</div>
 											</div>
+											<div className="space-y-2">
+												<Label htmlFor="videoUrl">Video URL (Optional)</Label>
+                                                            	{editedBalvidhya?.videoUrl && (
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon"
+														className="absolute top-7 right-2"
+														onClick={handleRemoveVideoUrl}
+														title="Remove video URL"
+														tabIndex={-1}
+													>
+														<Trash2 className="h-4 w-4 text-red-500" />
+													</Button>
+												)}
+												<Input
+													id="videoUrl"
+													type="url"
+													value={editedBalvidhya?.videoUrl || ""}
+													onChange={(e) =>
+														setEditedBalvidhya({
+															...editedBalvidhya,
+															videoUrl: e.target.value,
+														})
+													}
+													placeholder="https://example.com/video"
+												/>
+											
+												<p className="text-xs text-gray-500">
+													Provide a direct link to a video (YouTube, Vimeo,
+													etc.)
+												</p>
+											</div>
+											{editedBalvidhya?.type === "book" && (
+												<div className="space-y-2">
+													<Label htmlFor="bookFile">Book File (PDF)</Label>
+													<Input
+														id="bookFile"
+														type="file"
+														accept="application/pdf"
+														onChange={async (e) => {
+															const file = e.target.files?.[0];
+															if (!file) return;
+															const formData = new FormData();
+															formData.append("file", file);
+															formData.append("type", "bookFile");
+															const resp = await fetch(
+																"/api/upload/content-file",
+																{
+																	method: "POST",
+																	body: formData,
+																}
+															);
+															if (resp.ok) {
+																const { fileUrl } = await resp.json();
+																setEditedBalvidhya((prev: any) => ({
+																	...prev,
+																	bookFile: fileUrl,
+																}));
+															}
+														}}
+													/>
+													{editedBalvidhya?.bookFile && (
+														<p className="text-xs text-green-700 break-all">
+															Uploaded: {editedBalvidhya.bookFile}
+														</p>
+													)}
+													<p className="text-xs text-gray-500">
+														Upload a PDF file for the book (max 20MB)
+													</p>
+												</div>
+											)}
+											{editedBalvidhya?.type === "video" && (
+												<div className="space-y-2 relative">
+													<Label htmlFor="videoFile">Video File (MP4)</Label>
+													<Input
+														id="videoFile"
+														type="file"
+														accept="video/mp4"
+														onChange={async (e) => {
+															const file = e.target.files?.[0];
+															if (!file) return;
+															const formData = new FormData();
+															formData.append("file", file);
+															formData.append("type", "videoFile");
+															const resp = await fetch(
+																"/api/upload/content-file",
+																{
+																	method: "POST",
+																	body: formData,
+																}
+															);
+															if (resp.ok) {
+																const { fileUrl } = await resp.json();
+																setEditedBalvidhya((prev: any) => ({
+																	...prev,
+																	videoFile: fileUrl,
+																	videoUrl: "", // Clear videoUrl when uploading a new video file
+																}));
+															}
+														}}
+													/>
+													{editedBalvidhya?.videoFile && (
+														<div className="flex items-center gap-2 mt-1">
+															<p className="text-xs text-green-700 break-all">
+																Uploaded: {editedBalvidhya.videoFile}
+															</p>
+															<Button
+																type="button"
+																variant="ghost"
+																size="icon"
+																onClick={handleRemoveVideoFile}
+																title="Remove video file"
+																tabIndex={-1}
+															>
+																<Trash2 className="h-4 w-4 text-red-500" />
+															</Button>
+														</div>
+													)}
+													<p className="text-xs text-gray-500">
+														Upload an MP4 video file (max 200MB)
+													</p>
+												</div>
+											)}
 										</div>
 									) : (
 										<div className="space-y-6">

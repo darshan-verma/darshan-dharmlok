@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { Trash2 } from "lucide-react";
 
 // These enums match your schema precisely
 const balvidhyaTypes = [
@@ -58,7 +59,6 @@ interface BalvidhyaFormProps {
 
 export default function BalvidhyaForm({
 	initialData = {
-		// Default for when initialData prop is undefined
 		name: "",
 		description: "",
 		type: "video",
@@ -66,28 +66,75 @@ export default function BalvidhyaForm({
 		status: "Active",
 		trending: false,
 		thumbnailUrl: "",
-		// dateAdded: new Date(), // Not strictly needed for form state if not displayed/edited
+		videoUrl: "",
+		bookFile: "",
+		videoFile: "",
 	},
 	onSubmit,
 	onCancel,
 	isLoading = false,
 }: BalvidhyaFormProps) {
-	const [balvidhyaData, setBalvidhyaData] = useState({
-		// Form's internal state
+	const [balvidhyaData, setBalvidhyaData] = useState(() => ({
 		name: initialData.name || "",
 		description: initialData.description || "",
 		type: initialData.type || "video",
 		category: initialData.category || "Other",
 		status: initialData.status || "Active",
-		trending: initialData.trending ?? false,
+		trending:
+			typeof initialData.trending === "boolean"
+				? initialData.trending
+				: initialData.trendingStatus === "Trending" ||
+				  initialData.trendingStatus === "HighlyTrending" ||
+				  initialData.trendingStatus === "Featured",
 		thumbnailUrl: initialData.thumbnailUrl || "",
 		videoUrl: initialData.videoUrl || "",
 		bookFile: initialData.bookFile || "",
 		videoFile: initialData.videoFile || "",
-		// dateAdded: initialData.dateAdded || new Date(), // Can keep for internal use if needed, but won't be submitted via BalvidhyaSubmitData
-	});
+	}));
 
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+	// Prevent infinite update loop by only updating state if initialData actually changes
+	useEffect(() => {
+		setBalvidhyaData((prev) => {
+			const next = {
+				name: initialData.name || "",
+				description: initialData.description || "",
+				type: initialData.type || "video",
+				category: initialData.category || "Other",
+				status: initialData.status || "Active",
+				trending:
+					typeof initialData.trending === "boolean"
+						? initialData.trending
+						: initialData.trendingStatus === "Trending" ||
+						  initialData.trendingStatus === "HighlyTrending" ||
+						  initialData.trendingStatus === "Featured",
+				thumbnailUrl: initialData.thumbnailUrl || "",
+				videoUrl: initialData.videoUrl || "",
+				bookFile: initialData.bookFile || "",
+				videoFile: initialData.videoFile || "",
+			};
+			// Only update if any value is different
+			const keys = Object.keys(next) as (keyof typeof next)[];
+			for (const key of keys) {
+				if (prev[key] !== next[key]) return next;
+			}
+			return prev;
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [
+		initialData.name,
+		initialData.description,
+		initialData.type,
+		initialData.category,
+		initialData.status,
+		initialData.trending,
+		initialData.trendingStatus,
+		initialData.thumbnailUrl,
+		initialData.videoUrl,
+		initialData.bookFile,
+		initialData.videoFile,
+	]);
 
 	const validateForm = (data: typeof balvidhyaData) => {
 		const errors: Record<string, string> = {};
@@ -340,35 +387,44 @@ export default function BalvidhyaForm({
 					</div>
 				</div>
 			</div>
-			<div className="space-y-2">
-				<Label htmlFor="videoUrl">Video URL (Optional)</Label>
-				<Input
-					id="videoUrl"
-					type="url"
-					value={balvidhyaData.videoUrl}
-					onChange={(e) => handleInputChange("videoUrl", e.target.value)}
-					placeholder="https://example.com/video"
-				/>
-				<p className="text-xs text-gray-500">
-					Provide a direct link to a video (YouTube, Vimeo, etc.)
-				</p>
-			</div>
 			{balvidhyaData.type === "book" && (
 				<div className="space-y-2">
 					<Label htmlFor="bookFile">Book File (PDF)</Label>
-					<Input
-						id="bookFile"
-						type="file"
-						accept="application/pdf"
-						onChange={(e) =>
-							e.target.files?.[0] &&
-							handleFileUpload(e.target.files[0], "bookFile")
-						}
-					/>
+					<div className="relative">
+						<Input
+							id="bookFile"
+							type="file"
+							accept="application/pdf"
+							onChange={(e) =>
+								e.target.files?.[0] &&
+								handleFileUpload(e.target.files[0], "bookFile")
+							}
+						/>
+						{balvidhyaData.bookFile && (
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								onClick={() => handleInputChange("bookFile", "")}
+								title="Remove book file"
+								tabIndex={-1}
+								className="absolute top-1/2 right-2 -translate-y-1/2"
+							>
+								<Trash2 className="h-4 w-4 text-red-500" />
+							</Button>
+						)}
+					</div>
 					{balvidhyaData.bookFile && (
-						<p className="text-xs text-green-700 break-all">
-							Uploaded: {balvidhyaData.bookFile}
-						</p>
+						<div className="flex items-center gap-2 mt-1">
+							<a
+								href={balvidhyaData.bookFile}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="text-xs text-blue-700 underline break-all"
+							>
+								{balvidhyaData.bookFile.split("/").pop()}
+							</a>
+						</div>
 					)}
 					{formErrors.bookFile && (
 						<p className="text-sm text-red-500">{formErrors.bookFile}</p>
@@ -381,19 +437,41 @@ export default function BalvidhyaForm({
 			{balvidhyaData.type === "video" && (
 				<div className="space-y-2">
 					<Label htmlFor="videoFile">Video File (MP4)</Label>
-					<Input
-						id="videoFile"
-						type="file"
-						accept="video/mp4"
-						onChange={(e) =>
-							e.target.files?.[0] &&
-							handleFileUpload(e.target.files[0], "videoFile")
-						}
-					/>
+					<div className="relative">
+						<Input
+							id="videoFile"
+							type="file"
+							accept="video/mp4"
+							onChange={(e) =>
+								e.target.files?.[0] &&
+								handleFileUpload(e.target.files[0], "videoFile")
+							}
+						/>
+						{balvidhyaData.videoFile && (
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								onClick={() => handleInputChange("videoFile", "")}
+								title="Remove video file"
+								tabIndex={-1}
+								className="absolute top-1/2 right-2 -translate-y-1/2"
+							>
+								<Trash2 className="h-4 w-4 text-red-500" />
+							</Button>
+						)}
+					</div>
 					{balvidhyaData.videoFile && (
-						<p className="text-xs text-green-700 break-all">
-							Uploaded: {balvidhyaData.videoFile}
-						</p>
+						<div className="flex items-center gap-2 mt-1">
+							<a
+								href={balvidhyaData.videoFile}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="text-xs text-blue-700 underline break-all"
+							>
+								{balvidhyaData.videoFile.split("/").pop()}
+							</a>
+						</div>
 					)}
 					{formErrors.videoFile && (
 						<p className="text-sm text-red-500">{formErrors.videoFile}</p>
@@ -403,6 +481,46 @@ export default function BalvidhyaForm({
 					</p>
 				</div>
 			)}
+			<div className="space-y-2">
+				<Label htmlFor="videoUrl">Video URL (Optional)</Label>
+				<div className="relative">
+					<Input
+						id="videoUrl"
+						type="url"
+						value={balvidhyaData.videoUrl}
+						onChange={(e) => handleInputChange("videoUrl", e.target.value)}
+						placeholder="https://example.com/video"
+					/>
+					{balvidhyaData.videoUrl && (
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							onClick={() => handleInputChange("videoUrl", "")}
+							title="Remove video URL"
+							tabIndex={-1}
+							className="absolute top-1/2 right-2 -translate-y-1/2"
+						>
+							<Trash2 className="h-4 w-4 text-red-500" />
+						</Button>
+					)}
+				</div>
+				{balvidhyaData.videoUrl && (
+					<div className="flex items-center gap-2 mt-1">
+						<a
+							href={balvidhyaData.videoUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-xs text-blue-700 underline break-all"
+						>
+							{balvidhyaData.videoUrl}
+						</a>
+					</div>
+				)}
+				<p className="text-xs text-gray-500">
+					Provide a direct link to a video (YouTube, Vimeo, etc.)
+				</p>
+			</div>
 			<div className="flex justify-end gap-2 mt-6 pt-4 border-t">
 				<Button type="button" variant="outline" onClick={onCancel}>
 					Cancel
