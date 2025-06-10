@@ -1,5 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import {
+	BalVidhya,
+	BalVidhyaTrendingStatus,
+	BalVidhyaType,
+	BalVidhyaCategory,
+	BalVidhyaStatus,
+} from "@prisma/client";
+
+// Helper to map Prisma BalVidhya to frontend expected structure
+const mapBalVidhyaForFrontend = (item: BalVidhya) => {
+	return {
+		...item,
+		id: item.id,
+		trending:
+			item.trendingStatus === BalVidhyaTrendingStatus.Trending ||
+			item.trendingStatus === BalVidhyaTrendingStatus.HighlyTrending ||
+			item.trendingStatus === BalVidhyaTrendingStatus.Featured,
+		dateAdded: item.createdAt, // Frontend uses dateAdded
+		name: item.name,
+		description: item.description ?? "",
+		type: item.type,
+		category: item.category ?? BalVidhyaCategory.Other,
+		status: item.status,
+		thumbnailUrl: item.thumbnailUrl ?? "",
+		createdAt: item.createdAt,
+		updatedAt: item.updatedAt,
+	};
+};
 
 // GET: Get a specific BalVidhya item by id
 export async function GET(
@@ -7,11 +35,9 @@ export async function GET(
 	{ params }: { params: { id: string } }
 ) {
 	try {
-		// Validate MongoDB ObjectId format
-		if (!/^[0-9a-fA-F]{24}$/.test(params.id)) {
+		if (!params.id || !/^[0-9a-fA-F]{24}$/.test(params.id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
-
 		const item = await prisma.balVidhya.findUnique({
 			where: { id: params.id },
 		});
@@ -20,22 +46,7 @@ export async function GET(
 			return NextResponse.json({ error: "Content not found" }, { status: 404 });
 		}
 
-		// Map to frontend expected format
-		const mappedItem = {
-			id: item.id,
-			name: item.name,
-			description: item.description,
-			type: item.type,
-			category: item.category,
-			status: item.status,
-			trending: item.trendingStatus,
-			thumbnailUrl: item.thumbnailUrl,
-			dateAdded: item.createdAt,
-			createdAt: item.createdAt,
-			updatedAt: item.updatedAt,
-		};
-
-		return NextResponse.json(mappedItem);
+		return NextResponse.json(mapBalVidhyaForFrontend(item));
 	} catch (error) {
 		console.error("Error fetching BalVidhya item:", error);
 		return NextResponse.json(
@@ -51,56 +62,96 @@ export async function PUT(
 	{ params }: { params: { id: string } }
 ) {
 	try {
-		// Validate MongoDB ObjectId format
-		if (!/^[0-9a-fA-F]{24}$/.test(params.id)) {
+		if (!params.id || !/^[0-9a-fA-F]{24}$/.test(params.id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
+		const body = await req.json();
+		const updateData: Partial<BalVidhya> = {};
 
-		const data = await req.json();
+		// Map fields from body to updateData, ensuring type safety and handling optionals
+		if (body.name !== undefined) updateData.name = body.name;
+		if (body.description !== undefined)
+			updateData.description = body.description;
+		if (body.type !== undefined) {
+			if (!Object.values(BalVidhyaType).includes(body.type)) {
+				return NextResponse.json(
+					{ error: `Invalid type value: ${body.type}` },
+					{ status: 400 }
+				);
+			}
+			updateData.type = body.type;
+		}
+		if (body.category !== undefined) {
+			if (!Object.values(BalVidhyaCategory).includes(body.category)) {
+				return NextResponse.json(
+					{ error: `Invalid category value: ${body.category}` },
+					{ status: 400 }
+				);
+			}
+			updateData.category = body.category;
+		}
+		if (body.status !== undefined) {
+			if (!Object.values(BalVidhyaStatus).includes(body.status)) {
+				return NextResponse.json(
+					{ error: `Invalid status value: ${body.status}` },
+					{ status: 400 }
+				);
+			}
+			updateData.status = body.status;
+		}
+		if (body.thumbnailUrl !== undefined)
+			updateData.thumbnailUrl =
+				body.thumbnailUrl === "" ? null : body.thumbnailUrl;
 
-		// Prepare update data - only include fields that are being updated
-		const updateData: any = {};
+		// Map frontend 'trending' (boolean) to Prisma 'trendingStatus' (enum)
+		if (typeof body.trending === "boolean") {
+			updateData.trendingStatus = body.trending
+				? BalVidhyaTrendingStatus.Trending
+				: BalVidhyaTrendingStatus.NotTrending;
+		}
 
-		if (data.name !== undefined) updateData.name = data.name;
-		if (data.description !== undefined)
-			updateData.description = data.description;
-		if (data.type !== undefined) updateData.type = data.type;
-		if (data.category !== undefined) updateData.category = data.category;
-		if (data.status !== undefined) updateData.status = data.status;
-		if (data.trending !== undefined) updateData.trending = data.trending;
-		if (data.thumbnailUrl !== undefined)
-			updateData.thumbnailUrl = data.thumbnailUrl;
+		if (body.approved !== undefined && typeof body.approved === "boolean") {
+			updateData.approved = body.approved;
+		}
+
+		if (Object.keys(updateData).length === 0) {
+			return NextResponse.json(
+				{ error: "No update data provided" },
+				{ status: 400 }
+			);
+		}
+
+		// Ensure item exists before update
+		const existingItem = await prisma.balVidhya.findUnique({
+			where: { id: params.id },
+		});
+		if (!existingItem) {
+			return NextResponse.json({ error: "Content not found" }, { status: 404 });
+		}
 
 		const updatedItem = await prisma.balVidhya.update({
 			where: { id: params.id },
 			data: updateData,
 		});
 
-		// Map to frontend expected format
-		const mappedItem = {
-			id: updatedItem.id,
-			name: updatedItem.name,
-			description: updatedItem.description,
-			type: updatedItem.type,
-			category: updatedItem.category,
-			status: updatedItem.status,
-			trending: updatedItem.trendingStatus,
-			thumbnailUrl: updatedItem.thumbnailUrl,
-			dateAdded: updatedItem.createdAt,
-			createdAt: updatedItem.createdAt,
-			updatedAt: updatedItem.updatedAt,
-		};
-
-		return NextResponse.json(mappedItem);
-	} catch (error) {
+		return NextResponse.json(mapBalVidhyaForFrontend(updatedItem));
+	} catch (error: any) {
 		console.error("Error updating BalVidhya item:", error);
-
-		if (error.code === "P2025") {
-			return NextResponse.json({ error: "Content not found" }, { status: 404 });
+		if (error.name === "PrismaClientValidationError") {
+			return NextResponse.json(
+				{ error: "Invalid data provided for update.", details: error.message },
+				{ status: 400 }
+			);
 		}
-
+		if (error.code === "P2025") {
+			// Record to update not found
+			return NextResponse.json(
+				{ error: "Content not found for update" },
+				{ status: 404 }
+			);
+		}
 		return NextResponse.json(
-			{ error: "Failed to update item." },
+			{ error: "Failed to update item.", details: error.message },
 			{ status: 500 }
 		);
 	}
@@ -112,9 +163,16 @@ export async function DELETE(
 	{ params }: { params: { id: string } }
 ) {
 	try {
-		// Validate MongoDB ObjectId format
-		if (!/^[0-9a-fA-F]{24}$/.test(params.id)) {
+		if (!params.id || !/^[0-9a-fA-F]{24}$/.test(params.id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
+		}
+
+		// Ensure item exists before delete
+		const existingItem = await prisma.balVidhya.findUnique({
+			where: { id: params.id },
+		});
+		if (!existingItem) {
+			return NextResponse.json({ error: "Content not found" }, { status: 404 });
 		}
 
 		await prisma.balVidhya.delete({
@@ -125,15 +183,17 @@ export async function DELETE(
 			success: true,
 			message: "Content deleted successfully",
 		});
-	} catch (error) {
+	} catch (error: any) {
 		console.error("Error deleting BalVidhya item:", error);
-
 		if (error.code === "P2025") {
-			return NextResponse.json({ error: "Content not found" }, { status: 404 });
+			// Record to delete not found
+			return NextResponse.json(
+				{ error: "Content not found for deletion" },
+				{ status: 404 }
+			);
 		}
-
 		return NextResponse.json(
-			{ error: "Failed to delete item." },
+			{ error: "Failed to delete item.", details: error.message },
 			{ status: 500 }
 		);
 	}
