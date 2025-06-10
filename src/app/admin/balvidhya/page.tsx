@@ -60,7 +60,8 @@ export default function BalvidhyaPage() {
 				);
 
 				if (!response.ok) {
-					throw new Error(`API error: ${response.status}`);
+					const errorData = await response.json().catch(() => ({})); // Try to parse error
+					throw new Error(errorData.error || `API error: ${response.status}`);
 				}
 
 				const data = await response.json();
@@ -109,7 +110,9 @@ export default function BalvidhyaPage() {
 
 	const confirmDelete = async () => {
 		if (!balvidhyaToDelete) return;
-
+		const loadingToastId = toast.loading(
+			`Deleting ${balvidhyaToDelete.name}...`
+		);
 		try {
 			// Call the API to delete the balvidhya content
 			const response = await fetch(`/api/balvidhya/${balvidhyaToDelete.id}`, {
@@ -117,11 +120,13 @@ export default function BalvidhyaPage() {
 			});
 
 			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(errorData.error || `API error: ${response.status}`);
 			}
 
 			// Update local state
 			setBalvidhyas(balvidhyas.filter((b) => b.id !== balvidhyaToDelete.id));
+			toast.dismiss(loadingToastId);
 			toast.success(`${balvidhyaToDelete.name} has been deleted`);
 		} catch {
 			toast.error("Failed to delete content");
@@ -132,6 +137,12 @@ export default function BalvidhyaPage() {
 	};
 
 	const handleUpdateStatus = async (id: string, newStatus: string) => {
+		const originalBalvidhyas = [...balvidhyas];
+		// Optimistically update UI
+		setBalvidhyas(
+			balvidhyas.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
+		);
+		const loadingToastId = toast.loading("Updating status...");
 		try {
 			// Call the API to update content status
 			const response = await fetch(`/api/balvidhya/${id}`, {
@@ -141,20 +152,35 @@ export default function BalvidhyaPage() {
 			});
 
 			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(errorData.error || `API error: ${response.status}`);
 			}
-
-			// Update local state
+			const updatedItem = await response.json();
+			// Update with data from server to ensure consistency
 			setBalvidhyas(
-				balvidhyas.map((b) => (b.id === id ? { ...b, status: newStatus } : b))
+				originalBalvidhyas.map((b) =>
+					b.id === id ? { ...b, ...updatedItem } : b
+				)
 			);
+			toast.dismiss(loadingToastId);
 			toast.success("Status updated successfully");
-		} catch {
-			toast.error("Failed to update status");
+		} catch (error: any) {
+			// Catch specific error
+			setBalvidhyas(originalBalvidhyas); // Revert on error
+			toast.dismiss(loadingToastId);
+			toast.error(error.message || "Failed to update status");
 		}
 	};
 
 	const handleToggleTrending = async (id: string, currentStatus: boolean) => {
+		const originalBalvidhyas = [...balvidhyas];
+		// Optimistically update UI
+		setBalvidhyas(
+			balvidhyas.map((b) =>
+				b.id === id ? { ...b, trending: !currentStatus } : b
+			)
+		);
+		const loadingToastId = toast.loading("Updating trending status...");
 		try {
 			// Call the API to update trending status
 			const response = await fetch(`/api/balvidhya/${id}`, {
@@ -164,20 +190,25 @@ export default function BalvidhyaPage() {
 			});
 
 			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(errorData.error || `API error: ${response.status}`);
 			}
-
-			// Update local state
+			const updatedItem = await response.json();
+			// Update with data from server
 			setBalvidhyas(
-				balvidhyas.map((b) =>
-					b.id === id ? { ...b, trending: !currentStatus } : b
+				originalBalvidhyas.map((b) =>
+					b.id === id ? { ...b, ...updatedItem } : b
 				)
 			);
+			toast.dismiss(loadingToastId);
 			toast.success(
 				`Content ${currentStatus ? "removed from" : "marked as"} trending`
 			);
-		} catch {
-			toast.error("Failed to update trending status");
+		} catch (error: any) {
+			// Catch specific error
+			setBalvidhyas(originalBalvidhyas); // Revert on error
+			toast.dismiss(loadingToastId);
+			toast.error(error.message || "Failed to update trending status");
 		}
 	};
 
@@ -186,8 +217,16 @@ export default function BalvidhyaPage() {
 		router.push(`/admin/balvidhya/${balvidhya.id}`);
 	};
 
-	const handleFormSubmit = async (balvidhyaData: Omit<Balvidhya, "id">) => {
+	const handleFormSubmit = async (
+		formDataFromForm: Omit<
+			Balvidhya,
+			"id" | "dateAdded" | "createdAt" | "updatedAt"
+		> & { thumbnailUrl?: string | null }
+	) => {
 		setIsSubmitting(true);
+		const loadingToastId = toast.loading(
+			currentBalvidhya?.id ? "Updating content..." : "Creating content..."
+		);
 		try {
 			const url = currentBalvidhya?.id
 				? `/api/balvidhya/${currentBalvidhya.id}`
@@ -195,11 +234,16 @@ export default function BalvidhyaPage() {
 
 			const method = currentBalvidhya?.id ? "PUT" : "POST";
 
-			// Prepare request data
+			// Prepare request data: ensure only fields expected by the API are sent.
+			// Specifically, do not send dateAdded, createdAt, or updatedAt.
+			const { dateAdded, createdAt, updatedAt, ...dataToSend } =
+				formDataFromForm as any; // Cast to any to allow destructuring potentially non-existent fields
+
 			const requestData = {
-				...(currentBalvidhya?.id && { id: currentBalvidhya.id }),
-				...balvidhyaData,
-				dateAdded: balvidhyaData.dateAdded || new Date(),
+				...dataToSend,
+				// Ensure thumbnailUrl is explicitly null if it's meant to be cleared and is an empty string from form
+				thumbnailUrl:
+					dataToSend.thumbnailUrl === "" ? null : dataToSend.thumbnailUrl,
 			};
 
 			const response = await fetch(url, {
@@ -211,11 +255,15 @@ export default function BalvidhyaPage() {
 			});
 
 			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.message || "Failed to save content");
+				const errorData = await response
+					.json()
+					.catch(() => ({ message: "Failed to save content" }));
+				throw new Error(
+					errorData.error || errorData.message || "Failed to save content"
+				);
 			}
 
-			const savedContent = await response.json();
+			const savedContent = await response.json(); // API returns mapped content
 
 			// Update local state
 			if (currentBalvidhya?.id) {
@@ -230,6 +278,7 @@ export default function BalvidhyaPage() {
 				setBalvidhyas([savedContent, ...balvidhyas]);
 			}
 
+			toast.dismiss(loadingToastId);
 			toast.success(
 				currentBalvidhya?.id
 					? "Content updated successfully"
@@ -239,6 +288,8 @@ export default function BalvidhyaPage() {
 			setIsFormOpen(false);
 			setCurrentBalvidhya(null);
 		} catch (error: unknown) {
+			// Catch specific error
+			toast.dismiss(loadingToastId);
 			// Type guard for error with 'details'
 			if (typeof error === "object" && error !== null && "details" in error) {
 				const err = error as ApiErrorResponse;
