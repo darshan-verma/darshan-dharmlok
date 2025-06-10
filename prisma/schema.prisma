@@ -1,11 +1,14 @@
+// Prisma Schema for MongoDB
 datasource db {
     provider = "mongodb"
     url = env("MONGODB_URI")
 }
+// Generator for Prisma Client
 generator client {
     provider = "prisma-client-js"
     database = "mongoDb"
 }
+// User Model
 model User {
     id String @id @default(auto()) @map("_id") @db.ObjectId
     name String
@@ -32,7 +35,7 @@ model User {
     createdAt DateTime @default(now())
     addresses Address[]
 }
-
+// Address Model
 model Address {
     id         String   @id @default(auto()) @map("_id") @db.ObjectId
     user       User     @relation(fields: [userId], references: [id])
@@ -51,4 +54,44 @@ model Address {
     updatedAt  DateTime @updatedAt
 
 @@index([userId])
+}
+//Bal Vidhya Model
+model BalVidhya {
+    id            String               @id @default(auto()) @map("_id") @db.ObjectId
+    name          String
+    description   String?
+    type          BalVidhyaType
+    trendingStatus BalVidhyaTrendingStatus @default(NotTrending)
+    category      BalVidhyaCategory?
+    url           String?
+    thumbnailUrl  String?
+    status        BalVidhyaStatus       @default(Active)
+    approved      Boolean
+    createdAt     DateTime              @default(now())
+    updatedAt     DateTime              @updatedAt
+}
+enum BalVidhyaType {
+    video
+    book
+}
+enum BalVidhyaStatus {
+    Active
+    Inactive
+}
+enum BalVidhyaCategory {
+    BhagavadGita
+    Ramayana
+    Mahabharata
+    Vedas
+    Puranas
+    Upanishads
+    BhaktiYoga
+    Other
+}
+enum BalVidhyaTrendingStatus {
+    NotTrending
+    Trending
+    HighlyTrending
+    Seasonal
+    Featured
 }

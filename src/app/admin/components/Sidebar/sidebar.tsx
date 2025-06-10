@@ -248,9 +248,13 @@ export function AdminSidebar({ className }: { className?: string }) {
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all">
+						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/balvidya"}
+							>
 							<HandHeart className="h-5 w-5 text-green-500" />
+							<Link href="/admin/balvidhya" className="flex items-center gap-2">
 							<span>Bal-Vidya</span>
+							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
