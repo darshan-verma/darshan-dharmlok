@@ -102,6 +102,12 @@ export async function PUT(
 		if (body.thumbnailUrl !== undefined)
 			updateData.thumbnailUrl =
 				body.thumbnailUrl === "" ? null : body.thumbnailUrl;
+		if (body.videoUrl !== undefined)
+			updateData.videoUrl = body.videoUrl === "" ? null : body.videoUrl;
+		if (body.bookFile !== undefined)
+			updateData.bookFile = body.bookFile === "" ? null : body.bookFile;
+		if (body.videoFile !== undefined)
+			updateData.videoFile = body.videoFile === "" ? null : body.videoFile;
 
 		// Map frontend 'trending' (boolean) to Prisma 'trendingStatus' (enum)
 		if (typeof body.trending === "boolean") {

@@ -43,7 +43,10 @@ export interface BalvidhyaSubmitData {
 	category: string;
 	status: string;
 	trending: boolean;
-	thumbnailUrl: string | null; // Allow null for clearing
+	thumbnailUrl: string | null;
+	videoUrl?: string | null;
+	bookFile?: string | null;
+	videoFile?: string | null;
 }
 
 interface BalvidhyaFormProps {
@@ -78,6 +81,9 @@ export default function BalvidhyaForm({
 		status: initialData.status || "Active",
 		trending: initialData.trending ?? false,
 		thumbnailUrl: initialData.thumbnailUrl || "",
+		videoUrl: initialData.videoUrl || "",
+		bookFile: initialData.bookFile || "",
+		videoFile: initialData.videoFile || "",
 		// dateAdded: initialData.dateAdded || new Date(), // Can keep for internal use if needed, but won't be submitted via BalvidhyaSubmitData
 	});
 
@@ -110,6 +116,55 @@ export default function BalvidhyaForm({
 		return errors;
 	};
 
+	const handleFileUpload = async (
+		file: File,
+		field: "bookFile" | "videoFile"
+	) => {
+		if (!file) return;
+		const isBook = field === "bookFile";
+		const validTypes = isBook ? ["application/pdf"] : ["video/mp4"];
+		if (!validTypes.includes(file.type)) {
+			setFormErrors((prev) => ({
+				...prev,
+				[field]: isBook
+					? "Please select a valid PDF file"
+					: "Please select a valid MP4 video file",
+			}));
+			return;
+		}
+		const maxSize = isBook ? 20 * 1024 * 1024 : 200 * 1024 * 1024; // 20MB for PDF, 200MB for video
+		if (file.size > maxSize) {
+			setFormErrors((prev) => ({
+				...prev,
+				[field]: isBook
+					? "PDF size must be less than 20MB"
+					: "Video size must be less than 200MB",
+			}));
+			return;
+		}
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("type", field);
+			const response = await fetch("/api/upload/content-file", {
+				method: "POST",
+				body: formData,
+			});
+			if (!response.ok) throw new Error("Failed to upload file");
+			const { fileUrl } = await response.json();
+			setBalvidhyaData((prev) => ({
+				...prev,
+				[field]: fileUrl,
+			}));
+			setFormErrors((prev) => ({ ...prev, [field]: "" }));
+		} catch (error) {
+			setFormErrors((prev) => ({
+				...prev,
+				[field]: "Failed to upload file",
+			}));
+		}
+	};
+
 	const handleSubmit = async () => {
 		const errors = validateForm(balvidhyaData);
 		setFormErrors(errors);
@@ -125,6 +180,9 @@ export default function BalvidhyaForm({
 				category: balvidhyaData.category,
 				trending: !!balvidhyaData.trending,
 				thumbnailUrl: balvidhyaData.thumbnailUrl || null, // Ensure null if empty
+				videoUrl: balvidhyaData.videoUrl || null,
+				bookFile: balvidhyaData.bookFile || null,
+				videoFile: balvidhyaData.videoFile || null,
 			};
 			await onSubmit(dataToSubmit);
 		} catch (error) {
@@ -282,6 +340,69 @@ export default function BalvidhyaForm({
 					</div>
 				</div>
 			</div>
+			<div className="space-y-2">
+				<Label htmlFor="videoUrl">Video URL (Optional)</Label>
+				<Input
+					id="videoUrl"
+					type="url"
+					value={balvidhyaData.videoUrl}
+					onChange={(e) => handleInputChange("videoUrl", e.target.value)}
+					placeholder="https://example.com/video"
+				/>
+				<p className="text-xs text-gray-500">
+					Provide a direct link to a video (YouTube, Vimeo, etc.)
+				</p>
+			</div>
+			{balvidhyaData.type === "book" && (
+				<div className="space-y-2">
+					<Label htmlFor="bookFile">Book File (PDF)</Label>
+					<Input
+						id="bookFile"
+						type="file"
+						accept="application/pdf"
+						onChange={(e) =>
+							e.target.files?.[0] &&
+							handleFileUpload(e.target.files[0], "bookFile")
+						}
+					/>
+					{balvidhyaData.bookFile && (
+						<p className="text-xs text-green-700 break-all">
+							Uploaded: {balvidhyaData.bookFile}
+						</p>
+					)}
+					{formErrors.bookFile && (
+						<p className="text-sm text-red-500">{formErrors.bookFile}</p>
+					)}
+					<p className="text-xs text-gray-500">
+						Upload a PDF file for the book (max 20MB)
+					</p>
+				</div>
+			)}
+			{balvidhyaData.type === "video" && (
+				<div className="space-y-2">
+					<Label htmlFor="videoFile">Video File (MP4)</Label>
+					<Input
+						id="videoFile"
+						type="file"
+						accept="video/mp4"
+						onChange={(e) =>
+							e.target.files?.[0] &&
+							handleFileUpload(e.target.files[0], "videoFile")
+						}
+					/>
+					{balvidhyaData.videoFile && (
+						<p className="text-xs text-green-700 break-all">
+							Uploaded: {balvidhyaData.videoFile}
+						</p>
+					)}
+					{formErrors.videoFile && (
+						<p className="text-sm text-red-500">{formErrors.videoFile}</p>
+					)}
+					<p className="text-xs text-gray-500">
+						Upload an MP4 video file (max 200MB)
+					</p>
+				</div>
+			)}
 			<div className="flex justify-end gap-2 mt-6 pt-4 border-t">
 				<Button type="button" variant="outline" onClick={onCancel}>
 					Cancel

@@ -65,6 +65,9 @@ model BalVidhya {
     category      BalVidhyaCategory?
     url           String?
     thumbnailUrl  String?
+    videoUrl      String?
+    videoFile     String?
+    bookFile      String?
     status        BalVidhyaStatus       @default(Active)
     approved      Boolean
     createdAt     DateTime              @default(now())

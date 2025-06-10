@@ -93,13 +93,15 @@ export async function POST(req: NextRequest) {
 		const newItemData = {
 			name: body.name as string,
 			description: body.description as string | undefined,
-			type: body.type as BalVidhyaType, // Assuming frontend sends valid enum string
-			category: body.category as BalVidhyaCategory | undefined, // Assuming frontend sends valid enum string
-			status: body.status as BalVidhyaStatus, // Assuming frontend sends valid enum string
+			type: body.type as BalVidhyaType,
+			category: body.category as BalVidhyaCategory | undefined,
+			status: body.status as BalVidhyaStatus,
 			trendingStatus: trendingStatus,
 			thumbnailUrl: body.thumbnailUrl as string | undefined,
-			approved: true, // Default to true for admin-created content
-			// url: body.url, // If applicable
+			videoUrl: body.videoUrl as string | undefined,
+			bookFile: body.bookFile as string | undefined,
+			videoFile: body.videoFile as string | undefined,
+			approved: true,
 		};
 
 		// Type check for enums before creation

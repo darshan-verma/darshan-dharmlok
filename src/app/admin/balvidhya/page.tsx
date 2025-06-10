@@ -235,6 +235,10 @@ export default function BalvidhyaPage() {
 				...balvidhyaData,
 				thumbnailUrl:
 					balvidhyaData.thumbnailUrl === "" ? null : balvidhyaData.thumbnailUrl,
+				videoUrl: balvidhyaData.videoUrl === "" ? null : balvidhyaData.videoUrl,
+				bookFile: balvidhyaData.bookFile === "" ? null : balvidhyaData.bookFile,
+				videoFile:
+					balvidhyaData.videoFile === "" ? null : balvidhyaData.videoFile,
 			};
 
 			const response = await fetch(url, {

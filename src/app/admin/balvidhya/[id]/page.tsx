@@ -42,14 +42,22 @@ const typeLabel = (type: string) =>
 	type === "video" ? "Video" : type === "book" ? "Book" : type;
 const categoryLabel = (cat: string) => {
 	switch (cat) {
-		case "BhagavadGita": return "Bhagavad Gita";
-		case "Ramayana": return "Ramayana";
-		case "Mahabharata": return "Mahabharata";
-		case "Vedas": return "Vedas";
-		case "Puranas": return "Puranas";
-		case "Upanishads": return "Upanishads";
-		case "BhaktiYoga": return "Bhakti Yoga";
-		default: return "Other";
+		case "BhagavadGita":
+			return "Bhagavad Gita";
+		case "Ramayana":
+			return "Ramayana";
+		case "Mahabharata":
+			return "Mahabharata";
+		case "Vedas":
+			return "Vedas";
+		case "Puranas":
+			return "Puranas";
+		case "Upanishads":
+			return "Upanishads";
+		case "BhaktiYoga":
+			return "Bhakti Yoga";
+		default:
+			return "Other";
 	}
 };
 const statusLabel = (status: string) => status;
@@ -97,7 +105,9 @@ export default function BalvidhyaDetailPage() {
 			const controller = new AbortController();
 			const timeoutId = setTimeout(() => controller.abort(), 10000);
 			try {
-				const response = await fetch(`/api/balvidhya/${balvidhyaId}`, { signal: controller.signal });
+				const response = await fetch(`/api/balvidhya/${balvidhyaId}`, {
+					signal: controller.signal,
+				});
 				clearTimeout(timeoutId);
 				if (!response.ok) throw new Error("Failed to fetch content");
 				const balvidhyaData = await response.json();
@@ -109,7 +119,11 @@ export default function BalvidhyaDetailPage() {
 				throw error;
 			}
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Failed to load content details");
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to load content details"
+			);
 			router.push("/admin/balvidhya");
 		}
 	}, [balvidhyaId, router]);
@@ -120,16 +134,26 @@ export default function BalvidhyaDetailPage() {
 
 	const validateForm = (balvidhyaData: any): boolean => {
 		const newErrors: any = {};
-		if (!balvidhyaData.name?.trim()) newErrors.name = "Content name is required";
-		else if (balvidhyaData.name.length < 3) newErrors.name = "Name must be at least 3 characters";
-		else if (balvidhyaData.name.length > 100) newErrors.name = "Name must be less than 100 characters";
-		if (!balvidhyaData.description?.trim()) newErrors.description = "Description is required";
-		else if (balvidhyaData.description.length < 10) newErrors.description = "Description must be at least 10 characters";
-		else if (balvidhyaData.description.length > 500) newErrors.description = "Description must be less than 500 characters";
+		if (!balvidhyaData.name?.trim())
+			newErrors.name = "Content name is required";
+		else if (balvidhyaData.name.length < 3)
+			newErrors.name = "Name must be at least 3 characters";
+		else if (balvidhyaData.name.length > 100)
+			newErrors.name = "Name must be less than 100 characters";
+		if (!balvidhyaData.description?.trim())
+			newErrors.description = "Description is required";
+		else if (balvidhyaData.description.length < 10)
+			newErrors.description = "Description must be at least 10 characters";
+		else if (balvidhyaData.description.length > 500)
+			newErrors.description = "Description must be less than 500 characters";
 		if (!balvidhyaData.type) newErrors.type = "Content type is required";
 		if (!balvidhyaData.category) newErrors.category = "Category is required";
 		if (balvidhyaData.thumbnailUrl && balvidhyaData.thumbnailUrl.trim()) {
-			try { new URL(balvidhyaData.thumbnailUrl); } catch { newErrors.thumbnailUrl = "Please enter a valid URL"; }
+			try {
+				new URL(balvidhyaData.thumbnailUrl);
+			} catch {
+				newErrors.thumbnailUrl = "Please enter a valid URL";
+			}
 		}
 		setErrors(newErrors);
 		return Object.keys(newErrors).length === 0;
@@ -164,13 +188,17 @@ export default function BalvidhyaDetailPage() {
 			toast.success("Content updated successfully!");
 		} catch (error) {
 			toast.dismiss(loadingToast);
-			toast.error(error instanceof Error ? error.message : "Failed to update content");
+			toast.error(
+				error instanceof Error ? error.message : "Failed to update content"
+			);
 		} finally {
 			setIsSaving(false);
 		}
 	};
 
-	const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+	const handleImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
 		const file = event.target.files?.[0];
 		if (!file) return;
 		const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -195,27 +223,34 @@ export default function BalvidhyaDetailPage() {
 			});
 			if (!response.ok) throw new Error("Failed to upload image");
 			const { imageUrl } = await response.json();
-			setEditedBalvidhya((prev: any) => prev ? { ...prev, thumbnailUrl: imageUrl } : null);
+			setEditedBalvidhya((prev: any) =>
+				prev ? { ...prev, thumbnailUrl: imageUrl } : null
+			);
 			setImageError(false);
 			toast.dismiss(loadingToast);
 			toast.success("Thumbnail updated successfully!");
 		} catch (error) {
 			toast.dismiss(loadingToast);
-			toast.error(error instanceof Error ? error.message : "Failed to upload image");
+			toast.error(
+				error instanceof Error ? error.message : "Failed to upload image"
+			);
 		} finally {
 			setIsUploadingImage(false);
 		}
 	};
 
 	const handleRemoveImage = () => {
-		setEditedBalvidhya((prev: any) => prev ? { ...prev, thumbnailUrl: undefined } : null);
+		setEditedBalvidhya((prev: any) =>
+			prev ? { ...prev, thumbnailUrl: undefined } : null
+		);
 		setImageError(false);
 		toast.success("Thumbnail removed");
 	};
 
 	const formatDate = (dateString: string | Date) => {
 		if (!dateString) return "N/A";
-		const date = typeof dateString === "string" ? new Date(dateString) : dateString;
+		const date =
+			typeof dateString === "string" ? new Date(dateString) : dateString;
 		return new Intl.DateTimeFormat("en-IN", {
 			day: "2-digit",
 			month: "short",
@@ -232,14 +267,22 @@ export default function BalvidhyaDetailPage() {
 	};
 
 	const getTypeIcon = (type: string) =>
-		type === "video" ? <Play className="h-3.5 w-3.5" /> :
-		type === "book" ? <BookOpen className="h-3.5 w-3.5" /> :
-		<ImageIcon className="h-3.5 w-3.5" />;
+		type === "video" ? (
+			<Play className="h-3.5 w-3.5" />
+		) : type === "book" ? (
+			<BookOpen className="h-3.5 w-3.5" />
+		) : (
+			<ImageIcon className="h-3.5 w-3.5" />
+		);
 
 	return (
 		<div className="p-6 space-y-6">
 			<div className="flex items-center gap-4">
-				<Button variant="outline" size="icon" onClick={() => router.push("/admin/balvidhya")}>
+				<Button
+					variant="outline"
+					size="icon"
+					onClick={() => router.push("/admin/balvidhya")}
+				>
 					<ArrowLeft className="h-4 w-4" />
 				</Button>
 				<h1 className="text-2xl font-bold">Content Details</h1>
@@ -249,10 +292,20 @@ export default function BalvidhyaDetailPage() {
 					<CardHeader className="text-center p-4 pb-2">
 						<div className="relative w-20 h-20 mx-auto mb-3">
 							<div className="w-full h-full rounded-lg bg-muted flex items-center justify-center overflow-hidden">
-								{(isEditing ? editedBalvidhya?.thumbnailUrl : balvidhya?.thumbnailUrl) && !imageError ? (
+								{(isEditing
+									? editedBalvidhya?.thumbnailUrl
+									: balvidhya?.thumbnailUrl) && !imageError ? (
 									<Image
-										src={isEditing ? editedBalvidhya?.thumbnailUrl! : balvidhya?.thumbnailUrl!}
-										alt={isEditing ? editedBalvidhya?.name || "Content" : balvidhya?.name || "Content"}
+										src={
+											isEditing
+												? editedBalvidhya?.thumbnailUrl!
+												: balvidhya?.thumbnailUrl!
+										}
+										alt={
+											isEditing
+												? editedBalvidhya?.name || "Content"
+												: balvidhya?.name || "Content"
+										}
 										width={80}
 										height={80}
 										className="w-full h-full rounded-lg object-cover"
@@ -303,9 +356,17 @@ export default function BalvidhyaDetailPage() {
 								</Button>
 							)}
 						</div>
-						<CardTitle className="text-center text-lg">{balvidhya?.name}</CardTitle>
+						<CardTitle className="text-center text-lg">
+							{balvidhya?.name}
+						</CardTitle>
 						<CardDescription className="flex flex-wrap justify-center items-center gap-1.5">
-							<span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${balvidhya ? getStatusColor(balvidhya.status) : "bg-red-100 text-red-800"}`}>
+							<span
+								className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+									balvidhya
+										? getStatusColor(balvidhya.status)
+										: "bg-red-100 text-red-800"
+								}`}
+							>
 								{balvidhya?.status || "Unknown"}
 							</span>
 							{balvidhya?.trending && (
@@ -322,7 +383,11 @@ export default function BalvidhyaDetailPage() {
 								{getTypeIcon(balvidhya?.type || "")}
 								<div className="flex-1">
 									<span className="text-xs text-muted-foreground">Type: </span>
-									<span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${balvidhya?.type ? getStatusColor(balvidhya.type) : ""} w-20`}>
+									<span
+										className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${
+											balvidhya?.type ? getStatusColor(balvidhya.type) : ""
+										} w-20`}
+									>
 										{typeLabel(balvidhya?.type || "")}
 									</span>
 								</div>
@@ -330,8 +395,16 @@ export default function BalvidhyaDetailPage() {
 							<div className="flex items-center gap-2 text-sm">
 								<BookOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
 								<div className="flex-1">
-									<span className="text-xs text-muted-foreground">Category: </span>
-									<span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${balvidhya?.category ? getStatusColor(balvidhya.category) : ""} w-20`}>
+									<span className="text-xs text-muted-foreground">
+										Category:{" "}
+									</span>
+									<span
+										className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${
+											balvidhya?.category
+												? getStatusColor(balvidhya.category)
+												: ""
+										} w-20`}
+									>
 										{categoryLabel(balvidhya?.category)}
 									</span>
 								</div>
@@ -340,13 +413,24 @@ export default function BalvidhyaDetailPage() {
 						<div className="flex items-start gap-2 text-xs text-muted-foreground pt-2 border-t border-border">
 							<Calendar className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
 							<div>
-								<div>Added: {balvidhya?.dateAdded ? formatDate(balvidhya.dateAdded) : "N/A"}</div>
-								{balvidhya?.updatedAt && (<div>Updated: {formatDate(balvidhya.updatedAt)}</div>)}
+								<div>
+									Added:{" "}
+									{balvidhya?.dateAdded
+										? formatDate(balvidhya.dateAdded)
+										: "N/A"}
+								</div>
+								{balvidhya?.updatedAt && (
+									<div>Updated: {formatDate(balvidhya.updatedAt)}</div>
+								)}
 							</div>
 						</div>
 					</CardContent>
 					<CardFooter className="p-4 pt-0">
-						<Button className="w-full text-sm h-8" variant={isEditing ? "outline" : "default"} onClick={() => setIsEditing(!isEditing)}>
+						<Button
+							className="w-full text-sm h-8"
+							variant={isEditing ? "outline" : "default"}
+							onClick={() => setIsEditing(!isEditing)}
+						>
 							{isEditing ? "Cancel" : "Edit Content"}
 						</Button>
 					</CardFooter>
@@ -362,7 +446,9 @@ export default function BalvidhyaDetailPage() {
 							<Card>
 								<CardHeader>
 									<CardTitle>Content Information</CardTitle>
-									<CardDescription>Update content details and metadata.</CardDescription>
+									<CardDescription>
+										Update content details and metadata.
+									</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-4">
 									{isEditing ? (
@@ -372,23 +458,40 @@ export default function BalvidhyaDetailPage() {
 												<Input
 													id="name"
 													value={editedBalvidhya?.name || ""}
-													onChange={(e) => setEditedBalvidhya({ ...editedBalvidhya, name: e.target.value })}
+													onChange={(e) =>
+														setEditedBalvidhya({
+															...editedBalvidhya,
+															name: e.target.value,
+														})
+													}
 													className={errors.name ? "border-red-500" : ""}
 												/>
-												{errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+												{errors.name && (
+													<p className="text-sm text-red-500">{errors.name}</p>
+												)}
 											</div>
 											<div className="space-y-2">
 												<Label htmlFor="description">Description *</Label>
 												<Textarea
 													id="description"
 													value={editedBalvidhya?.description || ""}
-													onChange={(e) => setEditedBalvidhya({ ...editedBalvidhya, description: e.target.value })}
+													onChange={(e) =>
+														setEditedBalvidhya({
+															...editedBalvidhya,
+															description: e.target.value,
+														})
+													}
 													rows={4}
 													className={errors.description ? "border-red-500" : ""}
 												/>
-												{errors.description && <p className="text-sm text-red-500">{errors.description}</p>}
+												{errors.description && (
+													<p className="text-sm text-red-500">
+														{errors.description}
+													</p>
+												)}
 												<p className="text-xs text-gray-500">
-													{(editedBalvidhya?.description || "").length}/500 characters
+													{(editedBalvidhya?.description || "").length}/500
+													characters
 												</p>
 											</div>
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -396,48 +499,91 @@ export default function BalvidhyaDetailPage() {
 													<Label htmlFor="type">Content Type *</Label>
 													<Select
 														value={editedBalvidhya?.type || ""}
-														onValueChange={(value) => setEditedBalvidhya({ ...editedBalvidhya, type: value })}
+														onValueChange={(value) =>
+															setEditedBalvidhya({
+																...editedBalvidhya,
+																type: value,
+															})
+														}
 													>
-														<SelectTrigger id="type" className={errors.type ? "border-red-500" : ""}>
+														<SelectTrigger
+															id="type"
+															className={errors.type ? "border-red-500" : ""}
+														>
 															<SelectValue placeholder="Select content type" />
 														</SelectTrigger>
 														<SelectContent>
 															{typeOptions.map((type) => (
-																<SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+																<SelectItem key={type.value} value={type.value}>
+																	{type.label}
+																</SelectItem>
 															))}
 														</SelectContent>
 													</Select>
-													{errors.type && <p className="text-sm text-red-500">{errors.type}</p>}
+													{errors.type && (
+														<p className="text-sm text-red-500">
+															{errors.type}
+														</p>
+													)}
 												</div>
 												<div className="space-y-2">
 													<Label htmlFor="category">Category *</Label>
 													<Select
 														value={editedBalvidhya?.category || ""}
-														onValueChange={(value) => setEditedBalvidhya({ ...editedBalvidhya, category: value })}
+														onValueChange={(value) =>
+															setEditedBalvidhya({
+																...editedBalvidhya,
+																category: value,
+															})
+														}
 													>
-														<SelectTrigger id="category" className={errors.category ? "border-red-500" : ""}>
+														<SelectTrigger
+															id="category"
+															className={
+																errors.category ? "border-red-500" : ""
+															}
+														>
 															<SelectValue placeholder="Select category" />
 														</SelectTrigger>
 														<SelectContent>
 															{categoryOptions.map((cat) => (
-																<SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+																<SelectItem key={cat.value} value={cat.value}>
+																	{cat.label}
+																</SelectItem>
 															))}
 														</SelectContent>
 													</Select>
-													{errors.category && <p className="text-sm text-red-500">{errors.category}</p>}
+													{errors.category && (
+														<p className="text-sm text-red-500">
+															{errors.category}
+														</p>
+													)}
 												</div>
 											</div>
 											<div className="space-y-2">
-												<Label htmlFor="thumbnailUrl">Thumbnail URL (Optional)</Label>
+												<Label htmlFor="thumbnailUrl">
+													Thumbnail URL (Optional)
+												</Label>
 												<Input
 													id="thumbnailUrl"
 													type="url"
 													value={editedBalvidhya?.thumbnailUrl || ""}
-													onChange={(e) => setEditedBalvidhya({ ...editedBalvidhya, thumbnailUrl: e.target.value })}
+													onChange={(e) =>
+														setEditedBalvidhya({
+															...editedBalvidhya,
+															thumbnailUrl: e.target.value,
+														})
+													}
 													placeholder="https://example.com/image.jpg"
-													className={errors.thumbnailUrl ? "border-red-500" : ""}
+													className={
+														errors.thumbnailUrl ? "border-red-500" : ""
+													}
 												/>
-												{errors.thumbnailUrl && <p className="text-sm text-red-500">{errors.thumbnailUrl}</p>}
+												{errors.thumbnailUrl && (
+													<p className="text-sm text-red-500">
+														{errors.thumbnailUrl}
+													</p>
+												)}
 												<p className="text-xs text-gray-500">
 													Provide a direct link to the content thumbnail image
 												</p>
@@ -447,27 +593,49 @@ export default function BalvidhyaDetailPage() {
 													<Label htmlFor="status">Status *</Label>
 													<Select
 														value={editedBalvidhya?.status || ""}
-														onValueChange={(value) => setEditedBalvidhya({ ...editedBalvidhya, status: value })}
+														onValueChange={(value) =>
+															setEditedBalvidhya({
+																...editedBalvidhya,
+																status: value,
+															})
+														}
 													>
-														<SelectTrigger id="status"><SelectValue placeholder="Select status" /></SelectTrigger>
+														<SelectTrigger id="status">
+															<SelectValue placeholder="Select status" />
+														</SelectTrigger>
 														<SelectContent>
 															{statusOptions.map((status) => (
-																<SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
+																<SelectItem
+																	key={status.value}
+																	value={status.value}
+																>
+																	{status.label}
+																</SelectItem>
 															))}
 														</SelectContent>
 													</Select>
 												</div>
 												<div className="space-y-2">
-													<Label className="text-sm font-medium">Content Settings</Label>
+													<Label className="text-sm font-medium">
+														Content Settings
+													</Label>
 													<div className="flex items-center space-x-2 py-2">
 														<input
 															type="checkbox"
 															id="trending"
 															checked={editedBalvidhya?.trending || false}
-															onChange={(e) => setEditedBalvidhya({ ...editedBalvidhya, trending: e.target.checked })}
+															onChange={(e) =>
+																setEditedBalvidhya({
+																	...editedBalvidhya,
+																	trending: e.target.checked,
+																})
+															}
 															className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
 														/>
-														<Label htmlFor="trending" className="text-sm font-medium text-gray-700">
+														<Label
+															htmlFor="trending"
+															className="text-sm font-medium text-gray-700"
+														>
 															Mark as Trending
 														</Label>
 													</div>
@@ -478,46 +646,91 @@ export default function BalvidhyaDetailPage() {
 										<div className="space-y-6">
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 												<div className="space-y-2">
-													<h3 className="text-sm font-medium text-muted-foreground">Content Name</h3>
-													<p className="font-medium text-foreground">{balvidhya?.name}</p>
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Content Name
+													</h3>
+													<p className="font-medium text-foreground">
+														{balvidhya?.name}
+													</p>
 												</div>
 												<div className="space-y-2">
-													<h3 className="text-sm font-medium text-muted-foreground">Type</h3>
-													<span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium`}>
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Type
+													</h3>
+													<span
+														className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium`}
+													>
 														{getTypeIcon(balvidhya?.type || "")}
 														{typeLabel(balvidhya?.type)}
 													</span>
 												</div>
 												<div className="space-y-2">
-													<h3 className="text-sm font-medium text-muted-foreground">Category</h3>
-													<span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium`}>
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Category
+													</h3>
+													<span
+														className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium`}
+													>
 														{categoryLabel(balvidhya?.category)}
 													</span>
 												</div>
 												<div className="space-y-2">
-													<h3 className="text-sm font-medium text-muted-foreground">Status</h3>
-													<span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(balvidhya?.status || "")}`}>
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Status
+													</h3>
+													<span
+														className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(
+															balvidhya?.status || ""
+														)}`}
+													>
 														{statusLabel(balvidhya?.status)}
 													</span>
 												</div>
 												<div className="space-y-2">
-													<h3 className="text-sm font-medium text-muted-foreground">Trending</h3>
-													<span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${balvidhya?.trending ? "bg-orange-100 text-orange-800" : "bg-gray-100 text-gray-800"}`}>
-														{balvidhya?.trending ? (<><TrendingUp className="h-3 w-3" />Trending</>) : "Normal"}
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Trending
+													</h3>
+													<span
+														className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+															balvidhya?.trending
+																? "bg-orange-100 text-orange-800"
+																: "bg-gray-100 text-gray-800"
+														}`}
+													>
+														{balvidhya?.trending ? (
+															<>
+																<TrendingUp className="h-3 w-3" />
+																Trending
+															</>
+														) : (
+															"Normal"
+														)}
 													</span>
 												</div>
 												<div className="space-y-2">
-													<h3 className="text-sm font-medium text-muted-foreground">Date Added</h3>
-													<p className="font-medium text-foreground">{balvidhya?.dateAdded ? formatDate(balvidhya.dateAdded) : "N/A"}</p>
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Date Added
+													</h3>
+													<p className="font-medium text-foreground">
+														{balvidhya?.dateAdded
+															? formatDate(balvidhya.dateAdded)
+															: "N/A"}
+													</p>
 												</div>
 											</div>
 											<div className="space-y-2 pt-2 border-t border-border">
-												<h3 className="text-sm font-medium text-muted-foreground">Description</h3>
-												<p className="font-medium text-foreground whitespace-pre-wrap">{balvidhya?.description || "No description provided"}</p>
+												<h3 className="text-sm font-medium text-muted-foreground">
+													Description
+												</h3>
+												<p className="font-medium text-foreground whitespace-pre-wrap">
+													{balvidhya?.description || "No description provided"}
+												</p>
 											</div>
 											{balvidhya?.thumbnailUrl && (
 												<div className="space-y-2 pt-2 border-t border-border">
-													<h3 className="text-sm font-medium text-muted-foreground">Thumbnail</h3>
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Thumbnail
+													</h3>
 													<div className="w-32 h-20 rounded-lg overflow-hidden border">
 														<Image
 															src={balvidhya.thumbnailUrl}
@@ -530,6 +743,51 @@ export default function BalvidhyaDetailPage() {
 													</div>
 												</div>
 											)}
+											{balvidhya?.videoUrl && (
+												<div className="space-y-2 pt-2 border-t border-border">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Video URL
+													</h3>
+													<a
+														href={balvidhya.videoUrl}
+														target="_blank"
+														rel="noopener noreferrer"
+														className="text-blue-600 underline break-all"
+													>
+														{balvidhya.videoUrl}
+													</a>
+												</div>
+											)}
+											{balvidhya?.bookFile && (
+												<div className="space-y-2 pt-2 border-t border-border">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Book File (PDF)
+													</h3>
+													<a
+														href={balvidhya.bookFile}
+														target="_blank"
+														rel="noopener noreferrer"
+														className="text-blue-600 underline break-all"
+													>
+														{balvidhya.bookFile}
+													</a>
+												</div>
+											)}
+											{balvidhya?.videoFile && (
+												<div className="space-y-2 pt-2 border-t border-border">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Video File (MP4)
+													</h3>
+													<a
+														href={balvidhya.videoFile}
+														target="_blank"
+														rel="noopener noreferrer"
+														className="text-blue-600 underline break-all"
+													>
+														{balvidhya.videoFile}
+													</a>
+												</div>
+											)}
 										</div>
 									)}
 								</CardContent>
@@ -538,9 +796,25 @@ export default function BalvidhyaDetailPage() {
 										<Button onClick={handleSaveChanges} disabled={isSaving}>
 											{isSaving ? (
 												<>
-													<svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-														<circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-														<path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+													<svg
+														className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+														xmlns="http://www.w3.org/2000/svg"
+														fill="none"
+														viewBox="0 0 24 24"
+													>
+														<circle
+															className="opacity-25"
+															cx="12"
+															cy="12"
+															r="10"
+															stroke="currentColor"
+															strokeWidth="4"
+														></circle>
+														<path
+															className="opacity-75"
+															fill="currentColor"
+															d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+														></path>
 													</svg>
 													Saving...
 												</>
@@ -559,11 +833,15 @@ export default function BalvidhyaDetailPage() {
 							<Card>
 								<CardHeader>
 									<CardTitle>Content Settings</CardTitle>
-									<CardDescription>Manage content visibility and notification settings.</CardDescription>
+									<CardDescription>
+										Manage content visibility and notification settings.
+									</CardDescription>
 								</CardHeader>
 								<CardContent>
 									<div className="space-y-4">
-										<p className="text-gray-500 text-sm">Settings section coming soon.</p>
+										<p className="text-gray-500 text-sm">
+											Settings section coming soon.
+										</p>
 									</div>
 								</CardContent>
 							</Card>
@@ -572,7 +850,9 @@ export default function BalvidhyaDetailPage() {
 							<Card>
 								<CardHeader>
 									<CardTitle>Activity Log</CardTitle>
-									<CardDescription>Recent content activities and updates.</CardDescription>
+									<CardDescription>
+										Recent content activities and updates.
+									</CardDescription>
 								</CardHeader>
 							</Card>
 						</TabsContent>
