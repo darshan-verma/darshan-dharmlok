@@ -98,3 +98,15 @@ enum BalVidhyaTrendingStatus {
     Seasonal
     Featured
 }
+// Pooja Category Model
+model PoojaCategory {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    name        String
+    description String?
+    date        DateTime?
+    price       Float?
+    status      String? @default("Active")
+    details     String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
