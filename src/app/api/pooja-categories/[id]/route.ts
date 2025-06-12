@@ -26,7 +26,7 @@ export async function GET(
 			details: pooja.details || "",
 			status: pooja.status || "Inactive",
 		});
-	} catch (e) {
+	} catch {
 		return Response.json(
 			{ message: "Failed to fetch Pooja Category" },
 			{ status: 500 }
@@ -95,7 +95,7 @@ export async function PUT(
 			details: updated.details || "",
 			status: updated.status || "Inactive",
 		});
-	} catch (e) {
+	} catch {
 		return Response.json(
 			{ message: "Failed to update Pooja Category" },
 			{ status: 500 }
@@ -112,7 +112,7 @@ export async function DELETE(
 		const { id } = params;
 		await prisma.poojaCategory.delete({ where: { id } });
 		return Response.json({ message: "Pooja Category deleted" });
-	} catch (e) {
+	} catch {
 		return Response.json(
 			{ message: "Failed to delete Pooja Category" },
 			{ status: 500 }

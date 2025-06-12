@@ -81,6 +81,7 @@ export default function KathavachakPage() {
 		};
 
 		fetchKathavachaks();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [pagination.currentPage]);
 
 	const handleAddKathavachak = () => {

@@ -81,7 +81,8 @@ export default function DharmguruPage() {
 		};
 
 		fetchDharmgurus();
-	}, [pagination.currentPage]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [pagination.currentPage,pagination.itemsPerPage]);
 
 	const handleAddDharmguru = () => {
 		setCurrentDharmguru(null);

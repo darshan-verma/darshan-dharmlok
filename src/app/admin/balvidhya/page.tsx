@@ -93,7 +93,9 @@ export default function BalvidhyaPage() {
 		};
 
 		fetchBalvidhyas();
-	}, [pagination.currentPage]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [pagination.currentPage, pagination.itemsPerPage]);
+	// ...existing code...
 
 	const handleAddBalvidhya = () => {
 		setCurrentBalvidhya(null);
@@ -166,11 +168,15 @@ export default function BalvidhyaPage() {
 			);
 			toast.dismiss(loadingToastId);
 			toast.success("Status updated successfully");
-		} catch (error: any) {
+		} catch (error: unknown) {
 			// Catch specific error
 			setBalvidhyas(originalBalvidhyas); // Revert on error
 			toast.dismiss(loadingToastId);
-			toast.error(error.message || "Failed to update status");
+			if (error instanceof Error) {
+				toast.error(error.message || "Failed to update status");
+			} else {
+				toast.error("Failed to update status");
+			}
 		}
 	};
 
@@ -206,11 +212,15 @@ export default function BalvidhyaPage() {
 			toast.success(
 				`Content ${currentStatus ? "removed from" : "marked as"} trending`
 			);
-		} catch (error: any) {
+		} catch (error: unknown) {
 			// Catch specific error
 			setBalvidhyas(originalBalvidhyas); // Revert on error
 			toast.dismiss(loadingToastId);
-			toast.error(error.message || "Failed to update trending status");
+			if (error instanceof Error) {
+				toast.error(error.message || "Failed to update trending status");
+			} else {
+				toast.error("Failed to update trending status");
+			}
 		}
 	};
 
@@ -366,8 +376,8 @@ export default function BalvidhyaPage() {
 					</DialogHeader>
 					<div className="py-4">
 						<p className="text-sm text-gray-600 mb-4">
-							Are you sure you want to delete "{balvidhyaToDelete?.name}"? This
-							action cannot be undone.
+							Are you sure you want to delete &quot;{balvidhyaToDelete?.name}
+							&quot;? This action cannot be undone.
 						</p>
 						<div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
 							<p className="text-xs text-yellow-800">

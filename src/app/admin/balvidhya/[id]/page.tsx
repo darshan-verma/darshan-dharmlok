@@ -84,14 +84,38 @@ const statusOptions = [
 export default function BalvidhyaDetailPage() {
 	const params = useParams();
 	const router = useRouter();
-	const balvidhyaId = params.id as string;
+	const balvidhyaId = params?.id as string;
 
-	const [balvidhya, setBalvidhya] = useState<any>(null);
+	type Balvidhya = {
+		_id: string;
+		name: string;
+		description: string;
+		type: string;
+		category: string;
+		status: string;
+		trending: boolean;
+		thumbnailUrl?: string;
+		videoUrl?: string;
+		bookFile?: string;
+		videoFile?: string;
+		dateAdded?: string;
+		updatedAt?: string;
+	};
+	const [balvidhya, setBalvidhya] = useState<Balvidhya | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
-	const [editedBalvidhya, setEditedBalvidhya] = useState<any>(null);
+	const [editedBalvidhya, setEditedBalvidhya] = useState<Balvidhya | null>(
+		null
+	);
 	const [imageError, setImageError] = useState(false);
-	const [errors, setErrors] = useState<any>({});
+	type Errors = {
+		name?: string;
+		description?: string;
+		type?: string;
+		category?: string;
+		thumbnailUrl?: string;
+	};
+	const [errors, setErrors] = useState<Errors>({});
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
 
 	const fetchBalvidhyaData = useCallback(async () => {
@@ -132,8 +156,8 @@ export default function BalvidhyaDetailPage() {
 		if (balvidhyaId) fetchBalvidhyaData();
 	}, [balvidhyaId, fetchBalvidhyaData]);
 
-	const validateForm = (balvidhyaData: any): boolean => {
-		const newErrors: any = {};
+	const validateForm = (balvidhyaData: Balvidhya): boolean => {
+		const newErrors: Errors = {};
 		if (!balvidhyaData.name?.trim())
 			newErrors.name = "Content name is required";
 		else if (balvidhyaData.name.length < 3)
@@ -226,7 +250,7 @@ export default function BalvidhyaDetailPage() {
 			});
 			if (!response.ok) throw new Error("Failed to upload image");
 			const { imageUrl } = await response.json();
-			setEditedBalvidhya((prev: any) =>
+			setEditedBalvidhya((prev) =>
 				prev ? { ...prev, thumbnailUrl: imageUrl } : null
 			);
 			setImageError(false);
@@ -243,23 +267,17 @@ export default function BalvidhyaDetailPage() {
 	};
 
 	const handleRemoveThumbnailUrl = () => {
-		setEditedBalvidhya((prev: any) =>
-			prev ? { ...prev, thumbnailUrl: "" } : null
-		);
+		setEditedBalvidhya((prev) => (prev ? { ...prev, thumbnailUrl: "" } : null));
 		setImageError(false);
 		toast.success("Thumbnail removed");
 	};
 
 	const handleRemoveVideoUrl = () => {
-		setEditedBalvidhya((prev: any) =>
-			prev ? { ...prev, videoUrl: "" } : null
-		);
+		setEditedBalvidhya((prev) => (prev ? { ...prev, videoUrl: "" } : null));
 	};
 
 	const handleRemoveVideoFile = () => {
-		setEditedBalvidhya((prev: any) =>
-			prev ? { ...prev, videoFile: "" } : null
-		);
+		setEditedBalvidhya((prev) => (prev ? { ...prev, videoFile: "" } : null));
 	};
 
 	const formatDate = (dateString: string | Date) => {
@@ -332,8 +350,8 @@ export default function BalvidhyaDetailPage() {
 										<Image
 											src={
 												isEditing
-													? editedBalvidhya?.thumbnailUrl!
-													: balvidhya?.thumbnailUrl!
+													? editedBalvidhya?.thumbnailUrl || "/placeholder.png"
+													: balvidhya?.thumbnailUrl || "/placeholder.png"
 											}
 											alt={
 												isEditing
@@ -429,7 +447,7 @@ export default function BalvidhyaDetailPage() {
 												: ""
 										} w-20`}
 									>
-										{categoryLabel(balvidhya?.category)}
+										{categoryLabel(balvidhya?.category || "")}
 									</span>
 								</div>
 							</div>
@@ -483,10 +501,9 @@ export default function BalvidhyaDetailPage() {
 													id="name"
 													value={editedBalvidhya?.name || ""}
 													onChange={(e) =>
-														setEditedBalvidhya({
-															...editedBalvidhya,
-															name: e.target.value,
-														})
+														setEditedBalvidhya((prev) =>
+															prev ? { ...prev, name: e.target.value } : prev
+														)
 													}
 													className={errors.name ? "border-red-500" : ""}
 												/>
@@ -500,10 +517,11 @@ export default function BalvidhyaDetailPage() {
 													id="description"
 													value={editedBalvidhya?.description || ""}
 													onChange={(e) =>
-														setEditedBalvidhya({
-															...editedBalvidhya,
-															description: e.target.value,
-														})
+														setEditedBalvidhya((prev) =>
+															prev
+																? { ...prev, description: e.target.value }
+																: prev
+														)
 													}
 													rows={4}
 													className={errors.description ? "border-red-500" : ""}
@@ -524,10 +542,9 @@ export default function BalvidhyaDetailPage() {
 													<Select
 														value={editedBalvidhya?.type || ""}
 														onValueChange={(value) =>
-															setEditedBalvidhya({
-																...editedBalvidhya,
-																type: value,
-															})
+															setEditedBalvidhya((prev) =>
+																prev ? { ...prev, type: value } : prev
+															)
 														}
 													>
 														<SelectTrigger
@@ -555,10 +572,9 @@ export default function BalvidhyaDetailPage() {
 													<Select
 														value={editedBalvidhya?.category || ""}
 														onValueChange={(value) =>
-															setEditedBalvidhya({
-																...editedBalvidhya,
-																category: value,
-															})
+															setEditedBalvidhya((prev) =>
+																prev ? { ...prev, category: value } : prev
+															)
 														}
 													>
 														<SelectTrigger
@@ -593,10 +609,11 @@ export default function BalvidhyaDetailPage() {
 													type="url"
 													value={editedBalvidhya?.thumbnailUrl || ""}
 													onChange={(e) =>
-														setEditedBalvidhya({
-															...editedBalvidhya,
-															thumbnailUrl: e.target.value,
-														})
+														setEditedBalvidhya((prev) =>
+															prev
+																? { ...prev, thumbnailUrl: e.target.value }
+																: prev
+														)
 													}
 													placeholder="https://example.com/image.jpg"
 													className={
@@ -618,10 +635,9 @@ export default function BalvidhyaDetailPage() {
 													<Select
 														value={editedBalvidhya?.status || ""}
 														onValueChange={(value) =>
-															setEditedBalvidhya({
-																...editedBalvidhya,
-																status: value,
-															})
+															setEditedBalvidhya((prev) =>
+																prev ? { ...prev, status: value } : prev
+															)
 														}
 													>
 														<SelectTrigger id="status">
@@ -649,10 +665,11 @@ export default function BalvidhyaDetailPage() {
 															id="trending"
 															checked={editedBalvidhya?.trending || false}
 															onChange={(e) =>
-																setEditedBalvidhya({
-																	...editedBalvidhya,
-																	trending: e.target.checked,
-																})
+																setEditedBalvidhya((prev) =>
+																	prev
+																		? { ...prev, trending: e.target.checked }
+																		: prev
+																)
 															}
 															className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
 														/>
@@ -685,10 +702,11 @@ export default function BalvidhyaDetailPage() {
 													type="url"
 													value={editedBalvidhya?.videoUrl || ""}
 													onChange={(e) =>
-														setEditedBalvidhya({
-															...editedBalvidhya,
-															videoUrl: e.target.value,
-														})
+														setEditedBalvidhya((prev) =>
+															prev
+																? { ...prev, videoUrl: e.target.value }
+																: prev
+														)
 													}
 													placeholder="https://example.com/video"
 												/>
@@ -720,10 +738,9 @@ export default function BalvidhyaDetailPage() {
 															);
 															if (resp.ok) {
 																const { fileUrl } = await resp.json();
-																setEditedBalvidhya((prev: any) => ({
-																	...prev,
-																	bookFile: fileUrl,
-																}));
+																setEditedBalvidhya((prev: Balvidhya | null) =>
+																	prev ? { ...prev, bookFile: fileUrl } : prev
+																);
 															}
 														}}
 													/>
@@ -759,11 +776,15 @@ export default function BalvidhyaDetailPage() {
 															);
 															if (resp.ok) {
 																const { fileUrl } = await resp.json();
-																setEditedBalvidhya((prev: any) => ({
-																	...prev,
-																	videoFile: fileUrl,
-																	videoUrl: "", // Clear videoUrl when uploading a new video file
-																}));
+																setEditedBalvidhya((prev: Balvidhya | null) =>
+																	prev
+																		? {
+																				...prev,
+																				videoFile: fileUrl,
+																				videoUrl: "",
+																		  }
+																		: prev
+																);
 															}
 														}}
 													/>
@@ -809,7 +830,7 @@ export default function BalvidhyaDetailPage() {
 														className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium`}
 													>
 														{getTypeIcon(balvidhya?.type || "")}
-														{typeLabel(balvidhya?.type)}
+														{typeLabel(balvidhya?.type || "")}
 													</span>
 												</div>
 												<div className="space-y-2">
@@ -819,7 +840,7 @@ export default function BalvidhyaDetailPage() {
 													<span
 														className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium`}
 													>
-														{categoryLabel(balvidhya?.category)}
+														{categoryLabel(balvidhya?.category || "")}
 													</span>
 												</div>
 												<div className="space-y-2">
@@ -831,7 +852,7 @@ export default function BalvidhyaDetailPage() {
 															balvidhya?.status || ""
 														)}`}
 													>
-														{statusLabel(balvidhya?.status)}
+														{statusLabel(balvidhya?.status || "")}
 													</span>
 												</div>
 												<div className="space-y-2">

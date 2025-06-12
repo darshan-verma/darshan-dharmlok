@@ -46,7 +46,16 @@ export default function PoojaCategoryPage() {
 				const data = await response.json();
 
 				// Map API response to PoojaCategory structure
-				const mapped = data.categories.map((item: any) => ({
+				type ApiPoojaCategory = {
+					id: string;
+					name?: string;
+					description?: string;
+					date?: string;
+					price?: number;
+					details?: string;
+					status?: string;
+				};
+				const mapped = data.categories.map((item: ApiPoojaCategory) => ({
 					id: item.id,
 					name: item.name || "",
 					description: item.description || "",
@@ -64,6 +73,7 @@ export default function PoojaCategoryPage() {
 			}
 		};
 		fetchCategories();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [pagination.currentPage]);
 
 	const handleAddPoojaCategory = () => {
@@ -135,7 +145,7 @@ export default function PoojaCategoryPage() {
 			const { categories } = await fetchResponse.json();
 
 			setPoojaCategories(
-				categories.map((item: any) => ({
+				categories.map((item: PoojaCategory) => ({
 					id: item.id,
 					name: item.name || "",
 					description: item.description || "",

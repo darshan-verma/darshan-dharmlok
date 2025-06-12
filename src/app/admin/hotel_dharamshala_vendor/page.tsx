@@ -81,6 +81,7 @@ export default function HotelDharamshalaPage() {
 		};
 
 		fetchHotelDharamshalas();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [pagination.currentPage]);
 
 	const handleAddHotelDharamshala = () => {

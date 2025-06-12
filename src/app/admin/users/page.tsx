@@ -45,6 +45,7 @@ export default function UsersPage() {
 		};
 
 		fetchUsers();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [pagination.currentPage]);
 
 	return (

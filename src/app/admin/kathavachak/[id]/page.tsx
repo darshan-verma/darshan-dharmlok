@@ -115,7 +115,7 @@ interface FormErrors {
 export default function KathavachakDetailPage() {
 	const params = useParams();
 	const router = useRouter();
-	const KathavachakId = params.id as string;
+	const KathavachakId = (params?.id ?? "") as string;
 
 	// State management for the component
 	const [kathavachak, setKathavachak] = useState<Kathavachak | null>(null); // Original kathavachak data from server
@@ -503,8 +503,9 @@ export default function KathavachakDetailPage() {
 									<Image
 										src={
 											isEditing
-												? editedKathavachak?.profileImageUrl!
-												: kathavachak?.profileImageUrl!
+												? editedKathavachak?.profileImageUrl ||
+												"/placeholder.png"
+												: kathavachak?.profileImageUrl || "/placeholder.png"
 										}
 										alt={
 											isEditing

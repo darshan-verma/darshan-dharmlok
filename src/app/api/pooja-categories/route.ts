@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 			price: typeof created.price === "number" ? created.price : undefined,
 			details: created.details || "",
 		});
-	} catch (e) {
+	} catch {
 		return Response.json(
 			{ message: "Failed to create Pooja Category" },
 			{ status: 500 }

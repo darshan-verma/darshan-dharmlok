@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import {
 	ArrowLeft,
 	Save,
-	User,
 	Phone,
 	Mail,
 	MapPin,
@@ -14,7 +13,8 @@ import {
 	ChevronDown,
 	BookOpen,
 	Award,
-	Upload, // Add Upload icon
+	Upload,
+	UserIcon, // Add Upload icon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -478,15 +478,15 @@ export default function DharmguruDetailPage() {
 					<CardHeader className="text-center p-4 pb-2">
 						{/* Profile image with upload functionality */}
 						<div className="relative w-20 h-20 mx-auto mb-3">
-							<div className="w-full h-full rounded-full bg-muted flex items-center justify-center overflow-hidden">
+							<div className="w-full h-full rounded-lg bg-muted flex items-center justify-center overflow-hidden">
 								{(isEditing
 									? editedDharmguru?.profileImageUrl
 									: dharmguru?.profileImageUrl) && !imageError ? (
 									<Image
 										src={
 											isEditing
-												? editedDharmguru?.profileImageUrl!
-												: dharmguru?.profileImageUrl!
+												? editedDharmguru?.profileImageUrl || "/placeholder.png"
+												: dharmguru?.profileImageUrl || "/placeholder.png"
 										}
 										alt={
 											isEditing
@@ -495,12 +495,12 @@ export default function DharmguruDetailPage() {
 										}
 										width={80}
 										height={80}
-										className="w-full h-full rounded-full object-cover"
+										className="w-full h-full rounded-lg object-cover"
 										onError={() => setImageError(true)}
 										unoptimized={true}
 									/>
 								) : (
-									<User className="h-10 w-10 text-muted-foreground" />
+									<UserIcon className="h-10 w-10 text-muted-foreground" />
 								)}
 							</div>
 

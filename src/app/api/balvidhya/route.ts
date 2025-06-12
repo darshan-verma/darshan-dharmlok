@@ -132,26 +132,42 @@ export async function POST(req: NextRequest) {
 		});
 
 		return NextResponse.json(mapBalVidhyaForFrontend(newItem), { status: 201 });
-	} catch (error: any) {
+	} catch (error: unknown) {
 		console.error("Error creating BalVidhya item:", error);
-		if (error.code === "P2002") {
+
+		if (
+			typeof error === "object" &&
+			error !== null &&
+			"code" in error &&
+			(error as { code?: string }).code === "P2002"
+		) {
 			// Prisma unique constraint violation
 			return NextResponse.json(
 				{ error: "A record with this identifier already exists." },
 				{ status: 409 }
 			);
 		}
-		if (error.name === "PrismaClientValidationError") {
+		if (
+			typeof error === "object" &&
+			error !== null &&
+			"name" in error &&
+			(error as { name?: string }).name === "PrismaClientValidationError"
+		) {
 			return NextResponse.json(
 				{
 					error: "Invalid data provided. Please check field values.",
-					details: error.message,
+					details: (error as { message?: string }).message,
 				},
 				{ status: 400 }
 			);
 		}
 		return NextResponse.json(
-			{ error: "Error creating item", details: error.message },
+			{
+				error: "Error creating item",
+				details: typeof error === "object" && error !== null && "message" in error
+					? (error as { message?: string }).message
+					: String(error),
+			},
 			{ status: 500 }
 		);
 	}

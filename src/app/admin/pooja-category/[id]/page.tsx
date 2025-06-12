@@ -69,7 +69,7 @@ interface Offering {
 		id: string;
 		name: string;
 	};
-	metadata?: Record<string, any>;
+	metadata?: Record<string, unknown>;
 }
 
 interface PanditjiUser {
@@ -179,7 +179,7 @@ export default function PoojaCategoryDetailsPage() {
 				? {
 						price: Number(formPrice),
 						details: formDetails,
-				}
+				  }
 				: {
 						providerId: selectedPanditjiId,
 						serviceType: "pooja",
@@ -187,7 +187,7 @@ export default function PoojaCategoryDetailsPage() {
 						targetId: poojaCategoryId,
 						price: Number(formPrice),
 						details: formDetails,
-				};
+				  };
 			const res = await fetch(url, {
 				method,
 				headers: { "Content-Type": "application/json" },
@@ -206,8 +206,9 @@ export default function PoojaCategoryDetailsPage() {
 			setFormPrice("");
 			setFormDetails("");
 			setEditingOfferingId(null);
-		} catch (err: any) {
-			toast.error(err?.message || "Failed to save offering");
+		} catch (err) {
+			const error = err as Error;
+			toast.error(error?.message || "Failed to save offering");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -352,12 +353,14 @@ export default function PoojaCategoryDetailsPage() {
 										>
 											<span className="flex-grow text-left truncate">
 												{selectedPanditjiId
-													? allPanditjis.find((p) => p.id === selectedPanditjiId)?.name
+													? allPanditjis.find(
+															(p) => p.id === selectedPanditjiId
+													  )?.name
 													: "Click to select Panditji"}
 											</span>
 											{selectedPanditjiId ? (
-												<X 
-													className="h-4 w-4 ml-2 text-gray-500 hover:text-gray-700 cursor-pointer" 
+												<X
+													className="h-4 w-4 ml-2 text-gray-500 hover:text-gray-700 cursor-pointer"
 													onClick={(e) => {
 														e.preventDefault();
 														e.stopPropagation();

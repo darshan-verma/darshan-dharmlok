@@ -141,14 +141,19 @@ export async function PUT(
 		});
 
 		return NextResponse.json(mapBalVidhyaForFrontend(updatedItem));
-	} catch (error: any) {
+	} catch (error) {
 		console.error("Error updating BalVidhya item:", error);
+		// @ts-expect-error: error may not be typed
 		if (error.name === "PrismaClientValidationError") {
 			return NextResponse.json(
-				{ error: "Invalid data provided for update.", details: error.message },
+				{
+					error: "Invalid data provided for update.",
+					details: (error as Error).message,
+				},
 				{ status: 400 }
 			);
 		}
+		// @ts-expect-error: error may not be typed
 		if (error.code === "P2025") {
 			// Record to update not found
 			return NextResponse.json(
@@ -157,7 +162,7 @@ export async function PUT(
 			);
 		}
 		return NextResponse.json(
-			{ error: "Failed to update item.", details: error.message },
+			{ error: "Failed to update item.", details: (error as Error).message },
 			{ status: 500 }
 		);
 	}
@@ -189,8 +194,9 @@ export async function DELETE(
 			success: true,
 			message: "Content deleted successfully",
 		});
-	} catch (error: any) {
+	} catch (error) {
 		console.error("Error deleting BalVidhya item:", error);
+		// @ts-expect-error: error may not be typed
 		if (error.code === "P2025") {
 			// Record to delete not found
 			return NextResponse.json(
@@ -199,7 +205,7 @@ export async function DELETE(
 			);
 		}
 		return NextResponse.json(
-			{ error: "Failed to delete item.", details: error.message },
+			{ error: "Failed to delete item.", details: (error as Error).message },
 			{ status: 500 }
 		);
 	}

@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 		);
 	}
 
-	const where: any = { targetType, targetId };
+	const where: Record<string, unknown> = { targetType, targetId };
 	if (providerId) where.providerId = providerId;
 
 	const offerings = await prisma.serviceOffering.findMany({

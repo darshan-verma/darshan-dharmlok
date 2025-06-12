@@ -50,9 +50,18 @@ export interface BalvidhyaSubmitData {
 	videoFile?: string | null;
 }
 
+// Use a more specific type for initialData
+type BalvidhyaFormInitialData = Partial<BalvidhyaSubmitData> & {
+	id?: string;
+	dateAdded?: string | Date;
+	createdAt?: string | Date;
+	updatedAt?: string | Date;
+	trendingStatus?: string;
+};
+
 interface BalvidhyaFormProps {
-	initialData?: Partial<any>; // Accepts the mapped API object (can include dateAdded, id etc. for initialization)
-	onSubmit: (balvidhyaData: BalvidhyaSubmitData) => Promise<void>; // onSubmit expects clean data
+	initialData?: BalvidhyaFormInitialData; // Specify a better type than any
+	onSubmit: (balvidhyaData: BalvidhyaSubmitData) => Promise<void>;
 	onCancel: () => void;
 	isLoading?: boolean;
 }
@@ -114,14 +123,12 @@ export default function BalvidhyaForm({
 				bookFile: initialData.bookFile || "",
 				videoFile: initialData.videoFile || "",
 			};
-			// Only update if any value is different
 			const keys = Object.keys(next) as (keyof typeof next)[];
 			for (const key of keys) {
 				if (prev[key] !== next[key]) return next;
 			}
 			return prev;
 		});
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [
 		initialData.name,
 		initialData.description,
@@ -204,7 +211,7 @@ export default function BalvidhyaForm({
 				[field]: fileUrl,
 			}));
 			setFormErrors((prev) => ({ ...prev, [field]: "" }));
-		} catch (error) {
+		} catch{
 			setFormErrors((prev) => ({
 				...prev,
 				[field]: "Failed to upload file",
@@ -232,8 +239,7 @@ export default function BalvidhyaForm({
 				videoFile: balvidhyaData.videoFile || null,
 			};
 			await onSubmit(dataToSubmit);
-		} catch (error) {
-			console.error("Error in form submission:", error);
+		} catch {
 			// Optionally, set a general form error here if the submission fails at a higher level
 			setFormErrors((prev) => ({
 				...prev,

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 		// You should implement actual file saving logic here.
 
 		return NextResponse.json({ fileUrl });
-	} catch (error) {
+	} catch{
 		return NextResponse.json(
 			{ error: "Failed to upload file" },
 			{ status: 500 }

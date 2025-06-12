@@ -42,6 +42,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import Image from "next/image";
 
 // These enums match your schema
 const balvidhyaTypes = [
@@ -285,11 +286,14 @@ export default function BalvidhyaTable({
 								<TableRow key={balvidhya.id}>
 									<TableCell>
 										{balvidhya.thumbnailUrl ? (
-											<img
+											<Image
 												src={balvidhya.thumbnailUrl}
 												alt={balvidhya.name}
+												width={64}
+												height={40}
 												className="w-16 h-10 object-cover rounded"
 												style={{ maxWidth: 64, maxHeight: 40 }}
+												unoptimized={true}
 											/>
 										) : (
 											<div className="w-16 h-10 bg-gray-200 flex items-center justify-center text-xs text-gray-400 rounded">

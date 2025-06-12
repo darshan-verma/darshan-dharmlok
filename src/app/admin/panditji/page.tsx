@@ -126,6 +126,7 @@ export default function PanditjiPage() {
 		};
 
 		fetchPanditjis();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [pagination.currentPage]);
 
 	const handleAddPanditji = () => {

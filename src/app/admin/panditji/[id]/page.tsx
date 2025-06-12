@@ -114,7 +114,7 @@ interface FormErrors {
 export default function PanditjiDetailPage() {
 	const params = useParams();
 	const router = useRouter();
-	const PanditjiId = params.id as string;
+	const PanditjiId = (params?.id ?? "") as string;
 
 	const [panditji, setPanditji] = useState<Panditji | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
@@ -484,8 +484,8 @@ export default function PanditjiDetailPage() {
 									<Image
 										src={
 											isEditing
-												? editedPanditji?.profileImageUrl!
-												: panditji?.profileImageUrl!
+												? editedPanditji?.profileImageUrl || "/placeholder.png"
+												: panditji?.profileImageUrl || "/placeholder.png"
 										}
 										alt={
 											isEditing

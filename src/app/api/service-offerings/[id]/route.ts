@@ -21,7 +21,7 @@ export async function PUT(
 		});
 
 		return Response.json(updated);
-	} catch (e) {
+	} catch {
 		return Response.json(
 			{ message: "Failed to update service offering" },
 			{ status: 500 }
@@ -38,7 +38,7 @@ export async function DELETE(
 		const { id } = params;
 		await prisma.serviceOffering.delete({ where: { id } });
 		return Response.json({ message: "Service offering deleted" });
-	} catch (e) {
+	} catch {
 		return Response.json(
 			{ message: "Failed to delete service offering" },
 			{ status: 500 }

@@ -106,7 +106,7 @@ interface FormErrors {
 export default function HotelDharamshalaDetailPage() {
 	const params = useParams();
 	const router = useRouter();
-	const HotelDharamshalaId = params.id as string;
+	const HotelDharamshalaId = (params?.id ?? "") as string;
 
 	const [HotelDharamshala, setHotelDharamshala] =
 		useState<HotelDharamshala | null>(null);
@@ -484,8 +484,10 @@ export default function HotelDharamshalaDetailPage() {
 									<Image
 										src={
 											isEditing
-												? editedHotelDharamshala?.profileImageUrl!
-												: HotelDharamshala?.profileImageUrl!
+												? editedHotelDharamshala?.profileImageUrl ||
+												"/placeholder.png"
+												: HotelDharamshala?.profileImageUrl ||
+												"/placeholder.png"
 										}
 										alt={
 											isEditing
@@ -1464,7 +1466,7 @@ export default function HotelDharamshalaDetailPage() {
 														</p>
 													</div>
 													<div>
-														<h3 className="text-sm text-muted-foreground">
+														<h3 className="text-sm font-medium text-muted-foreground">
 															Preferred Language
 														</h3>
 														<p className="font-medium">

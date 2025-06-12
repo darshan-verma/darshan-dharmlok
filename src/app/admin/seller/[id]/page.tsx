@@ -106,7 +106,7 @@ interface FormErrors {
 export default function SellerDetailPage() {
 	const params = useParams();
 	const router = useRouter();
-	const sellerId = params.id as string;
+	const sellerId = (params?.id ?? "") as string;
 
 	const [seller, setSeller] = useState<seller | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
@@ -476,8 +476,8 @@ export default function SellerDetailPage() {
 									<Image
 										src={
 											isEditing
-												? editedSeller?.profileImageUrl!
-												: seller?.profileImageUrl!
+												? editedSeller?.profileImageUrl || "/placeholder.png"
+												: seller?.profileImageUrl || "/placeholder.png"
 										}
 										alt={
 											isEditing

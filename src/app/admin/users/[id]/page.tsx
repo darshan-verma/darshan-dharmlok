@@ -109,7 +109,7 @@ interface FormErrors {
 export default function UserDetailPage() {
 	const params = useParams();
 	const router = useRouter();
-	const userId = params.id as string;
+	const userId = params?.id as string;
 
 	const [user, setUser] = useState<User | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
@@ -510,8 +510,8 @@ export default function UserDetailPage() {
 									<Image
 										src={
 											isEditing
-												? editedUser?.profileImageUrl!
-												: user?.profileImageUrl!
+												? editedUser?.profileImageUrl || "/placeholder.png"
+												: user?.profileImageUrl || "/placeholder.png"
 										}
 										alt={
 											isEditing
