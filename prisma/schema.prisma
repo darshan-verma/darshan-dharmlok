@@ -34,6 +34,7 @@ model User {
     lastLoginAt DateTime?
     createdAt DateTime @default(now())
     addresses Address[]
+    serviceOfferings ServiceOffering[] @relation("UserToServiceOffering")
 }
 // Address Model
 model Address {
@@ -110,3 +111,20 @@ model PoojaCategory {
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
 }
+// Service Offering Model
+model ServiceOffering {
+    id           String   @id @default(auto()) @map("_id") @db.ObjectId
+    provider     User     @relation("UserToServiceOffering", fields: [providerId], references: [id])
+    providerId   String   @db.ObjectId
+
+    serviceType  String   // e.g. "pooja", "consultation", "event", etc.
+    targetType   String   // e.g. "PoojaCategory", "Event", etc.
+    targetId     String   // e.g. poojaCategoryId, eventId, etc.
+
+    price        Float
+    details      String?
+    metadata     Json?
+
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+} 

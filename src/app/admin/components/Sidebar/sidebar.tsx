@@ -260,10 +260,10 @@ export function AdminSidebar({ className }: { className?: string }) {
 
 					<SidebarMenuItem>
 						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
-							isActive={pathname === "/admin/pooja_category"}
+							isActive={pathname === "/admin/pooja-category"}
 						>
 							<HandHeart className="h-5 w-5 text-green-500" />
-							<Link href="/admin/pooja_category" className="flex items-center gap-2">
+							<Link href="/admin/pooja-category" className="flex items-center gap-2">
 							<span>Pooja Category</span>
 							</Link>
 						</SidebarMenuButton>
