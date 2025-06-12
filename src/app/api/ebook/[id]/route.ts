@@ -10,6 +10,7 @@ export interface Ebook {
 	category: string;
 	detail?: string;
 	status: string;
+	bookFile?: string;
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -45,6 +46,7 @@ export async function GET(
 			category: ebook.category,
 			detail: ebook.detail ?? "",
 			status: ebook.status ?? "Active",
+			bookFile: ebook.bookFile ?? "",
 			createdAt: ebook.createdAt?.toISOString?.() ?? "",
 			updatedAt: ebook.updatedAt?.toISOString?.() ?? "",
 		};
@@ -69,7 +71,45 @@ export async function PUT(
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
 		const body = await req.json();
-		const { title, date, description, type, category, detail, status } = body;
+
+		// Allow partial update for status only
+		if (body.status && Object.keys(body).length === 1) {
+			const ebook = await prisma.eBook.update({
+				where: { id },
+				data: {
+					status: body.status,
+				},
+			});
+			const result: Ebook = {
+				id: ebook.id,
+				title: ebook.title,
+				date:
+					ebook.date instanceof Date
+						? ebook.date.toISOString().slice(0, 10)
+						: ebook.date,
+				description: ebook.description,
+				type: ebook.type,
+				category: ebook.category,
+				detail: ebook.detail ?? "",
+				status: ebook.status ?? "Active",
+				bookFile: ebook.bookFile ?? "",
+				createdAt: ebook.createdAt?.toISOString?.() ?? "",
+				updatedAt: ebook.updatedAt?.toISOString?.() ?? "",
+			};
+			return NextResponse.json(result);
+		}
+
+		// ...existing full update code...
+		const {
+			title,
+			date,
+			description,
+			type,
+			category,
+			detail,
+			status,
+			bookFile,
+		} = body;
 
 		const ebook = await prisma.eBook.update({
 			where: { id },
@@ -81,6 +121,7 @@ export async function PUT(
 				category,
 				detail: detail ?? "",
 				status,
+				bookFile: bookFile ?? "",
 			},
 		});
 
@@ -96,6 +137,7 @@ export async function PUT(
 			category: ebook.category,
 			detail: ebook.detail ?? "",
 			status: ebook.status ?? "Active",
+			bookFile: ebook.bookFile ?? "",
 			createdAt: ebook.createdAt?.toISOString?.() ?? "",
 			updatedAt: ebook.updatedAt?.toISOString?.() ?? "",
 		};

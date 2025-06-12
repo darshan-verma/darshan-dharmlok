@@ -139,6 +139,7 @@ model EBook {
     category    String   // e.g. "spiritual", "mythology", etc.
     detail      String?  // for full content, summary, or download URL
     status       String? @default("Active")
+    bookFile      String?
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
 }

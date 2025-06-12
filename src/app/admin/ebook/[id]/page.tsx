@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Save, BookOpen, Trash2, Eye } from "lucide-react";
+import { ArrowLeft, Save, BookOpen, Trash2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,6 +81,9 @@ export default function EbookDetailsPage() {
 	const [errors, setErrors] = useState<Errors>({});
 	const [isUploadingBook, setIsUploadingBook] = useState(false);
 	const [showPdf, setShowPdf] = useState(false);
+	const [uploadedPdfUrl, setUploadedPdfUrl] = useState<string | undefined>(
+		undefined
+	);
 	const pdfIframeRef = useRef<HTMLIFrameElement>(null);
 
 	const fetchEbookData = useCallback(async () => {
@@ -102,6 +105,7 @@ export default function EbookDetailsPage() {
 				const ebookData = await response.json();
 				setEbook(ebookData);
 				setEditedEbook({ ...ebookData });
+				setUploadedPdfUrl(undefined); // Reset uploadedPdfUrl on fetch
 				toast.dismiss(loadingToast);
 			} catch (error) {
 				clearTimeout(timeoutId);
@@ -158,6 +162,7 @@ export default function EbookDetailsPage() {
 			const updatedEbook = await response.json();
 			setEbook(updatedEbook);
 			setEditedEbook(updatedEbook);
+			setUploadedPdfUrl(undefined);
 			setIsEditing(false);
 			toast.dismiss(loadingToast);
 			toast.success("Ebook updated successfully!");
@@ -198,6 +203,7 @@ export default function EbookDetailsPage() {
 			if (!response.ok) throw new Error("Failed to upload PDF");
 			const { fileUrl } = await response.json();
 			setEditedEbook((prev) => (prev ? { ...prev, bookFile: fileUrl } : null));
+			setUploadedPdfUrl(fileUrl);
 			toast.dismiss(loadingToast);
 			toast.success("PDF uploaded successfully!");
 		} catch (error) {
@@ -212,6 +218,7 @@ export default function EbookDetailsPage() {
 
 	const handleRemoveBookFile = () => {
 		setEditedEbook((prev) => (prev ? { ...prev, bookFile: "" } : null));
+		setUploadedPdfUrl(undefined);
 		toast.success("PDF removed");
 	};
 
@@ -230,6 +237,15 @@ export default function EbookDetailsPage() {
 		if (status === "Active") return "bg-green-100 text-green-800";
 		return "bg-red-100 text-red-800";
 	};
+
+	// When entering edit mode, always use the latest ebook.bookFile as the initial value
+	useEffect(() => {
+		if (isEditing && ebook) {
+			setEditedEbook({ ...ebook });
+			setUploadedPdfUrl(undefined);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isEditing]);
 
 	return (
 		<div className="p-6 space-y-6">
@@ -275,24 +291,111 @@ export default function EbookDetailsPage() {
 							<span className="font-medium">Date:</span>
 							<span>{ebook?.date ? formatDate(ebook.date) : "N/A"}</span>
 						</div>
-						{ebook?.bookFile && (
+						{(isEditing
+							? editedEbook?.bookFile || uploadedPdfUrl
+							: ebook?.bookFile) && (
 							<div className="flex items-center gap-2 text-sm">
 								<Button
 									variant="outline"
 									size="sm"
 									onClick={() => setShowPdf((v) => !v)}
 								>
-									<Eye className="h-4 w-4 mr-1" />
-									{showPdf ? "Hide PDF" : "View PDF"}
+									{showPdf ? (
+										<>
+											<EyeOff className="h-4 w-4 mr-1" />
+											Hide PDF
+										</>
+									) : (
+										<>
+											<Eye className="h-4 w-4 mr-1" />
+											View PDF
+										</>
+									)}
 								</Button>
 								<a
-									href={ebook.bookFile}
+									href={
+										isEditing
+											? editedEbook?.bookFile || uploadedPdfUrl
+											: ebook?.bookFile
+									}
 									target="_blank"
 									rel="noopener noreferrer"
 									className="text-blue-600 underline text-xs break-all"
 								>
 									Download PDF
 								</a>
+								{isEditing && (editedEbook?.bookFile || uploadedPdfUrl) && (
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon"
+										onClick={handleRemoveBookFile}
+										title="Remove PDF"
+										tabIndex={-1}
+									>
+										<Trash2 className="h-4 w-4 text-red-500" />
+									</Button>
+								)}
+							</div>
+						)}
+						{isEditing && (
+							<div className="space-y-2">
+								<Label htmlFor="bookFile">Book PDF *</Label>
+								<div className="relative">
+									<Input
+										id="bookFile"
+										type="file"
+										accept="application/pdf"
+										onChange={handleBookUpload}
+										disabled={isUploadingBook}
+									/>
+									{(editedEbook?.bookFile || uploadedPdfUrl) && (
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon"
+											onClick={handleRemoveBookFile}
+											title="Remove PDF"
+											tabIndex={-1}
+											className="absolute top-1/2 right-2 -translate-y-1/2"
+										>
+											<Trash2 className="h-4 w-4 text-red-500" />
+										</Button>
+									)}
+								</div>
+								{(editedEbook?.bookFile || uploadedPdfUrl) && (
+									<div className="flex items-center gap-2 mt-1">
+										<a
+											href={editedEbook?.bookFile || uploadedPdfUrl}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="text-xs text-blue-700 underline break-all"
+										>
+											{(editedEbook?.bookFile || uploadedPdfUrl)
+												?.split("/")
+												.pop()}
+										</a>
+									</div>
+								)}
+								<p className="text-xs text-gray-500">
+									Upload a PDF file for the ebook (max 20MB)
+								</p>
+							</div>
+						)}
+						{showPdf && (
+							<div className="mt-4">
+								<iframe
+									ref={pdfIframeRef}
+									src={
+										isEditing
+											? editedEbook?.bookFile || uploadedPdfUrl
+											: ebook?.bookFile
+									}
+									title="Ebook PDF"
+									width="100%"
+									height="600px"
+									className="border rounded"
+								/>
 							</div>
 						)}
 					</CardContent>
@@ -495,7 +598,7 @@ export default function EbookDetailsPage() {
 														onChange={handleBookUpload}
 														disabled={isUploadingBook}
 													/>
-													{editedEbook?.bookFile && (
+													{(editedEbook?.bookFile || uploadedPdfUrl) && (
 														<Button
 															type="button"
 															variant="ghost"
@@ -509,15 +612,17 @@ export default function EbookDetailsPage() {
 														</Button>
 													)}
 												</div>
-												{editedEbook?.bookFile && (
+												{(editedEbook?.bookFile || uploadedPdfUrl) && (
 													<div className="flex items-center gap-2 mt-1">
 														<a
-															href={editedEbook.bookFile}
+															href={editedEbook?.bookFile || uploadedPdfUrl}
 															target="_blank"
 															rel="noopener noreferrer"
 															className="text-xs text-blue-700 underline break-all"
 														>
-															{editedEbook.bookFile.split("/").pop()}
+															{(editedEbook?.bookFile || uploadedPdfUrl)
+																?.split("/")
+																.pop()}
 														</a>
 													</div>
 												)}
@@ -660,10 +765,18 @@ export default function EbookDetailsPage() {
 									</CardDescription>
 								</CardHeader>
 								<CardContent>
-									{ebook?.bookFile ? (
+									{(
+										isEditing
+											? editedEbook?.bookFile || uploadedPdfUrl
+											: ebook?.bookFile
+									) ? (
 										<iframe
 											ref={pdfIframeRef}
-											src={ebook.bookFile}
+											src={
+												isEditing
+													? editedEbook?.bookFile || uploadedPdfUrl
+													: ebook?.bookFile
+											}
 											title="Ebook PDF"
 											width="100%"
 											height="600px"
