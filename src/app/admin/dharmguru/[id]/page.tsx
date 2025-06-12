@@ -114,7 +114,7 @@ interface FormErrors {
 export default function DharmguruDetailPage() {
 	const params = useParams();
 	const router = useRouter();
-	const dharmguruId = params.id as string;
+	const dharmguruId = params?.id as string;
 
 	const [dharmguru, setDharmguru] = useState<Dharmguru | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
