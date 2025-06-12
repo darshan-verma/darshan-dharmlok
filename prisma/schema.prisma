@@ -129,3 +129,16 @@ model ServiceOffering {
     updatedAt    DateTime @updatedAt
     status       String? @default("Active")
 } 
+// EBook Model
+model EBook {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    title       String
+    date        DateTime @default(now())
+    description String
+    type        String   // e.g. "pdf", "epub", or your own categories
+    category    String   // e.g. "spiritual", "mythology", etc.
+    detail      String?  // for full content, summary, or download URL
+    status       String? @default("Active")
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
