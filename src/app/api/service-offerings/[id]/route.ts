@@ -8,12 +8,16 @@ export async function PUT(
 	try {
 		const { id } = params;
 		const body = await req.json();
-		const { price, details, metadata } = body;
-		// You may allow updating other fields if required
+		const { price, details, metadata, status } = body; // add status
 
 		const updated = await prisma.serviceOffering.update({
 			where: { id },
-			data: { price, details, metadata },
+			data: {
+				...(price !== undefined && { price }),
+				...(details !== undefined && { details }),
+				...(metadata !== undefined && { metadata }),
+				...(status !== undefined && { status }), // allow status update
+			},
 		});
 
 		return Response.json(updated);

@@ -1,4 +1,3 @@
-// ...existing code from pooja-category/route.ts...
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 
@@ -26,6 +25,7 @@ export async function GET(req: NextRequest) {
 			date: cat.date ? cat.date.toISOString() : "",
 			price: typeof cat.price === "number" ? cat.price : undefined,
 			details: cat.details || "",
+			status: cat.status || "Inactive",
 		})),
 		total,
 		pagination: { totalPages: Math.ceil(total / limit) },

@@ -23,6 +23,8 @@ import {
 	CheckCircle2,
 	CircleSlash,
 	Activity,
+	MoreVertical,
+	AlertTriangle,
 } from "lucide-react";
 import {
 	DropdownMenu,
@@ -31,6 +33,9 @@ import {
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubTrigger,
+	DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import {
 	Select,
@@ -39,6 +44,13 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogFooter,
+} from "@/components/ui/dialog";
 
 interface PoojaCategory {
 	id: string;
@@ -85,6 +97,10 @@ export default function PoojaCategoryDetailsPage() {
 		null
 	);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const [offeringToDelete, setOfferingToDelete] = useState<Offering | null>(
+		null
+	);
 
 	// Replace with actual logged-in Panditji id from auth context/session
 	const loggedInPanditjiId = "panditji-logged-in-id";
@@ -221,6 +237,28 @@ export default function PoojaCategoryDetailsPage() {
 			toast.success("Offering deleted");
 		} catch {
 			toast.error("Failed to delete offering");
+		}
+	};
+
+	const handleDeleteOfferingWithConfirm = (offering: Offering) => {
+		setOfferingToDelete(offering);
+		setIsDeleteDialogOpen(true);
+	};
+
+	const confirmDeleteOffering = async () => {
+		if (!offeringToDelete) return;
+		try {
+			const res = await fetch(`/api/service-offerings/${offeringToDelete.id}`, {
+				method: "DELETE",
+			});
+			if (!res.ok) throw new Error("Failed to delete offering");
+			setOfferings((prev) => prev.filter((o) => o.id !== offeringToDelete.id));
+			toast.success("Offering deleted");
+		} catch {
+			toast.error("Failed to delete offering");
+		} finally {
+			setIsDeleteDialogOpen(false);
+			setOfferingToDelete(null);
 		}
 	};
 
@@ -416,12 +454,44 @@ export default function PoojaCategoryDetailsPage() {
 															size="icon"
 															aria-label="Actions"
 														>
-															<Activity className="h-5 w-5" />
+															<MoreVertical className="h-5 w-5" />
 														</Button>
 													</DropdownMenuTrigger>
 													<DropdownMenuContent align="end">
-														<DropdownMenuLabel>Actions</DropdownMenuLabel>
+														<DropdownMenuLabel>
+															Manage Pooja Category
+														</DropdownMenuLabel>
 														<DropdownMenuSeparator />
+														<DropdownMenuSub>
+															<DropdownMenuSubTrigger>
+																<Activity className="h-4 w-4 mr-2" />
+																Change Status
+															</DropdownMenuSubTrigger>
+															<DropdownMenuSubContent>
+																<DropdownMenuItem
+																	onClick={() => handleChangeStatus(offering)}
+																	className={
+																		offering.status === "Active"
+																			? "bg-blue-50"
+																			: ""
+																	}
+																>
+																	<CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
+																	Active
+																</DropdownMenuItem>
+																<DropdownMenuItem
+																	onClick={() => handleChangeStatus(offering)}
+																	className={
+																		offering.status === "Inactive"
+																			? "bg-blue-50"
+																			: ""
+																	}
+																>
+																	<CircleSlash className="h-4 w-4 mr-2 text-gray-500" />
+																	Inactive
+																</DropdownMenuItem>
+															</DropdownMenuSubContent>
+														</DropdownMenuSub>
 														<DropdownMenuItem
 															onClick={() => handleEditOffering(offering)}
 														>
@@ -429,25 +499,13 @@ export default function PoojaCategoryDetailsPage() {
 															Edit
 														</DropdownMenuItem>
 														<DropdownMenuItem
-															onClick={() => handleChangeStatus(offering)}
+															className="flex items-center gap-2 text-red-600"
+															onSelect={(e) => {
+																e.preventDefault();
+																handleDeleteOfferingWithConfirm(offering);
+															}}
 														>
-															{offering.status === "Active" ? (
-																<>
-																	<CircleSlash className="h-4 w-4 mr-2 text-gray-500" />
-																	Mark Inactive
-																</>
-															) : (
-																<>
-																	<CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
-																	Mark Active
-																</>
-															)}
-														</DropdownMenuItem>
-														<DropdownMenuItem
-															onClick={() => handleDeleteOffering(offering.id)}
-															className="text-red-600"
-														>
-															<Trash2 className="h-4 w-4 mr-2" />
+															<Trash2 className="h-4 w-4" />
 															Delete
 														</DropdownMenuItem>
 													</DropdownMenuContent>
@@ -461,6 +519,41 @@ export default function PoojaCategoryDetailsPage() {
 					)}
 				</CardContent>
 			</Card>
+
+			{/* Delete Confirmation Dialog */}
+			<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+				<DialogContent className="sm:max-w-[425px]">
+					<DialogHeader>
+						<DialogTitle>Delete Service Offering</DialogTitle>
+					</DialogHeader>
+					<div className="flex items-center gap-3 py-4">
+						<AlertTriangle className="h-6 w-6 text-red-500" />
+						<div>
+							<p className="font-semibold text-red-700">
+								Are you sure you want to delete this offering by{" "}
+								<span className="font-bold">
+									{offeringToDelete?.provider?.name}
+								</span>
+								?
+							</p>
+							<p className="text-sm text-gray-600 mt-1">
+								This action cannot be undone.
+							</p>
+						</div>
+					</div>
+					<DialogFooter className="flex justify-end gap-2">
+						<Button
+							variant="outline"
+							onClick={() => setIsDeleteDialogOpen(false)}
+						>
+							Cancel
+						</Button>
+						<Button variant="destructive" onClick={confirmDeleteOffering}>
+							Delete
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

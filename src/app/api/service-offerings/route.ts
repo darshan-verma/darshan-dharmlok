@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
 			price: o.price,
 			details: o.details,
 			metadata: o.metadata,
+			status: o.status || "Active", // <-- ensure status is present
 			createdAt: o.createdAt,
 			updatedAt: o.updatedAt,
 		})),
@@ -59,6 +60,8 @@ export async function POST(req: NextRequest) {
 			metadata,
 		} = body;
 
+		console.log("POST /api/service-offerings body:", body);
+
 		if (
 			!providerId ||
 			!serviceType ||
@@ -66,28 +69,61 @@ export async function POST(req: NextRequest) {
 			!targetId ||
 			typeof price !== "number"
 		) {
+			console.error("Missing required fields", {
+				providerId,
+				serviceType,
+				targetType,
+				targetId,
+				price,
+			});
 			return Response.json(
 				{ message: "Missing required fields" },
 				{ status: 400 }
 			);
 		}
 
-		const offering = await prisma.serviceOffering.create({
-			data: {
-				providerId,
-				serviceType,
-				targetType,
-				targetId,
-				price,
-				details,
-				metadata,
-			},
-		});
+		// Debug: Check if prisma and prisma.serviceOffering are defined
+		console.log(
+			"prisma is",
+			typeof prisma,
+			"prisma.serviceOffering is",
+			typeof prisma.serviceOffering
+		);
 
-		return Response.json(offering);
+		if (!prisma || !prisma.serviceOffering) {
+			console.error("Prisma client or serviceOffering model is undefined!");
+			return Response.json(
+				{ message: "Internal server error: Prisma client or model not loaded" },
+				{ status: 500 }
+			);
+		}
+
+		try {
+			const offering = await prisma.serviceOffering.create({
+				data: {
+					providerId,
+					serviceType,
+					targetType,
+					targetId,
+					price,
+					details,
+					metadata,
+					status: "Active",
+				},
+			});
+			console.log("Created offering:", offering);
+			return Response.json(offering);
+		} catch (dbError) {
+			console.error("Prisma create error:", dbError);
+			return Response.json(
+				{ message: "Prisma error", error: String(dbError) },
+				{ status: 500 }
+			);
+		}
 	} catch (e) {
+		console.error("Failed to create service offering", e);
 		return Response.json(
-			{ message: "Failed to create service offering" },
+			{ message: "Failed to create service offering", error: String(e) },
 			{ status: 500 }
 		);
 	}
