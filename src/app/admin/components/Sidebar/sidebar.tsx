@@ -213,9 +213,12 @@ export function AdminSidebar({ className }: { className?: string }) {
 					</div>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all">
+						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+						isActive={pathname === "/admin/banner"}>
 							<BadgeDollarSign className="h-5 w-5 text-yellow-500" />
+							<Link href="/admin/banner" className="flex items-center gap-2">
 							<span>Banner</span>
+							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 

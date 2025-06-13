@@ -5,10 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import {
 	ArrowLeft,
 	Save,
-	Edit,
-	Trash2,
-	CheckCircle2,
-	CircleSlash,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
