@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import {
+	useState,
+	useEffect,
+	useRef,
+	useMemo,
+	Dispatch,
+	SetStateAction,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,10 +66,10 @@ type TempleData = {
 	rituals?: string;
 	latitude?: number | null;
 	longitude?: number | null;
-	travelByAir?: string;
-	travelByTrain?: string;
-	travelByBus?: string;
-	travelByRoad?: string;
+	travelByAir?: string[];
+	travelByTrain?: string[];
+	travelByBus?: string[];
+	travelByRoad?: string[];
 	timings?: string;
 	amenities?: string[]; // array of names
 	faqs?: Faq[];
@@ -71,14 +78,6 @@ type TempleData = {
 	imageFile?: string[]; // array of image URLs/paths
 	videoFile?: string[]; // array of video URLs/paths
 };
-
-const travelOptions = [
-	{ value: "", label: "Select" },
-	{ value: "Nearby Airport", label: "Nearby Airport" },
-	{ value: "Direct Flight", label: "Direct Flight" },
-	{ value: "No Airport", label: "No Airport" },
-	{ value: "Other", label: "Other" },
-];
 
 export default function TempleDetailPage() {
 	const params = useParams();
@@ -111,6 +110,57 @@ export default function TempleDetailPage() {
 	const [videoFiles, setVideoFiles] = useState<string[]>([]);
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
 	const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+
+	// Travel fields state for editing
+	const [travelByAir, setTravelByAir] = useState<string[]>([]);
+	const [travelByTrain, setTravelByTrain] = useState<string[]>([]);
+	const [travelByBus, setTravelByBus] = useState<string[]>([]);
+	const [travelByRoad, setTravelByRoad] = useState<string[]>([]);
+
+	// Sync travel fields from loaded data
+	useEffect(() => {
+		if (editedTemple) {
+			setTravelByAir(
+				Array.isArray(editedTemple.travelByAir)
+					? editedTemple.travelByAir
+					: editedTemple.travelByAir
+					? [editedTemple.travelByAir]
+					: []
+			);
+			setTravelByTrain(
+				Array.isArray(editedTemple.travelByTrain)
+					? editedTemple.travelByTrain
+					: editedTemple.travelByTrain
+					? [editedTemple.travelByTrain]
+					: []
+			);
+			setTravelByBus(
+				Array.isArray(editedTemple.travelByBus)
+					? editedTemple.travelByBus
+					: editedTemple.travelByBus
+					? [editedTemple.travelByBus]
+					: []
+			);
+			setTravelByRoad(
+				Array.isArray(editedTemple.travelByRoad)
+					? editedTemple.travelByRoad
+					: editedTemple.travelByRoad
+					? [editedTemple.travelByRoad]
+					: []
+			);
+		}
+	}, [editedTemple]);
+
+	// Add/remove helpers
+	const addTravelField = (setter: Dispatch<SetStateAction<string[]>>) => {
+		setter((prev) => [...prev, ""]);
+	};
+	const removeTravelField = (
+		setter: Dispatch<SetStateAction<string[]>>,
+		idx: number
+	) => {
+		setter((prev) => prev.filter((_, i) => i !== idx));
+	};
 
 	// Fetch temple data
 	useEffect(() => {
@@ -298,7 +348,7 @@ export default function TempleDetailPage() {
 	// Validation
 	const validateForm = (data: TempleData) => {
 		const errors: Record<string, string> = {};
-		if (!data.name?.trim()) errors.name = "Name is required";
+		if (!data.name?.trim()) errors.name;
 		if (!data.date?.trim()) errors.date = "Date is required";
 		if (!data.state?.trim()) errors.state = "State is required";
 		if (!data.city?.trim()) errors.city = "City is required";
@@ -322,6 +372,10 @@ export default function TempleDetailPage() {
 					faqs,
 					imageFile: imageFiles,
 					videoFile: videoFiles,
+					travelByAir,
+					travelByTrain,
+					travelByBus,
+					travelByRoad,
 				}),
 			});
 			if (!response.ok) throw new Error("Failed to update temple");
@@ -593,85 +647,161 @@ export default function TempleDetailPage() {
 						</div>
 						{/* Travel */}
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							{/* By Air */}
 							<div className="space-y-2">
-								<Label htmlFor="travelByAir">Best Way by Air</Label>
-								<select
-									id="travelByAir"
-									className="w-full border rounded px-2 py-1"
-									value={editedTemple?.travelByAir || ""}
-									onChange={(e) =>
-										setEditedTemple((prev) =>
-											prev ? { ...prev, travelByAir: e.target.value } : prev
-										)
-									}
-									disabled={!isEditing}
-								>
-									{travelOptions.map((opt) => (
-										<option key={opt.value} value={opt.value}>
-											{opt.label}
-										</option>
-									))}
-								</select>
+								<Label>Best Way by Air</Label>
+								{travelByAir.map((val, idx) => (
+									<div key={idx} className="flex gap-2 mb-1">
+										<Input
+											value={val}
+											onChange={(e) =>
+												setTravelByAir((arr) =>
+													arr.map((v, i) => (i === idx ? e.target.value : v))
+												)
+											}
+											placeholder="e.g. Nearest airport, flight info, etc."
+											disabled={!isEditing}
+										/>
+										{isEditing && (
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												onClick={() => removeTravelField(setTravelByAir, idx)}
+											>
+												<Trash2 className="h-4 w-4 text-red-500" />
+											</Button>
+										)}
+									</div>
+								))}
+								{isEditing && (
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="mt-1"
+										onClick={() => addTravelField(setTravelByAir)}
+									>
+										Add Field
+									</Button>
+								)}
 							</div>
+							{/* By Train */}
 							<div className="space-y-2">
-								<Label htmlFor="travelByTrain">Best Way by Train</Label>
-								<select
-									id="travelByTrain"
-									className="w-full border rounded px-2 py-1"
-									value={editedTemple?.travelByTrain || ""}
-									onChange={(e) =>
-										setEditedTemple((prev) =>
-											prev ? { ...prev, travelByTrain: e.target.value } : prev
-										)
-									}
-									disabled={!isEditing}
-								>
-									{travelOptions.map((opt) => (
-										<option key={opt.value} value={opt.value}>
-											{opt.label}
-										</option>
-									))}
-								</select>
+								<Label>Best Way by Train</Label>
+								{travelByTrain.map((val, idx) => (
+									<div key={idx} className="flex gap-2 mb-1">
+										<Input
+											value={val}
+											onChange={(e) =>
+												setTravelByTrain((arr) =>
+													arr.map((v, i) => (i === idx ? e.target.value : v))
+												)
+											}
+											placeholder="e.g. Nearest railway station, train info, etc."
+											disabled={!isEditing}
+										/>
+										{isEditing && (
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												onClick={() => removeTravelField(setTravelByTrain, idx)}
+											>
+												<Trash2 className="h-4 w-4 text-red-500" />
+											</Button>
+										)}
+									</div>
+								))}
+								{isEditing && (
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="mt-1"
+										onClick={() => addTravelField(setTravelByTrain)}
+									>
+										Add Field
+									</Button>
+								)}
 							</div>
+							{/* By Bus */}
 							<div className="space-y-2">
-								<Label htmlFor="travelByBus">Best Way by Bus</Label>
-								<select
-									id="travelByBus"
-									className="w-full border rounded px-2 py-1"
-									value={editedTemple?.travelByBus || ""}
-									onChange={(e) =>
-										setEditedTemple((prev) =>
-											prev ? { ...prev, travelByBus: e.target.value } : prev
-										)
-									}
-									disabled={!isEditing}
-								>
-									{travelOptions.map((opt) => (
-										<option key={opt.value} value={opt.value}>
-											{opt.label}
-										</option>
-									))}
-								</select>
+								<Label>Best Way by Bus</Label>
+								{travelByBus.map((val, idx) => (
+									<div key={idx} className="flex gap-2 mb-1">
+										<Input
+											value={val}
+											onChange={(e) =>
+												setTravelByBus((arr) =>
+													arr.map((v, i) => (i === idx ? e.target.value : v))
+												)
+											}
+											placeholder="e.g. Bus stand, route info, etc."
+											disabled={!isEditing}
+										/>
+										{isEditing && (
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												onClick={() => removeTravelField(setTravelByBus, idx)}
+											>
+												<Trash2 className="h-4 w-4 text-red-500" />
+											</Button>
+										)}
+									</div>
+								))}
+								{isEditing && (
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="mt-1"
+										onClick={() => addTravelField(setTravelByBus)}
+									>
+										Add Field
+									</Button>
+								)}
 							</div>
+							{/* By Road */}
 							<div className="space-y-2">
-								<Label htmlFor="travelByRoad">Best Way by Road</Label>
-								<select
-									id="travelByRoad"
-									className="w-full border rounded px-2 py-1"
-									value={editedTemple?.travelByRoad || ""}
-									onChange={(e) =>
-										setEditedTemple((prev) =>
-											prev ? { ...prev, travelByRoad: e.target.value } : prev
-										)
-									}
-									disabled={!isEditing}
-								>
-									{travelOptions.map((opt) => (
-										<option key={opt.value} value={opt.value}>
-											{opt.label}
-										</option>
-									))}
-								</select>
+								<Label>Best Way by Road</Label>
+								{travelByRoad.map((val, idx) => (
+									<div key={idx} className="flex gap-2 mb-1">
+										<Input
+											value={val}
+											onChange={(e) =>
+												setTravelByRoad((arr) =>
+													arr.map((v, i) => (i === idx ? e.target.value : v))
+												)
+											}
+											placeholder="e.g. Highway, driving directions, etc."
+											disabled={!isEditing}
+										/>
+										{isEditing && (
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												onClick={() => removeTravelField(setTravelByRoad, idx)}
+											>
+												<Trash2 className="h-4 w-4 text-red-500" />
+											</Button>
+										)}
+									</div>
+								))}
+								{isEditing && (
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="mt-1"
+										onClick={() => addTravelField(setTravelByRoad)}
+									>
+										Add Field
+									</Button>
+								)}
 							</div>
 						</div>
 						{/* Timings */}
