@@ -189,6 +189,8 @@ model Temple {
     state          String
     city           String
     status         String      // e.g. "active", "inactive"
+    imageFile    String?     // image of temple 
+    videoFile    String?     // video file for temple video
   // Location (map)
     latitude       Float?
     longitude      Float?
