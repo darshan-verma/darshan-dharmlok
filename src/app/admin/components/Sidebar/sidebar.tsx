@@ -223,9 +223,12 @@ export function AdminSidebar({ className }: { className?: string }) {
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all">
+						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+						isActive={pathname === "/admin/video"}>
 							<MailQuestion className="h-5 w-5 text-purple-500" />
+							<Link href="/admin/video" className="flex items-center gap-2">
 							<span>Launch Video</span>
+							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
