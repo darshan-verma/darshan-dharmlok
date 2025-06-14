@@ -182,3 +182,40 @@ model Video {
     updatedAt   DateTime @updatedAt
 
 }
+model Temple {
+    id             String      @id @default(auto()) @map("_id") @db.ObjectId
+    name           String
+    date           DateTime    @default(now())
+    state          String
+    city           String
+    status         String      // e.g. "active", "inactive"
+  // Location (map)
+    latitude       Float?
+    longitude      Float?
+  // Details page fields
+    description    String?
+    history        String?
+    additionalInfo String?
+    rituals        String?
+  // Travel
+    travelByAir    String?     // Best way by air
+    travelByTrain  String?     // Best way by train
+    travelByBus    String?     // Best way by bus
+    travelByRoad   String?     // Best way by road
+    timings        String?     // Opening/closing times, special schedules
+    amenities      String?     // JSON string or delimited list for nearby amenities
+  // FAQ
+    faqs           Faq[]       @relation("TempleFaqs")
+    createdAt      DateTime    @default(now())
+    updatedAt      DateTime    @updatedAt
+}
+
+model Faq {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    question  String
+    answer    String
+    templeId  String   @db.ObjectId
+    temple    Temple   @relation(fields: [templeId], references: [id], onDelete: Cascade, name: "TempleFaqs")
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
