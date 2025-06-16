@@ -1,13 +1,6 @@
 "use client";
 
-import {
-	useState,
-	useEffect,
-	useRef,
-	useMemo,
-	Dispatch,
-	SetStateAction,
-} from "react";
+import { useState, useEffect, useMemo, Dispatch, SetStateAction } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +17,6 @@ import {
 import {
 	Save,
 	ArrowLeft,
-	MapPin,
 	Plus,
 	Video as VideoIcon,
 	Trash2,
@@ -75,6 +67,7 @@ type DharamshalaData = {
 	updatedAt?: string;
 	imageFile?: string[];
 	videoFile?: string[];
+	placeName?: string;
 };
 
 // Fix: Use a unique key for MapContainer to force remount on markerPos/mapCenter change
@@ -191,6 +184,18 @@ export default function DharamshalaDetailPage() {
 					setMapCenter([data.latitude, data.longitude]);
 					setMarkerPos([data.latitude, data.longitude]);
 				}
+				// Prefer a saved place name if available, else fallback to city/state
+				if (data.placeName) {
+					setAddressInput(data.placeName);
+				} else if (data.city && data.state) {
+					setAddressInput(`${data.city}, ${data.state}`);
+				} else if (data.city) {
+					setAddressInput(data.city);
+				} else if (data.state) {
+					setAddressInput(data.state);
+				} else {
+					setAddressInput("");
+				}
 			} catch {
 				toast.error("Failed to load dharamshala details");
 				router.push("/admin/dharamshala");
@@ -216,7 +221,14 @@ export default function DharamshalaDetailPage() {
 				setMapCenter([lat, lon]);
 				setMarkerPos([lat, lon]);
 				setEditedDharamshala((prev) =>
-					prev ? { ...prev, latitude: lat, longitude: lon } : prev
+					prev
+						? {
+								...prev,
+								latitude: lat,
+								longitude: lon,
+								placeName: addressInput, // Save the searched place name
+						  }
+						: prev
 				);
 				toast.success("Location found and set!");
 			} else {
@@ -368,6 +380,7 @@ export default function DharamshalaDetailPage() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					...editedDharamshala,
+					placeName: addressInput, // Always send the current addressInput as placeName
 					amenities,
 					dharamshalaFaqs,
 					imageFile: imageFiles,
@@ -855,7 +868,7 @@ export default function DharamshalaDetailPage() {
 										</Button>
 									</div>
 									<div className="flex flex-wrap gap-2 mt-2">
-										{amenities.map((a, idx) => (
+										{amenities.map((a) => (
 											<span
 												key={a}
 												className="inline-flex items-center bg-gray-100 rounded px-2 py-1 text-xs font-medium"
@@ -981,7 +994,7 @@ export default function DharamshalaDetailPage() {
 								<div className="space-y-2">
 									<Label>Dharamshala Videos</Label>
 									<div className="flex flex-wrap gap-3">
-										{videoFiles.map((vid, idx) => (
+										{videoFiles.map((vid) => (
 											<div
 												key={vid}
 												className="relative w-40 h-24 rounded border overflow-hidden flex items-center justify-center bg-muted"

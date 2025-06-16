@@ -3,7 +3,6 @@
 import {
 	useState,
 	useEffect,
-	useRef,
 	useMemo,
 	Dispatch,
 	SetStateAction,
@@ -24,7 +23,6 @@ import {
 import {
 	Save,
 	ArrowLeft,
-	MapPin,
 	Plus,
 	Video as VideoIcon,
 	Trash2,
