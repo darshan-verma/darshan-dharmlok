@@ -53,7 +53,7 @@ const Popup = dynamic<any>(
 import "leaflet/dist/leaflet.css";
 
 type Faq = { id?: string; question: string; answer: string };
-type TempleData = {
+type DharamshalaData = {
 	id: string;
 	name: string;
 	date: string;
@@ -61,9 +61,7 @@ type TempleData = {
 	city: string;
 	status: string;
 	description?: string;
-	history?: string;
 	additionalInfo?: string;
-	rituals?: string;
 	latitude?: number | null;
 	longitude?: number | null;
 	travelByAir?: string[];
@@ -71,24 +69,25 @@ type TempleData = {
 	travelByBus?: string[];
 	travelByRoad?: string[];
 	timings?: string;
-	amenities?: string[]; // array of names
-	templeFaq?: Faq[]; // <-- update to match schema
+	amenities?: string[];
+	dharamshalaFaqs?: Faq[];
 	createdAt?: string;
 	updatedAt?: string;
-	imageFile?: string[]; // array of image URLs/paths
-	videoFile?: string[]; // array of video URLs/paths
+	imageFile?: string[];
+	videoFile?: string[];
 };
 
 // Fix: Use a unique key for MapContainer to force remount on markerPos/mapCenter change
-export default function TempleDetailPage() {
+export default function DharamshalaDetailPage() {
 	const params = useParams();
 	const router = useRouter();
-	const templeId = params?.id as string;
+	const dharamshalaId = params?.id as string;
 
-	const [temple, setTemple] = useState<TempleData | null>(null);
+	const [dharamshala, setDharamshala] = useState<DharamshalaData | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
-	const [editedTemple, setEditedTemple] = useState<TempleData | null>(null);
+	const [editedDharamshala, setEditedDharamshala] =
+		useState<DharamshalaData | null>(null);
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [addressInput, setAddressInput] = useState("");
 	const [isGeocoding, setIsGeocoding] = useState(false);
@@ -98,7 +97,7 @@ export default function TempleDetailPage() {
 	const [amenities, setAmenities] = useState<string[]>([]);
 
 	// FAQ
-	const [faqs, setFaqs] = useState<Faq[]>([]);
+	const [dharamshalaFaqs, setDharamshalaFaqs] = useState<Faq[]>([]);
 
 	// Map
 	const [mapCenter, setMapCenter] = useState<[number, number]>([
@@ -120,37 +119,37 @@ export default function TempleDetailPage() {
 
 	// Sync travel fields from loaded data
 	useEffect(() => {
-		if (editedTemple) {
+		if (editedDharamshala) {
 			setTravelByAir(
-				Array.isArray(editedTemple.travelByAir)
-					? editedTemple.travelByAir
-					: editedTemple.travelByAir
-					? [editedTemple.travelByAir]
+				Array.isArray(editedDharamshala.travelByAir)
+					? editedDharamshala.travelByAir
+					: editedDharamshala.travelByAir
+					? [editedDharamshala.travelByAir]
 					: []
 			);
 			setTravelByTrain(
-				Array.isArray(editedTemple.travelByTrain)
-					? editedTemple.travelByTrain
-					: editedTemple.travelByTrain
-					? [editedTemple.travelByTrain]
+				Array.isArray(editedDharamshala.travelByTrain)
+					? editedDharamshala.travelByTrain
+					: editedDharamshala.travelByTrain
+					? [editedDharamshala.travelByTrain]
 					: []
 			);
 			setTravelByBus(
-				Array.isArray(editedTemple.travelByBus)
-					? editedTemple.travelByBus
-					: editedTemple.travelByBus
-					? [editedTemple.travelByBus]
+				Array.isArray(editedDharamshala.travelByBus)
+					? editedDharamshala.travelByBus
+					: editedDharamshala.travelByBus
+					? [editedDharamshala.travelByBus]
 					: []
 			);
 			setTravelByRoad(
-				Array.isArray(editedTemple.travelByRoad)
-					? editedTemple.travelByRoad
-					: editedTemple.travelByRoad
-					? [editedTemple.travelByRoad]
+				Array.isArray(editedDharamshala.travelByRoad)
+					? editedDharamshala.travelByRoad
+					: editedDharamshala.travelByRoad
+					? [editedDharamshala.travelByRoad]
 					: []
 			);
 		}
-	}, [editedTemple]);
+	}, [editedDharamshala]);
 
 	// Add/remove helpers
 	const addTravelField = (setter: Dispatch<SetStateAction<string[]>>) => {
@@ -163,17 +162,17 @@ export default function TempleDetailPage() {
 		setter((prev) => prev.filter((_, i) => i !== idx));
 	};
 
-	// Fetch temple data
+	// Fetch dharamshala data
 	useEffect(() => {
-		const fetchTemple = async () => {
+		const fetchDharamshala = async () => {
 			try {
-				const response = await fetch(`/api/temple/${templeId}`);
-				if (!response.ok) throw new Error("Failed to fetch temple");
-				const data = await response.json();
-				setTemple(data);
-				setEditedTemple(data);
+				const response = await fetch(`/api/dharamshala/${dharamshalaId}`);
+				if (!response.ok) throw new Error("Failed to fetch dharamshala");
+				const data: DharamshalaData = await response.json();
+				setDharamshala(data);
+				setEditedDharamshala(data);
 				setAmenities(data.amenities || []);
-				setFaqs(data.templeFaq || []); // <-- use templeFaq from API
+				setDharamshalaFaqs(data.dharamshalaFaqs || []);
 				setImageFiles(
 					Array.isArray(data.imageFile)
 						? data.imageFile
@@ -193,12 +192,12 @@ export default function TempleDetailPage() {
 					setMarkerPos([data.latitude, data.longitude]);
 				}
 			} catch {
-				toast.error("Failed to load temple details");
-				router.push("/admin/temple");
+				toast.error("Failed to load dharamshala details");
+				router.push("/admin/dharamshala");
 			}
 		};
-		if (templeId) fetchTemple();
-	}, [templeId, router]);
+		if (dharamshalaId) fetchDharamshala();
+	}, [dharamshalaId, router]);
 
 	// Geocode address input to lat/lng
 	const handleGeocode = async () => {
@@ -216,7 +215,7 @@ export default function TempleDetailPage() {
 				const lon = parseFloat(data[0].lon);
 				setMapCenter([lat, lon]);
 				setMarkerPos([lat, lon]);
-				setEditedTemple((prev) =>
+				setEditedDharamshala((prev) =>
 					prev ? { ...prev, latitude: lat, longitude: lon } : prev
 				);
 				toast.success("Location found and set!");
@@ -234,7 +233,7 @@ export default function TempleDetailPage() {
 	const handleMapClick = (e: any) => {
 		const { lat, lng } = e.latlng;
 		setMarkerPos([lat, lng]);
-		setEditedTemple((prev) =>
+		setEditedDharamshala((prev) =>
 			prev ? { ...prev, latitude: lat, longitude: lng } : prev
 		);
 	};
@@ -242,7 +241,7 @@ export default function TempleDetailPage() {
 	const handleMarkerDrag = (e: any) => {
 		const { lat, lng } = e.target.getLatLng();
 		setMarkerPos([lat, lng]);
-		setEditedTemple((prev) =>
+		setEditedDharamshala((prev) =>
 			prev ? { ...prev, latitude: lat, longitude: lng } : prev
 		);
 	};
@@ -261,17 +260,17 @@ export default function TempleDetailPage() {
 
 	// FAQ add/remove/update
 	const handleAddFaq = () => {
-		setFaqs((prev) => [...prev, { question: "", answer: "" }]);
+		setDharamshalaFaqs((prev) => [...prev, { question: "", answer: "" }]);
 	};
 	const handleRemoveFaq = (idx: number) => {
-		setFaqs((prev) => prev.filter((_, i) => i !== idx));
+		setDharamshalaFaqs((prev) => prev.filter((_, i) => i !== idx));
 	};
 	const handleFaqChange = (
 		idx: number,
 		field: "question" | "answer",
 		value: string
 	) => {
-		setFaqs((prev) =>
+		setDharamshalaFaqs((prev) =>
 			prev.map((faq, i) => (i === idx ? { ...faq, [field]: value } : faq))
 		);
 	};
@@ -289,8 +288,8 @@ export default function TempleDetailPage() {
 				const file = files[i];
 				const formData = new FormData();
 				formData.append("file", file);
-				formData.append("templeId", templeId);
-				const response = await fetch("/api/upload/temple-image", {
+				formData.append("dharamshalaId", dharamshalaId);
+				const response = await fetch("/api/upload/dharamshala-image", {
 					method: "POST",
 					body: formData,
 				});
@@ -324,8 +323,8 @@ export default function TempleDetailPage() {
 				const file = files[i];
 				const formData = new FormData();
 				formData.append("file", file);
-				formData.append("templeId", templeId);
-				const response = await fetch("/api/upload/temple-video", {
+				formData.append("dharamshalaId", dharamshalaId);
+				const response = await fetch("/api/upload/dharamshala-video", {
 					method: "POST",
 					body: formData,
 				});
@@ -347,7 +346,7 @@ export default function TempleDetailPage() {
 	};
 
 	// Validation
-	const validateForm = (data: TempleData) => {
+	const validateForm = (data: DharamshalaData) => {
 		const errors: Record<string, string> = {};
 		if (!data.name?.trim()) errors.name;
 		if (!data.date?.trim()) errors.date = "Date is required";
@@ -358,19 +357,19 @@ export default function TempleDetailPage() {
 	};
 
 	const handleSave = async () => {
-		if (!editedTemple) return;
-		const validation = validateForm(editedTemple);
+		if (!editedDharamshala) return;
+		const validation = validateForm(editedDharamshala);
 		setErrors(validation);
 		if (Object.keys(validation).length > 0) return;
 		setIsSaving(true);
 		try {
-			const response = await fetch(`/api/temple/${templeId}`, {
+			const response = await fetch(`/api/dharamshala/${dharamshalaId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					...editedTemple,
+					...editedDharamshala,
 					amenities,
-					templeFaq: faqs, // <-- send as templeFaq
+					dharamshalaFaqs,
 					imageFile: imageFiles,
 					videoFile: videoFiles,
 					travelByAir,
@@ -379,12 +378,12 @@ export default function TempleDetailPage() {
 					travelByRoad,
 				}),
 			});
-			if (!response.ok) throw new Error("Failed to update temple");
+			if (!response.ok) throw new Error("Failed to update dharamshala");
 			const updated = await response.json();
-			setTemple(updated);
-			setEditedTemple(updated);
+			setDharamshala(updated);
+			setEditedDharamshala(updated);
 			setAmenities(updated.amenities || []);
-			setFaqs(updated.templeFaq || []); // <-- update from templeFaq
+			setDharamshalaFaqs(updated.faqs || []);
 			setImageFiles(
 				Array.isArray(updated.imageFile)
 					? updated.imageFile
@@ -400,9 +399,9 @@ export default function TempleDetailPage() {
 					: []
 			);
 			setIsEditing(false);
-			toast.success("Temple updated successfully!");
+			toast.success("Dharamshala updated successfully!");
 		} catch (error) {
-			toast.error("Failed to update temple");
+			toast.error("Failed to update dharamshala");
 		} finally {
 			setIsSaving(false);
 		}
@@ -420,7 +419,7 @@ export default function TempleDetailPage() {
 		});
 	}, []);
 
-	if (!temple || !editedTemple) {
+	if (!dharamshala || !editedDharamshala) {
 		return (
 			<div className="flex justify-center items-center h-40">Loading...</div>
 		);
@@ -435,42 +434,44 @@ export default function TempleDetailPage() {
 				<Button
 					variant="outline"
 					size="icon"
-					onClick={() => router.push("/admin/temple")}
+					onClick={() => router.push("/admin/dharamshala")}
 				>
 					<ArrowLeft className="h-4 w-4" />
 				</Button>
-				<h1 className="text-2xl font-bold">Temple Details</h1>
+				<h1 className="text-2xl font-bold">Dharamshala Details</h1>
 			</div>
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<Card className="md:col-span-1 h-fit">
 					<CardHeader className="text-center p-4 pb-2">
 						<CardTitle className="text-center text-lg">
-							{temple?.name}
+							{dharamshala?.name}
 						</CardTitle>
 						<CardDescription>
 							<span
 								className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-									temple.status === "Active"
+									dharamshala?.status === "Active"
 										? "bg-green-100 text-green-800"
 										: "bg-red-100 text-red-800"
 								}`}
 							>
-								{temple.status}
+								{dharamshala?.status}
 							</span>
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-3 p-4 pt-0">
 						<div className="flex items-center gap-2 text-sm">
 							<span className="font-medium">State:</span>
-							<span>{temple?.state}</span>
+							<span>{dharamshala?.state}</span>
 						</div>
 						<div className="flex items-center gap-2 text-sm">
 							<span className="font-medium">City:</span>
-							<span>{temple?.city}</span>
+							<span>{dharamshala?.city}</span>
 						</div>
 						<div className="flex items-center gap-2 text-sm">
 							<span className="font-medium">Date:</span>
-							<span>{temple?.date ? temple.date.split("T")[0] : "N/A"}</span>
+							<span>
+								{dharamshala?.date ? dharamshala.date.split("T")[0] : "N/A"}
+							</span>
 						</div>
 					</CardContent>
 					<CardFooter className="p-4 pt-0">
@@ -479,7 +480,7 @@ export default function TempleDetailPage() {
 							variant={isEditing ? "outline" : "default"}
 							onClick={() => setIsEditing(!isEditing)}
 						>
-							{isEditing ? "Cancel" : "Edit Temple"}
+							{isEditing ? "Cancel" : "Edit Dharamshala"}
 						</Button>
 					</CardFooter>
 				</Card>
@@ -488,7 +489,7 @@ export default function TempleDetailPage() {
 			<div className="mt-6">
 				<Card>
 					<CardHeader>
-						<CardTitle>Temple Location (Map)</CardTitle>
+						<CardTitle>Dharamshala Location (Map)</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<div className="flex flex-col md:flex-row gap-4">
@@ -517,7 +518,9 @@ export default function TempleDetailPage() {
 												}
 												icon={redPinIcon}
 											>
-												<Popup>{editedTemple?.name || "Temple Location"}</Popup>
+												<Popup>
+													{editedDharamshala?.name || "Dharamshala Location"}
+												</Popup>
 											</Marker>
 										)}
 									</Map>
@@ -544,9 +547,9 @@ export default function TempleDetailPage() {
 								<Input
 									type="number"
 									step="any"
-									value={editedTemple?.latitude ?? ""}
+									value={editedDharamshala?.latitude ?? ""}
 									onChange={(e) =>
-										setEditedTemple((prev) =>
+										setEditedDharamshala((prev) =>
 											prev
 												? {
 														...prev,
@@ -561,9 +564,9 @@ export default function TempleDetailPage() {
 								<Input
 									type="number"
 									step="any"
-									value={editedTemple?.longitude ?? ""}
+									value={editedDharamshala?.longitude ?? ""}
 									onChange={(e) =>
-										setEditedTemple((prev) =>
+										setEditedDharamshala((prev) =>
 											prev
 												? {
 														...prev,
@@ -584,10 +587,10 @@ export default function TempleDetailPage() {
 			<div className="mt-6">
 				<Card>
 					<CardContent className="space-y-6 pt-6">
-						{/* Info Card: Description, History, Additional Info, Rituals, Timings */}
+						{/* Info Card: Description, Additional Info, Timings */}
 						<Card className="mb-4">
 							<CardHeader>
-								<CardTitle>Temple Information</CardTitle>
+								<CardTitle>Dharamshala Information</CardTitle>
 							</CardHeader>
 							<CardContent className="space-y-4">
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -595,24 +598,10 @@ export default function TempleDetailPage() {
 										<Label htmlFor="description">Description</Label>
 										<Textarea
 											id="description"
-											value={editedTemple?.description || ""}
+											value={editedDharamshala?.description || ""}
 											onChange={(e) =>
-												setEditedTemple((prev) =>
+												setEditedDharamshala((prev) =>
 													prev ? { ...prev, description: e.target.value } : prev
-												)
-											}
-											rows={3}
-											disabled={!isEditing}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="history">History</Label>
-										<Textarea
-											id="history"
-											value={editedTemple?.history || ""}
-											onChange={(e) =>
-												setEditedTemple((prev) =>
-													prev ? { ...prev, history: e.target.value } : prev
 												)
 											}
 											rows={3}
@@ -623,26 +612,12 @@ export default function TempleDetailPage() {
 										<Label htmlFor="additionalInfo">Additional Info</Label>
 										<Textarea
 											id="additionalInfo"
-											value={editedTemple?.additionalInfo || ""}
+											value={editedDharamshala?.additionalInfo || ""}
 											onChange={(e) =>
-												setEditedTemple((prev) =>
+												setEditedDharamshala((prev) =>
 													prev
 														? { ...prev, additionalInfo: e.target.value }
 														: prev
-												)
-											}
-											rows={3}
-											disabled={!isEditing}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="rituals">Rituals</Label>
-										<Textarea
-											id="rituals"
-											value={editedTemple?.rituals || ""}
-											onChange={(e) =>
-												setEditedTemple((prev) =>
-													prev ? { ...prev, rituals: e.target.value } : prev
 												)
 											}
 											rows={3}
@@ -654,9 +629,9 @@ export default function TempleDetailPage() {
 									<Label htmlFor="timings">Timings</Label>
 									<Input
 										id="timings"
-										value={editedTemple?.timings || ""}
+										value={editedDharamshala?.timings || ""}
 										onChange={(e) =>
-											setEditedTemple((prev) =>
+											setEditedDharamshala((prev) =>
 												prev ? { ...prev, timings: e.target.value } : prev
 											)
 										}
@@ -904,7 +879,7 @@ export default function TempleDetailPage() {
 								{/* FAQ Section */}
 								<div className="space-y-2">
 									<Label>FAQs</Label>
-									{faqs.map((faq, idx) => (
+									{dharamshalaFaqs.map((faq, idx) => (
 										<div
 											key={idx}
 											className="flex flex-col md:flex-row gap-2 items-start mb-2"
@@ -951,12 +926,12 @@ export default function TempleDetailPage() {
 						{/* Images & Videos Card */}
 						<Card>
 							<CardHeader>
-								<CardTitle>Temple Images & Videos</CardTitle>
+								<CardTitle>Dharamshala Images & Videos</CardTitle>
 							</CardHeader>
 							<CardContent className="space-y-6">
 								{/* Images Section */}
 								<div className="space-y-2">
-									<Label>Temple Images</Label>
+									<Label>Dharamshala Images</Label>
 									<div className="flex flex-wrap gap-3">
 										{imageFiles.map((img, idx) => (
 											<div
@@ -965,7 +940,7 @@ export default function TempleDetailPage() {
 											>
 												<img
 													src={img}
-													alt={`Temple Image ${idx + 1}`}
+													alt={`Dharamshala Image ${idx + 1}`}
 													className="object-cover w-full h-full"
 												/>
 												{isEditing && (
@@ -1004,7 +979,7 @@ export default function TempleDetailPage() {
 								</div>
 								{/* Videos Section */}
 								<div className="space-y-2">
-									<Label>Temple Videos</Label>
+									<Label>Dharamshala Videos</Label>
 									<div className="flex flex-wrap gap-3">
 										{videoFiles.map((vid, idx) => (
 											<div

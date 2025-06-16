@@ -12,37 +12,38 @@ const parseJsonArrayField = (fieldValue: string | null | undefined): any[] => {
 	}
 };
 
-// GET all temples
+// GET all dharamshalas
 export async function GET(req: NextRequest) {
 	try {
-		const temples = await prisma.temple.findMany({
+		const dharamshalas = await prisma.dharamshala.findMany({
 			orderBy: { createdAt: "desc" },
-			include: { templeFaq: true },
+			include: { dharamshalaFaqs: true }, // Use dharamshalaFaqs
 		});
 
-		const result = temples.map((temple) => ({
-			...temple,
-			amenities: parseJsonArrayField(temple.amenities),
-			imageFile: parseJsonArrayField(temple.imageFile),
-			videoFile: parseJsonArrayField(temple.videoFile),
-			travelByAir: parseJsonArrayField(temple.travelByAir),
-			travelByTrain: parseJsonArrayField(temple.travelByTrain),
-			travelByBus: parseJsonArrayField(temple.travelByBus),
-			travelByRoad: parseJsonArrayField(temple.travelByRoad),
+		const result = dharamshalas.map((dharamshala) => ({
+			...dharamshala,
+			amenities: parseJsonArrayField(dharamshala.amenities),
+			imageFile: parseJsonArrayField(dharamshala.imageFile),
+			videoFile: parseJsonArrayField(dharamshala.videoFile),
+			travelByAir: parseJsonArrayField(dharamshala.travelByAir),
+			travelByTrain: parseJsonArrayField(dharamshala.travelByTrain),
+			travelByBus: parseJsonArrayField(dharamshala.travelByBus),
+			travelByRoad: parseJsonArrayField(dharamshala.travelByRoad),
+			// dharamshalaFaqs will be included directly by Prisma if the relation is named so
 		}));
 		return NextResponse.json(result);
 	} catch (error) {
-		console.error("[GET /api/temple] Error:", error);
-		const errorMessage =
-			error instanceof Error ? error.message : "Unknown error";
+		console.error("[GET /api/dharamshala] Error:", error);
 		return NextResponse.json(
-			{ error: "Failed to fetch temples", details: errorMessage },
+			{
+				error: "Failed to fetch dharamshalas",
+				details: (error as Error).message,
+			},
 			{ status: 500 }
 		);
 	}
 }
 
-// CREATE a new temple
 export async function POST(req: NextRequest) {
 	try {
 		const body = await req.json();
@@ -53,9 +54,7 @@ export async function POST(req: NextRequest) {
 			city,
 			status,
 			description,
-			history,
 			additionalInfo,
-			rituals,
 			latitude,
 			longitude,
 			travelByAir,
@@ -66,7 +65,7 @@ export async function POST(req: NextRequest) {
 			amenities,
 			imageFile,
 			videoFile,
-			templeFaq,
+			dharamshalaFaqs, // Expect 'dharamshalaFaqs' from client
 		} = body;
 
 		if (!name || !date || !state || !city || !status) {
@@ -76,16 +75,14 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const templeCreateData: any = {
+		const dharamshalaCreateData: any = {
 			name,
 			date: new Date(date),
 			state,
 			city,
 			status,
 			description,
-			history,
 			additionalInfo,
-			rituals,
 			latitude,
 			longitude,
 			timings,
@@ -96,47 +93,51 @@ export async function POST(req: NextRequest) {
 			travelByTrain: travelByTrain ? JSON.stringify(travelByTrain) : "[]",
 			travelByBus: travelByBus ? JSON.stringify(travelByBus) : "[]",
 			travelByRoad: travelByRoad ? JSON.stringify(travelByRoad) : "[]",
-			templeFaq: {
+			dharamshalaFaqs: {
+				// Use 'dharamshalaFaqs' for the relation
 				create:
-					templeFaq?.map((faq: { question: string; answer: string }) => ({
+					dharamshalaFaqs?.map((faq: { question: string; answer: string }) => ({
 						question: faq.question,
 						answer: faq.answer,
 					})) || [],
 			},
 		};
 
-		// Remove undefined fields
-		Object.keys(templeCreateData).forEach((key) => {
-			if (templeCreateData[key] === undefined && key !== "templeFaq") {
-				// Keep templeFaq even if empty for create
-				delete templeCreateData[key];
+		Object.keys(dharamshalaCreateData).forEach((key) => {
+			if (
+				dharamshalaCreateData[key] === undefined &&
+				key !== "dharamshalaFaqs"
+			) {
+				// Corrected key name
+				delete dharamshalaCreateData[key];
 			}
 		});
 
-		const temple = await prisma.temple.create({
-			data: templeCreateData,
-			include: { templeFaq: true },
+		const dharamshala = await prisma.dharamshala.create({
+			data: dharamshalaCreateData,
+			include: { dharamshalaFaqs: true }, // Use dharamshalaFaqs
 		});
 
 		const result = {
-			...temple,
-			amenities: parseJsonArrayField(temple.amenities),
-			imageFile: parseJsonArrayField(temple.imageFile),
-			videoFile: parseJsonArrayField(temple.videoFile),
-			travelByAir: parseJsonArrayField(temple.travelByAir),
-			travelByTrain: parseJsonArrayField(temple.travelByTrain),
-			travelByBus: parseJsonArrayField(temple.travelByBus),
-			travelByRoad: parseJsonArrayField(temple.travelByRoad),
+			...dharamshala,
+			amenities: parseJsonArrayField(dharamshala.amenities),
+			imageFile: parseJsonArrayField(dharamshala.imageFile),
+			videoFile: parseJsonArrayField(dharamshala.videoFile),
+			travelByAir: parseJsonArrayField(dharamshala.travelByAir),
+			travelByTrain: parseJsonArrayField(dharamshala.travelByTrain),
+			travelByBus: parseJsonArrayField(dharamshala.travelByBus),
+			travelByRoad: parseJsonArrayField(dharamshala.travelByRoad),
+			// dharamshalaFaqs will be included directly
 		};
 		return NextResponse.json(result);
 	} catch (error) {
-		console.error("[POST /api/temple] Error:", error);
+		console.error("[POST /api/dharamshala] Error:", error);
 		const errorMessage =
 			error instanceof Error ? error.message : "Unknown error";
 		const errorStack = error instanceof Error ? error.stack : undefined;
 		return NextResponse.json(
 			{
-				error: "Failed to create temple",
+				error: "Failed to create dharamshala",
 				details: errorMessage,
 				stack: process.env.NODE_ENV === "development" ? errorStack : undefined,
 			},

@@ -8,7 +8,6 @@ const parseJsonArrayField = (fieldValue: string | null | undefined): any[] => {
 		const parsed = JSON.parse(fieldValue);
 		return Array.isArray(parsed) ? parsed : [];
 	} catch (e) {
-		// If parsing fails, return empty array or handle as appropriate
 		// console.warn(`Failed to parse JSON field: ${fieldValue}`, e);
 		return [];
 	}
@@ -20,30 +19,32 @@ export async function GET(
 ) {
 	const { id } = await context.params;
 	try {
-		const temple = await prisma.temple.findUnique({
+		const dharamshala = await prisma.dharamshala.findUnique({
 			where: { id },
-			include: { templeFaq: true },
+			include: { dharamshalaFaqs: true }, // Use dharamshalaFaqs
 		});
-		if (!temple)
+		if (!dharamshala)
 			return NextResponse.json({ error: "Not found" }, { status: 404 });
 
 		const result = {
-			...temple,
-			amenities: parseJsonArrayField(temple.amenities),
-			imageFile: parseJsonArrayField(temple.imageFile),
-			videoFile: parseJsonArrayField(temple.videoFile),
-			travelByAir: parseJsonArrayField(temple.travelByAir),
-			travelByTrain: parseJsonArrayField(temple.travelByTrain),
-			travelByBus: parseJsonArrayField(temple.travelByBus),
-			travelByRoad: parseJsonArrayField(temple.travelByRoad),
+			...dharamshala,
+			amenities: parseJsonArrayField(dharamshala.amenities),
+			imageFile: parseJsonArrayField(dharamshala.imageFile),
+			videoFile: parseJsonArrayField(dharamshala.videoFile),
+			travelByAir: parseJsonArrayField(dharamshala.travelByAir),
+			travelByTrain: parseJsonArrayField(dharamshala.travelByTrain),
+			travelByBus: parseJsonArrayField(dharamshala.travelByBus),
+			travelByRoad: parseJsonArrayField(dharamshala.travelByRoad),
+			// dharamshalaFaqs will be included directly
 		};
 		return NextResponse.json(result);
 	} catch (error) {
-		console.error(`[GET /api/temple/${id}] Error:`, error);
-		const errorMessage =
-			error instanceof Error ? error.message : "Unknown error";
+		console.error(`[GET /api/dharamshala/${id}] Error:`, error);
 		return NextResponse.json(
-			{ error: "Failed to fetch temple", details: errorMessage },
+			{
+				error: "Failed to fetch dharamshala",
+				details: (error as Error).message,
+			},
 			{ status: 500 }
 		);
 	}
@@ -58,7 +59,7 @@ export async function PUT(
 		const body = await req.json();
 
 		if (body.status && Object.keys(body).length === 1) {
-			const updated = await prisma.temple.update({
+			const updated = await prisma.dharamshala.update({
 				where: { id },
 				data: { status: body.status },
 			});
@@ -72,9 +73,7 @@ export async function PUT(
 			city,
 			status,
 			description,
-			history,
 			additionalInfo,
-			rituals,
 			latitude,
 			longitude,
 			travelByAir,
@@ -85,7 +84,7 @@ export async function PUT(
 			amenities,
 			imageFile,
 			videoFile,
-			templeFaq,
+			dharamshalaFaqs, // Expect 'dharamshalaFaqs' from client
 		} = body;
 
 		if (!name || !date || !state || !city || !status) {
@@ -95,24 +94,23 @@ export async function PUT(
 			);
 		}
 
-		await prisma.templeFaq.deleteMany({ where: { templeId: id } });
-		const faqsData =
-			templeFaq?.map((faq: { question: string; answer: string }) => ({
+		// Update FAQs: delete all and recreate
+		await prisma.dharamshalaFaq.deleteMany({ where: { dharamshalaId: id } });
+		const faqsData = // This variable name is local, 'dharamshalaFaqs' from body is used
+			dharamshalaFaqs?.map((faq: { question: string; answer: string }) => ({
 				question: faq.question,
 				answer: faq.answer,
-				templeId: id,
+				dharamshalaId: id,
 			})) || [];
 
-		const templeUpdateData: any = {
+		const dharamshalaUpdateData: any = {
 			name,
 			date: new Date(date),
 			state,
 			city,
 			status,
 			description,
-			history,
 			additionalInfo,
-			rituals,
 			latitude,
 			longitude,
 			timings,
@@ -123,53 +121,57 @@ export async function PUT(
 			travelByTrain: travelByTrain ? JSON.stringify(travelByTrain) : "[]",
 			travelByBus: travelByBus ? JSON.stringify(travelByBus) : "[]",
 			travelByRoad: travelByRoad ? JSON.stringify(travelByRoad) : "[]",
+			// No direct update for dharamshalaFaqs here as they are handled separately
 		};
 
-		// Remove undefined fields to avoid Prisma errors
-		Object.keys(templeUpdateData).forEach((key) => {
-			if (templeUpdateData[key] === undefined) {
-				delete templeUpdateData[key];
+		Object.keys(dharamshalaUpdateData).forEach((key) => {
+			if (dharamshalaUpdateData[key] === undefined) {
+				delete dharamshalaUpdateData[key];
 			}
 		});
 
-		await prisma.temple.update({
+		await prisma.dharamshala.update({
 			where: { id },
-			data: templeUpdateData,
+			data: dharamshalaUpdateData,
 		});
 
 		if (faqsData.length > 0) {
-			await prisma.templeFaq.createMany({ data: faqsData });
+			await prisma.dharamshalaFaq.createMany({ data: faqsData });
 		}
 
-		const updatedTempleWithFaqs = await prisma.temple.findUnique({
+		const updatedDharamshalaWithFaqs = await prisma.dharamshala.findUnique({
 			where: { id },
-			include: { templeFaq: true },
+			include: { dharamshalaFaqs: true }, // Use dharamshalaFaqs
 		});
 
-		if (!updatedTempleWithFaqs) {
-			throw new Error("Failed to retrieve updated temple with FAQs.");
+		if (!updatedDharamshalaWithFaqs) {
+			throw new Error("Failed to retrieve updated dharamshala with FAQs.");
 		}
 
 		const result = {
-			...updatedTempleWithFaqs,
-			amenities: parseJsonArrayField(updatedTempleWithFaqs.amenities),
-			imageFile: parseJsonArrayField(updatedTempleWithFaqs.imageFile),
-			videoFile: parseJsonArrayField(updatedTempleWithFaqs.videoFile),
-			travelByAir: parseJsonArrayField(updatedTempleWithFaqs.travelByAir),
-			travelByTrain: parseJsonArrayField(updatedTempleWithFaqs.travelByTrain),
-			travelByBus: parseJsonArrayField(updatedTempleWithFaqs.travelByBus),
-			travelByRoad: parseJsonArrayField(updatedTempleWithFaqs.travelByRoad),
+			...updatedDharamshalaWithFaqs,
+			amenities: parseJsonArrayField(updatedDharamshalaWithFaqs.amenities),
+			imageFile: parseJsonArrayField(updatedDharamshalaWithFaqs.imageFile),
+			videoFile: parseJsonArrayField(updatedDharamshalaWithFaqs.videoFile),
+			travelByAir: parseJsonArrayField(updatedDharamshalaWithFaqs.travelByAir),
+			travelByTrain: parseJsonArrayField(
+				updatedDharamshalaWithFaqs.travelByTrain
+			),
+			travelByBus: parseJsonArrayField(updatedDharamshalaWithFaqs.travelByBus),
+			travelByRoad: parseJsonArrayField(
+				updatedDharamshalaWithFaqs.travelByRoad
+			),
+			// dharamshalaFaqs will be included directly
 		};
 		return NextResponse.json(result);
 	} catch (error) {
-		console.error(`[PUT /api/temple/${id}] Error:`, error);
-		// Consider providing more specific error messages in development
+		console.error(`[PUT /api/dharamshala/${id}] Error:`, error);
 		const errorMessage =
 			error instanceof Error ? error.message : "Unknown error";
 		const errorStack = error instanceof Error ? error.stack : undefined;
 		return NextResponse.json(
 			{
-				error: "Failed to update temple",
+				error: "Failed to update dharamshala",
 				details: errorMessage,
 				stack: process.env.NODE_ENV === "development" ? errorStack : undefined,
 			},
@@ -184,15 +186,18 @@ export async function DELETE(
 ) {
 	const { id } = await context.params;
 	try {
-		await prisma.templeFaq.deleteMany({ where: { templeId: id } });
-		await prisma.temple.delete({ where: { id } });
+		// First delete related DharamshalaFaqs
+		await prisma.dharamshalaFaq.deleteMany({ where: { dharamshalaId: id } });
+		// Then delete the Dharamshala
+		await prisma.dharamshala.delete({ where: { id } });
 		return NextResponse.json({ success: true });
 	} catch (error) {
-		console.error(`[DELETE /api/temple/${id}] Error:`, error);
-		const errorMessage =
-			error instanceof Error ? error.message : "Unknown error";
+		console.error(`[DELETE /api/dharamshala/${id}] Error:`, error);
 		return NextResponse.json(
-			{ error: "Failed to delete temple", details: errorMessage },
+			{
+				error: "Failed to delete dharamshala",
+				details: (error as Error).message,
+			},
 			{ status: 500 }
 		);
 	}

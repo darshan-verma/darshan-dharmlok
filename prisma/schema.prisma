@@ -183,41 +183,82 @@ model Video {
 
 }
 model Temple {
+    id             String   @id @default(auto()) @map("_id") @db.ObjectId
+    name           String
+    date           DateTime @default(now())
+    state          String
+    city           String
+    status         String
+    imageFile      String?
+    videoFile      String?
+    latitude       Float?
+    longitude      Float?
+    description    String?
+    history        String?
+    additionalInfo String?
+    rituals        String?
+    travelByAir    String?
+    travelByTrain  String?
+    travelByBus    String?
+    travelByRoad   String?
+    timings        String?
+    amenities      String?
+
+  // This field name 'templeFaq' is what 'include' will use.
+  // The relation name "TempleToTempleFaqRelation" can be anything, but must match on both sides.
+    templeFaq      TempleFaq[] @relation("TempleToTempleFaqRelation")
+
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+}
+
+model TempleFaq {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    question  String
+    answer    String
+    templeId  String   @db.ObjectId
+    // This establishes the other side of the relation.
+    temple    Temple   @relation(fields: [templeId], references: [id], onDelete: Cascade, name: "TempleToTempleFaqRelation")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Dharamshala {
     id             String      @id @default(auto()) @map("_id") @db.ObjectId
     name           String
     date           DateTime    @default(now())
     state          String
     city           String
     status         String      // e.g. "active", "inactive"
-    imageFile    String?     // image of temple 
-    videoFile    String?     // video file for temple video
-  // Location (map)
+    imageFile      String?     // image of temple 
+    videoFile      String?     // video file for temple video
+    // Location (map)
     latitude       Float?
     longitude      Float?
-  // Details page fields
+    // Details page fields
     description    String?
-    history        String?
     additionalInfo String?
-    rituals        String?
-  // Travel
+    // Travel
     travelByAir    String?     // Best way by air
     travelByTrain  String?     // Best way by train
     travelByBus    String?     // Best way by bus
     travelByRoad   String?     // Best way by road
     timings        String?     // Opening/closing times, special schedules
     amenities      String?     // JSON string or delimited list for nearby amenities
-  // FAQ
-    faqs           Faq[]       @relation("TempleFaqs")
+    // FAQ
+    dharamshalaFaqs           DharamshalaFaq[]       @relation("DharamshalaFaqs")
     createdAt      DateTime    @default(now())
     updatedAt      DateTime    @updatedAt
 }
-
-model Faq {
+model DharamshalaFaq {
     id        String   @id @default(auto()) @map("_id") @db.ObjectId
     question  String
     answer    String
-    templeId  String   @db.ObjectId
-    temple    Temple   @relation(fields: [templeId], references: [id], onDelete: Cascade, name: "TempleFaqs")
+    dharamshalaId String @db.ObjectId
+    // This establishes the other side of the relation.
+    dharamshala Dharamshala @relation(fields: [dharamshalaId], references: [id], onDelete: Cascade, name: "DharamshalaFaqs")
+
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }
