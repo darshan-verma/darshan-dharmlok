@@ -1,17 +1,10 @@
 "use client";
 
-import {
-	useState,
-	useEffect,
-	useMemo,
-	Dispatch,
-	SetStateAction,
-} from "react";
+import { useState, useEffect, useMemo, Dispatch, SetStateAction } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
 	Card,
 	CardHeader,
@@ -49,6 +42,7 @@ const Popup = dynamic<any>(
 	{ ssr: false }
 );
 import "leaflet/dist/leaflet.css";
+import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 
 type Faq = { id?: string; question: string; answer: string };
 type TempleData = {
@@ -427,6 +421,29 @@ export default function TempleDetailPage() {
 	// Generate a unique key for MapContainer to avoid "container is being reused" error
 	const mapKey = JSON.stringify(markerPos || mapCenter);
 
+	function handleBlockNoteChange(
+		field: "description" | "history" | "additionalInfo" | "rituals",
+		val: string
+	): void {
+		setEditedTemple((prev) => (prev ? { ...prev, [field]: val } : prev));
+	}
+
+	function safeBlockNoteHtml(jsonString?: string) {
+		try {
+			if (!jsonString) return "";
+			const blocks = JSON.parse(jsonString);
+			if (!Array.isArray(blocks)) return "";
+			return blocks
+				.map(
+					(block: any) =>
+						block.content?.map?.((c: any) => c.text).join(" ") || ""
+				)
+				.join("<br/>");
+		} catch {
+			return "";
+		}
+	}
+
 	return (
 		<div className="p-6 space-y-6">
 			<div className="flex items-center gap-4">
@@ -589,64 +606,100 @@ export default function TempleDetailPage() {
 							</CardHeader>
 							<CardContent className="space-y-4">
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<div className="space-y-2">
-										<Label htmlFor="description">Description</Label>
-										<Textarea
-											id="description"
-											value={editedTemple?.description || ""}
-											onChange={(e) =>
-												setEditedTemple((prev) =>
-													prev ? { ...prev, description: e.target.value } : prev
-												)
-											}
-											rows={3}
-											disabled={!isEditing}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="history">History</Label>
-										<Textarea
-											id="history"
-											value={editedTemple?.history || ""}
-											onChange={(e) =>
-												setEditedTemple((prev) =>
-													prev ? { ...prev, history: e.target.value } : prev
-												)
-											}
-											rows={3}
-											disabled={!isEditing}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="additionalInfo">Additional Info</Label>
-										<Textarea
-											id="additionalInfo"
-											value={editedTemple?.additionalInfo || ""}
-											onChange={(e) =>
-												setEditedTemple((prev) =>
-													prev
-														? { ...prev, additionalInfo: e.target.value }
-														: prev
-												)
-											}
-											rows={3}
-											disabled={!isEditing}
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label htmlFor="rituals">Rituals</Label>
-										<Textarea
-											id="rituals"
-											value={editedTemple?.rituals || ""}
-											onChange={(e) =>
-												setEditedTemple((prev) =>
-													prev ? { ...prev, rituals: e.target.value } : prev
-												)
-											}
-											rows={3}
-											disabled={!isEditing}
-										/>
-									</div>
+									{/* Description Card */}
+									<Card>
+										<CardHeader>
+											<CardTitle>Description</CardTitle>
+										</CardHeader>
+										<CardContent>
+											{isEditing ? (
+												<BlockNoteEditor
+													initialContent={editedTemple?.description || ""}
+													onChange={(val: string) =>
+														handleBlockNoteChange("description", val)
+													}
+													editable={isEditing}
+												/>
+											) : (
+												<div
+													className="prose prose-sm max-w-none"
+													dangerouslySetInnerHTML={{
+														__html: safeBlockNoteHtml(editedTemple?.description),
+													}}
+												/>
+											)}
+										</CardContent>
+									</Card>
+									{/* History Card */}
+									<Card>
+										<CardHeader>
+											<CardTitle>History</CardTitle>
+										</CardHeader>
+										<CardContent>
+											{isEditing ? (
+												<BlockNoteEditor
+													initialContent={editedTemple?.history || ""}
+													onChange={(val: string) =>
+														handleBlockNoteChange("history", val)
+													}
+													editable={isEditing}
+												/>
+											) : (
+												<div
+													className="prose prose-sm max-w-none"
+													dangerouslySetInnerHTML={{
+														__html: safeBlockNoteHtml(editedTemple?.history),
+													}}
+												/>
+											)}
+										</CardContent>
+									</Card>
+									{/* Additional Info Card */}
+									<Card>
+										<CardHeader>
+											<CardTitle>Additional Info</CardTitle>
+										</CardHeader>
+										<CardContent>
+											{isEditing ? (
+												<BlockNoteEditor
+													initialContent={editedTemple?.additionalInfo || ""}
+													onChange={(val: string) =>
+														handleBlockNoteChange("additionalInfo", val)
+													}
+													editable={isEditing}
+												/>
+											) : (
+												<div
+													className="prose prose-sm max-w-none"
+													dangerouslySetInnerHTML={{
+														__html: safeBlockNoteHtml(editedTemple?.additionalInfo),
+													}}
+												/>
+											)}
+										</CardContent>
+									</Card>
+									{/* Rituals Card */}
+									<Card>
+										<CardHeader>
+											<CardTitle>Rituals</CardTitle>
+										</CardHeader>
+										<CardContent>
+											{isEditing ? (
+												<BlockNoteEditor
+													initialContent={editedTemple?.rituals || ""}
+													onChange={(val: string) => handleBlockNoteChange("rituals", val)}
+													editable={isEditing}
+												/>
+											) : (
+												<div
+													className="prose prose-sm max-w-none"
+													dangerouslySetInnerHTML={{
+														__html: safeBlockNoteHtml(editedTemple?.rituals),
+													}}
+												/>
+											)}
+										</CardContent>
+									</Card>
 								</div>
 								<div className="space-y-2">
 									<Label htmlFor="timings">Timings</Label>
@@ -749,7 +802,7 @@ export default function TempleDetailPage() {
 											<Button
 												type="button"
 												variant="outline"
-												size="sm"
+											size="sm"
 												className="mt-1"
 												onClick={() => addTravelField(setTravelByTrain)}
 											>
@@ -878,7 +931,7 @@ export default function TempleDetailPage() {
 										</Button>
 									</div>
 									<div className="flex flex-wrap gap-2 mt-2">
-										{amenities.map((a, idx) => (
+										{amenities.map((a) => (
 											<span
 												key={a}
 												className="inline-flex items-center bg-gray-100 rounded px-2 py-1 text-xs font-medium"
@@ -1004,7 +1057,7 @@ export default function TempleDetailPage() {
 								<div className="space-y-2">
 									<Label>Temple Videos</Label>
 									<div className="flex flex-wrap gap-3">
-										{videoFiles.map((vid, idx) => (
+										{videoFiles.map((vid) => (
 											<div
 												key={vid}
 												className="relative w-40 h-24 rounded border overflow-hidden flex items-center justify-center bg-muted"
