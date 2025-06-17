@@ -262,3 +262,27 @@ model DharamshalaFaq {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }
+model Playlist {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    name      String
+    date      DateTime @default(now())
+    category  String
+    status    String   // "active" | "inactive"
+    songs     Song[]   @relation("PlaylistSongs")
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Song {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    name        String
+    date        DateTime @default(now())
+    description String?
+    audioFile    String?   // path to uploaded audio file
+    thumbnail   String?   // path to uploaded thumbnail
+    playlistId  String   @db.ObjectId
+    playlist    Playlist  @relation(fields: [playlistId], references: [id], name: "PlaylistSongs")
+    status      String
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
