@@ -302,3 +302,16 @@ model Product {
     createdAt       DateTime  @default(now())
     updatedAt       DateTime  @updatedAt
 }
+// Coupon Model
+model Coupon {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    name        String                           // Coupon name/code
+    date        DateTime @default(now())         // Date of creation or update
+    discount    Float                             // Discount value (percentage or flat)
+    userLimit   Int                               // Max uses per user
+    timeUsed    Int      @default(0)              // Total times used
+    validity    DateTime                          // Expiry date/time
+    status      String                            // "active", "inactive", etc.
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
