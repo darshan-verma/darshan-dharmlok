@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // Helper function (can be moved to a shared utils file if used in multiple places)
-const parseJsonArrayField = (fieldValue: string | null | undefined): any[] => {
+const parseJsonArrayField = <T = unknown>(fieldValue: string | null | undefined): T[] => {
 	if (!fieldValue) return [];
 	try {
 		const parsed = JSON.parse(fieldValue);
-		return Array.isArray(parsed) ? parsed : [];
-	} catch (e) {
+		return Array.isArray(parsed) ? parsed as T[] : [];
+	} catch {
 		return [];
 	}
 };
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const dharamshalaCreateData: any = {
+		const dharamshalaCreateData: Prisma.DharamshalaCreateInput = {
 			name,
 			date: new Date(date),
 			state,
@@ -94,7 +95,6 @@ export async function POST(req: NextRequest) {
 			travelByBus: travelByBus ? JSON.stringify(travelByBus) : "[]",
 			travelByRoad: travelByRoad ? JSON.stringify(travelByRoad) : "[]",
 			dharamshalaFaqs: {
-				// Use 'dharamshalaFaqs' for the relation
 				create:
 					dharamshalaFaqs?.map((faq: { question: string; answer: string }) => ({
 						question: faq.question,
@@ -105,11 +105,11 @@ export async function POST(req: NextRequest) {
 
 		Object.keys(dharamshalaCreateData).forEach((key) => {
 			if (
-				dharamshalaCreateData[key] === undefined &&
+				dharamshalaCreateData[key as keyof Prisma.DharamshalaCreateInput] === undefined &&
 				key !== "dharamshalaFaqs"
 			) {
 				// Corrected key name
-				delete dharamshalaCreateData[key];
+				delete dharamshalaCreateData[key as keyof Prisma.DharamshalaCreateInput];
 			}
 		});
 

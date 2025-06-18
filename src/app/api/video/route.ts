@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Video as PrismaVideo } from "@prisma/client";
 
 export interface Video {
 	id: string;
@@ -16,18 +17,18 @@ export interface Video {
 	updatedAt?: string;
 }
 
-function toVideoApi(video: any): Video {
+function toVideoApi(video: PrismaVideo): Video {
 	return {
 		id: video.id,
 		title: video.title,
-		date: video.date,
+		date: video.date?.toISOString?.() ?? "",
 		description: video.description,
 		category: video.category,
 		type: video.type,
 		status: video.status,
-		videoUrl: video.videoUrl,
+		videoUrl: video.videoUrl ?? "",
 		thumbnailUrl: video.thumbnailUrl,
-		detail: video.detail ?? "",
+		// detail: video.detail ?? "",
 		createdAt: video.createdAt?.toISOString?.(),
 		updatedAt: video.updatedAt?.toISOString?.(),
 	};
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
 			},
 		});
 		return NextResponse.json(newVideo);
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to create video" },
 			{ status: 500 }

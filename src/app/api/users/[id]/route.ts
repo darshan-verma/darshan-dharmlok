@@ -11,7 +11,7 @@ import { Prisma } from "@prisma/client";
  * @returns JSON response with user data or error message
  */
 export async function GET(
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	// @typescript-eslint/no-unused-vars
 	_request: Request,
 	context: { params: { id: string } }
 ) {

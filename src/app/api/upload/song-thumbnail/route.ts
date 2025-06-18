@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 		await writeFile(filePath, buffer);
 		const thumbnailUrl = `/uploads/audio-thumbnails/${fileName}`;
 		return NextResponse.json({ thumbnailUrl });
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to upload thumbnail" },
 			{ status: 500 }

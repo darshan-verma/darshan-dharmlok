@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // Helper function to safely parse JSON string fields that should be arrays
-const parseJsonArrayField = (fieldValue: string | null | undefined): any[] => {
+const parseJsonArrayField = <T = unknown>(fieldValue: string | null | undefined): T[] => {
 	if (!fieldValue) return [];
 	try {
 		const parsed = JSON.parse(fieldValue);
-		return Array.isArray(parsed) ? parsed : [];
-	} catch (e) {
-		// console.warn(`Failed to parse JSON field: ${fieldValue}`, e);
+		return Array.isArray(parsed) ? parsed as T[] : [];
+	} catch {
 		return [];
 	}
 };
@@ -103,7 +102,25 @@ export async function PUT(
 				dharamshalaId: id,
 			})) || [];
 
-		const dharamshalaUpdateData: any = {
+		const dharamshalaUpdateData: {
+			name: string;
+			date: Date;
+			state: string;
+			city: string;
+			status: string;
+			description?: string;
+			additionalInfo?: string;
+			latitude?: number;
+			longitude?: number;
+			timings?: string;
+			amenities: string;
+			imageFile: string;
+			videoFile: string;
+			travelByAir: string;
+			travelByTrain: string;
+			travelByBus: string;
+			travelByRoad: string;
+		} = {
 			name,
 			date: new Date(date),
 			state,
@@ -125,8 +142,9 @@ export async function PUT(
 		};
 
 		Object.keys(dharamshalaUpdateData).forEach((key) => {
-			if (dharamshalaUpdateData[key] === undefined) {
-				delete dharamshalaUpdateData[key];
+			const typedKey = key as keyof typeof dharamshalaUpdateData;
+			if (dharamshalaUpdateData[typedKey] === undefined) {
+				delete dharamshalaUpdateData[typedKey];
 			}
 		});
 

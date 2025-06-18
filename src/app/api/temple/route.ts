@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // Helper function (can be moved to a shared utils file if used in multiple places)
-const parseJsonArrayField = (fieldValue: string | null | undefined): any[] => {
+const parseJsonArrayField = <T = unknown>(fieldValue: string | null | undefined): T[] => {
 	if (!fieldValue) return [];
 	try {
 		const parsed = JSON.parse(fieldValue);
-		return Array.isArray(parsed) ? parsed : [];
-	} catch (e) {
+		return Array.isArray(parsed) ? parsed as T[] : [];
+	} catch {
 		return [];
 	}
 };
@@ -76,7 +76,32 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const templeCreateData: any = {
+		type TempleCreateData = {
+			name: string;
+			date: Date;
+			state: string;
+			city: string;
+			status: string;
+			description?: string;
+			history?: string;
+			additionalInfo?: string;
+			rituals?: string;
+			latitude?: number;
+			longitude?: number;
+			timings?: string;
+			amenities: string;
+			imageFile: string;
+			videoFile: string;
+			travelByAir: string;
+			travelByTrain: string;
+			travelByBus: string;
+			travelByRoad: string;
+			templeFaq: {
+				create: { question: string; answer: string }[];
+			};
+		};
+
+		const templeCreateData: TempleCreateData = {
 			name,
 			date: new Date(date),
 			state,
@@ -107,9 +132,12 @@ export async function POST(req: NextRequest) {
 
 		// Remove undefined fields
 		Object.keys(templeCreateData).forEach((key) => {
-			if (templeCreateData[key] === undefined && key !== "templeFaq") {
+			if (
+				templeCreateData[key as keyof TempleCreateData] === undefined &&
+				key !== "templeFaq"
+			) {
 				// Keep templeFaq even if empty for create
-				delete templeCreateData[key];
+				delete templeCreateData[key as keyof TempleCreateData];
 			}
 		});
 

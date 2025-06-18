@@ -30,7 +30,7 @@ export async function GET(
 			category: playlist.category,
 			status: playlist.status,
 		});
-	} catch (error) {
+	} catch{
 		return NextResponse.json(
 			{ error: "Failed to fetch audio library" },
 			{ status: 500 }
@@ -65,7 +65,7 @@ export async function PUT(
 			category: updated.category,
 			status: updated.status,
 		});
-	} catch (error) {
+	} catch{
 		return NextResponse.json(
 			{ error: "Failed to update audio library" },
 			{ status: 500 }
@@ -82,7 +82,7 @@ export async function DELETE(
 		await prisma.song.deleteMany({ where: { playlistId: id } });
 		await prisma.playlist.delete({ where: { id } });
 		return NextResponse.json({ success: true });
-	} catch (error) {
+	} catch{
 		return NextResponse.json(
 			{ error: "Failed to delete audio library" },
 			{ status: 500 }

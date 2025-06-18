@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/card";
 import { Save, ArrowLeft, Image as ImageIcon } from "lucide-react";
 import { toast } from "@/lib/toast";
+import Image from "next/image";
 
 const videoCategories = [
 	"Tutorial",
@@ -127,7 +128,7 @@ export default function VideoDetailPage() {
 			setEditedVideo(updated);
 			setIsEditing(false);
 			toast.success("Video updated successfully!");
-		} catch (error) {
+		} catch {
 			toast.error("Failed to update video");
 		} finally {
 			setIsSaving(false);
@@ -160,7 +161,7 @@ export default function VideoDetailPage() {
 								{(
 									isEditing ? editedVideo?.thumbnailUrl : video?.thumbnailUrl
 								) ? (
-									<img
+									<Image
 										src={
 											isEditing
 												? editedVideo?.thumbnailUrl || "/placeholder.png"
@@ -496,7 +497,7 @@ export default function VideoDetailPage() {
 												Thumbnail
 											</h3>
 											<div className="w-48 h-28 rounded-lg overflow-hidden border">
-												<img
+												<Image
 													src={video.thumbnailUrl}
 													alt={video.title}
 													width={192}

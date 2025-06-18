@@ -7,8 +7,18 @@ interface PlaylistCreateBody {
 	category: string;
 	status: string;
 }
-
-export async function GET(req: NextRequest) {
+/**
+ * GET /api/audio-library/[id]
+ * Retrieves a single user by ID with all associated data including addresses
+ *
+ * @param _request - Request object (unused)
+ * @param context - Contains route parameters including user ID
+ * @returns JSON response with user data or error message
+ */
+export async function GET(
+	// @typescript-eslint/no-unused-vars
+	_request: NextRequest
+) {
 	try {
 		const playlists = await prisma.playlist.findMany({
 			orderBy: { createdAt: "desc" },
@@ -25,7 +35,7 @@ export async function GET(req: NextRequest) {
 			status: playlist.status,
 		}));
 		return NextResponse.json(result);
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to fetch audio libraries" },
 			{ status: 500 }
@@ -61,7 +71,7 @@ export async function POST(req: NextRequest) {
 			category: playlist.category,
 			status: playlist.status,
 		});
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to create audio library" },
 			{ status: 500 }

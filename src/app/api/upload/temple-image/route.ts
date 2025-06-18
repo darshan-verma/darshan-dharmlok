@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 		await writeFile(filePath, buffer);
 		const imageUrl = `/uploads/temple-images/${fileName}`;
 		return NextResponse.json({ imageUrl });
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to upload image" },
 			{ status: 500 }

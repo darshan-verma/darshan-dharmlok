@@ -41,7 +41,7 @@ export async function PUT(
 			thumbnail: updated.thumbnail || "",
 			status: updated.status || "Inactive", // <-- Ensure status is returned
 		});
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to update song" },
 			{ status: 500 }
@@ -57,7 +57,7 @@ export async function DELETE(
 	try {
 		await prisma.song.delete({ where: { id: songId } });
 		return NextResponse.json({ success: true });
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to delete song" },
 			{ status: 500 }

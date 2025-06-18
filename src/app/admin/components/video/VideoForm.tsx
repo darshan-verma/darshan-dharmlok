@@ -117,7 +117,7 @@ export default function VideoForm({
 				? initialData.videoUrl.split("/").pop() || null
 				: null
 		);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+
 	}, [
 		initialData.title,
 		initialData.date,
@@ -269,7 +269,7 @@ export default function VideoForm({
 		setFormErrors(errors);
 		if (Object.keys(errors).length > 0) return;
 
-		let finalVideoUrl = videoData.videoUrl;
+		const finalVideoUrl = videoData.videoUrl;
 		// Convert date to ISO string if present
 		let isoDate = videoData.date;
 		if (isoDate && /^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {

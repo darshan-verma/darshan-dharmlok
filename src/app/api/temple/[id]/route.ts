@@ -2,14 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // Helper function to safely parse JSON string fields that should be arrays
-const parseJsonArrayField = (fieldValue: string | null | undefined): any[] => {
+const parseJsonArrayField = <T = unknown>(fieldValue: string | null | undefined): T[] => {
 	if (!fieldValue) return [];
 	try {
 		const parsed = JSON.parse(fieldValue);
-		return Array.isArray(parsed) ? parsed : [];
-	} catch (e) {
-		// If parsing fails, return empty array or handle as appropriate
-		// console.warn(`Failed to parse JSON field: ${fieldValue}`, e);
+		return Array.isArray(parsed) ? parsed as T[] : [];
+	} catch {
 		return [];
 	}
 };
@@ -103,7 +101,27 @@ export async function PUT(
 				templeId: id,
 			})) || [];
 
-		const templeUpdateData: any = {
+		const templeUpdateData: {
+			name: string;
+			date: Date;
+			state: string;
+			city: string;
+			status: string;
+			description?: string;
+			history?: string;
+			additionalInfo?: string;
+			rituals?: string;
+			latitude?: number;
+			longitude?: number;
+			timings?: string;
+			amenities: string;
+			imageFile: string;
+			videoFile: string;
+			travelByAir: string;
+			travelByTrain: string;
+			travelByBus: string;
+			travelByRoad: string;
+		} = {
 			name,
 			date: new Date(date),
 			state,
@@ -127,8 +145,8 @@ export async function PUT(
 
 		// Remove undefined fields to avoid Prisma errors
 		Object.keys(templeUpdateData).forEach((key) => {
-			if (templeUpdateData[key] === undefined) {
-				delete templeUpdateData[key];
+			if (templeUpdateData[key as keyof typeof templeUpdateData] === undefined) {
+				delete templeUpdateData[key as keyof typeof templeUpdateData];
 			}
 		});
 

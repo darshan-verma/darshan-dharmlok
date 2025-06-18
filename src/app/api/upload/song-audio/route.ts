@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 		await writeFile(filePath, buffer);
 		const audioUrl = `/uploads/audio-library/${fileName}`;
 		return NextResponse.json({ audioUrl });
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to upload audio" },
 			{ status: 500 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, Dispatch, SetStateAction } from "react";
+import { useState, useEffect,Dispatch, SetStateAction } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,27 +22,35 @@ import {
 	Trash2,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
+import type { LeafletMouseEvent, DragEndEvent } from "leaflet";
 
 // For map, use leaflet (client-side only)
 import dynamic from "next/dynamic";
 import type * as L from "leaflet"; // <-- Add this import for L namespace
-const Map = dynamic<any>(
+const Map = dynamic<MapContainerProps>(
 	() => import("react-leaflet").then((mod) => mod.MapContainer),
 	{ ssr: false }
 );
-const TileLayer = dynamic<any>(
+const TileLayer = dynamic<TileLayerProps>(
 	() => import("react-leaflet").then((mod) => mod.TileLayer),
 	{ ssr: false }
 );
-const Marker = dynamic<any>(
+const Marker = dynamic<MarkerProps>(
 	() => import("react-leaflet").then((mod) => mod.Marker),
 	{ ssr: false }
 );
-const Popup = dynamic<any>(
+const Popup = dynamic<PopupProps>(
 	() => import("react-leaflet").then((mod) => mod.Popup),
 	{ ssr: false }
 );
 import "leaflet/dist/leaflet.css";
+import {
+	MapContainerProps,
+	MarkerProps,
+	PopupProps,
+	TileLayerProps,
+} from "react-leaflet";
+import Image from "next/image";
 
 type Faq = { id?: string; question: string; answer: string };
 type DharamshalaData = {
@@ -97,6 +105,13 @@ export default function DharamshalaDetailPage() {
 		22.9734, 78.6569,
 	]); // India center
 	const [markerPos, setMarkerPos] = useState<[number, number] | null>(null);
+	const [map, setMap] = useState<L.Map | null>(null);
+
+	useEffect(() => {
+		if (map) {
+			setTimeout(() => map.invalidateSize(), 100);
+		}
+	}, [map]);
 
 	// Images and Videos
 	const [imageFiles, setImageFiles] = useState<string[]>([]);
@@ -214,21 +229,14 @@ export default function DharamshalaDetailPage() {
 					addressInput
 				)}`
 			);
-			const data = await res.json();
+			const data: Array<{ lat: string; lon: string }> = await res.json();
 			if (data && data.length > 0) {
 				const lat = parseFloat(data[0].lat);
 				const lon = parseFloat(data[0].lon);
 				setMapCenter([lat, lon]);
 				setMarkerPos([lat, lon]);
 				setEditedDharamshala((prev) =>
-					prev
-						? {
-								...prev,
-								latitude: lat,
-								longitude: lon,
-								placeName: addressInput, // Save the searched place name
-						  }
-						: prev
+					prev ? { ...prev, latitude: lat, longitude: lon } : prev
 				);
 				toast.success("Location found and set!");
 			} else {
@@ -242,7 +250,7 @@ export default function DharamshalaDetailPage() {
 	};
 
 	// Map marker drag/click
-	const handleMapClick = (e: any) => {
+	const handleMapClick = (e: LeafletMouseEvent) => {
 		const { lat, lng } = e.latlng;
 		setMarkerPos([lat, lng]);
 		setEditedDharamshala((prev) =>
@@ -250,7 +258,7 @@ export default function DharamshalaDetailPage() {
 		);
 	};
 
-	const handleMarkerDrag = (e: any) => {
+	const handleMarkerDrag = (e: DragEndEvent) => {
 		const { lat, lng } = e.target.getLatLng();
 		setMarkerPos([lat, lng]);
 		setEditedDharamshala((prev) =>
@@ -360,7 +368,7 @@ export default function DharamshalaDetailPage() {
 	// Validation
 	const validateForm = (data: DharamshalaData) => {
 		const errors: Record<string, string> = {};
-		if (!data.name?.trim()) errors.name;
+		if (!data.name?.trim()) errors.name = "Name is required";
 		if (!data.date?.trim()) errors.date = "Date is required";
 		if (!data.state?.trim()) errors.state = "State is required";
 		if (!data.city?.trim()) errors.city = "City is required";
@@ -413,7 +421,7 @@ export default function DharamshalaDetailPage() {
 			);
 			setIsEditing(false);
 			toast.success("Dharamshala updated successfully!");
-		} catch (error) {
+		} catch {
 			toast.error("Failed to update dharamshala");
 		} finally {
 			setIsSaving(false);
@@ -421,15 +429,26 @@ export default function DharamshalaDetailPage() {
 	};
 
 	// Memoize the red pin icon so it doesn't recreate on every render
-	const redPinIcon = useMemo(() => {
-		if (typeof window === "undefined") return undefined;
-		const L_ = require("leaflet") as typeof L;
-		return L_.divIcon({
-			className: "",
-			html: `<svg width="32" height="32" viewBox="0 0 24 24" fill="red" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
-			iconSize: [32, 32],
-			iconAnchor: [16, 32],
+	const [redPinIcon, setRedPinIcon] = useState<L.DivIcon | undefined>(undefined);
+
+	useEffect(() => {
+		let isMounted = true;
+		if (typeof window === "undefined") return;
+		import("leaflet").then((L_) => {
+			if (isMounted) {
+				setRedPinIcon(
+					L_.divIcon({
+						className: "",
+						html: `<svg width="32" height="32" viewBox="0 0 24 24" fill="red" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
+						iconSize: [32, 32],
+						iconAnchor: [16, 32],
+					})
+				);
+			}
 		});
+		return () => {
+			isMounted = false;
+		};
 	}, []);
 
 	if (!dharamshala || !editedDharamshala) {
@@ -486,6 +505,26 @@ export default function DharamshalaDetailPage() {
 								{dharamshala?.date ? dharamshala.date.split("T")[0] : "N/A"}
 							</span>
 						</div>
+						{/* Example error display for name */}
+						{isEditing && errors.name && (
+							<p className="text-sm text-red-500">{errors.name}</p>
+						)}
+						{/* Example error display for date */}
+						{isEditing && errors.date && (
+							<p className="text-sm text-red-500">{errors.date}</p>
+						)}
+						{/* Example error display for state */}
+						{isEditing && errors.state && (
+							<p className="text-sm text-red-500">{errors.state}</p>
+						)}
+						{/* Example error display for city */}
+						{isEditing && errors.city && (
+							<p className="text-sm text-red-500">{errors.city}</p>
+						)}
+						{/* Example error display for status */}
+						{isEditing && errors.status && (
+							<p className="text-sm text-red-500">{errors.status}</p>
+						)}
 					</CardContent>
 					<CardFooter className="p-4 pt-0">
 						<Button
@@ -501,44 +540,54 @@ export default function DharamshalaDetailPage() {
 			{/* Map Section */}
 			<div className="mt-6">
 				<Card>
-					<CardHeader>
-						<CardTitle>Dharamshala Location (Map)</CardTitle>
-					</CardHeader>
 					<CardContent>
-						<div className="flex flex-col md:flex-row gap-4">
-							<div className="flex-1 min-h-[380px] h-[380px] rounded border overflow-hidden">
-								{typeof window !== "undefined" && (
-									<Map
-										key={mapKey}
-										center={markerPos || mapCenter}
-										zoom={markerPos ? 15 : 5}
-										style={{ height: "100%", width: "100%" }}
-										whenCreated={(map: L.Map) => {
-											setTimeout(() => map.invalidateSize(), 100);
-										}}
-										onClick={isEditing ? handleMapClick : undefined}
+						<div style={{ height: "400px", width: "100%" }}>
+							<Map
+								key={mapKey}
+								center={markerPos || mapCenter}
+								zoom={markerPos ? 15 : 5}
+								style={{ height: "100%", width: "100%" }}
+								whenReady={() => {
+									// Use a timeout to ensure the map is available
+									setTimeout(() => {
+										const leaflet = require("leaflet");
+										const mapElement = document.querySelector(".leaflet-container");
+										if (mapElement && leaflet && leaflet.Map) {
+											const mapInstance = (leaflet.Map.prototype._instances as L.Map[] | undefined)?.find(
+												(m: L.Map) => m.getContainer && m.getContainer() === mapElement
+											);
+											if (mapInstance) setMap(mapInstance);
+										}
+									}, 0);
+								}}
+								// @ts-expect-error eventHandlers prop type mismatch with react-leaflet types
+								eventHandlers={
+									isEditing
+										? {
+												click: handleMapClick,
+										}
+										: undefined
+								}
+							>
+								<TileLayer
+									attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
+									url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+								/>
+								{markerPos && (
+									<Marker
+										position={markerPos}
+										draggable={isEditing}
+										eventHandlers={
+											isEditing ? { dragend: handleMarkerDrag } : undefined
+										}
+										icon={redPinIcon}
 									>
-										<TileLayer
-											attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
-											url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-										/>
-										{markerPos && (
-											<Marker
-												position={markerPos}
-												draggable={isEditing}
-												eventHandlers={
-													isEditing ? { dragend: handleMarkerDrag } : undefined
-												}
-												icon={redPinIcon}
-											>
-												<Popup>
-													{editedDharamshala?.name || "Dharamshala Location"}
-												</Popup>
-											</Marker>
-										)}
-									</Map>
+										<Popup>
+											{editedDharamshala?.name || "Dharamshala Location"}
+										</Popup>
+									</Marker>
 								)}
-							</div>
+							</Map>
 						</div>
 						<div className="flex flex-col gap-2 w-full md:w-96 mt-4">
 							<Label>Search Address/Place</Label>
@@ -682,7 +731,7 @@ export default function DharamshalaDetailPage() {
 													<Button
 														type="button"
 														variant="ghost"
-														size="icon"
+													size="icon"
 														onClick={() =>
 															removeTravelField(setTravelByAir, idx)
 														}
@@ -951,10 +1000,13 @@ export default function DharamshalaDetailPage() {
 												key={img}
 												className="relative w-32 h-20 rounded border overflow-hidden flex items-center justify-center bg-muted"
 											>
-												<img
+												<Image
 													src={img}
 													alt={`Dharamshala Image ${idx + 1}`}
+													fill
 													className="object-cover w-full h-full"
+													sizes="128px"
+													style={{ objectFit: "cover" }}
 												/>
 												{isEditing && (
 													<Button

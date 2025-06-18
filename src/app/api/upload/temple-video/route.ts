@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 		await writeFile(filePath, buffer);
 		const videoUrl = `/uploads/temple-videos/${fileName}`;
 		return NextResponse.json({ videoUrl });
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to upload video" },
 			{ status: 500 }

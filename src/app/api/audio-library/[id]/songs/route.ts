@@ -33,7 +33,7 @@ export async function GET(
 			status: song.status || "Inactive", // <-- Ensure status is returned
 		}));
 		return NextResponse.json(result);
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to fetch songs" },
 			{ status: 500 }
@@ -78,7 +78,7 @@ export async function POST(
 			thumbnail: song.thumbnail || "",
 			status: song.status || "Inactive", // <-- Ensure status is returned
 		});
-	} catch (error) {
+	} catch {
 		return NextResponse.json({ error: "Failed to add song" }, { status: 500 });
 	}
 }
