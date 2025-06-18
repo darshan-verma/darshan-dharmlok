@@ -223,7 +223,7 @@ model TempleFaq {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }
-
+// Dharamshala Model
 model Dharamshala {
     id             String      @id @default(auto()) @map("_id") @db.ObjectId
     name           String
@@ -262,6 +262,7 @@ model DharamshalaFaq {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }
+// Playlist Model
 model Playlist {
     id        String   @id @default(auto()) @map("_id") @db.ObjectId
     name      String
@@ -272,7 +273,7 @@ model Playlist {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }
-
+// Song Model
 model Song {
     id          String   @id @default(auto()) @map("_id") @db.ObjectId
     name        String
@@ -285,4 +286,19 @@ model Song {
     status      String
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
+}
+// Product Model
+model Product {
+    id              String    @id @default(auto()) @map("_id") @db.ObjectId
+    name            String
+    date            DateTime  @default(now())                      // Date added or updated
+    category        String                                        // Category name or ID
+    pricePerUnit    Float                                         // Price per unit
+    availableQty    Int                                           // Available quantity in stock
+    description     String?                                       // Rich text description
+    images          String[]                                      // Array of image URLs/paths
+    videos          String[]                                      // Array of video URLs/paths
+    status          String                                        // "active", "inactive", etc.
+    createdAt       DateTime  @default(now())
+    updatedAt       DateTime  @updatedAt
 }

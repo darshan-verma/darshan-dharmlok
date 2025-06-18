@@ -33,6 +33,20 @@ export async function GET(
 					: playlist.date,
 			category: playlist.category,
 			status: playlist.status,
+			// Add songs if you want to expose them in the API
+			songs:
+				playlist.songs?.map((song) => ({
+					id: song.id,
+					name: song.name,
+					date:
+						song.date instanceof Date
+							? song.date.toISOString().split("T")[0]
+							: song.date,
+					description: song.description,
+					audioFile: song.audioFile,
+					thumbnail: song.thumbnail,
+					status: song.status,
+				})) || [],
 		}));
 		return NextResponse.json(result);
 	} catch {
