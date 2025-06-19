@@ -319,3 +319,25 @@ model Category {
     id   String @id @default(auto()) @map("_id") @db.ObjectId
     name String @unique
 }
+// model Events and Bookings
+model Event {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  title         String
+  description   String?
+  bookingUrl    String?
+  address       String?
+  fromDate      DateTime
+  fromTime      String?
+  toDate        DateTime
+  toTime        String?
+  place         String?
+  location      String?
+  category      String
+  type          String
+  price         Float?
+  bannerImage   String?
+  relatedImages String[] // or Json if you want more flexibility
+  status        String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
