@@ -34,7 +34,7 @@ type Product = {
 	id: string;
 	name: string;
 	description?: string;
-	category: string;
+	category: string[]; // <-- should be string[]
 	date: string;
 	pricePerUnit: number;
 	availableQty: number;
@@ -103,12 +103,11 @@ export default function ProductDetailPage() {
 		// Fetch all categories for dropdown
 		const fetchCategories = async () => {
 			try {
-				const response = await fetch("/api/e-shop");
+				const response = await fetch("/api/categories");
 				if (!response.ok) return;
-				const data: Product[] = await response.json();
-				const uniqueCategories = Array.from(
-					new Set(data.map((p) => p.category))
-				);
+				const data: string[] = await response.json();
+				// Remove duplicates just in case
+				const uniqueCategories = Array.from(new Set(data));
 				setCategoryOptions(uniqueCategories);
 			} catch {}
 		};
@@ -272,7 +271,7 @@ export default function ProductDetailPage() {
 			setCategoryOptions((prev) => [...prev, trimmed]);
 		}
 		if (editedProduct) {
-			setEditedProduct({ ...editedProduct, category: trimmed });
+			setEditedProduct({ ...editedProduct, category: [trimmed] });
 		}
 		setNewCategory("");
 		setIsAddingCategory(false);
@@ -315,7 +314,11 @@ export default function ProductDetailPage() {
 					<CardContent className="space-y-3 p-4 pt-0">
 						<div className="flex items-center gap-2 text-sm">
 							<span className="font-medium">Category:</span>
-							<span>{product.category}</span>
+							<span>
+								{Array.isArray(product.category)
+									? product.category[0]
+									: product.category}
+							</span>
 						</div>
 						<div className="flex items-center gap-2 text-sm">
 							<span className="font-medium">Date:</span>
@@ -428,11 +431,11 @@ export default function ProductDetailPage() {
 									) : (
 										<div className="flex gap-2">
 											<Select
-												value={editedProduct.category}
+												value={editedProduct.category?.[0] || ""}
 												onValueChange={(value) =>
 													setEditedProduct({
 														...editedProduct,
-														category: value,
+														category: [value],
 													})
 												}
 											>
@@ -443,20 +446,22 @@ export default function ProductDetailPage() {
 													<SelectValue placeholder="Select category" />
 												</SelectTrigger>
 												<SelectContent>
-													{categoryOptions.map((cat) => (
-														<SelectItem key={cat} value={cat}>
-															{cat}
-														</SelectItem>
-													))}
+													{categoryOptions
+														.filter((cat, idx, arr) => arr.indexOf(cat) === idx)
+														.map((cat) => (
+															<SelectItem key={cat} value={cat}>
+																{cat}
+															</SelectItem>
+														))}
 												</SelectContent>
 											</Select>
-											<Button
+											{/* <Button
 												type="button"
 												variant="outline"
 												onClick={() => setIsAddingCategory(true)}
 											>
 												Add New
-											</Button>
+											</Button> */}
 										</div>
 									)}
 									{errors.category && (

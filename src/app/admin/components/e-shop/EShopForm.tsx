@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Trash2 } from "lucide-react";
+import { Product } from "./EShopTable";
 import {
 	Select,
 	SelectContent,
@@ -11,7 +13,14 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Product } from "./EShopTable";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogFooter,
+	DialogTitle,
+	DialogDescription,
+} from "@/components/ui/dialog";
 
 interface EshopFormProps {
 	initialData?: Partial<Product>;
@@ -59,9 +68,11 @@ export default function EshopForm({
 	});
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 	const [categories, setCategories] = useState<string[]>([]);
-	const [isAddingCategory, setIsAddingCategory] = useState(false);
 	const [newCategory, setNewCategory] = useState("");
 	const [isCategoryLoading, setIsCategoryLoading] = useState(false);
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+	const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+	const selectTriggerRef = useRef<HTMLButtonElement | null>(null);
 
 	// Fetch categories from API on mount
 	useEffect(() => {
@@ -74,14 +85,7 @@ export default function EshopForm({
 					setCategories(data);
 				}
 			} catch {
-				setCategories([
-					"Spiritual",
-					"Books",
-					"Accessories",
-					"Clothing",
-					"Food",
-					"Other",
-				]);
+				setCategories(defaultCategories);
 			}
 			setIsCategoryLoading(false);
 		};
@@ -97,7 +101,7 @@ export default function EshopForm({
 			!Array.isArray(data.category) ||
 			data.category.length === 0
 		)
-			errors.category = "At least one category is required";
+			errors.category = "Category is required";
 		if (
 			data.pricePerUnit === undefined ||
 			isNaN(Number(data.pricePerUnit)) ||
@@ -145,25 +149,62 @@ export default function EshopForm({
 			if (res.ok) {
 				const updated = await res.json();
 				setCategories(updated);
-				// Set the new category as the selected one
-				handleInputChange("category", [trimmed]);
+				setNewCategory("");
 			}
 		} catch {
 			// handle error if needed
 		}
-		setNewCategory("");
-		setIsAddingCategory(false);
 	};
 
-	const handleSelectCategory = (value: string) => {
-		// Replace the category array with the single selected value
-		handleInputChange("category", [value]);
+	const handleDeleteCategory = async (categoryToDelete: string) => {
+		setCategoryToDelete(categoryToDelete);
+		setDeleteDialogOpen(true);
+	};
+
+	const confirmDeleteCategory = async () => {
+		if (!categoryToDelete) return;
+		try {
+			const res = await fetch("/api/categories", {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ name: categoryToDelete }),
+			});
+			if (res.ok) {
+				const updatedCategories = await res.json();
+				setCategories(updatedCategories);
+				if (productData.category[0] === categoryToDelete) {
+					handleInputChange("category", []);
+				}
+			} else {
+				const { error } = await res.json();
+				alert(`Error: ${error}`);
+			}
+		} catch (error) {
+			console.error("Failed to delete category:", error);
+			alert("An unexpected error occurred while deleting the category.");
+		}
+		setDeleteDialogOpen(false);
+		setCategoryToDelete(null);
+	};
+
+	const cancelDeleteCategory = () => {
+		setDeleteDialogOpen(false);
+		setCategoryToDelete(null);
 	};
 
 	const handleRemoveCategory = () => {
-		// Clear the category selection
 		handleInputChange("category", []);
 	};
+
+	const handleCategorySelect = (value: string) => {
+		handleInputChange("category", [value]);
+		setTimeout(() => {
+			selectTriggerRef.current?.blur();
+		}, 0);
+	};
+
+	// Remove duplicates from categories before rendering
+	const uniqueCategories = Array.from(new Set(categories));
 
 	return (
 		<div className="grid gap-4 py-4">
@@ -195,97 +236,124 @@ export default function EshopForm({
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="category">Category *</Label>
-				{isAddingCategory ? (
-					<div className="flex gap-2">
+				<div className="flex flex-col gap-2">
+					<div className="flex gap-2 items-center">
+						<Select
+							value={
+								typeof productData.category[0] === "string"
+									? productData.category[0]
+									: ""
+							}
+							onValueChange={handleCategorySelect}
+						>
+							<SelectTrigger
+								id="category"
+								ref={selectTriggerRef}
+								className={`min-w-[200px] ${
+									formErrors.category ? "border-red-500" : ""
+								}`}
+							>
+								<SelectValue
+									placeholder="Select category"
+									className={
+										productData.category[0]
+											? "text-xs"
+											: "text-xs text-gray-400"
+									}
+								>
+									{productData.category[0] || "Select category"}
+								</SelectValue>
+							</SelectTrigger>
+							<SelectContent>
+								{uniqueCategories.length === 0 && (
+									<div className="px-4 py-2 text-gray-400 text-xs">
+										No categories
+									</div>
+								)}
+								{uniqueCategories.map((cat) => (
+									<div
+										key={cat}
+										className="flex items-center justify-between pr-2 pl-2 py-1 hover:bg-gray-100 rounded cursor-pointer group"
+									>
+										<span
+											className="flex-1 truncate text-xs"
+											onClick={() => handleCategorySelect(cat)}
+											style={{
+												fontWeight:
+													productData.category[0] === cat ? "bold" : "normal",
+												color:
+													productData.category[0] === cat
+														? "#2563eb"
+														: undefined,
+											}}
+										>
+											{cat}
+										</span>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon"
+											className="text-red-500 hover:text-red-600 opacity-70 group-hover:opacity-100"
+											onClick={(e) => {
+												e.preventDefault();
+												e.stopPropagation();
+												handleDeleteCategory(cat);
+											}}
+											title={`Delete category: ${cat}`}
+										>
+											<Trash2 className="h-4 w-4" />
+										</Button>
+									</div>
+								))}
+							</SelectContent>
+						</Select>
 						<Input
 							id="newCategory"
 							value={newCategory}
 							onChange={(e) => setNewCategory(e.target.value)}
-							placeholder="Enter new category"
-							autoFocus
-							className={formErrors.category ? "border-red-500" : ""}
+							placeholder="Add new category"
+							disabled={isCategoryLoading}
 							onKeyDown={(e) => {
 								if (e.key === "Enter") {
 									e.preventDefault();
 									handleAddCategory();
 								}
-								if (e.key === "Escape") {
-									setIsAddingCategory(false);
-									setNewCategory("");
-								}
 							}}
+							className="w-40"
 						/>
 						<Button
 							type="button"
 							variant="outline"
 							onClick={handleAddCategory}
-							disabled={!newCategory.trim()}
+							disabled={!newCategory.trim() || isCategoryLoading}
 						>
 							Add
 						</Button>
-						<Button
-							type="button"
-							variant="ghost"
-							onClick={() => {
-								setIsAddingCategory(false);
-								setNewCategory("");
-							}}
-						>
-							Cancel
-						</Button>
 					</div>
-				) : (
-					<div className="flex gap-2">
-						<Select
-							value={productData.category[0] || ""}
-							onValueChange={handleSelectCategory}
-						>
-							<SelectTrigger
-								id="category"
-								className={formErrors.category ? "border-red-500" : ""}
-							>
-								<SelectValue placeholder="Select category" />
-							</SelectTrigger>
-							<SelectContent>
-								{categories.map((cat) => (
-									<SelectItem key={cat} value={cat}>
-										{cat}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => setIsAddingCategory(true)}
-						>
-							Add New
-						</Button>
-					</div>
-				)}
-				<div className="flex flex-wrap gap-2 mt-2">
+					{formErrors.category && (
+						<p className="text-sm text-red-500 mt-1">{formErrors.category}</p>
+					)}
 					{productData.category.length > 0 && (
-						<div
-							key={productData.category[0]}
-							className="flex items-center bg-gray-100 rounded px-2 py-1"
-						>
-							<span>{productData.category[0]}</span>
+						<div className="flex items-center mt-2">
+							<span className="mr-2 font-semibold text-gray-600">
+								Selected:
+							</span>
+							<span className="bg-blue-100 border border-blue-400 rounded px-2 py-1 mr-2 text-blue-800 text-xs">
+								{productData.category[0]}
+							</span>
 							<Button
 								type="button"
 								variant="ghost"
 								size="icon"
-								className="ml-1"
 								onClick={handleRemoveCategory}
-								title="Remove from product"
+								title="Remove selected category"
+								className="text-gray-500 hover:text-red-500"
 							>
 								×
 							</Button>
 						</div>
 					)}
 				</div>
-				{formErrors.category && (
-					<p className="text-sm text-red-500">{formErrors.category}</p>
-				)}
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="pricePerUnit">Price per Unit (₹) *</Label>
@@ -355,6 +423,31 @@ export default function EshopForm({
 					{isLoading ? "Saving..." : "Save Product"}
 				</Button>
 			</div>
+
+			{/* Confirmation Dialog for Delete */}
+			<Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Delete Category</DialogTitle>
+						<DialogDescription>
+							Are you sure you want to permanently delete the category{" "}
+							<span className="font-semibold text-red-600">
+								{categoryToDelete}
+							</span>
+							?<br />
+							This action cannot be undone.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button variant="outline" onClick={cancelDeleteCategory}>
+							Cancel
+						</Button>
+						<Button variant="destructive" onClick={confirmDeleteCategory}>
+							Delete
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
