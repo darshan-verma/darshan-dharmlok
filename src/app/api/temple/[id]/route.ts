@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // Helper function to safely parse JSON string fields that should be arrays
-const parseJsonArrayField = <T = unknown>(fieldValue: string | null | undefined): T[] => {
+const parseJsonArrayField = <T = unknown>(
+	fieldValue: string | null | undefined
+): T[] => {
 	if (!fieldValue) return [];
 	try {
 		const parsed = JSON.parse(fieldValue);
-		return Array.isArray(parsed) ? parsed as T[] : [];
+		return Array.isArray(parsed) ? (parsed as T[]) : [];
 	} catch {
 		return [];
 	}
@@ -28,8 +30,12 @@ export async function GET(
 		const result = {
 			...temple,
 			amenities: parseJsonArrayField(temple.amenities),
-			imageFile: parseJsonArrayField(temple.imageFile),
-			videoFile: parseJsonArrayField(temple.videoFile),
+			imageFile: parseJsonArrayField<string>(temple.imageFile).map((url) =>
+				typeof url === "string" ? url : ""
+			),
+			videoFile: parseJsonArrayField<string>(temple.videoFile).map((url) =>
+				typeof url === "string" ? url : ""
+			),
 			travelByAir: parseJsonArrayField(temple.travelByAir),
 			travelByTrain: parseJsonArrayField(temple.travelByTrain),
 			travelByBus: parseJsonArrayField(temple.travelByBus),
@@ -73,8 +79,8 @@ export async function PUT(
 			history,
 			additionalInfo,
 			rituals,
-			latitude,
-			longitude,
+			address,
+			location,
 			travelByAir,
 			travelByTrain,
 			travelByBus,
@@ -111,8 +117,8 @@ export async function PUT(
 			history?: string;
 			additionalInfo?: string;
 			rituals?: string;
-			latitude?: number;
-			longitude?: number;
+			address?: string;
+			location?: string;
 			timings?: string;
 			amenities: string;
 			imageFile: string;
@@ -131,8 +137,8 @@ export async function PUT(
 			history,
 			additionalInfo,
 			rituals,
-			latitude,
-			longitude,
+			address,
+			location,
 			timings,
 			amenities: amenities ? JSON.stringify(amenities) : "[]",
 			imageFile: imageFile ? JSON.stringify(imageFile) : "[]",
@@ -145,7 +151,9 @@ export async function PUT(
 
 		// Remove undefined fields to avoid Prisma errors
 		Object.keys(templeUpdateData).forEach((key) => {
-			if (templeUpdateData[key as keyof typeof templeUpdateData] === undefined) {
+			if (
+				templeUpdateData[key as keyof typeof templeUpdateData] === undefined
+			) {
 				delete templeUpdateData[key as keyof typeof templeUpdateData];
 			}
 		});
@@ -171,8 +179,12 @@ export async function PUT(
 		const result = {
 			...updatedTempleWithFaqs,
 			amenities: parseJsonArrayField(updatedTempleWithFaqs.amenities),
-			imageFile: parseJsonArrayField(updatedTempleWithFaqs.imageFile),
-			videoFile: parseJsonArrayField(updatedTempleWithFaqs.videoFile),
+			imageFile: parseJsonArrayField<string>(
+				updatedTempleWithFaqs.imageFile
+			).map((url) => (typeof url === "string" ? url : "")),
+			videoFile: parseJsonArrayField<string>(
+				updatedTempleWithFaqs.videoFile
+			).map((url) => (typeof url === "string" ? url : "")),
 			travelByAir: parseJsonArrayField(updatedTempleWithFaqs.travelByAir),
 			travelByTrain: parseJsonArrayField(updatedTempleWithFaqs.travelByTrain),
 			travelByBus: parseJsonArrayField(updatedTempleWithFaqs.travelByBus),
@@ -215,3 +227,5 @@ export async function DELETE(
 		);
 	}
 }
+
+// No changes needed; this file only handles URLs for imageFile and videoFile.

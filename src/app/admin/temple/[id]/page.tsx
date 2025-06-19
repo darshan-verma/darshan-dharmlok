@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, Dispatch, SetStateAction } from "react";
+import { useState, useEffect, Dispatch, SetStateAction } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,33 +23,8 @@ import {
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 
-// For map, use leaflet (client-side only)
-import dynamic from "next/dynamic";
-import type * as L from "leaflet"; // <-- Add this import for L namespace
-const Map = dynamic<MapContainerProps>(
-	() => import("react-leaflet").then((mod) => mod.MapContainer),
-	{ ssr: false }
-);
-const TileLayer = dynamic<TileLayerProps>(
-	() => import("react-leaflet").then((mod) => mod.TileLayer),
-	{ ssr: false }
-);
-const Marker = dynamic<MarkerProps>(
-	() => import("react-leaflet").then((mod) => mod.Marker),
-	{ ssr: false }
-);
-const Popup = dynamic<PopupProps>(
-	() => import("react-leaflet").then((mod) => mod.Popup),
-	{ ssr: false }
-);
-import "leaflet/dist/leaflet.css";
+// Remove Leaflet imports and components
 import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
-import {
-	MapContainerProps,
-	MarkerProps,
-	PopupProps,
-	TileLayerProps,
-} from "react-leaflet";
 import Image from "next/image";
 
 type Faq = { id?: string; question: string; answer: string };
@@ -64,8 +39,8 @@ type TempleData = {
 	history?: string;
 	additionalInfo?: string;
 	rituals?: string;
-	latitude?: number | null;
-	longitude?: number | null;
+	address?: string; // Added for text address
+	location?: string; // Added for iframe map URL
 	travelByAir?: string[];
 	travelByTrain?: string[];
 	travelByBus?: string[];
@@ -79,7 +54,6 @@ type TempleData = {
 	videoFile?: string[]; // array of video URLs/paths
 };
 
-// Fix: Use a unique key for MapContainer to force remount on markerPos/mapCenter change
 export default function TempleDetailPage() {
 	const params = useParams();
 	const router = useRouter();
@@ -90,8 +64,6 @@ export default function TempleDetailPage() {
 	const [isSaving, setIsSaving] = useState(false);
 	const [editedTemple, setEditedTemple] = useState<TempleData | null>(null);
 	const [errors, setErrors] = useState<Record<string, string>>({});
-	const [addressInput, setAddressInput] = useState("");
-	const [isGeocoding, setIsGeocoding] = useState(false);
 
 	// Amenities
 	const [amenityInput, setAmenityInput] = useState("");
@@ -99,20 +71,6 @@ export default function TempleDetailPage() {
 
 	// FAQ
 	const [faqs, setFaqs] = useState<Faq[]>([]);
-
-	// Map
-	const [mapCenter, setMapCenter] = useState<[number, number]>([
-		22.9734, 78.6569,
-	]); // India center
-	const [markerPos, setMarkerPos] = useState<[number, number] | null>(null);
-	const [isClient, setIsClient] = useState(false); // <-- Add isClient state
-	const [map, setMap] = useState<L.Map | null>(null);
-
-	useEffect(() => {
-		if (map) {
-			setTimeout(() => map.invalidateSize(), 100);
-		}
-	}, [map]);
 
 	// Images and Videos
 	const [imageFiles, setImageFiles] = useState<string[]>([]);
@@ -196,10 +154,6 @@ export default function TempleDetailPage() {
 						? [data.videoFile]
 						: []
 				);
-				if (data.latitude && data.longitude) {
-					setMapCenter([data.latitude, data.longitude]);
-					setMarkerPos([data.latitude, data.longitude]);
-				}
 			} catch {
 				toast.error("Failed to load temple details");
 				router.push("/admin/temple");
@@ -207,59 +161,6 @@ export default function TempleDetailPage() {
 		};
 		if (templeId) fetchTemple();
 	}, [templeId, router]);
-
-	// Effect to set isClient to true after mount
-	useEffect(() => {
-		setIsClient(true);
-	}, []);
-
-	// Geocode address input to lat/lng
-	const handleGeocode = async () => {
-		if (!addressInput.trim()) return;
-		setIsGeocoding(true);
-		try {
-			const res = await fetch(
-				`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-					addressInput
-				)}`
-			);
-			const data = await res.json();
-			if (data && data.length > 0) {
-				const lat = parseFloat(data[0].lat);
-				const lon = parseFloat(data[0].lon);
-				setMapCenter([lat, lon]);
-				setMarkerPos([lat, lon]);
-				setEditedTemple((prev) =>
-					prev ? { ...prev, latitude: lat, longitude: lon } : prev
-				);
-				toast.success("Location found and set!");
-			} else {
-				toast.error("No location found for that address.");
-			}
-		} catch {
-			toast.error("Failed to geocode address.");
-		} finally {
-			setIsGeocoding(false);
-		}
-	};
-
-	// Map marker drag/click
-	const handleMapClick = (e: L.LeafletMouseEvent) => {
-		const { lat, lng } = e.latlng;
-		setMarkerPos([lat, lng]);
-		setEditedTemple((prev) =>
-			prev ? { ...prev, latitude: lat, longitude: lng } : prev
-		);
-	};
-
-	const handleMarkerDrag = (e: L.LeafletEvent) => {
-		const marker = e.target as L.Marker;
-		const { lat, lng } = marker.getLatLng();
-		setMarkerPos([lat, lng]);
-		setEditedTemple((prev) =>
-			prev ? { ...prev, latitude: lat, longitude: lng } : prev
-		);
-	};
 
 	// Amenity add/remove
 	const handleAddAmenity = () => {
@@ -422,38 +323,19 @@ export default function TempleDetailPage() {
 		}
 	};
 
-	// Memoize the red pin icon so it doesn't recreate on every render
-	const redPinIcon = useMemo(() => {
-		if (!isClient) return undefined; // Only create on client
-		let L_Instance: typeof L | undefined;
-		try {
-			// Use dynamic import to avoid require()
-			// This is synchronous because the module is already loaded by react-leaflet
-			L_Instance = (window as unknown as { L?: typeof L }).L || undefined;
-			if (!L_Instance) {
-				// fallback if not attached to window
-				L_Instance = undefined;
-			}
-		} catch {
-			L_Instance = undefined;
-		}
-		if (!L_Instance) return undefined;
-		return L_Instance.divIcon({
-			className: "",
-			html: `<svg width="32" height="32" viewBox="0 0 24 24" fill="red" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
-			iconSize: [32, 32],
-			iconAnchor: [16, 32],
-		});
-	}, [isClient]); // Depend on isClient
+	// Helper to extract src from iframe HTML or return direct URL
+	const extractGoogleMapsSrc = (input?: string) => {
+		if (!input) return "";
+		const match = input.match(/src=["']([^"']+)["']/);
+		if (match && match[1]) return match[1];
+		return input.trim();
+	};
 
 	if (!temple || !editedTemple) {
 		return (
 			<div className="flex justify-center items-center h-40">Loading...</div>
 		);
 	}
-
-	// Generate a unique key for MapContainer to avoid "container is being reused" error
-	const mapKey = JSON.stringify(markerPos || mapCenter);
 
 	function handleBlockNoteChange(
 		field: "description" | "history" | "additionalInfo" | "rituals",
@@ -552,118 +434,56 @@ export default function TempleDetailPage() {
 					</CardFooter>
 				</Card>
 			</div>
-			{/* Map Section */}
+			{/* Map Section - Updated to use iframe */}
 			<div className="mt-6">
 				<Card>
 					<CardHeader>
-						<CardTitle>Temple Location (Map)</CardTitle>
+						<CardTitle>Temple Location & Address</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<div className="flex flex-col md:flex-row gap-4">
-							<div className="flex-1 min-h-[380px] h-[380px] rounded border overflow-hidden">
-								{isClient && ( // <-- Render map only on client
-									<Map
-										key={mapKey}
-										center={markerPos || mapCenter}
-										zoom={markerPos ? 15 : 5}
-										style={{ height: "100%", width: "100%" }}
-										whenReady={() => {
-											// Use a timeout to ensure the map is available
-											setTimeout(() => {
-												const leaflet = require("leaflet");
-												const mapElement =
-													document.querySelector(".leaflet-container");
-												if (mapElement && leaflet && leaflet.Map) {
-													const mapInstance =
-														leaflet.Map.prototype._instances?.find(
-															(m: L.Map) => m.getContainer?.() === mapElement
-														);
-													if (mapInstance) setMap(mapInstance);
-												}
-											}, 0);
-										}}
-										// @ts-expect-error eventHandlers prop type mismatch with react-leaflet types
-										eventHandlers={
-											isEditing
-												? {
-														click: handleMapClick,
-												}
-												: undefined
-										}
-									>
-										<TileLayer
-											attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
-											url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-										/>
-										{markerPos && (
-											<Marker
-												position={markerPos}
-												draggable={isEditing}
-												eventHandlers={
-													isEditing ? { dragend: handleMarkerDrag } : undefined
-												}
-												icon={redPinIcon}
-											>
-												<Popup>
-													{editedTemple?.name || "Dharamshala Location"}
-												</Popup>
-											</Marker>
-										)}
-									</Map>
-								)}
+						<div className="flex flex-col gap-4 w-full md:w-2/3">
+							<div className="space-y-2">
+								<Label htmlFor="address">Address</Label>
+								<Input
+									id="address"
+									value={editedTemple.address || ""}
+									onChange={(e) =>
+										setEditedTemple((prev) =>
+											prev ? { ...prev, address: e.target.value } : prev
+										)
+									}
+									placeholder="Enter temple address"
+									disabled={!isEditing}
+								/>
 							</div>
-						</div>
-						<div className="flex flex-col gap-2 w-full md:w-96 mt-4">
-							<Label>Search Address/Place</Label>
-							<Input
-								value={addressInput}
-								onChange={(e) => setAddressInput(e.target.value)}
-								placeholder="Type address or place name"
-								disabled={!isEditing}
-							/>
-							<Button
-								type="button"
-								onClick={handleGeocode}
-								disabled={!isEditing || isGeocoding || !addressInput.trim()}
-								className="w-full"
-							>
-								{isGeocoding ? "Searching..." : "Find & Set Location"}
-							</Button>
-							<div className="flex gap-2 mt-2">
+							<div className="space-y-2">
+								<Label htmlFor="location">
+									Temple Location (Google Maps embed src URL or iframe HTML)
+								</Label>
 								<Input
-									type="number"
-									step="any"
-									value={editedTemple?.latitude ?? ""}
+									id="location"
+									value={editedTemple.location || ""}
 									onChange={(e) =>
 										setEditedTemple((prev) =>
-											prev
-												? {
-														...prev,
-														latitude: parseFloat(e.target.value) || 0,
-												  }
-												: prev
+											prev ? { ...prev, location: e.target.value } : prev
 										)
 									}
-									placeholder="Latitude"
+									placeholder="Paste Google Maps embed src URL or iframe HTML"
 									disabled={!isEditing}
 								/>
-								<Input
-									type="number"
-									step="any"
-									value={editedTemple?.longitude ?? ""}
-									onChange={(e) =>
-										setEditedTemple((prev) =>
-											prev
-												? {
-														...prev,
-														longitude: parseFloat(e.target.value) || 0,
-												  }
-												: prev
-										)
-									}
-									placeholder="Longitude"
-									disabled={!isEditing}
-								/>
+								{/* Map Preview */}
+								{extractGoogleMapsSrc(editedTemple.location) ? (
+									<div className="mt-2 border rounded overflow-hidden">
+										<iframe
+											src={extractGoogleMapsSrc(editedTemple.location)}
+											width="100%"
+											height="250"
+											style={{ border: 0 }}
+											allowFullScreen
+											loading="lazy"
+										/>
+									</div>
+								) : null}
 							</div>
 						</div>
 					</CardContent>
@@ -825,7 +645,7 @@ export default function TempleDetailPage() {
 													<Button
 														type="button"
 														variant="ghost"
-														size="icon"
+													size="icon"
 														onClick={() =>
 															removeTravelField(setTravelByAir, idx)
 														}
@@ -882,7 +702,7 @@ export default function TempleDetailPage() {
 											<Button
 												type="button"
 												variant="outline"
-												size="sm"
+											size="sm"
 												className="mt-1"
 												onClick={() => addTravelField(setTravelByTrain)}
 											>

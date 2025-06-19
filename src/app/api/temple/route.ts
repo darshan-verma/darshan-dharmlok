@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // Helper function (can be moved to a shared utils file if used in multiple places)
-const parseJsonArrayField = <T = unknown>(fieldValue: string | null | undefined): T[] => {
+const parseJsonArrayField = <T = unknown>(
+	fieldValue: string | null | undefined
+): T[] => {
 	if (!fieldValue) return [];
 	try {
 		const parsed = JSON.parse(fieldValue);
-		return Array.isArray(parsed) ? parsed as T[] : [];
+		return Array.isArray(parsed) ? (parsed as T[]) : [];
 	} catch {
 		return [];
 	}
@@ -56,8 +58,8 @@ export async function POST(req: NextRequest) {
 			history,
 			additionalInfo,
 			rituals,
-			latitude,
-			longitude,
+			address,
+			location,
 			travelByAir,
 			travelByTrain,
 			travelByBus,
@@ -86,8 +88,8 @@ export async function POST(req: NextRequest) {
 			history?: string;
 			additionalInfo?: string;
 			rituals?: string;
-			latitude?: number;
-			longitude?: number;
+			address?: string;
+			location?: string;
 			timings?: string;
 			amenities: string;
 			imageFile: string;
@@ -111,8 +113,8 @@ export async function POST(req: NextRequest) {
 			history,
 			additionalInfo,
 			rituals,
-			latitude,
-			longitude,
+			address,
+			location,
 			timings,
 			amenities: amenities ? JSON.stringify(amenities) : "[]",
 			imageFile: imageFile ? JSON.stringify(imageFile) : "[]",

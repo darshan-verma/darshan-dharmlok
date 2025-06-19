@@ -191,8 +191,8 @@ model Temple {
     status         String
     imageFile      String?
     videoFile      String?
-    latitude       Float?
-    longitude      Float?
+    address       String?
+    location      String?
     description    String?
     history        String?
     additionalInfo String?
@@ -234,8 +234,8 @@ model Dharamshala {
     imageFile      String?     // image of temple 
     videoFile      String?     // video file for temple video
     // Location (map)
-    latitude       Float?
-    longitude      Float?
+    address       String?
+    location      String?
     // Details page fields
     description    String?
     additionalInfo String?
@@ -321,23 +321,23 @@ model Category {
 }
 // model Events and Bookings
 model Event {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  title         String
-  description   String?
-  bookingUrl    String?
-  address       String?
-  fromDate      DateTime
-  fromTime      String?
-  toDate        DateTime
-  toTime        String?
-  place         String?
-  location      String?
-  category      String
-  type          String
-  price         Float?
-  bannerImage   String?
-  relatedImages String[] // or Json if you want more flexibility
-  status        String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+    id            String   @id @default(auto()) @map("_id") @db.ObjectId
+    title         String
+    description   String?
+    bookingUrl    String?
+    address       String?
+    fromDate      DateTime
+    fromTime      String?
+    toDate        DateTime
+    toTime        String?
+    place         String?
+    location      String?
+    category      String
+    type          String
+    price         Float?
+    bannerImage   String?
+    relatedImages String[] // or Json if you want more flexibility
+    status        String
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
 }
