@@ -6,7 +6,7 @@ interface ProductApi {
 	id: string;
 	name: string;
 	date: string;
-	category: string;
+	category: string[];
 	pricePerUnit: number;
 	availableQty: number;
 	description?: string;
@@ -45,7 +45,11 @@ export async function GET(_req: NextRequest) {
 				product.date instanceof Date
 					? product.date.toISOString().split("T")[0]
 					: String(product.date),
-			category: product.category,
+			category: Array.isArray(product.category)
+				? product.category
+				: typeof product.category === "string"
+				? [product.category]
+				: [], // fallback for old data
 			pricePerUnit: Number(product.pricePerUnit),
 			availableQty: Number(product.availableQty),
 			description: product.description || "",
@@ -84,12 +88,14 @@ export async function POST(req: NextRequest) {
 			!name ||
 			!date ||
 			!category ||
+			!Array.isArray(category) ||
+			category.length !== 1 || // Changed: must be exactly one category
 			pricePerUnit === undefined ||
 			availableQty === undefined ||
 			!status
 		) {
 			return NextResponse.json(
-				{ error: "Missing required fields" },
+				{ error: "Missing required fields or invalid category count" },
 				{ status: 400 }
 			);
 		}
@@ -98,7 +104,7 @@ export async function POST(req: NextRequest) {
 			data: {
 				name,
 				date: new Date(date),
-				category,
+				category: category,
 				pricePerUnit: Number(pricePerUnit),
 				availableQty: Number(availableQty),
 				description: description || "",
@@ -114,7 +120,7 @@ export async function POST(req: NextRequest) {
 				product.date instanceof Date
 					? product.date.toISOString().split("T")[0]
 					: String(product.date),
-			category: product.category,
+			category: product.category, // use directly, no parseArrayField
 			pricePerUnit: Number(product.pricePerUnit),
 			availableQty: Number(product.availableQty),
 			description: product.description || "",

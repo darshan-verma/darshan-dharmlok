@@ -6,7 +6,7 @@ interface ProductApi {
 	id: string;
 	name: string;
 	date: string;
-	category: string;
+	category: string[]; // changed from string to string[]
 	pricePerUnit: number;
 	availableQty: number;
 	description?: string;
@@ -49,7 +49,11 @@ export async function GET(
 				product.date instanceof Date
 					? product.date.toISOString().split("T")[0]
 					: String(product.date),
-			category: product.category,
+			category: Array.isArray(product.category)
+				? product.category
+				: typeof product.category === "string"
+				? [product.category]
+				: [], // fallback for old data
 			pricePerUnit: Number(product.pricePerUnit),
 			availableQty: Number(product.availableQty),
 			description: product.description || "",
@@ -60,7 +64,7 @@ export async function GET(
 			updatedAt: product.updatedAt?.toISOString(),
 		};
 		return NextResponse.json(result);
-	} catch  {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to fetch product" },
 			{ status: 500 }
@@ -104,12 +108,14 @@ export async function PUT(
 			!name ||
 			!date ||
 			!category ||
+			!Array.isArray(category) ||
+			category.length !== 1 || // Changed: must be exactly one category
 			pricePerUnit === undefined ||
 			availableQty === undefined ||
 			!status
 		) {
 			return NextResponse.json(
-				{ error: "Missing required fields" },
+				{ error: "Missing required fields or invalid category count" },
 				{ status: 400 }
 			);
 		}
@@ -119,7 +125,7 @@ export async function PUT(
 			data: {
 				name,
 				date: new Date(date),
-				category,
+				category: category,
 				pricePerUnit: Number(pricePerUnit),
 				availableQty: Number(availableQty),
 				description: description || "",
@@ -135,7 +141,11 @@ export async function PUT(
 				updated.date instanceof Date
 					? updated.date.toISOString().split("T")[0]
 					: String(updated.date),
-			category: updated.category,
+			category: Array.isArray(updated.category)
+				? updated.category
+				: typeof updated.category === "string"
+				? [updated.category]
+				: [], // fallback for old data
 			pricePerUnit: Number(updated.pricePerUnit),
 			availableQty: Number(updated.availableQty),
 			description: updated.description || "",
@@ -146,7 +156,7 @@ export async function PUT(
 			updatedAt: updated.updatedAt?.toISOString(),
 		};
 		return NextResponse.json(result);
-	} catch  {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to update product" },
 			{ status: 500 }

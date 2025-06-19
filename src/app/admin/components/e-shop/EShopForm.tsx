@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,7 +38,7 @@ export default function EshopForm({
 	initialData = {
 		name: "",
 		date: "",
-		category: "",
+		category: [],
 		pricePerUnit: 0,
 		availableQty: 0,
 		detail: "",
@@ -51,24 +51,53 @@ export default function EshopForm({
 	const [productData, setProductData] = useState<Omit<Product, "id">>({
 		name: initialData.name || "",
 		date: initialData.date || "",
-		category: initialData.category || "",
+		category: Array.isArray(initialData.category) ? initialData.category : [],
 		pricePerUnit: initialData.pricePerUnit ?? 0,
 		availableQty: initialData.availableQty ?? 0,
 		detail: initialData.detail || "",
 		status: initialData.status || "Active",
 	});
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-	const [categories, setCategories] = useState<string[]>([
-		...defaultCategories,
-	]);
+	const [categories, setCategories] = useState<string[]>([]);
 	const [isAddingCategory, setIsAddingCategory] = useState(false);
 	const [newCategory, setNewCategory] = useState("");
+	const [isCategoryLoading, setIsCategoryLoading] = useState(false);
+
+	// Fetch categories from API on mount
+	useEffect(() => {
+		const fetchCategories = async () => {
+			setIsCategoryLoading(true);
+			try {
+				const res = await fetch("/api/categories");
+				const data = await res.json();
+				if (Array.isArray(data)) {
+					setCategories(data);
+				}
+			} catch {
+				setCategories([
+					"Spiritual",
+					"Books",
+					"Accessories",
+					"Clothing",
+					"Food",
+					"Other",
+				]);
+			}
+			setIsCategoryLoading(false);
+		};
+		fetchCategories();
+	}, []);
 
 	const validateForm = (data: typeof productData) => {
 		const errors: Record<string, string> = {};
 		if (!data.name?.trim()) errors.name = "Product name is required";
 		if (!data.date?.trim()) errors.date = "Date is required";
-		if (!data.category) errors.category = "Category is required";
+		if (
+			!data.category ||
+			!Array.isArray(data.category) ||
+			data.category.length === 0
+		)
+			errors.category = "At least one category is required";
 		if (
 			data.pricePerUnit === undefined ||
 			isNaN(Number(data.pricePerUnit)) ||
@@ -98,21 +127,42 @@ export default function EshopForm({
 
 	const handleInputChange = (
 		field: keyof typeof productData,
-		value: string | number
+		value: string | number | string[]
 	) => {
 		setProductData({ ...productData, [field]: value });
 		if (formErrors[field]) setFormErrors({ ...formErrors, [field]: "" });
 	};
 
-	const handleAddCategory = () => {
+	const handleAddCategory = async () => {
 		const trimmed = newCategory.trim();
 		if (!trimmed) return;
-		if (!categories.includes(trimmed)) {
-			setCategories((prev) => [...prev, trimmed]);
+		try {
+			const res = await fetch("/api/categories", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ name: trimmed }),
+			});
+			if (res.ok) {
+				const updated = await res.json();
+				setCategories(updated);
+				// Set the new category as the selected one
+				handleInputChange("category", [trimmed]);
+			}
+		} catch {
+			// handle error if needed
 		}
-		setProductData((prev) => ({ ...prev, category: trimmed }));
 		setNewCategory("");
 		setIsAddingCategory(false);
+	};
+
+	const handleSelectCategory = (value: string) => {
+		// Replace the category array with the single selected value
+		handleInputChange("category", [value]);
+	};
+
+	const handleRemoveCategory = () => {
+		// Clear the category selection
+		handleInputChange("category", []);
 	};
 
 	return (
@@ -187,8 +237,8 @@ export default function EshopForm({
 				) : (
 					<div className="flex gap-2">
 						<Select
-							value={productData.category}
-							onValueChange={(value) => handleInputChange("category", value)}
+							value={productData.category[0] || ""}
+							onValueChange={handleSelectCategory}
 						>
 							<SelectTrigger
 								id="category"
@@ -202,9 +252,6 @@ export default function EshopForm({
 										{cat}
 									</SelectItem>
 								))}
-								<SelectItem value="__add_new__" disabled>
-									{/* visually hidden, handled below */}
-								</SelectItem>
 							</SelectContent>
 						</Select>
 						<Button
@@ -216,6 +263,26 @@ export default function EshopForm({
 						</Button>
 					</div>
 				)}
+				<div className="flex flex-wrap gap-2 mt-2">
+					{productData.category.length > 0 && (
+						<div
+							key={productData.category[0]}
+							className="flex items-center bg-gray-100 rounded px-2 py-1"
+						>
+							<span>{productData.category[0]}</span>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="ml-1"
+								onClick={handleRemoveCategory}
+								title="Remove from product"
+							>
+								×
+							</Button>
+						</div>
+					)}
+				</div>
 				{formErrors.category && (
 					<p className="text-sm text-red-500">{formErrors.category}</p>
 				)}

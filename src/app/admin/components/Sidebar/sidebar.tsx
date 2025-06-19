@@ -15,6 +15,7 @@ import {
 	Calendar,
 	LogOut,
 	Settings,
+	Cast,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -333,7 +334,7 @@ export function AdminSidebar({ className }: { className?: string }) {
 
 					<SidebarMenuItem>
 						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all">
-							{/* <PrayingHands className="h-5 w-5 text-teal-500" /> */}
+							<Cast className="h-5 w-5 text-teal-500" />
 							<span>Live Darshan</span>
 						</SidebarMenuButton>
 					</SidebarMenuItem>

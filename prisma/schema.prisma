@@ -292,7 +292,7 @@ model Product {
     id              String    @id @default(auto()) @map("_id") @db.ObjectId
     name            String
     date            DateTime  @default(now())                      // Date added or updated
-    category        String                                        // Category name or ID
+    category        String[]                                        // Category name or ID
     pricePerUnit    Float                                         // Price per unit
     availableQty    Int                                           // Available quantity in stock
     description     String?                                       // Rich text description
@@ -314,4 +314,8 @@ model Coupon {
     status      String                            // "active", "inactive", etc.
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
+}
+model Category {
+    id   String @id @default(auto()) @map("_id") @db.ObjectId
+    name String @unique
 }

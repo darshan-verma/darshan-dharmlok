@@ -38,11 +38,15 @@ export interface Product {
 	id: string;
 	name: string;
 	date: string;
-	category: string;
+	category: string[]; // changed from string to string[]
 	pricePerUnit: number;
 	availableQty: number;
 	detail?: string;
+	images?: string[];
+	videos?: string[];
 	status: string;
+	createdAt?: string;
+	updatedAt?: string;
 }
 
 interface EshopTableProps {
@@ -87,19 +91,24 @@ export default function EshopTable({
 	const filteredProducts = products.filter((product) => {
 		const matchesSearch =
 			product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			product.category
+				.join(", ")
+				.toLowerCase()
+				.includes(searchTerm.toLowerCase()) ||
 			(product.detail || "").toLowerCase().includes(searchTerm.toLowerCase());
 
 		const matchesStatus =
 			statusFilter === "all" || product.status === statusFilter;
 
 		const matchesCategory =
-			categoryFilter === "all" || product.category === categoryFilter;
+			categoryFilter === "all" || product.category.includes(categoryFilter);
 
 		return matchesSearch && matchesStatus && matchesCategory;
 	});
 
-	const uniqueCategories = Array.from(new Set(products.map((p) => p.category)));
+	const uniqueCategories = Array.from(
+		new Set(products.flatMap((p) => p.category))
+	);
 
 	return (
 		<div className="space-y-4">
