@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect,Dispatch, SetStateAction } from "react";
+import { useState, useEffect, Dispatch, SetStateAction } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,34 +22,8 @@ import {
 	Trash2,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
-import type { LeafletMouseEvent, DragEndEvent } from "leaflet";
 
-// For map, use leaflet (client-side only)
-import dynamic from "next/dynamic";
-import type * as L from "leaflet"; // <-- Add this import for L namespace
-const Map = dynamic<MapContainerProps>(
-	() => import("react-leaflet").then((mod) => mod.MapContainer),
-	{ ssr: false }
-);
-const TileLayer = dynamic<TileLayerProps>(
-	() => import("react-leaflet").then((mod) => mod.TileLayer),
-	{ ssr: false }
-);
-const Marker = dynamic<MarkerProps>(
-	() => import("react-leaflet").then((mod) => mod.Marker),
-	{ ssr: false }
-);
-const Popup = dynamic<PopupProps>(
-	() => import("react-leaflet").then((mod) => mod.Popup),
-	{ ssr: false }
-);
-import "leaflet/dist/leaflet.css";
-import {
-	MapContainerProps,
-	MarkerProps,
-	PopupProps,
-	TileLayerProps,
-} from "react-leaflet";
+// Remove Leaflet imports and components
 import Image from "next/image";
 
 type Faq = { id?: string; question: string; answer: string };
@@ -62,8 +36,8 @@ type DharamshalaData = {
 	status: string;
 	description?: string;
 	additionalInfo?: string;
-	latitude?: number | null;
-	longitude?: number | null;
+	address?: string; // Address text
+	location?: string; // Google Maps iframe URL
 	travelByAir?: string[];
 	travelByTrain?: string[];
 	travelByBus?: string[];
@@ -75,10 +49,8 @@ type DharamshalaData = {
 	updatedAt?: string;
 	imageFile?: string[];
 	videoFile?: string[];
-	placeName?: string;
 };
 
-// Fix: Use a unique key for MapContainer to force remount on markerPos/mapCenter change
 export default function DharamshalaDetailPage() {
 	const params = useParams();
 	const router = useRouter();
@@ -90,8 +62,6 @@ export default function DharamshalaDetailPage() {
 	const [editedDharamshala, setEditedDharamshala] =
 		useState<DharamshalaData | null>(null);
 	const [errors, setErrors] = useState<Record<string, string>>({});
-	const [addressInput, setAddressInput] = useState("");
-	const [isGeocoding, setIsGeocoding] = useState(false);
 
 	// Amenities
 	const [amenityInput, setAmenityInput] = useState("");
@@ -99,19 +69,6 @@ export default function DharamshalaDetailPage() {
 
 	// FAQ
 	const [dharamshalaFaqs, setDharamshalaFaqs] = useState<Faq[]>([]);
-
-	// Map
-	const [mapCenter, setMapCenter] = useState<[number, number]>([
-		22.9734, 78.6569,
-	]); // India center
-	const [markerPos, setMarkerPos] = useState<[number, number] | null>(null);
-	const [map, setMap] = useState<L.Map | null>(null);
-
-	useEffect(() => {
-		if (map) {
-			setTimeout(() => map.invalidateSize(), 100);
-		}
-	}, [map]);
 
 	// Images and Videos
 	const [imageFiles, setImageFiles] = useState<string[]>([]);
@@ -195,22 +152,6 @@ export default function DharamshalaDetailPage() {
 						? [data.videoFile]
 						: []
 				);
-				if (data.latitude && data.longitude) {
-					setMapCenter([data.latitude, data.longitude]);
-					setMarkerPos([data.latitude, data.longitude]);
-				}
-				// Prefer a saved place name if available, else fallback to city/state
-				if (data.placeName) {
-					setAddressInput(data.placeName);
-				} else if (data.city && data.state) {
-					setAddressInput(`${data.city}, ${data.state}`);
-				} else if (data.city) {
-					setAddressInput(data.city);
-				} else if (data.state) {
-					setAddressInput(data.state);
-				} else {
-					setAddressInput("");
-				}
 			} catch {
 				toast.error("Failed to load dharamshala details");
 				router.push("/admin/dharamshala");
@@ -218,53 +159,6 @@ export default function DharamshalaDetailPage() {
 		};
 		if (dharamshalaId) fetchDharamshala();
 	}, [dharamshalaId, router]);
-
-	// Geocode address input to lat/lng
-	const handleGeocode = async () => {
-		if (!addressInput.trim()) return;
-		setIsGeocoding(true);
-		try {
-			const res = await fetch(
-				`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-					addressInput
-				)}`
-			);
-			const data: Array<{ lat: string; lon: string }> = await res.json();
-			if (data && data.length > 0) {
-				const lat = parseFloat(data[0].lat);
-				const lon = parseFloat(data[0].lon);
-				setMapCenter([lat, lon]);
-				setMarkerPos([lat, lon]);
-				setEditedDharamshala((prev) =>
-					prev ? { ...prev, latitude: lat, longitude: lon } : prev
-				);
-				toast.success("Location found and set!");
-			} else {
-				toast.error("No location found for that address.");
-			}
-		} catch {
-			toast.error("Failed to geocode address.");
-		} finally {
-			setIsGeocoding(false);
-		}
-	};
-
-	// Map marker drag/click
-	const handleMapClick = (e: LeafletMouseEvent) => {
-		const { lat, lng } = e.latlng;
-		setMarkerPos([lat, lng]);
-		setEditedDharamshala((prev) =>
-			prev ? { ...prev, latitude: lat, longitude: lng } : prev
-		);
-	};
-
-	const handleMarkerDrag = (e: DragEndEvent) => {
-		const { lat, lng } = e.target.getLatLng();
-		setMarkerPos([lat, lng]);
-		setEditedDharamshala((prev) =>
-			prev ? { ...prev, latitude: lat, longitude: lng } : prev
-		);
-	};
 
 	// Amenity add/remove
 	const handleAddAmenity = () => {
@@ -388,7 +282,6 @@ export default function DharamshalaDetailPage() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					...editedDharamshala,
-					placeName: addressInput, // Always send the current addressInput as placeName
 					amenities,
 					dharamshalaFaqs,
 					imageFile: imageFiles,
@@ -428,37 +321,19 @@ export default function DharamshalaDetailPage() {
 		}
 	};
 
-	// Memoize the red pin icon so it doesn't recreate on every render
-	const [redPinIcon, setRedPinIcon] = useState<L.DivIcon | undefined>(undefined);
-
-	useEffect(() => {
-		let isMounted = true;
-		if (typeof window === "undefined") return;
-		import("leaflet").then((L_) => {
-			if (isMounted) {
-				setRedPinIcon(
-					L_.divIcon({
-						className: "",
-						html: `<svg width="32" height="32" viewBox="0 0 24 24" fill="red" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
-						iconSize: [32, 32],
-						iconAnchor: [16, 32],
-					})
-				);
-			}
-		});
-		return () => {
-			isMounted = false;
-		};
-	}, []);
+	// Helper to extract src from iframe HTML or return direct URL
+	const extractGoogleMapsSrc = (input?: string) => {
+		if (!input) return "";
+		const match = input.match(/src=["']([^"']+)["']/);
+		if (match && match[1]) return match[1];
+		return input.trim();
+	};
 
 	if (!dharamshala || !editedDharamshala) {
 		return (
 			<div className="flex justify-center items-center h-40">Loading...</div>
 		);
 	}
-
-	// Generate a unique key for MapContainer to avoid "container is being reused" error
-	const mapKey = JSON.stringify(markerPos || mapCenter);
 
 	return (
 		<div className="p-6 space-y-6">
@@ -537,109 +412,57 @@ export default function DharamshalaDetailPage() {
 					</CardFooter>
 				</Card>
 			</div>
-			{/* Map Section */}
+			{/* Map Section - Updated to use iframe */}
 			<div className="mt-6">
 				<Card>
+					<CardHeader>
+						<CardTitle>Dharamshala Location & Address</CardTitle>
+					</CardHeader>
 					<CardContent>
-						<div style={{ height: "400px", width: "100%" }}>
-							<Map
-								key={mapKey}
-								center={markerPos || mapCenter}
-								zoom={markerPos ? 15 : 5}
-								style={{ height: "100%", width: "100%" }}
-								whenReady={() => {
-									// Use a timeout to ensure the map is available
-									setTimeout(() => {
-										const leaflet = require("leaflet");
-										const mapElement = document.querySelector(".leaflet-container");
-										if (mapElement && leaflet && leaflet.Map) {
-											const mapInstance = (leaflet.Map.prototype._instances as L.Map[] | undefined)?.find(
-												(m: L.Map) => m.getContainer && m.getContainer() === mapElement
-											);
-											if (mapInstance) setMap(mapInstance);
-										}
-									}, 0);
-								}}
-								// @ts-expect-error eventHandlers prop type mismatch with react-leaflet types
-								eventHandlers={
-									isEditing
-										? {
-												click: handleMapClick,
-										}
-										: undefined
-								}
-							>
-								<TileLayer
-									attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
-									url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-								/>
-								{markerPos && (
-									<Marker
-										position={markerPos}
-										draggable={isEditing}
-										eventHandlers={
-											isEditing ? { dragend: handleMarkerDrag } : undefined
-										}
-										icon={redPinIcon}
-									>
-										<Popup>
-											{editedDharamshala?.name || "Dharamshala Location"}
-										</Popup>
-									</Marker>
-								)}
-							</Map>
-						</div>
-						<div className="flex flex-col gap-2 w-full md:w-96 mt-4">
-							<Label>Search Address/Place</Label>
-							<Input
-								value={addressInput}
-								onChange={(e) => setAddressInput(e.target.value)}
-								placeholder="Type address or place name"
-								disabled={!isEditing}
-							/>
-							<Button
-								type="button"
-								onClick={handleGeocode}
-								disabled={!isEditing || isGeocoding || !addressInput.trim()}
-								className="w-full"
-							>
-								{isGeocoding ? "Searching..." : "Find & Set Location"}
-							</Button>
-							<div className="flex gap-2 mt-2">
+						<div className="flex flex-col gap-4 w-full md:w-2/3">
+							<div className="space-y-2">
+								<Label htmlFor="address">Address</Label>
 								<Input
-									type="number"
-									step="any"
-									value={editedDharamshala?.latitude ?? ""}
+									id="address"
+									value={editedDharamshala?.address || ""}
 									onChange={(e) =>
 										setEditedDharamshala((prev) =>
-											prev
-												? {
-														...prev,
-														latitude: parseFloat(e.target.value) || 0,
-												  }
-												: prev
+											prev ? { ...prev, address: e.target.value } : prev
 										)
 									}
-									placeholder="Latitude"
+									placeholder="Enter dharamshala address"
 									disabled={!isEditing}
 								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="location">
+									Dharamshala Location (Google Maps embed src URL or iframe
+									HTML)
+								</Label>
 								<Input
-									type="number"
-									step="any"
-									value={editedDharamshala?.longitude ?? ""}
+									id="location"
+									value={editedDharamshala?.location || ""}
 									onChange={(e) =>
 										setEditedDharamshala((prev) =>
-											prev
-												? {
-														...prev,
-														longitude: parseFloat(e.target.value) || 0,
-												  }
-												: prev
+											prev ? { ...prev, location: e.target.value } : prev
 										)
 									}
-									placeholder="Longitude"
+									placeholder="Paste Google Maps embed src URL or iframe HTML"
 									disabled={!isEditing}
 								/>
+								{/* Map Preview */}
+								{extractGoogleMapsSrc(editedDharamshala?.location) ? (
+									<div className="mt-2 border rounded overflow-hidden">
+										<iframe
+											src={extractGoogleMapsSrc(editedDharamshala?.location)}
+											width="100%"
+											height="250"
+											style={{ border: 0 }}
+											allowFullScreen
+											loading="lazy"
+										/>
+									</div>
+								) : null}
 							</div>
 						</div>
 					</CardContent>
@@ -731,7 +554,7 @@ export default function DharamshalaDetailPage() {
 													<Button
 														type="button"
 														variant="ghost"
-													size="icon"
+														size="icon"
 														onClick={() =>
 															removeTravelField(setTravelByAir, idx)
 														}

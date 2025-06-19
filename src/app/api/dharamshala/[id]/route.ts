@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 // Helper function to safely parse JSON string fields that should be arrays
-const parseJsonArrayField = <T = unknown>(fieldValue: string | null | undefined): T[] => {
+const parseJsonArrayField = <T = unknown>(
+	fieldValue: string | null | undefined
+): T[] => {
 	if (!fieldValue) return [];
 	try {
 		const parsed = JSON.parse(fieldValue);
-		return Array.isArray(parsed) ? parsed as T[] : [];
+		return Array.isArray(parsed) ? (parsed as T[]) : [];
 	} catch {
 		return [];
 	}
@@ -73,8 +75,8 @@ export async function PUT(
 			status,
 			description,
 			additionalInfo,
-			latitude,
-			longitude,
+			address, // Added for text address
+			location, // Added for iframe URL
 			travelByAir,
 			travelByTrain,
 			travelByBus,
@@ -110,8 +112,8 @@ export async function PUT(
 			status: string;
 			description?: string;
 			additionalInfo?: string;
-			latitude?: number;
-			longitude?: number;
+			address?: string; // Updated for address field
+			location?: string; // Updated for location iframe URL
 			timings?: string;
 			amenities: string;
 			imageFile: string;
@@ -128,8 +130,8 @@ export async function PUT(
 			status,
 			description,
 			additionalInfo,
-			latitude,
-			longitude,
+			address, // Use address field
+			location, // Use location field for iframe
 			timings,
 			amenities: amenities ? JSON.stringify(amenities) : "[]",
 			imageFile: imageFile ? JSON.stringify(imageFile) : "[]",

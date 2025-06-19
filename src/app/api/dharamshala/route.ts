@@ -3,11 +3,13 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
 // Helper function (can be moved to a shared utils file if used in multiple places)
-const parseJsonArrayField = <T = unknown>(fieldValue: string | null | undefined): T[] => {
+const parseJsonArrayField = <T = unknown>(
+	fieldValue: string | null | undefined
+): T[] => {
 	if (!fieldValue) return [];
 	try {
 		const parsed = JSON.parse(fieldValue);
-		return Array.isArray(parsed) ? parsed as T[] : [];
+		return Array.isArray(parsed) ? (parsed as T[]) : [];
 	} catch {
 		return [];
 	}
@@ -56,8 +58,8 @@ export async function POST(req: NextRequest) {
 			status,
 			description,
 			additionalInfo,
-			latitude,
-			longitude,
+			address, // Added for text address
+			location, // Added for iframe URL
 			travelByAir,
 			travelByTrain,
 			travelByBus,
@@ -84,8 +86,8 @@ export async function POST(req: NextRequest) {
 			status,
 			description,
 			additionalInfo,
-			latitude,
-			longitude,
+			address, // Use address field
+			location, // Use location field for iframe
 			timings,
 			amenities: amenities ? JSON.stringify(amenities) : "[]",
 			imageFile: imageFile ? JSON.stringify(imageFile) : "[]",
@@ -105,11 +107,14 @@ export async function POST(req: NextRequest) {
 
 		Object.keys(dharamshalaCreateData).forEach((key) => {
 			if (
-				dharamshalaCreateData[key as keyof Prisma.DharamshalaCreateInput] === undefined &&
+				dharamshalaCreateData[key as keyof Prisma.DharamshalaCreateInput] ===
+					undefined &&
 				key !== "dharamshalaFaqs"
 			) {
 				// Corrected key name
-				delete dharamshalaCreateData[key as keyof Prisma.DharamshalaCreateInput];
+				delete dharamshalaCreateData[
+					key as keyof Prisma.DharamshalaCreateInput
+				];
 			}
 		});
 
