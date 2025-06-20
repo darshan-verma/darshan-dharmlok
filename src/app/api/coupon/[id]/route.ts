@@ -44,7 +44,7 @@ export async function GET(
 			updatedAt: coupon.updatedAt?.toISOString(),
 		};
 		return NextResponse.json(result);
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to fetch coupon" },
 			{ status: 500 }
@@ -120,7 +120,7 @@ export async function PUT(
 			updatedAt: updated.updatedAt?.toISOString(),
 		};
 		return NextResponse.json(result);
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to update coupon" },
 			{ status: 500 }
@@ -137,7 +137,7 @@ export async function DELETE(
 	try {
 		await prisma.coupon.delete({ where: { id } });
 		return NextResponse.json({ success: true });
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to delete coupon" },
 			{ status: 500 }

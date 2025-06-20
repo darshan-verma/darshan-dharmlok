@@ -40,7 +40,7 @@ export async function GET(_req: NextRequest) {
 			updatedAt: coupon.updatedAt?.toISOString(),
 		}));
 		return NextResponse.json(result);
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to fetch coupons" },
 			{ status: 500 }
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
 			updatedAt: coupon.updatedAt?.toISOString(),
 		};
 		return NextResponse.json(result);
-	} catch (error) {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to create coupon" },
 			{ status: 500 }
