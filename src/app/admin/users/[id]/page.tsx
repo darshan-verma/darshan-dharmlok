@@ -18,7 +18,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
 	Card,
 	CardContent,
@@ -38,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import Image from "next/image";
 import { toast } from "@/lib/toast";
+import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 
 interface Activity {
 	date: string;
@@ -483,6 +483,28 @@ export default function UserDetailPage() {
 		setImageError(false);
 		toast.success("Profile image removed");
 	};
+
+	function handleBlockNoteChange(field: "bio", val: string): void {
+		setEditedUser((prev) => (prev ? { ...prev, [field]: val } : prev));
+	}
+
+	type BlockNoteBlock = {
+		content?: { text: string }[];
+		[key: string]: unknown;
+	};
+
+	function safeBlockNoteHtml(jsonString?: string) {
+		try {
+			if (!jsonString) return "";
+			const blocks: BlockNoteBlock[] = JSON.parse(jsonString);
+			if (!Array.isArray(blocks)) return "";
+			return blocks
+				.map((block) => block.content?.map?.((c) => c.text).join(" ") || "")
+				.join("<br/>");
+		} catch {
+			return "";
+		}
+	}
 
 	return (
 		<div className="p-6 space-y-6">
@@ -1201,19 +1223,31 @@ export default function UserDetailPage() {
 												)}
 
 											<div className="space-y-2">
-												<Label htmlFor="bio">Bio</Label>
-												<Textarea
-													id="bio"
-													value={editedUser?.bio || ""}
-													onChange={(e) =>
-														setEditedUser({
-															...editedUser,
-															bio: e.target.value,
-														})
-													}
-													rows={4}
-													placeholder="Tell us about yourself"
-												/>
+												<Card>
+													<CardHeader>
+														<CardTitle>Biography</CardTitle>
+													</CardHeader>
+													<CardContent>
+														{isEditing ? (
+															<BlockNoteEditor
+																initialContent={editedUser?.bio || ""}
+																onChange={(val: string) =>
+																	handleBlockNoteChange("bio", val)
+																}
+																editable={isEditing}
+															/>
+														) : (
+															<div
+																className="prose prose-sm max-w-none"
+																dangerouslySetInnerHTML={{
+																	__html: safeBlockNoteHtml(
+																		editedUser?.bio
+																	),
+																}}
+															/>
+														)}
+													</CardContent>
+												</Card>
 											</div>
 										</>
 									) : (
@@ -1268,9 +1302,13 @@ export default function UserDetailPage() {
 												<h3 className="text-sm font-medium text-muted-foreground">
 													Bio
 												</h3>
-												<p className="font-medium text-foreground whitespace-pre-wrap">
-													{user?.bio || "No bio provided"}
-												</p>
+												<div className="font-medium text-foreground prose prose-sm max-w-none">
+													<div
+														dangerouslySetInnerHTML={{
+															__html: safeBlockNoteHtml(user?.bio),
+														}}
+													/>
+												</div>
 											</div>
 
 											{user?.addresses && user.addresses.length > 0 && (

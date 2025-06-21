@@ -17,7 +17,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
 	Card,
 	CardContent,
@@ -37,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import Image from "next/image";
 import { toast } from "@/lib/toast";
+import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 
 interface Activity {
 	date: string;
@@ -457,6 +457,28 @@ export default function HotelDharamshalaDetailPage() {
 		// Default return the cleaned value
 		return cleaned;
 	};
+
+	function handleBlockNoteChange(field: "bio", val: string): void {
+		setEditedHotelDharamshala((prev) => (prev ? { ...prev, [field]: val } : prev));
+	}
+
+	type BlockNoteBlock = {
+		content?: { text: string }[];
+		[key: string]: unknown;
+	};
+
+	function safeBlockNoteHtml(jsonString?: string) {
+		try {
+			if (!jsonString) return "";
+			const blocks: BlockNoteBlock[] = JSON.parse(jsonString);
+			if (!Array.isArray(blocks)) return "";
+			return blocks
+				.map((block) => block.content?.map?.((c) => c.text).join(" ") || "")
+				.join("<br/>");
+		} catch {
+			return "";
+		}
+	}
 
 	return (
 		<div className="p-6 space-y-6">
@@ -1139,19 +1161,31 @@ export default function HotelDharamshalaDetailPage() {
 												</div>
 											)}
 											<div className="space-y-2">
-												<Label htmlFor="bio">Bio</Label>
-												<Textarea
-													id="bio"
-													value={editedHotelDharamshala?.bio || ""}
-													onChange={(e) =>
-														setEditedHotelDharamshala({
-															...editedHotelDharamshala,
-															bio: e.target.value,
-														})
-													}
-													rows={4}
-													placeholder="Tell us about yourself"
-												/>
+												<Card>
+													<CardHeader>
+														<CardTitle>Biography</CardTitle>
+													</CardHeader>
+													<CardContent>
+														{isEditing ? (
+															<BlockNoteEditor
+																initialContent={editedHotelDharamshala?.bio || ""}
+																onChange={(val: string) =>
+																	handleBlockNoteChange("bio", val)
+																}
+																editable={isEditing}
+															/>
+														) : (
+															<div
+																className="prose prose-sm max-w-none"
+																dangerouslySetInnerHTML={{
+																	__html: safeBlockNoteHtml(
+																		editedHotelDharamshala?.bio
+																	),
+																}}
+															/>
+														)}
+													</CardContent>
+												</Card>
 											</div>
 										</>
 									) : (
@@ -1237,9 +1271,13 @@ export default function HotelDharamshalaDetailPage() {
 												<h3 className="text-sm font-medium text-muted-foreground">
 													Bio
 												</h3>
-												<p className="font-medium text-foreground whitespace-pre-wrap">
-													{HotelDharamshala?.bio || "No bio provided"}
-												</p>
+												<div className="font-medium text-foreground prose prose-sm max-w-none">
+													<div
+														dangerouslySetInnerHTML={{
+															__html: safeBlockNoteHtml(HotelDharamshala?.bio),
+														}}
+													/>
+													</div>
 											</div>
 
 											{HotelDharamshala?.addresses &&
