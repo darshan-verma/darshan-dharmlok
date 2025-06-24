@@ -316,6 +316,10 @@ export default function DharmguruDetailPage() {
 				addresses: editedDharmguru.addresses,
 				addressesToDelete,
 				bio: editedDharmguru.bio || null,
+				profileImageUrl:
+					editedDharmguru.profileImageUrl === undefined
+						? null // <-- send null if removed
+						: editedDharmguru.profileImageUrl,
 			};
 
 			const response = await fetch(`/api/users/${dharmguruId}`, {

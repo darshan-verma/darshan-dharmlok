@@ -314,6 +314,10 @@ export default function HotelDharamshalaDetailPage() {
 				addresses: editedHotelDharamshala.addresses,
 				addressesToDelete,
 				bio: editedHotelDharamshala.bio || null,
+				profileImageUrl:
+					editedHotelDharamshala.profileImageUrl === undefined
+						? null // <-- send null if removed
+						: editedHotelDharamshala.profileImageUrl,
 			};
 
 			const response = await fetch(`/api/users/${HotelDharamshalaId}`, {

@@ -68,14 +68,10 @@ interface DharmguruTableProps {
 
 // Categories for Kathavachaks
 export const DharmguruCategories = [
-	"Bhagavad Gita",
-	"Ramayana",
-	"Mahabharata",
-	"Vedas",
-	"Puranas",
-	"Upanishads",
-	"Bhakti Yoga",
-	"Other",
+	"Sanatan",
+	"Jain",
+	"Sikh",
+	"Buddhism",
 ];
 
 // Ranks for Kathavachaks
@@ -100,22 +96,22 @@ export const getRankColor = (rank: string): string => {
 // Function to get color based on category
 export const getCategoryColor = (category: string): string => {
 	switch (category) {
-		case "Bhagavad Gita":
+		case "Sanatan":
 			return "bg-orange-100 text-orange-800";
-		case "Ramayana":
+		case "Jain":
 			return "bg-rose-100 text-rose-800";
-		case "Mahabharata":
+		case "Sikh":
 			return "bg-indigo-100 text-indigo-800";
-		case "Vedas":
+		case "Buddhism":
 			return "bg-emerald-100 text-emerald-800";
-		case "Puranas":
-			return "bg-cyan-100 text-cyan-800";
-		case "Upanishads":
-			return "bg-violet-100 text-violet-800";
-		case "Bhakti Yoga":
-			return "bg-fuchsia-100 text-fuchsia-800";
-		case "Other":
-			return "bg-slate-100 text-slate-800";
+		// case "Puranas":
+		// 	return "bg-cyan-100 text-cyan-800";
+		// case "Upanishads":
+		// 	return "bg-violet-100 text-violet-800";
+		// case "Bhakti Yoga":
+		// 	return "bg-fuchsia-100 text-fuchsia-800";
+		// case "Other":
+		// 	return "bg-slate-100 text-slate-800";
 		default:
 			return "bg-gray-100 text-gray-800";
 	}

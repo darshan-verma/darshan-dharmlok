@@ -13,14 +13,14 @@ import { Prisma } from "@prisma/client";
 export async function GET(
 	// @typescript-eslint/no-unused-vars
 	_request: Request,
-	context: { params: { id: string } }
+	context: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const userId = context.params.id;
+		const { id } = await context.params;
 
 		// Validate userId format for MongoDB ObjectId (24 character hex string)
-		if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
-			console.error("Invalid user ID format:", userId);
+		if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+			console.error("Invalid user ID format:", id);
 			return NextResponse.json(
 				{ error: "Invalid user ID format" },
 				{ status: 400 }
@@ -39,7 +39,7 @@ export async function GET(
 		try {
 			// First check if user exists with minimal query to avoid field issues
 			const userExists = await prisma.user.findUnique({
-				where: { id: userId },
+				where: { id: id },
 				select: { id: true },
 			});
 
@@ -49,7 +49,7 @@ export async function GET(
 
 			// Fetch complete user data with all fields and related addresses
 			const user = await prisma.user.findUnique({
-				where: { id: userId },
+				where: { id: id },
 				select: {
 					// Basic user information
 					id: true,
@@ -98,6 +98,10 @@ export async function GET(
 					lastLogoutAt: true,
 					lastActiveAt: true,
 					createdAt: true,
+
+					// Add fields for images and videos
+					images: true,
+					videos: true,
 				},
 			});
 
@@ -126,7 +130,7 @@ export async function GET(
 						};
 
 						const basicUser = await prisma.user.findUnique({
-							where: { id: userId },
+							where: { id: id },
 							select: selectFields,
 						});
 
@@ -169,14 +173,14 @@ export async function GET(
  */
 export async function PUT(
 	request: Request,
-	context: { params: { id: string } }
+	context: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const userId = context.params.id;
+		const { id } = await context.params;
 
 		// Validate userId format for MongoDB ObjectId
-		if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
-			console.error("Invalid user ID format:", userId);
+		if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+			console.error("Invalid user ID format:", id);
 			return NextResponse.json(
 				{ error: "Invalid user ID format" },
 				{ status: 400 }
@@ -222,7 +226,7 @@ export async function PUT(
 			console.log("Rank value before update:", data.rank);
 
 			// Prepare update data with conditional field inclusion
-			const updateData: Prisma.UserUpdateInput = {
+			const userUpdateData: Prisma.UserUpdateInput = {
 				// Basic information updates (only if provided)
 				...(data.name !== undefined && { name: data.name }),
 				...(data.email !== undefined && { email: data.email }),
@@ -266,12 +270,20 @@ export async function PUT(
 				}),
 			};
 
-			console.log("Final update data:", JSON.stringify(updateData, null, 2));
+			// Add this to handle profileImageUrl removal
+			if ("profileImageUrl" in data) {
+				userUpdateData.profileImageUrl = data.profileImageUrl ?? null;
+			}
+
+			console.log(
+				"Final update data:",
+				JSON.stringify(userUpdateData, null, 2)
+			);
 
 			// Execute user update
-			const updatedUser = await prisma.user.update({
-				where: { id: userId },
-				data: updateData,
+			const updatedUserMain = await prisma.user.update({
+				where: { id: id },
+				data: userUpdateData,
 				select: {
 					// Return all important fields after update
 					id: true,
@@ -298,7 +310,7 @@ export async function PUT(
 				},
 			});
 
-			console.log("User updated with rank:", updatedUser.rank);
+			console.log("User updated with rank:", updatedUserMain.rank);
 
 			// Handle address updates if addresses are provided
 			if (data.addresses && Array.isArray(data.addresses)) {
@@ -346,7 +358,7 @@ export async function PUT(
 						// Create new address (no ID means it's new)
 						await prisma.address.create({
 							data: {
-								userId: userId, // Link to the user
+								userId: id, // Link to the user
 								type: addressData.type,
 								label: addressData.label,
 								line1: addressData.line1,
@@ -371,14 +383,14 @@ export async function PUT(
 					await prisma.address.deleteMany({
 						where: {
 							id: { in: data.addressesToDelete }, // Delete by IDs
-							userId: userId, // Ensure addresses belong to this user
+							userId: id, // Ensure addresses belong to this user
 						},
 					});
 				}
 
 				// Fetch the updated user with the latest addresses after all operations
 				const userWithUpdatedAddresses = await prisma.user.findUnique({
-					where: { id: userId },
+					where: { id: id },
 					select: {
 						// Complete user data with addresses
 						id: true,
@@ -426,7 +438,50 @@ export async function PUT(
 				}
 			}
 
-			// Return updated user if no address operations were performed
+			// --- Add this block to support saving posts (images/videos) ---
+			const updateData: any = {};
+			if (data.name !== undefined) updateData.name = data.name;
+			if (data.email !== undefined) updateData.email = data.email;
+			if (data.phone !== undefined) updateData.phone = data.phone;
+			if (data.bio !== undefined) updateData.bio = data.bio;
+			if (data.profileImageUrl !== undefined)
+				updateData.profileImageUrl = data.profileImageUrl;
+			if (data.addresses !== undefined) updateData.addresses = data.addresses;
+
+			// Add this:
+			if (data.images !== undefined) updateData.images = data.images;
+			if (data.videos !== undefined) updateData.videos = data.videos;
+
+			// Execute user update
+			const updatedUser = await prisma.user.update({
+				where: { id: id },
+				data: updateData,
+				select: {
+					// Return all important fields after update
+					id: true,
+					name: true,
+					email: true,
+					phone: true,
+					userType: true,
+					typeVendor: true,
+					profileImageUrl: true,
+					bio: true,
+					coverImageUrl: true,
+					category: true,
+					social: true,
+					active: true,
+					rank: true,
+					availability: true,
+					kycApproved: true,
+					status: true,
+					isLoggedIn: true,
+					lastLoginAt: true,
+					lastLogoutAt: true,
+					lastActiveAt: true,
+					createdAt: true,
+				},
+			});
+
 			return NextResponse.json(updatedUser);
 		} catch (prismaError) {
 			console.error("Prisma error during update:", prismaError);
@@ -439,7 +494,7 @@ export async function PUT(
 					try {
 						// Fallback to basic field update only
 						const basicUpdate = await prisma.user.update({
-							where: { id: userId },
+							where: { id: id },
 							data: {
 								name: data.name,
 								email: data.email,
@@ -492,14 +547,14 @@ export async function PUT(
  */
 export async function DELETE(
 	_request: Request,
-	context: { params: { id: string } }
+	context: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const userId = context.params.id;
+		const { id } = await context.params;
 
 		// Validate userId format for MongoDB ObjectId
-		if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
-			console.error("Invalid user ID format:", userId);
+		if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+			console.error("Invalid user ID format:", id);
 			return NextResponse.json(
 				{ error: "Invalid user ID format" },
 				{ status: 400 }
@@ -517,7 +572,7 @@ export async function DELETE(
 
 		// Check if user exists before attempting deletion
 		const userExists = await prisma.user.findUnique({
-			where: { id: userId },
+			where: { id: id },
 			select: { id: true },
 		});
 
@@ -528,12 +583,12 @@ export async function DELETE(
 		// Delete user's addresses first to avoid foreign key constraints
 		// This ensures clean deletion without referential integrity issues
 		await prisma.address.deleteMany({
-			where: { userId: userId },
+			where: { userId: id },
 		});
 
 		// Delete the user record
 		await prisma.user.delete({
-			where: { id: userId },
+			where: { id: id },
 		});
 
 		return NextResponse.json(

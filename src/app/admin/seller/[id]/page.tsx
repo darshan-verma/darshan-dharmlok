@@ -307,6 +307,10 @@ export default function SellerDetailPage() {
 				addresses: editedSeller.addresses,
 				addressesToDelete,
 				bio: editedSeller.bio || null,
+				profileImageUrl:
+					editedSeller.profileImageUrl === undefined
+						? null // <-- send null if removed
+						: editedSeller.profileImageUrl,
 			};
 
 			const response = await fetch(`/api/users/${sellerId}`, {

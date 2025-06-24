@@ -316,6 +316,10 @@ export default function PanditjiDetailPage() {
 				addresses: editedPanditji.addresses,
 				addressesToDelete,
 				bio: editedPanditji.bio || null,
+				profileImageUrl:
+					editedPanditji.profileImageUrl === undefined
+						? null // <-- send null if removed
+						: editedPanditji.profileImageUrl,
 			};
 
 			const response = await fetch(`/api/users/${PanditjiId}`, {

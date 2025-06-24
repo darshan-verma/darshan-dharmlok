@@ -335,6 +335,10 @@ export default function UserDetailPage() {
 				addresses: editedUser.addresses,
 				addressesToDelete,
 				bio: editedUser.bio || null,
+				profileImageUrl:
+					editedUser.profileImageUrl === undefined
+						? null // <-- send null if removed
+						: editedUser.profileImageUrl,
 			};
 
 			console.log("Sending data to API:", dataToSave); // Debug log
@@ -421,15 +425,13 @@ export default function UserDetailPage() {
 		const file = event.target.files?.[0];
 		if (!file) return;
 
-		// Validate file type
 		const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 		if (!validTypes.includes(file.type)) {
 			toast.error("Please select a valid image file (JPEG, PNG, or WebP)");
 			return;
 		}
 
-		// Validate file size (5MB limit)
-		const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+		const maxSize = 5 * 1024 * 1024; // 5MB
 		if (file.size > maxSize) {
 			toast.error("Image size must be less than 5MB");
 			return;
@@ -439,12 +441,9 @@ export default function UserDetailPage() {
 		const loadingToast = toast.loading("Uploading image...");
 
 		try {
-			// Create FormData for file upload
 			const formData = new FormData();
 			formData.append("file", file);
-			formData.append("userId", userId);
 
-			// Upload to your image upload endpoint
 			const response = await fetch("/api/upload/profile-image", {
 				method: "POST",
 				body: formData,
@@ -457,7 +456,6 @@ export default function UserDetailPage() {
 
 			const { imageUrl } = await response.json();
 
-			// Update local state with new image URL
 			setEditedUser((prev) =>
 				prev ? { ...prev, profileImageUrl: imageUrl } : null
 			);
@@ -1240,9 +1238,7 @@ export default function UserDetailPage() {
 															<div
 																className="prose prose-sm max-w-none"
 																dangerouslySetInnerHTML={{
-																	__html: safeBlockNoteHtml(
-																		editedUser?.bio
-																	),
+																	__html: safeBlockNoteHtml(editedUser?.bio),
 																}}
 															/>
 														)}

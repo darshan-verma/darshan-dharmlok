@@ -35,6 +35,8 @@ model User {
     createdAt DateTime @default(now())
     addresses Address[]
     serviceOfferings ServiceOffering[] @relation("UserToServiceOffering")
+    images String[]
+    videos String[]
 }
 // Address Model
 model Address {

@@ -42,13 +42,13 @@ const typeLabel = (type: string) =>
 	type === "video" ? "Video" : type === "book" ? "Book" : type;
 const categoryLabel = (cat: string) => {
 	switch (cat) {
-		case "BhagavadGita":
+		case "Sanatan":
 			return "Bhagavad Gita";
-		case "Ramayana":
+		case "Jain":
 			return "Ramayana";
-		case "Mahabharata":
+		case "Sikh":
 			return "Mahabharata";
-		case "Vedas":
+		case "Buddhism":
 			return "Vedas";
 		case "Puranas":
 			return "Puranas";
