@@ -1403,19 +1403,7 @@ export default function SellerDetailPage() {
 														</span>
 													</div>
 												</div>
-											</div>
-											<div className="space-y-2 pt-2 border-t border-border">
-												<h3 className="text-sm font-medium text-muted-foreground">
-													Bio
-												</h3>
-												<div className="font-medium text-foreground prose prose-sm max-w-none">
-													<div
-														dangerouslySetInnerHTML={{
-															__html: safeBlockNoteHtml(seller?.bio),
-														}}
-													/>
-												</div>
-											</div>
+											</div>										
 
 											{seller?.addresses && seller.addresses.length > 0 && (
 												<div className="space-y-4 pt-2 border-t border-border">

@@ -1416,35 +1416,6 @@ export default function KathavachakDetailPage() {
 													)}
 												</div>
 											)}
-
-											{/* Bio field */}
-											{/* <div className="space-y-2">
-												<Card>
-													<CardHeader>
-														<CardTitle>Biography</CardTitle>
-													</CardHeader>
-													<CardContent>
-														{isEditing ? (
-															<BlockNoteEditor
-																initialContent={editedKathavachak?.bio || ""}
-																onChange={(val: string) =>
-																	handleBlockNoteChange("bio", val)
-																}
-																editable={isEditing}
-															/>
-														) : (
-															<div
-																className="prose prose-sm max-w-none"
-																dangerouslySetInnerHTML={{
-																	__html: safeBlockNoteHtml(
-																		editedKathavachak?.bio
-																	),
-																}}
-															/>
-														)}
-													</CardContent>
-												</Card>
-											</div> */}
 										</>
 									) : (
 										// View mode - Display data
@@ -1548,20 +1519,6 @@ export default function KathavachakDetailPage() {
 													>
 														{kathavachak?.rank || "Not specified"}
 													</span>
-												</div>
-											</div>
-
-											{/* Bio section */}
-											<div className="space-y-2 pt-2 border-t border-border">
-												<h3 className="text-sm font-medium text-muted-foreground">
-													Bio
-												</h3>
-												<div className="font-medium text-foreground prose prose-sm max-w-none">
-													<div
-														dangerouslySetInnerHTML={{
-															__html: safeBlockNoteHtml(kathavachak?.bio),
-														}}
-													/>
 												</div>
 											</div>
 

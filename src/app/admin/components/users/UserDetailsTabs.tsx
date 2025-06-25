@@ -559,22 +559,6 @@ export default function UserDetailsTabs({
 										)}
 									</div>
 								)}
-								{/* <div className="space-y-2">
-									<Card>
-										<CardHeader>
-											<CardTitle>Biography</CardTitle>
-										</CardHeader>
-										<CardContent>
-											<BlockNoteEditor
-												initialContent={editedUser?.bio || ""}
-												onChange={(val: string) =>
-													handleBlockNoteChange("bio", val)
-												}
-												editable={isEditing}
-											/>
-										</CardContent>
-									</Card>
-								</div> */}
 							</>
 						) : (
 							<div className="space-y-6">
@@ -616,18 +600,6 @@ export default function UserDetailsTabs({
 												{user?.status || "Not specified"}
 											</span>
 										</div>
-									</div>
-								</div>
-								<div className="space-y-2 pt-2 border-t border-border">
-									<h3 className="text-sm font-medium text-muted-foreground">
-										Bio
-									</h3>
-									<div className="font-medium text-foreground prose prose-sm max-w-none">
-										<div
-											dangerouslySetInnerHTML={{
-												__html: safeBlockNoteHtml(user?.bio),
-											}}
-										/>
 									</div>
 								</div>
 
