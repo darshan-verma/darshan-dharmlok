@@ -127,6 +127,19 @@ export default function DharmguruDetailPage() {
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 	const [isUploadingImage, setIsUploadingImage] = useState(false); // Add image upload state
 
+	// --- Posts Tab: Images & Videos State ---
+	const [showImageUpload, setShowImageUpload] = useState(false);
+	const [showVideoUpload, setShowVideoUpload] = useState(false);
+	const [postImages, setPostImages] = useState<string[]>([]);
+	const [postVideos, setPostVideos] = useState<string[]>([]);
+	const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
+	const [isUploadingPostVideo, setIsUploadingPostVideo] = useState(false);
+	const [isSavingPosts, setIsSavingPosts] = useState(false);
+
+	const [existingImages, setExistingImages] = useState<string[]>([]);
+	const [newImages, setNewImages] = useState<string[]>([]);
+	const [deletedImages, setDeletedImages] = useState<string[]>([]);
+
 	// Fetch Kathavachak data from API
 	const fetchDharmguruData = useCallback(async () => {
 		try {
@@ -485,6 +498,159 @@ export default function DharmguruDetailPage() {
 		}
 	}
 
+	// Fetch posts (images/videos) on mount or dharmguruId change
+	useEffect(() => {
+		const fetchPosts = async () => {
+			if (!dharmguruId) return;
+			try {
+				const res = await fetch(`/api/users/${dharmguruId}`);
+				if (!res.ok) return;
+				const data = await res.json();
+				setExistingImages(
+					Array.isArray(data.images)
+						? data.images
+						: data.images
+						? [data.images]
+						: []
+				);
+				setPostImages(
+					Array.isArray(data.images)
+						? data.images
+						: data.images
+						? [data.images]
+						: []
+				);
+				setPostVideos(
+					Array.isArray(data.videos)
+						? data.videos
+						: data.videos
+						? [data.videos]
+						: []
+				);
+			} catch {}
+		};
+		fetchPosts();
+	}, [dharmguruId]);
+
+	// --- Image Upload Handler ---
+	const handlePostImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const files = event.target.files;
+		if (!files || files.length === 0) return;
+		setIsUploadingPostImage(true);
+		const uploaded: string[] = [];
+		try {
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
+				const formData = new FormData();
+				formData.append("file", file);
+				formData.append("userId", dharmguruId);
+				const response = await fetch("/api/upload/dharmguru-image", {
+					method: "POST",
+					body: formData,
+				});
+				if (!response.ok) throw new Error("Failed to upload image");
+				const { imageUrl } = await response.json();
+				uploaded.push(imageUrl);
+			}
+			setNewImages((prev) => [...prev, ...uploaded]);
+			setPostImages((prev) => [...prev, ...uploaded]);
+			toast.success("Image(s) uploaded successfully!");
+		} catch {
+			toast.error("Failed to upload image(s)");
+		} finally {
+			setIsUploadingPostImage(false);
+		}
+	};
+
+	const handleRemovePostImage = (url: string) => {
+		if (existingImages.includes(url)) {
+			setDeletedImages((prev) => [...prev, url]);
+			setExistingImages((prev) => prev.filter((img) => img !== url));
+		}
+		if (newImages.includes(url)) {
+			setNewImages((prev) => prev.filter((img) => img !== url));
+		}
+		setPostImages((prev) => prev.filter((img) => img !== url));
+	};
+
+	// --- Video Upload Handler ---
+	const handlePostVideoUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const files = event.target.files;
+		if (!files || files.length === 0) return;
+		setIsUploadingPostVideo(true);
+		const uploaded: string[] = [];
+		try {
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
+				const formData = new FormData();
+				formData.append("file", file);
+				formData.append("userId", dharmguruId);
+				const response = await fetch("/api/upload/dharmguru-video", {
+					method: "POST",
+					body: formData,
+				});
+				if (!response.ok) throw new Error("Failed to upload video");
+				const { videoUrl } = await response.json();
+				uploaded.push(videoUrl);
+			}
+			setPostVideos((prev) => [...prev, ...uploaded]);
+			toast.success("Video(s) uploaded successfully!");
+		} catch {
+			toast.error("Failed to upload video(s)");
+		} finally {
+			setIsUploadingPostVideo(false);
+		}
+	};
+
+	const handleRemovePostVideo = (url: string) => {
+		setPostVideos((prev) => prev.filter((vid) => vid !== url));
+	};
+
+	async function handleSavePosts(
+		event: React.MouseEvent<HTMLButtonElement, MouseEvent>
+	): Promise<void> {
+		event.preventDefault();
+		if (!dharmguruId) {
+			toast.error("Invalid Dharmguru ID");
+			return;
+		}
+		setIsSavingPosts(true);
+		const loadingToast = toast.loading("Saving posts...");
+		try {
+			const response = await fetch(`/api/users/${dharmguruId}`, {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					newImages,
+					deletedImages,
+					videos: postVideos,
+				}),
+			});
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to save posts");
+			}
+			toast.dismiss(loadingToast);
+			toast.success("Posts saved successfully!");
+			setIsEditing(false);
+			setIsSavingPosts(false);
+			setNewImages([]);
+			setDeletedImages([]);
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to save posts"
+			);
+			setIsSavingPosts(false);
+		}
+	}
+
 	return (
 		<div className="p-6 space-y-6">
 			<div className="flex items-center gap-4">
@@ -706,12 +872,15 @@ export default function DharmguruDetailPage() {
 				{/* Tabs Section */}
 				<div className="md:col-span-2">
 					<Tabs defaultValue="details">
-						<TabsList className="grid grid-cols-3 mb-4">
+						<TabsList className="grid grid-cols-5 mb-4">
 							<TabsTrigger value="details">Dharmguru Details</TabsTrigger>
+							<TabsTrigger value="biography">Biography</TabsTrigger>
+							<TabsTrigger value="posts">Posts</TabsTrigger>
 							<TabsTrigger value="preferences">Preferences</TabsTrigger>
 							<TabsTrigger value="activity">Activity Log</TabsTrigger>
 						</TabsList>
 
+						{/* Main details tab */}
 						<TabsContent value="details" className="space-y-4">
 							<Card>
 								<CardHeader>
@@ -1419,6 +1588,219 @@ export default function DharmguruDetailPage() {
 										</Button>
 									</CardFooter>
 								)}
+							</Card>
+						</TabsContent>
+
+						{/* Biography tab */}
+						<TabsContent value="biography" className="space-y-4">
+							<Card>
+								<CardContent className="px-1">
+									<div className="space-y-1 ">
+										{isEditing ? (
+											<div>
+												<BlockNoteEditor
+													initialContent={editedDharmguru?.bio || ""}
+													onChange={(val: string) =>
+														handleBlockNoteChange("bio", val)
+													}
+													editable={isEditing}
+												/>
+											</div>
+										) : (
+											<div>
+												{editedDharmguru?.bio &&
+												safeBlockNoteHtml(editedDharmguru?.bio) ? (
+													<div
+														className="prose prose-sm max-w-none text-foreground p-3"
+														dangerouslySetInnerHTML={{
+															__html: safeBlockNoteHtml(editedDharmguru?.bio),
+														}}
+													/>
+												) : (
+													<p className="text-muted-foreground italic">
+														No biography has been added yet.
+													</p>
+												)}
+											</div>
+										)}
+									</div>
+								</CardContent>
+							</Card>
+						</TabsContent>
+
+						{/* Posts tab */}
+						<TabsContent value="posts" className="space-y-4">
+							<Card>
+								<CardHeader>
+									<CardTitle>Dharmguru Posts</CardTitle>
+									<CardDescription>
+										Add and manage images and videos for posts.
+									</CardDescription>
+								</CardHeader>
+								<CardContent className="space-y-6">
+									{/* Images Section */}
+									<div>
+										<div className="flex items-center justify-between mb-2">
+											<h3 className="font-medium">Images</h3>
+											{isEditing && (
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													onClick={() => setShowImageUpload((v) => !v)}
+												>
+													{showImageUpload ? "Hide" : "Add Image"}
+												</Button>
+											)}
+										</div>
+										{isEditing && showImageUpload && (
+											<div className="space-y-2 mb-2">
+												<label className="w-32 h-20 flex flex-col items-center justify-center border-2 border-dashed rounded cursor-pointer bg-muted hover:bg-gray-100 transition">
+													<Plus className="h-6 w-6 text-gray-400" />
+													<span className="text-xs text-gray-500">
+														Add Image
+													</span>
+													<input
+														type="file"
+														accept="image/*"
+														multiple
+														className="hidden"
+														onChange={handlePostImageUpload}
+														disabled={isUploadingPostImage}
+													/>
+												</label>
+												{isUploadingPostImage && (
+													<p className="text-xs text-blue-600">
+														Uploading image(s)...
+													</p>
+												)}
+											</div>
+										)}
+										<div className="flex flex-wrap gap-3 mt-2">
+											{postImages.map((img, idx) => (
+												<div
+													key={img}
+													className="relative w-32 h-20 rounded border overflow-hidden flex items-center justify-center bg-muted"
+												>
+													<Image
+														src={img}
+														alt={`Post Image ${idx + 1}`}
+														fill
+														sizes="128px"
+														style={{ objectFit: "cover" }}
+														className="object-cover w-full h-full"
+													/>
+													{isEditing && (
+														<Button
+															type="button"
+															variant="ghost"
+															size="icon"
+															onClick={() => handleRemovePostImage(img)}
+															className="absolute top-1 right-1 bg-white/80"
+														>
+															<Trash2 className="h-4 w-4 text-red-500" />
+														</Button>
+													)}
+												</div>
+											))}
+											{!isEditing && postImages.length === 0 && (
+												<p className="text-xs text-muted-foreground">
+													No images added.
+												</p>
+											)}
+										</div>
+									</div>
+									{/* Videos Section */}
+									<div>
+										<div className="flex items-center justify-between mb-2">
+											<h3 className="font-medium">Videos</h3>
+											{isEditing && (
+												<Button
+													type="button"
+													variant="outline"
+													size="sm"
+													onClick={() => setShowVideoUpload((v) => !v)}
+												>
+													{showVideoUpload ? "Hide" : "Add Video"}
+												</Button>
+											)}
+										</div>
+										{isEditing && showVideoUpload && (
+											<div className="space-y-2 mb-2">
+												<label className="w-40 h-24 flex flex-col items-center justify-center border-2 border-dashed rounded cursor-pointer bg-muted hover:bg-gray-100 transition">
+													<Plus className="h-6 w-6 text-gray-400" />
+													<span className="text-xs text-gray-500">
+														Add Video
+													</span>
+													<input
+														type="file"
+														accept="video/mp4,video/webm,video/ogg"
+														multiple
+														className="hidden"
+														onChange={handlePostVideoUpload}
+														disabled={isUploadingPostVideo}
+													/>
+												</label>
+												{isUploadingPostVideo && (
+													<p className="text-xs text-blue-600">
+														Uploading video(s)...
+													</p>
+												)}
+											</div>
+										)}
+										<div className="flex flex-wrap gap-3 mt-2">
+											{postVideos.map((vid) => (
+												<div
+													key={vid}
+													className="relative w-40 h-24 rounded border overflow-hidden flex items-center justify-center bg-muted"
+												>
+													<video
+														src={vid}
+														controls
+														className="object-cover w-full h-full"
+													/>
+													{isEditing && (
+														<Button
+															type="button"
+															variant="ghost"
+															size="icon"
+															onClick={() => handleRemovePostVideo(vid)}
+															className="absolute top-1 right-1 bg-white/80"
+														>
+															<Trash2 className="h-4 w-4 text-red-500" />
+														</Button>
+													)}
+												</div>
+											))}
+											{!isEditing && postVideos.length === 0 && (
+												<p className="text-xs text-muted-foreground">
+													No videos added.
+												</p>
+											)}
+										</div>
+									</div>
+									{/* Save Posts Button */}
+									{isEditing && (
+										<div className="pt-4">
+											<Button
+												onClick={handleSavePosts}
+												disabled={isSavingPosts}
+											>
+												{isSavingPosts ? (
+													<>
+														<Save className="h-4 w-4 mr-2 animate-spin" />
+														Saving...
+													</>
+												) : (
+													<>
+														<Save className="h-4 w-4 mr-2" />
+														Save Posts
+													</>
+												)}
+											</Button>
+										</div>
+									)}
+								</CardContent>
 							</Card>
 						</TabsContent>
 
