@@ -2,42 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-	ArrowLeft,
-	Save,
-	User,
-	Phone,
-	Mail,
-	Calendar,
-	MapPin,
-	Plus,
-	Trash2,
-	ChevronDown,
-	Upload, // Add Upload icon
-} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
-import Image from "next/image";
 import { toast } from "@/lib/toast";
-import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
+import UserProfileCard from "@/app/admin/components/users/UserProfileCard";
+import UserDetailsTabs from "@/app/admin/components/users/UserDetailsTabs";
 
 interface Activity {
 	date: string;
@@ -120,6 +89,55 @@ export default function UserDetailPage() {
 	const [showAddresses, setShowAddresses] = useState(false);
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 	const [isUploadingImage, setIsUploadingImage] = useState(false); // Add image upload state
+	// --- Posts Tab: Images & Videos State ---
+	const [showImageUpload, setShowImageUpload] = useState(false);
+	const [showVideoUpload, setShowVideoUpload] = useState(false);
+	const [postImages, setPostImages] = useState<string[]>([]);
+	const [postVideos, setPostVideos] = useState<string[]>([]);
+	const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
+	const [isUploadingPostVideo, setIsUploadingPostVideo] = useState(false);
+	const [isSavingPosts, setIsSavingPosts] = useState(false);
+
+	const [existingImages, setExistingImages] = useState<string[]>([]);
+	const [newImages, setNewImages] = useState<string[]>([]);
+	const [deletedImages, setDeletedImages] = useState<string[]>([]);
+
+	// Fetch posts (images/videos) on mount or kathavachakId change
+	useEffect(() => {
+		const fetchPosts = async () => {
+			if (!userId) return;
+			try {
+				const res = await fetch(`/api/users/${userId}`);
+				if (!res.ok) return;
+				const data = await res.json();
+				setExistingImages(
+					Array.isArray(data.images)
+						? data.images
+						: data.images
+						? [data.images]
+						: []
+				);
+				setPostImages(
+					Array.isArray(data.images)
+						? data.images
+						: data.images
+						? [data.images]
+						: []
+				);
+				setPostVideos(
+					Array.isArray(data.videos)
+						? data.videos
+						: data.videos
+						? [data.videos]
+						: []
+				);
+			} catch {}
+		};
+		fetchPosts();
+	}, [userId]);
+	const handleRemovePostVideo = (url: string) => {
+		setPostVideos((prev) => prev.filter((vid) => vid !== url));
+	};
 
 	// Fetch user data from API
 	const fetchUserData = useCallback(async () => {
@@ -482,6 +500,82 @@ export default function UserDetailPage() {
 		toast.success("Profile image removed");
 	};
 
+	// --- Image Upload Handler ---
+	const handlePostImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const files = event.target.files;
+		if (!files || files.length === 0) return;
+		setIsUploadingPostImage(true);
+		const uploaded: string[] = [];
+		try {
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
+				const formData = new FormData();
+				formData.append("file", file);
+				formData.append("userId", userId);
+				// Use the correct endpoint for users:
+				const response = await fetch("/api/upload/user-post-image", {
+					method: "POST",
+					body: formData,
+				});
+				if (!response.ok) throw new Error("Failed to upload image");
+				const { imageUrl } = await response.json();
+				uploaded.push(imageUrl);
+			}
+			setNewImages((prev) => [...prev, ...uploaded]);
+			setPostImages((prev) => [...prev, ...uploaded]);
+			toast.success("Image(s) uploaded successfully!");
+		} catch {
+			toast.error("Failed to upload image(s)");
+		} finally {
+			setIsUploadingPostImage(false);
+		}
+	};
+
+	const handleRemovePostImage = (url: string) => {
+		if (existingImages.includes(url)) {
+			setDeletedImages((prev) => [...prev, url]);
+			setExistingImages((prev) => prev.filter((img) => img !== url));
+		}
+		if (newImages.includes(url)) {
+			setNewImages((prev) => prev.filter((img) => img !== url));
+		}
+		setPostImages((prev) => prev.filter((img) => img !== url));
+	};
+
+	// --- Video Upload Handler ---
+	const handlePostVideoUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const files = event.target.files;
+		if (!files || files.length === 0) return;
+		setIsUploadingPostVideo(true);
+		const uploaded: string[] = [];
+		try {
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
+				const formData = new FormData();
+				formData.append("file", file);
+				formData.append("userId", userId);
+				// Use the correct endpoint for users:
+				const response = await fetch("/api/upload/user-video", {
+					method: "POST",
+					body: formData,
+				});
+				if (!response.ok) throw new Error("Failed to upload video");
+				const { videoUrl } = await response.json();
+				uploaded.push(videoUrl);
+			}
+			setPostVideos((prev) => [...prev, ...uploaded]);
+			toast.success("Video(s) uploaded successfully!");
+		} catch {
+			toast.error("Failed to upload video(s)");
+		} finally {
+			setIsUploadingPostVideo(false);
+		}
+	};
+
 	function handleBlockNoteChange(field: "bio", val: string): void {
 		setEditedUser((prev) => (prev ? { ...prev, [field]: val } : prev));
 	}
@@ -503,6 +597,47 @@ export default function UserDetailPage() {
 			return "";
 		}
 	}
+	async function handleSavePosts(
+		event: React.MouseEvent<HTMLButtonElement, MouseEvent>
+	): Promise<void> {
+		event.preventDefault();
+		if (!userId) {
+			toast.error("Invalid Kathavachak ID");
+			return;
+		}
+		setIsSavingPosts(true);
+		const loadingToast = toast.loading("Saving posts...");
+		try {
+			const response = await fetch(`/api/users/${userId}`, {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					newImages,
+					deletedImages,
+					videos: postVideos, // You can optimize videos similarly if needed
+				}),
+			});
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to save posts");
+			}
+			toast.dismiss(loadingToast);
+			toast.success("Posts saved successfully!");
+			setIsEditing(false);
+			setIsSavingPosts(false);
+			// After save, reset tracking
+			setNewImages([]);
+			setDeletedImages([]);
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to save posts"
+			);
+			setIsSavingPosts(false);
+		}
+	}
 
 	return (
 		<div className="p-6 space-y-6">
@@ -518,1040 +653,52 @@ export default function UserDetailPage() {
 			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-				{/* User Profile Card */}
-				<Card className="md:col-span-1 h-fit">
-					<CardHeader className="text-center p-4 pb-2">
-						{/* Profile image with upload functionality */}
-						<div className="relative w-20 h-20 mx-auto mb-3">
-							<div className="w-full h-full rounded-full bg-muted flex items-center justify-center overflow-hidden">
-								{(isEditing
-									? editedUser?.profileImageUrl
-									: user?.profileImageUrl) && !imageError ? (
-									<Image
-										src={
-											isEditing
-												? editedUser?.profileImageUrl || "/placeholder.png"
-												: user?.profileImageUrl || "/placeholder.png"
-										}
-										alt={
-											isEditing
-												? editedUser?.name || "User"
-												: user?.name || "User"
-										}
-										width={80}
-										height={80}
-										className="w-full h-full rounded-full object-cover"
-										onError={() => setImageError(true)}
-										unoptimized={true}
-									/>
-								) : (
-									<User className="h-10 w-10 text-muted-foreground" />
-								)}
-							</div>
+				<UserProfileCard
+					user={user}
+					editedUser={editedUser}
+					isEditing={isEditing}
+					setIsEditing={setIsEditing}
+					imageError={imageError}
+					setImageError={setImageError}
+					isUploadingImage={isUploadingImage}
+					handleImageUpload={handleImageUpload}
+					handleRemoveImage={handleRemoveImage}
+					showAddresses={showAddresses}
+					setShowAddresses={setShowAddresses}
+					formatDate={formatDate}
+					getUserStatus={getUserStatus}
+					getStatusColor={getStatusColor}
+				/>
 
-							{/* Upload overlay - only shown in edit mode */}
-							{isEditing && (
-								<div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group">
-									<input
-										type="file"
-										accept="image/jpeg,image/jpg,image/png,image/webp"
-										onChange={handleImageUpload}
-										className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-										disabled={isUploadingImage}
-									/>
-									{isUploadingImage ? (
-										<div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
-									) : (
-										<Upload className="h-6 w-6 text-white" />
-									)}
-								</div>
-							)}
-
-							{/* Plus icon for adding image when no image exists */}
-							{isEditing && !editedUser?.profileImageUrl && !imageError && (
-								<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
-									<input
-										type="file"
-										accept="image/jpeg,image/jpg,image/png,image/webp"
-										onChange={handleImageUpload}
-										className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-										disabled={isUploadingImage}
-									/>
-									<Plus className="h-3 w-3 text-primary-foreground" />
-								</div>
-							)}
-
-							{/* Remove image button */}
-							{isEditing && editedUser?.profileImageUrl && !imageError && (
-								<Button
-									type="button"
-									variant="destructive"
-									size="sm"
-									className="absolute -top-2 -right-2 w-6 h-6 rounded-full p-0"
-									onClick={handleRemoveImage}
-								>
-									<Trash2 className="h-3 w-3" />
-								</Button>
-							)}
-						</div>
-						<CardTitle className="text-center text-lg">{user?.name}</CardTitle>
-						<CardDescription className="flex flex-wrap justify-center items-center gap-1.5">
-							<span
-								className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getStatusColor(
-									user ? getUserStatus(user) : "Inactive"
-								)}`}
-							>
-								{user ? getUserStatus(user) : "Inactive"}
-							</span>
-							{user?.userType && (
-								<span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-800">
-									{user.userType}
-								</span>
-							)}
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="space-y-3 p-4 pt-0">
-						<div className="flex items-center gap-2 text-sm">
-							<Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-							<span className="truncate">{user?.phone}</span>
-						</div>
-						<div className="flex items-center gap-2 text-sm">
-							<Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-							<span className="truncate">{user?.email}</span>
-						</div>
-						<div className="flex items-start gap-2 text-xs text-muted-foreground">
-							<Calendar className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
-							<div>
-								<div>
-									Created:{" "}
-									{user?.createdAt
-										? formatDate(user.createdAt.toString())
-										: "N/A"}
-								</div>
-								<div>
-									Last Active:{" "}
-									{user?.lastActiveAt
-										? formatDate(user.lastActiveAt.toString())
-										: "N/A"}
-									{user?.isLoggedIn && " (Now)"}
-								</div>
-							</div>
-						</div>
-
-						{/* Addresses Box - Compact Version */}
-						{user?.addresses && user.addresses.length > 0 && (
-							<div className="mt-3 pt-3 border-t border-border">
-								<div>
-									<button
-										onClick={() => setShowAddresses(!showAddresses)}
-										className="w-full flex items-center gap-1.5 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50 rounded-md p-1 -ml-1 -mb-1"
-									>
-										<MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-										<span>Addresses ({user.addresses.length})</span>
-										<ChevronDown
-											className={`h-3.5 w-3.5 text-muted-foreground ml-auto transition-transform ${
-												showAddresses ? "rotate-180" : ""
-											}`}
-										/>
-									</button>
-									<div
-										className={`overflow-hidden transition-all duration-200 ease-in-out ${
-											showAddresses
-												? "max-h-[500px] opacity-100 mt-1"
-												: "max-h-0 opacity-0"
-										}`}
-									>
-										<div className="space-y-2 text-sm">
-											{user.addresses.map((address, index) => (
-												<div
-													key={index}
-													className="border border-border/50 rounded p-2 text-xs"
-												>
-													<div className="font-medium text-foreground/90">
-														{address.type.charAt(0).toUpperCase() +
-															address.type.slice(1)}
-														{address.type === "other" && address.label
-															? ` (${address.label})`
-															: ""}
-													</div>
-													<div className="mt-1 space-y-0.5 text-muted-foreground">
-														<p className="truncate">{address.line1}</p>
-														{address.line2 && (
-															<p className="truncate">{address.line2}</p>
-														)}
-														<p className="truncate">
-															{address.city}
-															{address.state && `, ${address.state}`}
-															{address.pincode && ` - ${address.pincode}`}
-														</p>
-													</div>
-												</div>
-											))}
-										</div>
-									</div>
-								</div>
-							</div>
-						)}
-					</CardContent>
-					<CardFooter className="p-4 pt-0">
-						<Button
-							className="w-full text-sm h-8"
-							variant={isEditing ? "outline" : "default"}
-							onClick={() => setIsEditing(!isEditing)}
-						>
-							{isEditing ? "Cancel" : "Edit User"}
-						</Button>
-					</CardFooter>
-				</Card>
-
-				{/* Tabs Section */}
 				<div className="md:col-span-2">
-					<Tabs defaultValue="details">
-						<TabsList className="grid grid-cols-3 mb-4">
-							<TabsTrigger value="details">User Details</TabsTrigger>
-							<TabsTrigger value="preferences">Preferences</TabsTrigger>
-							<TabsTrigger value="activity">Activity Log</TabsTrigger>
-						</TabsList>
-
-						<TabsContent value="details" className="space-y-4">
-							<Card>
-								<CardHeader>
-									<CardTitle>Personal Information</CardTitle>
-									<CardDescription>
-										Update user&apos;s personal details and contact information.
-									</CardDescription>
-								</CardHeader>
-								<CardContent className="space-y-4">
-									{isEditing ? (
-										<>
-											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-												<div className="space-y-2">
-													<Label htmlFor="name">Full Name</Label>
-													<Input
-														id="name"
-														value={editedUser?.name || ""}
-														onChange={(e) =>
-															setEditedUser({
-																...editedUser,
-																name: e.target.value,
-															})
-														}
-														className={errors.name ? "border-red-500" : ""}
-													/>
-													{errors.name && (
-														<p className="text-sm text-red-500">
-															{errors.name}
-														</p>
-													)}
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor="email">Email</Label>
-													<Input
-														id="email"
-														type="email"
-														value={editedUser?.email || ""}
-														onChange={(e) =>
-															setEditedUser({
-																...editedUser,
-																email: e.target.value,
-															})
-														}
-														className={errors.email ? "border-red-500" : ""}
-													/>
-													{errors.email && (
-														<p className="text-sm text-red-500">
-															{errors.email}
-														</p>
-													)}
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor="phone">Phone</Label>
-													<div className="relative">
-														<Input
-															id="phone"
-															type="tel"
-															value={editedUser?.phone || ""}
-															onChange={(e) => {
-																// Format the input value
-																const formatted = formatPhoneNumber(
-																	e.target.value
-																);
-																setEditedUser({
-																	...editedUser,
-																	phone: formatted,
-																});
-																// Clear error when typing
-																if (errors.phone) {
-																	setErrors({
-																		...errors,
-																		phone: undefined,
-																	});
-																}
-															}}
-															placeholder="+91 9876543210"
-															className={`pl-12 ${
-																errors.phone ? "border-red-500" : ""
-															}`}
-														/>
-														<span className="absolute left-3 top-2.5 text-sm text-muted-foreground">
-															+91
-														</span>
-													</div>
-													{errors.phone && (
-														<p className="text-sm text-red-500">
-															{errors.phone}
-														</p>
-													)}
-												</div>
-											</div>
-											{editedUser?.addresses && (
-												<div className="space-y-6 border p-4 rounded-lg">
-													<div className="flex justify-between items-center">
-														<h3 className="text-base font-medium">Addresses</h3>
-														<Button
-															type="button"
-															variant="outline"
-															size="sm"
-															onClick={() => {
-																setEditedUser((prev) => {
-																	if (!prev) return prev;
-																	return {
-																		...prev,
-																		addresses: [
-																			...(prev.addresses || []),
-																			{
-																				type: "home",
-																				line1: "",
-																				city: "",
-																				country: "India",
-																			},
-																		],
-																	};
-																});
-															}}
-														>
-															<Plus className="h-4 w-4 mr-2" />
-															Add Address
-														</Button>
-													</div>
-
-													{editedUser.addresses.map((address, index) => (
-														<div
-															key={index}
-															className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0"
-														>
-															<div className="flex justify-between items-center">
-																<div className="flex items-center gap-2">
-																	<MapPin className="h-4 w-4 text-muted-foreground" />
-																	<h4 className="font-medium">
-																		{address.type.charAt(0).toUpperCase() +
-																			address.type.slice(1)}{" "}
-																		Address
-																		{address.type === "other" && address.label
-																			? ` (${address.label})`
-																			: ""}
-																	</h4>
-																</div>
-																<Button
-																	type="button"
-																	variant="ghost"
-																	size="sm"
-																	className="text-red-500 hover:text-red-700 hover:bg-red-50"
-																	onClick={() => {
-																		setEditedUser((prev) => {
-																			if (!prev) return prev;
-																			const addr = prev.addresses?.[index];
-																			if (addr?.id) {
-																				setAddressesToDelete((prevDel) => [
-																					...prevDel,
-																					addr.id!,
-																				]);
-																			}
-																			return {
-																				...prev,
-																				addresses:
-																					prev.addresses?.filter(
-																						(_, addrIndex) =>
-																							addrIndex !== index
-																					) || [],
-																			};
-																		});
-																	}}
-																>
-																	<Trash2 className="h-4 w-4" />
-																</Button>
-															</div>
-
-															<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-																<div className="space-y-2">
-																	<Label htmlFor={`address-type-${index}`}>
-																		Address Type
-																	</Label>
-																	<Select
-																		value={address.type}
-																		onValueChange={(value) => {
-																			setEditedUser((prev) => {
-																				if (!prev) return prev;
-																				return {
-																					...prev,
-																					addresses: prev.addresses?.map(
-																						(addr, addrIndex) =>
-																							addrIndex === index
-																								? {
-																										...addr,
-																										type: value as
-																											| "home"
-																											| "work"
-																											| "other",
-																										// Clear label if not "other" type
-																										label:
-																											value === "other"
-																												? addr.label
-																												: undefined,
-																								  }
-																								: addr
-																					),
-																				};
-																			});
-																		}}
-																	>
-																		<SelectTrigger id={`address-type-${index}`}>
-																			<SelectValue placeholder="Select address type" />
-																		</SelectTrigger>
-																		<SelectContent>
-																			<SelectItem value="home">Home</SelectItem>
-																			<SelectItem value="work">Work</SelectItem>
-																			<SelectItem value="other">
-																				Other
-																			</SelectItem>
-																		</SelectContent>
-																	</Select>
-																</div>
-
-																{address.type === "other" && (
-																	<div className="space-y-2">
-																		<Label htmlFor={`address-label-${index}`}>
-																			Label
-																		</Label>
-																		<Input
-																			id={`address-label-${index}`}
-																			value={address.label || ""}
-																			onChange={(e) => {
-																				setEditedUser((prev) => {
-																					if (!prev) return prev;
-																					return {
-																						...prev,
-																						addresses: prev.addresses?.map(
-																							(addr, addrIndex) =>
-																								addrIndex === index
-																									? {
-																											...addr,
-																											label: e.target.value,
-																									  }
-																									: addr
-																						),
-																					};
-																				});
-																			}}
-																			placeholder="e.g., Parent's Home, Office"
-																			className={
-																				errors.addresses?.[index]?.label
-																					? "border-red-500"
-																					: ""
-																			}
-																		/>
-																		{errors.addresses?.[index]?.label && (
-																			<p className="text-sm text-red-500">
-																				{errors.addresses[index].label}
-																			</p>
-																		)}
-																	</div>
-																)}
-															</div>
-
-															<div className="space-y-2">
-																<Label htmlFor={`address-line1-${index}`}>
-																	Address Line 1
-																</Label>
-																<Input
-																	id={`address-line1-${index}`}
-																	value={address.line1 || ""}
-																	onChange={(e) => {
-																		setEditedUser((prev) => {
-																			if (!prev) return prev;
-																			return {
-																				...prev,
-																				addresses: prev.addresses?.map(
-																					(addr, addrIndex) =>
-																						addrIndex === index
-																							? {
-																									...addr,
-																									line1: e.target.value,
-																							  }
-																							: addr
-																				),
-																			};
-																		});
-																	}}
-																	placeholder="Street address, P.O. box, etc."
-																	className={
-																		errors.addresses?.[index]?.line1
-																			? "border-red-500"
-																			: ""
-																	}
-																/>
-																{errors.addresses?.[index]?.line1 && (
-																	<p className="text-sm text-red-500">
-																		{errors.addresses[index].line1}
-																	</p>
-																)}
-															</div>
-
-															<div className="space-y-2">
-																<Label htmlFor={`address-line2-${index}`}>
-																	Address Line 2 (Optional)
-																</Label>
-																<Input
-																	id={`address-line2-${index}`}
-																	value={address.line2 || ""}
-																	onChange={(e) => {
-																		setEditedUser((prev) => {
-																			if (!prev) return prev;
-																			return {
-																				...prev,
-																				addresses: prev.addresses?.map(
-																					(addr, addrIndex) =>
-																						addrIndex === index
-																							? {
-																									...addr,
-																									line2: e.target.value,
-																							  }
-																							: addr
-																				),
-																			};
-																		});
-																	}}
-																	placeholder="Apartment, suite, unit, building, floor, etc."
-																/>
-															</div>
-
-															<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-																<div className="space-y-2">
-																	<Label htmlFor={`address-city-${index}`}>
-																		City
-																	</Label>
-																	<Input
-																		id={`address-city-${index}`}
-																		value={address.city || ""}
-																		onChange={(e) => {
-																			setEditedUser((prev) => {
-																				if (!prev) return prev;
-																				return {
-																					...prev,
-																					addresses: prev.addresses?.map(
-																						(addr, addrIndex) =>
-																							addrIndex === index
-																								? {
-																										...addr,
-																										city: e.target.value,
-																								  }
-																								: addr
-																					),
-																				};
-																			});
-																		}}
-																		className={
-																			errors.addresses?.[index]?.city
-																				? "border-red-500"
-																				: ""
-																		}
-																	/>
-																	{errors.addresses?.[index]?.city && (
-																		<p className="text-sm text-red-500">
-																			{errors.addresses[index].city}
-																		</p>
-																	)}
-																</div>
-
-																<div className="space-y-2">
-																	<Label htmlFor={`address-state-${index}`}>
-																		State/Province (Optional)
-																	</Label>
-																	<Input
-																		id={`address-state-${index}`}
-																		value={address.state || ""}
-																		onChange={(e) => {
-																			setEditedUser((prev) => {
-																				if (!prev) return prev;
-																				return {
-																					...prev,
-																					addresses: prev.addresses?.map(
-																						(addr, addrIndex) =>
-																							addrIndex === index
-																								? {
-																										...addr,
-																										state: e.target.value,
-																								  }
-																								: addr
-																					),
-																				};
-																			});
-																		}}
-																	/>
-																</div>
-
-																<div className="space-y-2">
-																	<Label htmlFor={`address-pincode-${index}`}>
-																		PIN Code (Optional)
-																	</Label>
-																	<Input
-																		id={`address-pincode-${index}`}
-																		value={address.pincode || ""}
-																		onChange={(e) => {
-																			setEditedUser((prev) => {
-																				if (!prev) return prev;
-																				return {
-																					...prev,
-																					addresses: prev.addresses?.map(
-																						(addr, addrIndex) =>
-																							addrIndex === index
-																								? {
-																										...addr,
-																										pincode: e.target.value,
-																								  }
-																								: addr
-																					),
-																				};
-																			});
-																		}}
-																	/>
-																</div>
-															</div>
-
-															<div className="space-y-2">
-																<Label htmlFor={`address-country-${index}`}>
-																	Country
-																</Label>
-																<Input
-																	id={`address-country-${index}`}
-																	value={address.country || ""}
-																	onChange={(e) => {
-																		setEditedUser((prev) => {
-																			if (!prev) return prev;
-																			return {
-																				...prev,
-																				addresses: prev.addresses?.map(
-																					(addr, addrIndex) =>
-																						addrIndex === index
-																							? {
-																									...addr,
-																									country: e.target.value,
-																							  }
-																							: addr
-																				),
-																			};
-																		});
-																	}}
-																	className={
-																		errors.addresses?.[index]?.country
-																			? "border-red-500"
-																			: ""
-																	}
-																/>
-																{errors.addresses?.[index]?.country && (
-																	<p className="text-sm text-red-500">
-																		{errors.addresses[index].country}
-																	</p>
-																)}
-															</div>
-														</div>
-													))}
-
-													{editedUser.addresses.length === 0 && (
-														<div className="text-center py-4 text-muted-foreground">
-															No addresses added. Click &ldquo;Add
-															Address&rdquo; to add one.
-														</div>
-													)}
-												</div>
-											)}
-											{!isEditing &&
-												user?.addresses &&
-												user.addresses.length > 0 && (
-													<div className="space-y-4 pt-4 border-t border-border">
-														<div className="flex items-center gap-2">
-															<MapPin className="h-5 w-5 text-muted-foreground" />
-															<h3 className="text-base font-medium">
-																Addresses
-															</h3>
-														</div>
-														<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-															{user.addresses.map((address, index) => (
-																<Card key={index} className="border-border">
-																	<CardHeader className="pb-2">
-																		<div className="flex items-center gap-2">
-																			<MapPin className="h-4 w-4 text-muted-foreground" />
-																			<CardTitle className="text-base">
-																				{address.type.charAt(0).toUpperCase() +
-																					address.type.slice(1)}
-																				{address.type === "other" &&
-																				address.label
-																					? ` (${address.label})`
-																					: ""}
-																			</CardTitle>
-																		</div>
-																	</CardHeader>
-																	<CardContent className="text-sm space-y-1">
-																		<p className="font-medium">
-																			{address.line1}
-																			{address.line2 && `, ${address.line2}`}
-																		</p>
-																		<p>
-																			{address.city}
-																			{address.state && `, ${address.state}`}
-																			{address.pincode &&
-																				` - ${address.pincode}`}
-																		</p>
-																		<p>{address.country}</p>
-																	</CardContent>
-																</Card>
-															))}
-														</div>
-													</div>
-												)}
-
-											<div className="space-y-2">
-												<Card>
-													<CardHeader>
-														<CardTitle>Biography</CardTitle>
-													</CardHeader>
-													<CardContent>
-														{isEditing ? (
-															<BlockNoteEditor
-																initialContent={editedUser?.bio || ""}
-																onChange={(val: string) =>
-																	handleBlockNoteChange("bio", val)
-																}
-																editable={isEditing}
-															/>
-														) : (
-															<div
-																className="prose prose-sm max-w-none"
-																dangerouslySetInnerHTML={{
-																	__html: safeBlockNoteHtml(editedUser?.bio),
-																}}
-															/>
-														)}
-													</CardContent>
-												</Card>
-											</div>
-										</>
-									) : (
-										<div className="space-y-6">
-											<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-												<div className="space-y-2">
-													<h3 className="text-sm font-medium text-muted-foreground">
-														Full Name
-													</h3>
-													<p className="font-medium text-foreground">
-														{user?.name}
-													</p>
-												</div>
-												<div className="space-y-2">
-													<h3 className="text-sm font-medium text-muted-foreground">
-														Email
-													</h3>
-													<p className="font-medium text-foreground">
-														{user?.email}
-													</p>
-												</div>
-												<div className="space-y-2">
-													<h3 className="text-sm font-medium text-muted-foreground">
-														Phone
-													</h3>
-													<p className="font-medium text-foreground">
-														{user?.phone}
-													</p>
-												</div>
-												<div className="space-y-2">
-													<h3 className="text-sm font-medium text-muted-foreground">
-														User Type
-													</h3>
-													<div className="flex items-center">
-														<span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-															{user?.userType || "Not specified"}
-														</span>
-													</div>
-												</div>
-												<div className="space-y-2">
-													<h3 className="text-sm font-medium text-muted-foreground">
-														Status
-													</h3>
-													<div className="flex items-center">
-														<span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-															{user?.status || "Not specified"}
-														</span>
-													</div>
-												</div>
-											</div>
-											<div className="space-y-2 pt-2 border-t border-border">
-												<h3 className="text-sm font-medium text-muted-foreground">
-													Bio
-												</h3>
-												<div className="font-medium text-foreground prose prose-sm max-w-none">
-													<div
-														dangerouslySetInnerHTML={{
-															__html: safeBlockNoteHtml(user?.bio),
-														}}
-													/>
-												</div>
-											</div>
-
-											{user?.addresses && user.addresses.length > 0 && (
-												<div className="space-y-4 pt-2 border-t border-border">
-													<h3 className="text-sm font-medium text-muted-foreground">
-														Addresses
-													</h3>
-													<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-														{user.addresses.map((address, index) => (
-															<Card key={index} className="border-border">
-																<CardHeader className="pb-2">
-																	<div className="flex items-center gap-2">
-																		<MapPin className="h-4 w-4 text-muted-foreground" />
-																		<CardTitle className="text-base">
-																			{address.type.charAt(0).toUpperCase() +
-																				address.type.slice(1)}
-																			{address.type === "other" && address.label
-																				? ` (${address.label})`
-																				: ""}
-																		</CardTitle>
-																	</div>
-																</CardHeader>
-																<CardContent className="text-sm space-y-1">
-																	<p className="font-medium">
-																		{address.line1}
-																		{address.line2 && `, ${address.line2}`}
-																	</p>
-																	<p>
-																		{address.city}
-																		{address.state && `, ${address.state}`}
-																		{address.pincode && ` - ${address.pincode}`}
-																	</p>
-																	<p>{address.country}</p>
-																</CardContent>
-															</Card>
-														))}
-													</div>
-												</div>
-											)}
-										</div>
-									)}
-								</CardContent>
-								{isEditing && (
-									<CardFooter>
-										<Button onClick={handleSaveChanges} disabled={isSaving}>
-											{isSaving ? (
-												<>
-													<svg
-														className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-														xmlns="http://www.w3.org/2000/svg"
-														fill="none"
-														viewBox="0 0 24 24"
-													>
-														<circle
-															className="opacity-25"
-															cx="12"
-															cy="12"
-															r="10"
-															stroke="currentColor"
-															strokeWidth="4"
-														></circle>
-														<path
-															className="opacity-75"
-															fill="currentColor"
-															d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-														></path>
-													</svg>
-													Saving...
-												</>
-											) : (
-												<>
-													<Save className="h-4 w-4 mr-2" />
-													Save Changes
-												</>
-											)}
-										</Button>
-									</CardFooter>
-								)}
-							</Card>
-						</TabsContent>
-
-						<TabsContent value="preferences" className="space-y-4">
-							<Card>
-								<CardHeader>
-									<CardTitle>User Preferences</CardTitle>
-									<CardDescription>
-										Manage notification settings and user preferences.
-									</CardDescription>
-								</CardHeader>
-								<CardContent>
-									<div className="space-y-4">
-										{isEditing ? (
-											<div className="space-y-4">
-												<div className="flex items-center justify-between">
-													<Label htmlFor="notifications">
-														Email Notifications
-													</Label>
-													<input
-														type="checkbox"
-														id="notifications"
-														checked={
-															editedUser?.preferences?.notifications || false
-														}
-														onChange={(e) =>
-															setEditedUser((prev) =>
-																prev
-																	? {
-																			...prev,
-																			preferences: {
-																				...prev.preferences,
-																				notifications: e.target.checked,
-																				language: e.target.value,
-																				newsletter: e.target.checked,
-																			},
-																	  }
-																	: null
-															)
-														}
-														className="h-4 w-4"
-													/>
-												</div>
-												<div className="flex items-center justify-between">
-													<Label htmlFor="newsletter">
-														Subscribe to Newsletter
-													</Label>
-													<input
-														type="checkbox"
-														id="newsletter"
-														checked={
-															editedUser?.preferences?.newsletter || false
-														}
-														onChange={(e) =>
-															setEditedUser((prev) =>
-																prev
-																	? {
-																			...prev,
-																			preferences: {
-																				...prev.preferences,
-																				notifications: e.target.checked,
-																				language: e.target.value,
-																				newsletter: e.target.checked,
-																			},
-																	  }
-																	: null
-															)
-														}
-														className="h-4 w-4"
-													/>
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor="language">Preferred Language</Label>
-													<Select
-														value={editedUser?.preferences?.language || ""}
-														onValueChange={(value) =>
-															setEditedUser((prev) =>
-																prev
-																	? {
-																			...prev,
-																			preferences: {
-																				...prev.preferences,
-																				language: value,
-																				notifications:
-																					prev.preferences?.notifications ??
-																					false, // Provide default value
-																				newsletter:
-																					prev.preferences?.newsletter ?? false, // Provide default value
-																			},
-																	  }
-																	: null
-															)
-														}
-													>
-														<SelectTrigger id="language">
-															<SelectValue placeholder="Select language" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectGroup>
-																<SelectItem value="Hindi">Hindi</SelectItem>
-																<SelectItem value="English">English</SelectItem>
-																<SelectItem value="Sanskrit">
-																	Sanskrit
-																</SelectItem>
-																<SelectItem value="Tamil">Tamil</SelectItem>
-																<SelectItem value="Bengali">Bengali</SelectItem>
-															</SelectGroup>
-														</SelectContent>
-													</Select>
-												</div>
-											</div>
-										) : (
-											<div className="space-y-4">
-												<div className="grid grid-cols-2 gap-4">
-													<div>
-														<h3 className="text-sm text-muted-foreground">
-															Email Notifications
-														</h3>
-														<p className="font-medium">
-															{user?.preferences?.notifications
-																? "Enabled"
-																: "Disabled"}
-														</p>
-													</div>
-													<div>
-														<h3 className="text-sm text-muted-foreground">
-															Newsletter
-														</h3>
-														<p className="font-medium">
-															{user?.preferences?.newsletter
-																? "Subscribed"
-																: "Not Subscribed"}
-														</p>
-													</div>
-													<div>
-														<h3 className="text-sm text-muted-foreground">
-															Preferred Language
-														</h3>
-														<p className="font-medium">
-															{user?.preferences?.language}
-														</p>
-													</div>
-												</div>
-											</div>
-										)}
-									</div>
-								</CardContent>
-								{isEditing && (
-									<CardFooter>
-										<Button onClick={handleSaveChanges} className="w-full">
-											<Save className="h-4 w-4 mr-2" />
-											Save Preferences
-										</Button>
-									</CardFooter>
-								)}
-							</Card>
-						</TabsContent>
-
-						<TabsContent value="activity" className="space-y-4">
-							<Card>
-								<CardHeader>
-									<CardTitle>Activity Log</CardTitle>
-									<CardDescription>
-										Recent user activities and interactions.
-									</CardDescription>
-								</CardHeader>
-							</Card>
-						</TabsContent>
-					</Tabs>
+					<UserDetailsTabs
+						user={user}
+						editedUser={editedUser}
+						setEditedUser={setEditedUser}
+						isEditing={isEditing}
+						isSaving={isSaving}
+						errors={errors}
+						setErrors={setErrors}
+						setAddressesToDelete={setAddressesToDelete}
+						handleSaveChanges={handleSaveChanges}
+						handleBlockNoteChange={handleBlockNoteChange}
+						safeBlockNoteHtml={safeBlockNoteHtml}
+						formatPhoneNumber={formatPhoneNumber}
+						handlePostImageUpload={handlePostImageUpload}
+						handleSavePosts={handleSavePosts}
+						handleRemovePostImage={handleRemovePostImage}
+						isUploadingPostImage={isUploadingPostImage}
+						isUploadingPostVideo={isUploadingPostVideo}
+						handlePostVideoUpload={handlePostVideoUpload}
+						isSavingPosts={isSavingPosts}
+						postImages={postImages}
+						showVideoUpload={showVideoUpload}
+						setShowVideoUpload={setShowVideoUpload}
+						showImageUpload={showImageUpload}
+						setShowImageUpload={setShowImageUpload}
+						handleRemovePostVideo={handleRemovePostVideo}
+						postVideos={postVideos}
+					/>
 				</div>
 			</div>
 		</div>
