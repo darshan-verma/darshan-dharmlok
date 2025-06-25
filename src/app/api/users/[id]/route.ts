@@ -207,6 +207,26 @@ export async function PUT(
 				{ status: 400 }
 			);
 		}
+		// --- Handle images update ---
+let updatedImages: string[] | undefined;
+if (data.newImages || data.deletedImages) {
+    // Fetch current images from DB
+    const user = await prisma.user.findUnique({
+        where: { id },
+        select: { images: true },
+    });
+    let currentImages: string[] = Array.isArray(user?.images) ? user.images : [];
+
+    // Add new images
+    if (Array.isArray(data.newImages)) {
+        currentImages = [...currentImages, ...data.newImages];
+    }
+    // Remove deleted images
+    if (Array.isArray(data.deletedImages)) {
+        currentImages = currentImages.filter((img) => !data.deletedImages.includes(img));
+    }
+    updatedImages = currentImages;
+}
 
 		// Validate required fields if they are being updated
 		if (
@@ -451,6 +471,7 @@ export async function PUT(
 			// Add this:
 			if (data.images !== undefined) updateData.images = data.images;
 			if (data.videos !== undefined) updateData.videos = data.videos;
+			if (updatedImages !== undefined) updateData.images = updatedImages;
 
 			// Execute user update
 			const updatedUser = await prisma.user.update({

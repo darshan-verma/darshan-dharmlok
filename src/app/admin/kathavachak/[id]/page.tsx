@@ -138,36 +138,27 @@ export default function KathavachakDetailPage() {
 	const [isUploadingPostVideo, setIsUploadingPostVideo] = useState(false);
 	const [isSavingPosts, setIsSavingPosts] = useState(false);
 
+	const [existingImages, setExistingImages] = useState<string[]>([]);
+	const [newImages, setNewImages] = useState<string[]>([]);
+	const [deletedImages, setDeletedImages] = useState<string[]>([]);
+
 	const kathavachakId = params?.id as string;
 
 	// Fetch posts (images/videos) on mount or kathavachakId change
 	useEffect(() => {
-		const fetchPosts = async () => {
-			if (!kathavachakId) return;
-			try {
-				const res = await fetch(`/api/users/${kathavachakId}`);
-				if (!res.ok) return;
-				const data = await res.json();
-				setPostImages(
-					Array.isArray(data.images)
-						? data.images
-						: data.images
-						? [data.images]
-						: []
-				);
-				setPostVideos(
-					Array.isArray(data.videos)
-						? data.videos
-						: data.videos
-						? [data.videos]
-						: []
-				);
-			} catch {
-				// ignore
-			}
-		};
-		fetchPosts();
-	}, [kathavachakId]);
+  const fetchPosts = async () => {
+    if (!kathavachakId) return;
+    try {
+      const res = await fetch(`/api/users/${kathavachakId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setExistingImages(Array.isArray(data.images) ? data.images : data.images ? [data.images] : []);
+      setPostImages(Array.isArray(data.images) ? data.images : data.images ? [data.images] : []);
+      setPostVideos(Array.isArray(data.videos) ? data.videos : data.videos ? [data.videos] : []);
+    } catch {}
+  };
+  fetchPosts();
+}, [kathavachakId]);
 
 	// Fetch Kathavachak data from API
 	const fetchKathavachakData = useCallback(async () => {
@@ -478,40 +469,45 @@ export default function KathavachakDetailPage() {
 	};
 
 	// --- Image Upload Handler ---
-	const handlePostImageUpload = async (
-		event: React.ChangeEvent<HTMLInputElement>
-	) => {
-		const files = event.target.files;
-		if (!files || files.length === 0) return;
-		setIsUploadingPostImage(true);
-		const uploaded: string[] = [];
-		try {
-			for (let i = 0; i < files.length; i++) {
-				const file = files[i];
-				const formData = new FormData();
-				formData.append("file", file);
-				formData.append("userId", KathavachakId);
-				// Replace with your actual upload endpoint
-				const response = await fetch("/api/upload/kathavachak-image", {
-					method: "POST",
-					body: formData,
-				});
-				if (!response.ok) throw new Error("Failed to upload image");
-				const { imageUrl } = await response.json();
-				uploaded.push(imageUrl);
-			}
-			setPostImages((prev) => [...prev, ...uploaded]);
-			toast.success("Image(s) uploaded successfully!");
-		} catch {
-			toast.error("Failed to upload image(s)");
-		} finally {
-			setIsUploadingPostImage(false);
-		}
-	};
+	const handlePostImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
+  setIsUploadingPostImage(true);
+  const uploaded: string[] = [];
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("userId", KathavachakId);
+      const response = await fetch("/api/upload/kathavachak-image", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error("Failed to upload image");
+      const { imageUrl } = await response.json();
+      uploaded.push(imageUrl);
+    }
+    setNewImages((prev) => [...prev, ...uploaded]);
+    setPostImages((prev) => [...prev, ...uploaded]);
+    toast.success("Image(s) uploaded successfully!");
+  } catch {
+    toast.error("Failed to upload image(s)");
+  } finally {
+    setIsUploadingPostImage(false);
+  }
+};
 
 	const handleRemovePostImage = (url: string) => {
-		setPostImages((prev) => prev.filter((img) => img !== url));
-	};
+  if (existingImages.includes(url)) {
+    setDeletedImages((prev) => [...prev, url]);
+    setExistingImages((prev) => prev.filter((img) => img !== url));
+  }
+  if (newImages.includes(url)) {
+    setNewImages((prev) => prev.filter((img) => img !== url));
+  }
+  setPostImages((prev) => prev.filter((img) => img !== url));
+};
 
 	// --- Video Upload Handler ---
 	const handlePostVideoUpload = async (
@@ -614,43 +610,43 @@ export default function KathavachakDetailPage() {
 		}
 	}
 
-	async function handleSavePosts(
-		event: React.MouseEvent<HTMLButtonElement, MouseEvent>
-	): Promise<void> {
-		event.preventDefault();
-		if (!kathavachakId) {
-			toast.error("Invalid Kathavachak ID");
-			return;
-		}
-		setIsSavingPosts(true);
-		const loadingToast = toast.loading("Saving posts...");
-		try {
-			const response = await fetch(`/api/users/${kathavachakId}`, {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					images: postImages,
-					videos: postVideos,
-				}),
-			});
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.error || "Failed to save posts");
-			}
-			toast.dismiss(loadingToast);
-			toast.success("Posts saved successfully!");
-			setIsEditing(false); // <-- Exit edit mode after save
-			setIsSavingPosts(false);
-		} catch (error) {
-			toast.dismiss(loadingToast);
-			toast.error(
-				error instanceof Error ? error.message : "Failed to save posts"
-			);
-			setIsSavingPosts(false);
-		}
-	}
+	async function handleSavePosts(event: React.MouseEvent<HTMLButtonElement, MouseEvent>): Promise<void> {
+  event.preventDefault();
+  if (!kathavachakId) {
+    toast.error("Invalid Kathavachak ID");
+    return;
+  }
+  setIsSavingPosts(true);
+  const loadingToast = toast.loading("Saving posts...");
+  try {
+    const response = await fetch(`/api/users/${kathavachakId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        newImages,
+        deletedImages,
+        videos: postVideos, // You can optimize videos similarly if needed
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to save posts");
+    }
+    toast.dismiss(loadingToast);
+    toast.success("Posts saved successfully!");
+    setIsEditing(false);
+    setIsSavingPosts(false);
+    // After save, reset tracking
+    setNewImages([]);
+    setDeletedImages([]);
+  } catch (error) {
+    toast.dismiss(loadingToast);
+    toast.error(error instanceof Error ? error.message : "Failed to save posts");
+    setIsSavingPosts(false);
+  }
+}
 	return (
 		<div className="p-6 space-y-6">
 			{/* Header with back button and title */}
