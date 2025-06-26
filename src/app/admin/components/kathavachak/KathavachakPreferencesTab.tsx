@@ -1,5 +1,7 @@
 "use client";
 
+import { Save } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -8,7 +10,6 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
 	Select,
@@ -18,21 +19,31 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Save } from "lucide-react";
+import { Kathavachak } from "./types";
 
-export default function KathavachakPreferencesTab({
-	isEditing,
+interface PreferencesTabProps {
+	kathavachak: Kathavachak | null;
+	editedKathavachak: Partial<Kathavachak> | null;
+	setEditedKathavachak: React.Dispatch<
+		React.SetStateAction<Partial<Kathavachak> | null>
+	>;
+	isEditing: boolean;
+	handleSaveChanges: () => Promise<void>;
+}
+
+export default function PreferencesTab({
+	kathavachak,
 	editedKathavachak,
 	setEditedKathavachak,
+	isEditing,
 	handleSaveChanges,
-	kathavachak,
-}: any) {
+}: PreferencesTabProps) {
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>Kathavachak Preferences</CardTitle>
 				<CardDescription>
-					Manage notification settings and Kathavachak preferences.
+					Manage notification settings and kathavachak preferences.
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
@@ -48,12 +59,12 @@ export default function KathavachakPreferencesTab({
 										editedKathavachak?.preferences?.notifications || false
 									}
 									onChange={(e) =>
-										setEditedKathavachak((prev: any) =>
+										setEditedKathavachak((prev) =>
 											prev
 												? {
 														...prev,
 														preferences: {
-															...(prev.preferences as any),
+															...(prev.preferences!),
 															notifications: e.target.checked,
 														},
 												  }
@@ -70,12 +81,12 @@ export default function KathavachakPreferencesTab({
 									id="newsletter"
 									checked={editedKathavachak?.preferences?.newsletter || false}
 									onChange={(e) =>
-										setEditedKathavachak((prev: any) =>
+										setEditedKathavachak((prev) =>
 											prev
 												? {
 														...prev,
 														preferences: {
-															...(prev.preferences as any),
+															...(prev.preferences!),
 															newsletter: e.target.checked,
 														},
 												  }
@@ -90,12 +101,12 @@ export default function KathavachakPreferencesTab({
 								<Select
 									value={editedKathavachak?.preferences?.language || ""}
 									onValueChange={(value) =>
-										setEditedKathavachak((prev: any) =>
+										setEditedKathavachak((prev) =>
 											prev
 												? {
 														...prev,
 														preferences: {
-															...(prev.preferences as any),
+															...(prev.preferences!),
 															language: value,
 														},
 												  }
@@ -132,7 +143,9 @@ export default function KathavachakPreferencesTab({
 									</p>
 								</div>
 								<div>
-									<h3 className="text-sm text-muted-foreground">Newsletter</h3>
+									<h3 className="text-sm text-muted-foreground">
+										Newsletter
+									</h3>
 									<p className="font-medium">
 										{kathavachak?.preferences?.newsletter
 											? "Subscribed"

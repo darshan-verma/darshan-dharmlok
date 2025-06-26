@@ -1,45 +1,64 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
+import {
+	Phone,
+	Mail,
+	MapPin,
+	ChevronDown,
+	Upload,
+	User,
+	Plus,
+	Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
+	CardContent,
+	CardDescription,
+	CardFooter,
 	CardHeader,
 	CardTitle,
-	CardDescription,
-	CardContent,
-	CardFooter,
 } from "@/components/ui/card";
-import {
-	User,
-	Upload,
-	Plus,
-	Trash2,
-	Phone,
-	Mail,
-	BookOpen,
-	Award,
-	MapPin,
-	ChevronDown,
-} from "lucide-react";
+import { Kathavachak } from "./types";
 
-export default function KathavachakProfileCard({
+interface ProfileCardProps {
+	kathavachak: Kathavachak | null;
+	editedKathavachak: Partial<Kathavachak> | null;
+	isEditing: boolean;
+	setIsEditing: (isEditing: boolean) => void;
+	handleImageUpload: (event: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+	handleRemoveImage: () => void;
+	isUploadingImage: boolean;
+	imageError: boolean;
+	setImageError: (error: boolean) => void;
+}
+
+const getKathavachakStatus = (kathavachak: Kathavachak) => {
+	if (!kathavachak.status || kathavachak.status === "Inactive") return "Inactive";
+	return kathavachak.isLoggedIn ? "Active (Online)" : "Active (Offline)";
+};
+
+const getStatusColor = (status: string) => {
+	if (status === "Inactive") return "bg-red-100 text-red-800";
+	if (status === "Active (Online)") return "bg-green-100 text-green-800";
+	return "bg-blue-100 text-blue-800"; // Active (Offline)
+};
+
+export default function ProfileCard({
 	kathavachak,
 	editedKathavachak,
 	isEditing,
 	setIsEditing,
-	isUploadingImage,
 	handleImageUpload,
 	handleRemoveImage,
+	isUploadingImage,
 	imageError,
 	setImageError,
-	getStatusColor,
-	getKathavachakStatus,
-	getCategoryColor,
-	getRankColor,
-	showAddresses,
-	setShowAddresses,
-}: any) {
+}: ProfileCardProps) {
+	const [showAddresses, setShowAddresses] = useState(false);
+
 	return (
 		<Card className="md:col-span-1 h-fit">
 			<CardHeader className="text-center p-4 pb-2">
@@ -55,9 +74,7 @@ export default function KathavachakProfileCard({
 										: kathavachak?.profileImageUrl || "/placeholder.png"
 								}
 								alt={
-									isEditing
-										? editedKathavachak?.name || "Kathavachak"
-										: kathavachak?.name || "Kathavachak"
+									isEditing ? editedKathavachak?.name || "Kathavachak" : kathavachak?.name || "Kathavachak"
 								}
 								width={80}
 								height={80}
@@ -69,6 +86,7 @@ export default function KathavachakProfileCard({
 							<User className="h-10 w-10 text-muted-foreground" />
 						)}
 					</div>
+
 					{isEditing && (
 						<div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group">
 							<input
@@ -85,6 +103,7 @@ export default function KathavachakProfileCard({
 							)}
 						</div>
 					)}
+
 					{isEditing && !editedKathavachak?.profileImageUrl && !imageError && (
 						<div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
 							<input
@@ -97,6 +116,7 @@ export default function KathavachakProfileCard({
 							<Plus className="h-3 w-3 text-primary-foreground" />
 						</div>
 					)}
+
 					{isEditing && editedKathavachak?.profileImageUrl && !imageError && (
 						<Button
 							type="button"
@@ -109,9 +129,7 @@ export default function KathavachakProfileCard({
 						</Button>
 					)}
 				</div>
-				<CardTitle className="text-center text-lg">
-					{kathavachak?.name}
-				</CardTitle>
+				<CardTitle className="text-center text-lg">{kathavachak?.name}</CardTitle>
 				<CardDescription className="flex flex-wrap justify-center items-center gap-1.5">
 					<span
 						className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
@@ -129,6 +147,7 @@ export default function KathavachakProfileCard({
 					)}
 				</CardDescription>
 			</CardHeader>
+
 			<CardContent className="space-y-3 p-4 pt-0">
 				<div className="flex items-center gap-2 text-sm">
 					<Phone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -138,34 +157,7 @@ export default function KathavachakProfileCard({
 					<Mail className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
 					<span className="truncate">{kathavachak?.email}</span>
 				</div>
-				<div className="pt-2 space-y-2">
-					<div className="flex items-center gap-2 text-sm">
-						<BookOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-						<div className="flex-1">
-							<span className="text-xs text-muted-foreground">Category: </span>
-							<span
-								className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
-									kathavachak?.category || ""
-								)} w-20`}
-							>
-								{kathavachak?.category || "Not specified"}
-							</span>
-						</div>
-					</div>
-					<div className="flex items-center gap-2 text-sm">
-						<Award className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-						<div className="flex-1">
-							<span className="text-xs text-muted-foreground">Rank: </span>
-							<span
-								className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getRankColor(
-									kathavachak?.rank || ""
-								)} w-20`}
-							>
-								{kathavachak?.rank || "Not specified"}
-							</span>
-						</div>
-					</div>
-				</div>
+
 				{kathavachak?.addresses && kathavachak.addresses.length > 0 && (
 					<div className="mt-3 pt-3 border-t border-border">
 						<button
@@ -188,7 +180,7 @@ export default function KathavachakProfileCard({
 							}`}
 						>
 							<div className="space-y-2 text-sm">
-								{kathavachak.addresses.map((address: any, index: number) => (
+								{kathavachak.addresses.map((address, index) => (
 									<div
 										key={index}
 										className="border border-border/50 rounded p-2 text-xs"
@@ -208,7 +200,7 @@ export default function KathavachakProfileCard({
 											<p className="truncate">
 												{address.city}
 												{address.state && `, ${address.state}`}
-												{address.pincode && ` - ${address.pincode}`}
+												{address.pincode && ` - ${address.pincode}`}
 											</p>
 										</div>
 									</div>
@@ -218,6 +210,7 @@ export default function KathavachakProfileCard({
 					</div>
 				)}
 			</CardContent>
+
 			<CardFooter className="p-4 pt-0">
 				<Button
 					className="w-full text-sm h-8"

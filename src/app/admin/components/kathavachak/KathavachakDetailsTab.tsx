@@ -8,9 +8,9 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import {
 	Select,
 	SelectContent,
@@ -18,29 +18,44 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, MapPin, Save } from "lucide-react";
+import { Save, Plus, Trash2, MapPin } from "lucide-react";
+import { Kathavachak, FormErrors } from "./types";
 
-export default function KathavachakDetailsTab({
-	isEditing,
+interface DetailsTabProps {
+	kathavachak: Kathavachak | null;
+	editedKathavachak: Partial<Kathavachak> | null;
+	setEditedKathavachak: React.Dispatch<
+		React.SetStateAction<Partial<Kathavachak> | null>
+	>;
+	isEditing: boolean;
+	isSaving: boolean;
+	errors: FormErrors;
+	setErrors: React.Dispatch<React.SetStateAction<FormErrors>>;
+	handleSaveChanges: () => Promise<void>;
+	formatDate: (dateString: string | Date) => string;
+	formatPhoneNumber: (value: string) => string;
+	setAddressesToDelete: React.Dispatch<React.SetStateAction<string[]>>;
+}
+
+export default function DetailsTab({
+	kathavachak,
 	editedKathavachak,
 	setEditedKathavachak,
+	isEditing,
+	isSaving,
 	errors,
 	setErrors,
 	handleSaveChanges,
-	isSaving,
-	formatPhoneNumber,
-	getCategoryColor,
-	getRankColor,
-	setAddressesToDelete,
-	kathavachak,
 	formatDate,
-}: any) {
+	formatPhoneNumber,
+	setAddressesToDelete,
+}: DetailsTabProps) {
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>Personal Information</CardTitle>
 				<CardDescription>
-					Update Kathavachak&apos;s personal details and contact information.
+					Update kathavachak&apos;s personal details and contact information.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
@@ -96,7 +111,10 @@ export default function KathavachakDetailsTab({
 												phone: formatted,
 											});
 											if (errors.phone) {
-												setErrors({ ...errors, phone: undefined });
+												setErrors({
+													...errors,
+													phone: undefined,
+												});
 											}
 										}}
 										placeholder="+91 9876543210"
@@ -111,29 +129,8 @@ export default function KathavachakDetailsTab({
 								)}
 							</div>
 						</div>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-							<div className="space-y-2">
-								<Label>Category</Label>
-								<span
-									className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
-										editedKathavachak?.category || ""
-									)} w-20`}
-								>
-									{editedKathavachak?.category || "Not specified"}
-								</span>
-							</div>
-							<div className="space-y-2">
-								<Label>Rank</Label>
-								<span
-									className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getRankColor(
-										editedKathavachak?.rank || ""
-									)} w-20`}
-								>
-									{editedKathavachak?.rank || "Not specified"}
-								</span>
-							</div>
-						</div>
-						{editedKathavachak?.addresses && (
+
+						{kathavachak?.addresses && (
 							<div className="space-y-6 border p-4 rounded-lg">
 								<div className="flex justify-between items-center">
 									<h3 className="text-base font-medium">Addresses</h3>
@@ -142,305 +139,242 @@ export default function KathavachakDetailsTab({
 										variant="outline"
 										size="sm"
 										onClick={() => {
-											setEditedKathavachak((prev: any) => ({
-												...prev,
-												addresses: [
-													...(prev.addresses || []),
-													{
-														type: "home",
-														line1: "",
-														city: "",
-														country: "India",
-													},
-												],
-											}));
+											setEditedKathavachak((prev) => {
+												if (!prev) return prev;
+												return {
+													...prev,
+													addresses: [
+														...(prev.addresses || []),
+														{
+															type: "home",
+															line1: "",
+															city: "",
+															country: "India",
+														},
+													],
+												};
+											});
 										}}
 									>
 										<Plus className="h-4 w-4 mr-2" />
 										Add Address
 									</Button>
 								</div>
-								{editedKathavachak.addresses.map(
-									(address: any, index: number) => (
-										<div
-											key={index}
-											className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0"
-										>
-											<div className="flex justify-between items-center">
-												<div className="flex items-center gap-2">
-													<MapPin className="h-4 w-4 text-muted-foreground" />
-													<h4 className="font-medium">
-														{address.type.charAt(0).toUpperCase() +
-															address.type.slice(1)}{" "}
-														Address
-														{address.type === "other" && address.label
-															? ` (${address.label})`
-															: ""}
-													</h4>
-												</div>
-												<Button
-													type="button"
-													variant="ghost"
-													size="sm"
-													className="text-red-500 hover:text-red-700 hover:bg-red-50"
-													onClick={() => {
-														const addr = editedKathavachak.addresses?.[index];
+
+								{editedKathavachak?.addresses?.map((address, index) => (
+									<div
+										key={index}
+										className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0"
+									>
+										<div className="flex justify-between items-center">
+											<div className="flex items-center gap-2">
+												<MapPin className="h-4 w-4 text-muted-foreground" />
+												<h4 className="font-medium">
+													{address.type.charAt(0).toUpperCase() +
+														address.type.slice(1)}{" "}
+													Address
+													{address.type === "other" && address.label
+														? ` (${address.label})`
+														: ""}
+												</h4>
+											</div>
+											<Button
+												type="button"
+												variant="ghost"
+												size="sm"
+												className="text-red-500 hover:text-red-700 hover:bg-red-50"
+												onClick={() => {
+													setEditedKathavachak((prev) => {
+														if (!prev) return prev;
+														const addr = prev.addresses?.[index];
 														if (addr?.id) {
-															setAddressesToDelete((prevDel: any) => [
+															setAddressesToDelete((prevDel) => [
 																...prevDel,
 																addr.id!,
 															]);
 														}
-														setEditedKathavachak((prev: any) => ({
+														return {
 															...prev,
 															addresses:
 																prev.addresses?.filter(
-																	(_: any, addrIndex: number) =>
-																		addrIndex !== index
+																	(_, addrIndex) => addrIndex !== index
 																) || [],
-														}));
+														};
+													});
+												}}
+											>
+												<Trash2 className="h-4 w-4" />
+											</Button>
+										</div>
+
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											<div className="space-y-2">
+												<Label htmlFor={`address-type-${index}`}>
+													Address Type
+												</Label>
+												<Select
+													value={address.type}
+													onValueChange={(value) => {
+														setEditedKathavachak((prev) => {
+															if (!prev) return prev;
+															return {
+																...prev,
+																addresses: prev.addresses?.map(
+																	(addr, addrIndex) =>
+																		addrIndex === index
+																			? {
+																					...addr,
+																					type: value as
+																						| "home"
+																						| "work"
+																						| "other",
+																					// Clear label if not "other" type
+																					label:
+																						value === "other"
+																							? addr.label
+																							: undefined,
+																			  }
+																			: addr
+																),
+															};
+														});
 													}}
 												>
-													<Trash2 className="h-4 w-4" />
-												</Button>
+													<SelectTrigger id={`address-type-${index}`}>
+														<SelectValue placeholder="Select address type" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="home">Home</SelectItem>
+														<SelectItem value="work">Work</SelectItem>
+														<SelectItem value="other">Other</SelectItem>
+													</SelectContent>
+												</Select>
 											</div>
-											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+											{address.type === "other" && (
 												<div className="space-y-2">
-													<Label htmlFor={`address-type-${index}`}>
-														Address Type
+													<Label htmlFor={`address-label-${index}`}>
+														Label
 													</Label>
-													<Select
-														value={address.type}
-														onValueChange={(value) => {
-															setEditedKathavachak((prev: any) => {
+													<Input
+														id={`address-label-${index}`}
+														value={address.label || ""}
+														onChange={(e) => {
+															setEditedKathavachak((prev) => {
 																if (!prev) return prev;
 																return {
 																	...prev,
 																	addresses: prev.addresses?.map(
-																		(addr: any, addrIndex: number) =>
+																		(addr, addrIndex) =>
 																			addrIndex === index
 																				? {
 																						...addr,
-																						type: value as
-																							| "home"
-																							| "work"
-																							| "other",
-																						label:
-																							value === "other"
-																								? addr.label
-																								: undefined,
+																						label: e.target.value,
 																				  }
 																				: addr
 																	),
 																};
 															});
 														}}
-													>
-														<SelectTrigger id={`address-type-${index}`}>
-															<SelectValue placeholder="Select address type" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectItem value="home">Home</SelectItem>
-															<SelectItem value="work">Work</SelectItem>
-															<SelectItem value="other">Other</SelectItem>
-														</SelectContent>
-													</Select>
-												</div>
-												{address.type === "other" && (
-													<div className="space-y-2">
-														<Label htmlFor={`address-label-${index}`}>
-															Label
-														</Label>
-														<Input
-															id={`address-label-${index}`}
-															value={address.label || ""}
-															onChange={(e) => {
-																setEditedKathavachak((prev: any) => {
-																	if (!prev) return prev;
-																	return {
-																		...prev,
-																		addresses: prev.addresses?.map(
-																			(addr: any, addrIndex: number) =>
-																				addrIndex === index
-																					? { ...addr, label: e.target.value }
-																					: addr
-																		),
-																	};
-																});
-															}}
-															placeholder="e.g., Parent's Home, Office"
-															className={
-																errors.addresses?.[index]?.label
-																	? "border-red-500"
-																	: ""
-															}
-														/>
-														{errors.addresses?.[index]?.label && (
-															<p className="text-sm text-red-500">
-																{errors.addresses[index].label}
-															</p>
-														)}
-													</div>
-												)}
-											</div>
-											<div className="space-y-2">
-												<Label htmlFor={`address-line1-${index}`}>
-													Address Line 1
-												</Label>
-												<Input
-													id={`address-line1-${index}`}
-													value={address.line1 || ""}
-													onChange={(e) => {
-														setEditedKathavachak((prev: any) => {
-															if (!prev) return prev;
-															return {
-																...prev,
-																addresses: prev.addresses?.map(
-																	(addr: any, addrIndex: number) =>
-																		addrIndex === index
-																			? { ...addr, line1: e.target.value }
-																			: addr
-																),
-															};
-														});
-													}}
-													placeholder="Street address, P.O. box, etc."
-													className={
-														errors.addresses?.[index]?.line1
-															? "border-red-500"
-															: ""
-													}
-												/>
-												{errors.addresses?.[index]?.line1 && (
-													<p className="text-sm text-red-500">
-														{errors.addresses[index].line1}
-													</p>
-												)}
-											</div>
-											<div className="space-y-2">
-												<Label htmlFor={`address-line2-${index}`}>
-													Address Line 2 (Optional)
-												</Label>
-												<Input
-													id={`address-line2-${index}`}
-													value={address.line2 || ""}
-													onChange={(e) => {
-														setEditedKathavachak((prev: any) => {
-															if (!prev) return prev;
-															return {
-																...prev,
-																addresses: prev.addresses?.map(
-																	(addr: any, addrIndex: number) =>
-																		addrIndex === index
-																			? { ...addr, line2: e.target.value }
-																			: addr
-																),
-															};
-														});
-													}}
-													placeholder="Apartment, suite, unit, building, floor, etc."
-												/>
-											</div>
-											<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-												<div className="space-y-2">
-													<Label htmlFor={`address-city-${index}`}>City</Label>
-													<Input
-														id={`address-city-${index}`}
-														value={address.city || ""}
-														onChange={(e) => {
-															setEditedKathavachak((prev: any) => {
-																if (!prev) return prev;
-																return {
-																	...prev,
-																	addresses: prev.addresses?.map(
-																		(addr: any, addrIndex: number) =>
-																			addrIndex === index
-																				? { ...addr, city: e.target.value }
-																				: addr
-																	),
-																};
-															});
-														}}
+														placeholder="e.g., Parent's Home, Office"
 														className={
-															errors.addresses?.[index]?.city
+															errors.addresses?.[index]?.label
 																? "border-red-500"
 																: ""
 														}
 													/>
-													{errors.addresses?.[index]?.city && (
+													{errors.addresses?.[index]?.label && (
 														<p className="text-sm text-red-500">
-															{errors.addresses[index].city}
+															{errors.addresses[index].label}
 														</p>
 													)}
 												</div>
-												<div className="space-y-2">
-													<Label htmlFor={`address-state-${index}`}>
-														State/Province (Optional)
-													</Label>
-													<Input
-														id={`address-state-${index}`}
-														value={address.state || ""}
-														onChange={(e) => {
-															setEditedKathavachak((prev: any) => {
-																if (!prev) return prev;
-																return {
-																	...prev,
-																	addresses: prev.addresses?.map(
-																		(addr: any, addrIndex: number) =>
-																			addrIndex === index
-																				? { ...addr, state: e.target.value }
-																				: addr
-																	),
-																};
-															});
-														}}
-													/>
-												</div>
-												<div className="space-y-2">
-													<Label htmlFor={`address-pincode-${index}`}>
-														PIN Code (Optional)
-													</Label>
-													<Input
-														id={`address-pincode-${index}`}
-														value={address.pincode || ""}
-														onChange={(e) => {
-															setEditedKathavachak((prev: any) => {
-																if (!prev) return prev;
-																return {
-																	...prev,
-																	addresses: prev.addresses?.map(
-																		(addr: any, addrIndex: number) =>
-																			addrIndex === index
-																				? {
-																						...addr,
-																						pincode: e.target.value,
-																				  }
-																				: addr
-																	),
-																};
-															});
-														}}
-													/>
-												</div>
-											</div>
+											)}
+										</div>
+
+										<div className="space-y-2">
+											<Label htmlFor={`address-line1-${index}`}>
+												Address Line 1
+											</Label>
+											<Input
+												id={`address-line1-${index}`}
+												value={address.line1 || ""}
+												onChange={(e) => {
+													setEditedKathavachak((prev) => {
+														if (!prev) return prev;
+														return {
+															...prev,
+															addresses: prev.addresses?.map(
+																(addr, addrIndex) =>
+																	addrIndex === index
+																		? {
+																				...addr,
+																				line1: e.target.value,
+																		  }
+																		: addr
+															),
+														};
+													});
+												}}
+												placeholder="Street address, P.O. box, etc."
+												className={
+													errors.addresses?.[index]?.line1
+														? "border-red-500"
+														: ""
+												}
+											/>
+											{errors.addresses?.[index]?.line1 && (
+												<p className="text-sm text-red-500">
+													{errors.addresses[index].line1}
+												</p>
+											)}
+										</div>
+
+										<div className="space-y-2">
+											<Label htmlFor={`address-line2-${index}`}>
+												Address Line 2 (Optional)
+											</Label>
+											<Input
+												id={`address-line2-${index}`}
+												value={address.line2 || ""}
+												onChange={(e) => {
+													setEditedKathavachak((prev) => {
+														if (!prev) return prev;
+														return {
+															...prev,
+															addresses: prev.addresses?.map(
+																(addr, addrIndex) =>
+																	addrIndex === index
+																		? {
+																				...addr,
+																				line2: e.target.value,
+																		  }
+																		: addr
+															),
+														};
+													});
+												}}
+												placeholder="Apartment, suite, unit, building, floor, etc."
+											/>
+										</div>
+
+										<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 											<div className="space-y-2">
-												<Label htmlFor={`address-country-${index}`}>
-													Country
-												</Label>
+												<Label htmlFor={`address-city-${index}`}>City</Label>
 												<Input
-													id={`address-country-${index}`}
-													value={address.country || ""}
+													id={`address-city-${index}`}
+													value={address.city || ""}
 													onChange={(e) => {
-														setEditedKathavachak((prev: any) => {
+														setEditedKathavachak((prev) => {
 															if (!prev) return prev;
 															return {
 																...prev,
 																addresses: prev.addresses?.map(
-																	(addr: any, addrIndex: number) =>
+																	(addr, addrIndex) =>
 																		addrIndex === index
 																			? {
 																					...addr,
-																					country: e.target.value,
+																					city: e.target.value,
 																			  }
 																			: addr
 																),
@@ -448,21 +382,113 @@ export default function KathavachakDetailsTab({
 														});
 													}}
 													className={
-														errors.addresses?.[index]?.country
+														errors.addresses?.[index]?.city
 															? "border-red-500"
 															: ""
 													}
 												/>
-												{errors.addresses?.[index]?.country && (
+												{errors.addresses?.[index]?.city && (
 													<p className="text-sm text-red-500">
-														{errors.addresses[index].country}
+														{errors.addresses[index].city}
 													</p>
 												)}
 											</div>
+
+											<div className="space-y-2">
+												<Label htmlFor={`address-state-${index}`}>
+													State/Province (Optional)
+												</Label>
+												<Input
+													id={`address-state-${index}`}
+													value={address.state || ""}
+													onChange={(e) => {
+														setEditedKathavachak((prev) => {
+															if (!prev) return prev;
+															return {
+																...prev,
+																addresses: prev.addresses?.map(
+																	(addr, addrIndex) =>
+																		addrIndex === index
+																			? {
+																					...addr,
+																					state: e.target.value,
+																			  }
+																			: addr
+																),
+															};
+														});
+													}}
+												/>
+											</div>
+
+											<div className="space-y-2">
+												<Label htmlFor={`address-pincode-${index}`}>
+													PIN Code (Optional)
+												</Label>
+												<Input
+													id={`address-pincode-${index}`}
+													value={address.pincode || ""}
+													onChange={(e) => {
+														setEditedKathavachak((prev) => {
+															if (!prev) return prev;
+															return {
+																...prev,
+																addresses: prev.addresses?.map(
+																	(addr, addrIndex) =>
+																		addrIndex === index
+																			? {
+																					...addr,
+																					pincode: e.target.value,
+																			  }
+																			: addr
+																),
+															};
+														});
+													}}
+												/>
+											</div>
 										</div>
-									)
-								)}
-								{editedKathavachak.addresses.length === 0 && (
+
+										<div className="space-y-2">
+											<Label htmlFor={`address-country-${index}`}>
+												Country
+											</Label>
+											<Input
+												id={`address-country-${index}`}
+												value={address.country || ""}
+												onChange={(e) => {
+													setEditedKathavachak((prev) => {
+														if (!prev) return prev;
+														return {
+															...prev,
+															addresses: prev.addresses?.map(
+																(addr, addrIndex) =>
+																	addrIndex === index
+																		? {
+																				...addr,
+																				country: e.target.value,
+																		  }
+																		: addr
+															),
+														};
+													});
+												}}
+												className={
+													errors.addresses?.[index]?.country
+														? "border-red-500"
+														: ""
+												}
+											/>
+											{errors.addresses?.[index]?.country && (
+												<p className="text-sm text-red-500">
+													{errors.addresses[index].country}
+												</p>
+											)}
+										</div>
+									</div>
+								))}
+
+								{editedKathavachak?.addresses?.length === 0 && (
 									<div className="text-center py-4 text-muted-foreground">
 										No addresses added. Click &ldquo;Add Address&rdquo; to add
 										one.
@@ -548,38 +574,15 @@ export default function KathavachakDetailsTab({
 									</span>
 								</div>
 							</div>
-							<div className="space-y-2">
-								<h3 className="text-sm font-medium text-muted-foreground">
-									Category
-								</h3>
-								<span
-									className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
-										kathavachak?.category || ""
-									)} w-20`}
-								>
-									{kathavachak?.category || "Not specified"}
-								</span>
-							</div>
-							<div className="space-y-2">
-								<h3 className="text-sm font-medium text-muted-foreground">
-									Rank
-								</h3>
-								<span
-									className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getRankColor(
-										kathavachak?.rank || ""
-									)} w-20`}
-								>
-									{kathavachak?.rank || "Not specified"}
-								</span>
-							</div>
 						</div>
+
 						{kathavachak?.addresses && kathavachak.addresses.length > 0 && (
 							<div className="space-y-4 pt-2 border-t border-border">
 								<h3 className="text-sm font-medium text-muted-foreground">
 									Addresses
 								</h3>
 								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-									{kathavachak.addresses.map((address: any, index: number) => (
+									{kathavachak.addresses.map((address, index) => (
 										<Card key={index} className="border-border">
 											<CardHeader className="pb-2">
 												<div className="flex items-center gap-2">

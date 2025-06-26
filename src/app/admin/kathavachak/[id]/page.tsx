@@ -10,6 +10,7 @@ import {
 	getRankColor,
 	getCategoryColor,
 } from "@/app/admin/components/kathavachak/KathavachakTable";
+import { Kathavachak,FormErrors } from "../../components/kathavachak/types";
 import KathavachakProfileCard from "@/app/admin/components/kathavachak/KathavachakProfileCard";
 import KathavachakDetailsTab from "@/app/admin/components/kathavachak/KathavachakDetailsTab";
 import KathavachakBiographyTab from "@/app/admin/components/kathavachak/KathavachakBiographyTab";
@@ -17,73 +18,73 @@ import KathavachakPostsTab from "@/app/admin/components/kathavachak/KathavachakP
 import KathavachakPreferencesTab from "@/app/admin/components/kathavachak/KathavachakPreferencesTab";
 import KathavachakActivityTab from "@/app/admin/components/kathavachak/KathavachakActivityTab";
 
-// Interface definitions for type safety
-interface Activity {
-	date: string;
-	action: string;
-}
+// // Interface definitions for type safety
+// interface Activity {
+// 	date: string;
+// 	action: string;
+// }
 
-interface KathavachakPreferences {
-	notifications: boolean;
-	newsletter: boolean;
-	language: string;
-}
+// interface KathavachakPreferences {
+// 	notifications: boolean;
+// 	newsletter: boolean;
+// 	language: string;
+// }
 
-interface Address {
-	id?: string; // Optional because new addresses won't have an ID yet
-	type: "home" | "work" | "other";
-	label?: string; // Required only for "other" type addresses
-	line1: string;
-	line2?: string;
-	city: string;
-	state?: string;
-	country: string;
-	pincode?: string;
-	createdAt?: string | Date;
-	updatedAt?: string | Date;
-}
+// interface Address {
+// 	id?: string; // Optional because new addresses won't have an ID yet
+// 	type: "home" | "work" | "other";
+// 	label?: string; // Required only for "other" type addresses
+// 	line1: string;
+// 	line2?: string;
+// 	city: string;
+// 	state?: string;
+// 	country: string;
+// 	pincode?: string;
+// 	createdAt?: string | Date;
+// 	updatedAt?: string | Date;
+// }
 
-interface Kathavachak {
-	id: string;
-	name: string;
-	phone: string;
-	email: string;
-	KathavachakType?: string;
-	typeVendor?: string;
-	profileImageUrl?: string;
-	bio?: string;
-	coverImageUrl?: string;
-	category?: string;
-	addresses?: Address[];
-	social?: number;
-	active?: number;
-	rank?: string;
-	availability?: number;
-	kycApproved?: number;
-	status?: string;
-	isLoggedIn: boolean;
-	lastLogoutAt?: string | Date | null;
-	lastActiveAt?: string | Date | null;
-	lastLoginAt?: string | Date | null;
-	createdAt: string | Date;
-	// Client-side only properties (not stored in database)
-	preferences?: KathavachakPreferences;
-	activities?: Activity[];
-}
+// interface Kathavachak {
+// 	id: string;
+// 	name: string;
+// 	phone: string;
+// 	email: string;
+// 	KathavachakType?: string;
+// 	typeVendor?: string;
+// 	profileImageUrl?: string;
+// 	bio?: string;
+// 	coverImageUrl?: string;
+// 	category?: string;
+// 	addresses?: Address[];
+// 	social?: number;
+// 	active?: number;
+// 	rank?: string;
+// 	availability?: number;
+// 	kycApproved?: number;
+// 	status?: string;
+// 	isLoggedIn: boolean;
+// 	lastLogoutAt?: string | Date | null;
+// 	lastActiveAt?: string | Date | null;
+// 	lastLoginAt?: string | Date | null;
+// 	createdAt: string | Date;
+// 	// Client-side only properties (not stored in database)
+// 	preferences?: KathavachakPreferences;
+// 	activities?: Activity[];
+// }
 
-interface FormErrors {
-	name?: string;
-	email?: string;
-	phone?: string;
-	addresses?: {
-		[key: string]: {
-			line1?: string;
-			city?: string;
-			country?: string;
-			label?: string;
-		};
-	};
-}
+// interface FormErrors {
+// 	name?: string;
+// 	email?: string;
+// 	phone?: string;
+// 	addresses?: {
+// 		[key: string]: {
+// 			line1?: string;
+// 			city?: string;
+// 			country?: string;
+// 			label?: string;
+// 		};
+// 	};
+// }
 
 export default function KathavachakDetailPage() {
 	const params = useParams();
