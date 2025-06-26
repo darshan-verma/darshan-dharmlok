@@ -117,7 +117,6 @@ export default function VideoForm({
 				? initialData.videoUrl.split("/").pop() || null
 				: null
 		);
-
 	}, [
 		initialData.title,
 		initialData.date,
@@ -205,7 +204,8 @@ export default function VideoForm({
 		try {
 			const formData = new FormData();
 			formData.append("file", file);
-			const response = await fetch("/api/upload/video-file", {
+			// Use the correct API endpoint for video uploads
+			const response = await fetch("/api/upload/launch-video", {
 				method: "POST",
 				body: formData,
 			});
@@ -217,10 +217,10 @@ export default function VideoForm({
 				setIsUploading(false);
 				return;
 			}
-			const { fileUrl } = await response.json();
+			const { videoUrl } = await response.json();
 			setVideoData((prev) => ({
 				...prev,
-				videoUrl: fileUrl,
+				videoUrl: videoUrl,
 			}));
 			setIsUploading(false);
 		} catch {

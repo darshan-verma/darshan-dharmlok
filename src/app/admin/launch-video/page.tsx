@@ -8,8 +8,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import VideoTable, { Video } from "../components/video/VideoTable";
-import VideoForm, { VideoFormData } from "../components/video/VideoForm";
+import VideoTable, { Video } from "../components/launch-video/VideoTable";
+import VideoForm, { VideoFormData } from "../components/launch-video/VideoForm";
 import { Button } from "@/components/ui/button";
 
 interface ApiErrorResponse {
@@ -33,7 +33,7 @@ export default function VideoPage() {
 		const fetchVideos = async () => {
 			setLoading(true);
 			try {
-				const response = await fetch(`/api/video`);
+				const response = await fetch(`/api/launch-video`);
 				if (!response.ok) throw new Error(`API error: ${response.status}`);
 				const data = await response.json();
 				setVideos(data.content || []);
@@ -64,7 +64,7 @@ export default function VideoPage() {
 	const confirmDelete = async () => {
 		if (!videoToDelete) return;
 		try {
-			const response = await fetch(`/api/video/${videoToDelete.id}`, {
+			const response = await fetch(`/api/launch-video/${videoToDelete.id}`, {
 				method: "DELETE",
 			});
 			if (!response.ok) throw new Error(`API error: ${response.status}`);
@@ -80,7 +80,7 @@ export default function VideoPage() {
 
 	const handleUpdateStatus = async (id: string, newStatus: string) => {
 		try {
-			const response = await fetch(`/api/video/${id}`, {
+			const response = await fetch(`/api/launch-video/${id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ status: newStatus }),
@@ -95,7 +95,7 @@ export default function VideoPage() {
 	};
 
 	const handleViewVideo = (video: Video) => {
-		window.location.href = `/admin/video/${video.id}`;
+		window.location.href = `/admin/launch-video/${video.id}`;
 	};
 
 	const handleFormSubmit = async (videoFormData: VideoFormData) => {
@@ -106,8 +106,8 @@ export default function VideoPage() {
 
 		try {
 			const url = currentVideo?.id
-				? `/api/video/${currentVideo.id}`
-				: "/api/video";
+				? `/api/launch-video/${currentVideo.id}`
+				: "/api/launch-video";
 			const method = currentVideo?.id ? "PUT" : "POST";
 
 			const response = await fetch(url, {

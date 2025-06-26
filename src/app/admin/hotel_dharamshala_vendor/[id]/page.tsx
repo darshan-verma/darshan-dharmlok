@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/lib/toast";
@@ -516,17 +516,17 @@ export default function HotelDharamshalaDetailPage() {
 		}).format(date);
 	};
 
-	const getHotelDharamshalaStatus = (HotelDharamshala: HotelDharamshala) => {
-		if (!HotelDharamshala.status || HotelDharamshala.status === "Inactive")
-			return "Inactive";
-		return HotelDharamshala.isLoggedIn ? "Active (Online)" : "Active (Offline)";
-	};
+	// const getHotelDharamshalaStatus = (HotelDharamshala: HotelDharamshala) => {
+	// 	if (!HotelDharamshala.status || HotelDharamshala.status === "Inactive")
+	// 		return "Inactive";
+	// 	return HotelDharamshala.isLoggedIn ? "Active (Online)" : "Active (Offline)";
+	// };
 
-	const getStatusColor = (status: string) => {
-		if (status === "Inactive") return "bg-red-100 text-red-800";
-		if (status === "Active (Online)") return "bg-green-100 text-green-800";
-		return "bg-blue-100 text-blue-800"; // Active (Offline)
-	};
+	// const getStatusColor = (status: string) => {
+	// 	if (status === "Inactive") return "bg-red-100 text-red-800";
+	// 	if (status === "Active (Online)") return "bg-green-100 text-green-800";
+	// 	return "bg-blue-100 text-blue-800"; // Active (Offline)
+	// };
 
 	const formatPhoneNumber = (value: string): string => {
 		// Remove all non-digit characters

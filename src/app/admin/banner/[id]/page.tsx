@@ -2,12 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-	ArrowLeft,
-	Save,
-	Trash2,
-	Image as ImageIcon,
-} from "lucide-react";
+import { ArrowLeft, Save, Trash2, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -194,6 +189,7 @@ export default function BannerDetailPage() {
 			const formData = new FormData();
 			formData.append("file", file);
 			formData.append("bannerId", bannerId);
+			// Upload to S3 via your upload API route
 			const response = await fetch("/api/upload/banner-image", {
 				method: "POST",
 				body: formData,
@@ -203,7 +199,7 @@ export default function BannerDetailPage() {
 			setEditedBanner((prev) => (prev ? { ...prev, imageUrl } : null));
 			setImageError(false);
 			toast.dismiss(loadingToast);
-			toast.success("Banner image updated successfully!");
+			toast.success("Banner image uploaded to S3 successfully!");
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(

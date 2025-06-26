@@ -80,7 +80,7 @@ export default function VideoDetailPage() {
 	useEffect(() => {
 		const fetchVideo = async () => {
 			try {
-				const response = await fetch(`/api/video/${videoId}`);
+				const response = await fetch(`/api/launch-video/${videoId}`);
 				if (!response.ok) throw new Error("Failed to fetch video");
 				const data = await response.json();
 				setVideo(data);
@@ -114,7 +114,7 @@ export default function VideoDetailPage() {
 		if (Object.keys(validation).length > 0) return;
 		setIsSaving(true);
 		try {
-			const response = await fetch(`/api/video/${videoId}`, {
+			const response = await fetch(`/api/launch-video/${videoId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
