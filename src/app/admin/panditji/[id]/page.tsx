@@ -28,6 +28,7 @@ export default function PanditjiDetailPage() {
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
+	const [isSavingBiography, setIsSavingBiography] = useState(false);
 
 	const [postImages, setPostImages] = useState<string[]>([]);
 	const [postVideos, setPostVideos] = useState<string[]>([]);
@@ -487,6 +488,34 @@ export default function PanditjiDetailPage() {
 		}
 	}
 
+	const handleSaveBiography = async () => {
+		setIsSavingBiography(true);
+		try {
+			const response = await fetch(`/api/users/${panditjiId}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					bio: editedPanditji?.bio || "",
+				}),
+			});
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to save biography");
+			}
+			const updated = await response.json();
+			setPanditji(updated);
+			setEditedPanditji(updated);
+			toast.success("Biography saved!");
+			setIsEditing(false);
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to save biography"
+			);
+		} finally {
+			setIsSavingBiography(false);
+		}
+	};
+
 	const formatDate = (dateString: string | Date) => {
 		if (!dateString) return "N/A";
 		const date =
@@ -565,6 +594,8 @@ export default function PanditjiDetailPage() {
 								isEditing={isEditing}
 								handleBlockNoteChange={handleBlockNoteChange}
 								safeBlockNoteHtml={safeBlockNoteHtml}
+								onSave={handleSaveBiography}
+								isSaving={isSavingBiography}
 							/>
 						</TabsContent>
 						<TabsContent value="posts" className="space-y-4">

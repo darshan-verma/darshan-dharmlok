@@ -10,81 +10,13 @@ import {
 	getRankColor,
 	getCategoryColor,
 } from "@/app/admin/components/kathavachak/KathavachakTable";
-import { Kathavachak,FormErrors } from "../../components/kathavachak/types";
+import { Kathavachak, FormErrors } from "../../components/kathavachak/types";
 import KathavachakProfileCard from "@/app/admin/components/kathavachak/KathavachakProfileCard";
 import KathavachakDetailsTab from "@/app/admin/components/kathavachak/KathavachakDetailsTab";
 import KathavachakBiographyTab from "@/app/admin/components/kathavachak/KathavachakBiographyTab";
 import KathavachakPostsTab from "@/app/admin/components/kathavachak/KathavachakPostsTab";
 import KathavachakPreferencesTab from "@/app/admin/components/kathavachak/KathavachakPreferencesTab";
 import KathavachakActivityTab from "@/app/admin/components/kathavachak/KathavachakActivityTab";
-
-// // Interface definitions for type safety
-// interface Activity {
-// 	date: string;
-// 	action: string;
-// }
-
-// interface KathavachakPreferences {
-// 	notifications: boolean;
-// 	newsletter: boolean;
-// 	language: string;
-// }
-
-// interface Address {
-// 	id?: string; // Optional because new addresses won't have an ID yet
-// 	type: "home" | "work" | "other";
-// 	label?: string; // Required only for "other" type addresses
-// 	line1: string;
-// 	line2?: string;
-// 	city: string;
-// 	state?: string;
-// 	country: string;
-// 	pincode?: string;
-// 	createdAt?: string | Date;
-// 	updatedAt?: string | Date;
-// }
-
-// interface Kathavachak {
-// 	id: string;
-// 	name: string;
-// 	phone: string;
-// 	email: string;
-// 	KathavachakType?: string;
-// 	typeVendor?: string;
-// 	profileImageUrl?: string;
-// 	bio?: string;
-// 	coverImageUrl?: string;
-// 	category?: string;
-// 	addresses?: Address[];
-// 	social?: number;
-// 	active?: number;
-// 	rank?: string;
-// 	availability?: number;
-// 	kycApproved?: number;
-// 	status?: string;
-// 	isLoggedIn: boolean;
-// 	lastLogoutAt?: string | Date | null;
-// 	lastActiveAt?: string | Date | null;
-// 	lastLoginAt?: string | Date | null;
-// 	createdAt: string | Date;
-// 	// Client-side only properties (not stored in database)
-// 	preferences?: KathavachakPreferences;
-// 	activities?: Activity[];
-// }
-
-// interface FormErrors {
-// 	name?: string;
-// 	email?: string;
-// 	phone?: string;
-// 	addresses?: {
-// 		[key: string]: {
-// 			line1?: string;
-// 			city?: string;
-// 			country?: string;
-// 			label?: string;
-// 		};
-// 	};
-// }
 
 export default function KathavachakDetailPage() {
 	const params = useParams();
@@ -102,6 +34,7 @@ export default function KathavachakDetailPage() {
 	const [showAddresses, setShowAddresses] = useState(false); // Controls address dropdown visibility
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 	const [isUploadingImage, setIsUploadingImage] = useState(false); // Add image upload state
+	const [isSavingBiography, setIsSavingBiography] = useState(false);
 
 	// --- Posts Tab: Images & Videos State ---
 	const [showImageUpload, setShowImageUpload] = useState(false);
@@ -645,6 +578,39 @@ export default function KathavachakDetailPage() {
 			setIsSavingPosts(false);
 		}
 	}
+	async function handleSaveBiography(): Promise<void> {
+		if (!editedKathavachak) return;
+		setIsSavingBiography(true);
+		const loadingToast = toast.loading("Saving biography...");
+		try {
+			const response = await fetch(`/api/users/${KathavachakId}`, {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					bio: editedKathavachak.bio ?? "",
+				}),
+			});
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to save biography");
+			}
+			const updated = await response.json();
+			setKathavachak(updated);
+			setEditedKathavachak(updated);
+			toast.dismiss(loadingToast);
+			toast.success("Biography updated successfully!");
+			setIsEditing(false);
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to save biography"
+			);
+		} finally {
+			setIsSavingBiography(false);
+		}
+	}
 	return (
 		<div className="p-6 space-y-6">
 			<div className="flex items-center gap-4">
@@ -711,12 +677,12 @@ export default function KathavachakDetailPage() {
 
 						<TabsContent value="biography" className="space-y-4">
 							<KathavachakBiographyTab
-								{...{
-									isEditing,
-									editedKathavachak,
-									handleBlockNoteChange,
-									safeBlockNoteHtml,
-								}}
+								editedKathavachak={editedKathavachak}
+								isEditing={isEditing}
+								handleBlockNoteChange={handleBlockNoteChange}
+								safeBlockNoteHtml={safeBlockNoteHtml}
+								onSave={handleSaveBiography}
+								isSaving={isSavingBiography}
 							/>
 						</TabsContent>
 

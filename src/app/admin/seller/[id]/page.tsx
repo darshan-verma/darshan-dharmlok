@@ -14,8 +14,6 @@ import PostsTab from "@/app/admin/components/seller/PostsTab";
 import PreferencesTab from "@/app/admin/components/seller/PreferencesTab";
 import ActivityTab from "@/app/admin/components/seller/ActivityTab";
 
-
-
 export default function SellerDetailPage() {
 	const params = useParams();
 	const router = useRouter();
@@ -31,6 +29,7 @@ export default function SellerDetailPage() {
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
+	const [isSavingBiography, setIsSavingBiography] = useState(false);
 	// --- Posts Tab: Images & Videos State ---
 	const [postImages, setPostImages] = useState<string[]>([]);
 	const [postVideos, setPostVideos] = useState<string[]>([]);
@@ -265,6 +264,34 @@ export default function SellerDetailPage() {
 			);
 		} finally {
 			setIsSaving(false);
+		}
+	};
+
+	const handleSaveBiography = async () => {
+		setIsSavingBiography(true);
+		try {
+			const response = await fetch(`/api/users/${sellerId}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					bio: editedSeller?.bio || "",
+				}),
+			});
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to save biography");
+			}
+			const updated = await response.json();
+			setSeller(updated);
+			setEditedSeller(updated);
+			toast.success("Biography saved!");
+			setIsEditing(false);
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to save biography"
+			);
+		} finally {
+			setIsSavingBiography(false);
 		}
 	};
 
@@ -595,6 +622,8 @@ export default function SellerDetailPage() {
 								isEditing={isEditing}
 								handleBlockNoteChange={handleBlockNoteChange}
 								safeBlockNoteHtml={safeBlockNoteHtml}
+								onSave={handleSaveBiography}
+								isSaving={isSavingBiography}
 							/>
 						</TabsContent>
 
@@ -723,7 +752,7 @@ export default function SellerDetailPage() {
 // 								<Button
 // 									type="button"
 // 									variant="destructive"
-// 									size="sm"
+// 								size="sm"
 // 									className="absolute -top-2 -right-2 w-6 h-6 rounded-full p-0"
 // 									onClick={handleRemoveImage}
 // 								>
@@ -1092,35 +1121,7 @@ export default function SellerDetailPage() {
 // 																				{errors.addresses[index].label}
 // 																			</p>
 // 																		)}
-// 																	</div>
-// 																)}
-// 															</div>
-
-// 															<div className="space-y-2">
-// 																<Label htmlFor={`address-line1-${index}`}>
-// 																	Address Line 1
-// 																</Label>
-// 																<Input
-// 																	id={`address-line1-${index}`}
-// 																	value={address.line1 || ""}
-// 																	onChange={(e) => {
-// 																		setEditedSeller((prev) => {
-// 																			if (!prev) return prev;
-// 																			return {
-// 																				...prev,
-// 																				addresses: prev.addresses?.map(
-// 																					(addr, addrIndex) =>
-// 																						addrIndex === index
-// 																							? {
-// 																									...addr,
-// 																									line1: e.target.value,
-// 																							  }
-// 																							: addr
-// 																				),
-// 																			};
-// 																		});
-// 																	}}
-// 																	placeholder="Street address, P.O. box, etc."
+//
 // 																	className={
 // 																		errors.addresses?.[index]?.line1
 // 																			? "border-red-500"

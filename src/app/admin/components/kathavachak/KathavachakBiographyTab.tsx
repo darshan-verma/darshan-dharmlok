@@ -1,7 +1,9 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
+import { Button } from "@/components/ui/button";
+import { Save } from "lucide-react";
 import { Kathavachak } from "./types";
 
 interface BiographyTabProps {
@@ -9,6 +11,8 @@ interface BiographyTabProps {
 	isEditing: boolean;
 	handleBlockNoteChange: (field: "bio", val: string) => void;
 	safeBlockNoteHtml: (jsonString?: string) => string;
+	onSave?: () => void; // <-- add this
+	isSaving?: boolean; // <-- add this (optional, for loading state)
 }
 
 export default function BiographyTab({
@@ -16,6 +20,8 @@ export default function BiographyTab({
 	isEditing,
 	handleBlockNoteChange,
 	safeBlockNoteHtml,
+	onSave,
+	isSaving,
 }: BiographyTabProps) {
 	return (
 		<Card>
@@ -44,6 +50,23 @@ export default function BiographyTab({
 					</>
 				)}
 			</CardContent>
+			{isEditing && onSave && (
+				<CardFooter>
+					<Button onClick={onSave} disabled={isSaving}>
+						{isSaving ? (
+							<>
+								<Save className="h-4 w-4 mr-2 animate-spin" />
+								Saving...
+							</>
+						) : (
+							<>
+								<Save className="h-4 w-4 mr-2" />
+								Save Biography
+							</>
+						)}
+					</Button>
+				</CardFooter>
+			)}
 		</Card>
 	);
 }

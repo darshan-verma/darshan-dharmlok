@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft} from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/lib/toast";
@@ -28,6 +28,7 @@ export default function DharmguruDetailPage() {
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 	const [isUploadingImage, setIsUploadingImage] = useState(false); // Add image upload state
+	const [isSavingBiography, setIsSavingBiography] = useState(false);
 
 	// --- Posts Tab: Images & Videos State ---
 	const [postImages, setPostImages] = useState<string[]>([]);
@@ -265,6 +266,34 @@ export default function DharmguruDetailPage() {
 			);
 		} finally {
 			setIsSaving(false);
+		}
+	};
+
+	const handleSaveBiography = async () => {
+		setIsSavingBiography(true);
+		try {
+			const response = await fetch(`/api/users/${dharmguruId}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					bio: editedDharmguru?.bio || "",
+				}),
+			});
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to save biography");
+			}
+			const updated = await response.json();
+			setDharmguru(updated);
+			setEditedDharmguru(updated);
+			toast.success("Biography saved!");
+			setIsEditing(false);
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to save biography"
+			);
+		} finally {
+			setIsSavingBiography(false);
 		}
 	};
 
@@ -599,6 +628,8 @@ export default function DharmguruDetailPage() {
 								isEditing={isEditing}
 								handleBlockNoteChange={handleBlockNoteChange}
 								safeBlockNoteHtml={safeBlockNoteHtml}
+								onSave={handleSaveBiography}
+								isSaving={isSavingBiography}
 							/>
 						</TabsContent>
 
@@ -637,34 +668,6 @@ export default function DharmguruDetailPage() {
 		</div>
 	);
 }
-// 			toast.success("Posts saved successfully!");
-// 			setIsEditing(false);
-// 			setIsSavingPosts(false);
-// 			setNewImages([]);
-// 			setDeletedImages([]);
-// 		} catch (error) {
-// 			toast.dismiss(loadingToast);
-// 			toast.error(
-// 				error instanceof Error ? error.message : "Failed to save posts"
-// 			);
-// 			setIsSavingPosts(false);
-// 		}
-// 	}
-
-// 	return (
-// 		<div className="p-6 space-y-6">
-// 			<div className="flex items-center gap-4">
-// 				<Button
-// 					variant="outline"
-// 					size="icon"
-// 					onClick={() => router.push("/admin/dharmguru")}
-// 				>
-// 					<ArrowLeft className="h-4 w-4" />
-// 				</Button>
-// 				<h1 className="text-2xl font-bold">Dharmguru Details</h1>
-// 			</div>
-
-// 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 // 				{/* Dharmguru Profile Card */}
 // 				<Card className="md:col-span-1 h-fit">
 // 					<CardHeader className="text-center p-4 pb-2">
