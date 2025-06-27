@@ -199,8 +199,8 @@ export default function BalvidhyaForm({
 		try {
 			const formData = new FormData();
 			formData.append("file", file);
-			formData.append("type", field);
-			const response = await fetch("/api/upload/content-file", {
+			const uploadUrl = isBook ? "/api/upload/pdf" : "/api/upload/video";
+			const response = await fetch(uploadUrl, {
 				method: "POST",
 				body: formData,
 			});
@@ -211,7 +211,7 @@ export default function BalvidhyaForm({
 				[field]: fileUrl,
 			}));
 			setFormErrors((prev) => ({ ...prev, [field]: "" }));
-		} catch{
+		} catch {
 			setFormErrors((prev) => ({
 				...prev,
 				[field]: "Failed to upload file",

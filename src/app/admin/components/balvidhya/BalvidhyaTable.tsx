@@ -5,7 +5,6 @@ import {
 	Eye,
 	Edit,
 	Trash2,
-	Activity,
 	PlusCircle,
 	TrendingUp,
 	TrendingDown,
@@ -13,6 +12,8 @@ import {
 	BookOpen,
 	Image as ImageIcon,
 	MoreVertical,
+	CircleSlash,
+	CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -391,11 +392,6 @@ export default function BalvidhyaTable({
 											</DropdownMenuTrigger>
 											<DropdownMenuContent align="end">
 												<DropdownMenuLabel>Manage Content</DropdownMenuLabel>
-												{/* <DropdownMenuItem onClick={() => onViewBalvidhya(balvidhya)}>
-													<Eye className="h-4 w-4 mr-2" />
-													View Details
-												</DropdownMenuItem> */}{" "}
-												{/* Removed from here */}
 												<DropdownMenuSeparator />
 												{!balvidhya.trending ? (
 													<DropdownMenuItem
@@ -420,25 +416,35 @@ export default function BalvidhyaTable({
 												)}
 												<DropdownMenuSub>
 													<DropdownMenuSubTrigger>
-														<Activity className="h-4 w-4 mr-2" />
-														Change Status
+														Status
 													</DropdownMenuSubTrigger>
 													<DropdownMenuSubContent>
-														{balvidhyaStatuses.map((status) => (
-															<DropdownMenuItem
-																key={status.value}
-																onClick={() =>
-																	onUpdateStatus(balvidhya.id, status.value)
-																}
-																className={
-																	balvidhya.status === status.value
-																		? "bg-blue-50"
-																		: ""
-																}
-															>
-																{status.label}
-															</DropdownMenuItem>
-														))}
+														<DropdownMenuItem
+															onClick={() =>
+																onUpdateStatus(balvidhya.id, "Active")
+															}
+															className={
+																balvidhya.status === "Active"
+																	? "bg-blue-50"
+																	: ""
+															}
+														>
+															<CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
+															Active
+														</DropdownMenuItem>
+														<DropdownMenuItem
+															onClick={() =>
+																onUpdateStatus(balvidhya.id, "Inactive")
+															}
+															className={
+																balvidhya.status === "Inactive"
+																	? "bg-blue-50"
+																	: ""
+															}
+														>
+															<CircleSlash className="h-4 w-4 mr-2 text-gray-500" />
+															Inactive
+														</DropdownMenuItem>
 													</DropdownMenuSubContent>
 												</DropdownMenuSub>
 												<DropdownMenuItem
