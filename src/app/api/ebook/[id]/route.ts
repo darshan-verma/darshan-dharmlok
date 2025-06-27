@@ -11,6 +11,7 @@ export interface Ebook {
 	detail?: string;
 	status: string;
 	bookFile?: string;
+	bookCover?: string; // <-- add bookCover
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -23,10 +24,10 @@ interface ErrorResponse {
 // GET /api/ebook/[id]
 export async function GET(
 	req: NextRequest,
-	{ params }: { params: { id: string } }
+	context: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await context.params;
 	try {
-		const { id } = params;
 		if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
@@ -47,6 +48,7 @@ export async function GET(
 			detail: ebook.detail ?? "",
 			status: ebook.status ?? "Active",
 			bookFile: ebook.bookFile ?? "",
+			bookCover: ebook.bookCover ?? "", // <-- return bookCover
 			createdAt: ebook.createdAt?.toISOString?.() ?? "",
 			updatedAt: ebook.updatedAt?.toISOString?.() ?? "",
 		};
@@ -63,10 +65,10 @@ export async function GET(
 // PUT /api/ebook/[id]
 export async function PUT(
 	req: NextRequest,
-	{ params }: { params: { id: string } }
+	context: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await context.params;
 	try {
-		const { id } = params;
 		if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
@@ -93,13 +95,13 @@ export async function PUT(
 				detail: ebook.detail ?? "",
 				status: ebook.status ?? "Active",
 				bookFile: ebook.bookFile ?? "",
+				bookCover: ebook.bookCover ?? "", // <-- return bookCover
 				createdAt: ebook.createdAt?.toISOString?.() ?? "",
 				updatedAt: ebook.updatedAt?.toISOString?.() ?? "",
 			};
 			return NextResponse.json(result);
 		}
 
-		// ...existing full update code...
 		const {
 			title,
 			date,
@@ -109,6 +111,7 @@ export async function PUT(
 			detail,
 			status,
 			bookFile,
+			bookCover, // <-- accept bookCover
 		} = body;
 
 		const ebook = await prisma.eBook.update({
@@ -122,6 +125,7 @@ export async function PUT(
 				detail: detail ?? "",
 				status,
 				bookFile: bookFile ?? "",
+				bookCover: bookCover ?? "", // <-- update bookCover
 			},
 		});
 
@@ -138,6 +142,7 @@ export async function PUT(
 			detail: ebook.detail ?? "",
 			status: ebook.status ?? "Active",
 			bookFile: ebook.bookFile ?? "",
+			bookCover: ebook.bookCover ?? "", // <-- return bookCover
 			createdAt: ebook.createdAt?.toISOString?.() ?? "",
 			updatedAt: ebook.updatedAt?.toISOString?.() ?? "",
 		};
@@ -155,10 +160,10 @@ export async function PUT(
 // DELETE /api/ebook/[id]
 export async function DELETE(
 	req: NextRequest,
-	{ params }: { params: { id: string } }
+	context: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await context.params;
 	try {
-		const { id } = params;
 		if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}

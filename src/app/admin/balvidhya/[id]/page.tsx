@@ -222,7 +222,7 @@ export default function BalvidhyaDetailPage() {
 			setIsSaving(false);
 		}
 	};
-	
+
 	const handleImageUpload = async (
 		event: React.ChangeEvent<HTMLInputElement>
 	) => {

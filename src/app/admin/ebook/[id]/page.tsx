@@ -54,6 +54,7 @@ type Ebook = {
 	detail: string;
 	status: string;
 	bookFile?: string;
+	bookCover?: string; // <-- add bookCover
 	createdAt?: string;
 	updatedAt?: string;
 };
@@ -67,6 +68,7 @@ type Errors = {
 	detail?: string;
 	status?: string;
 	bookFile?: string;
+	bookCover?: string; // <-- add bookCover
 };
 
 export default function EbookDetailsPage() {
@@ -80,6 +82,7 @@ export default function EbookDetailsPage() {
 	const [editedEbook, setEditedEbook] = useState<Ebook | null>(null);
 	const [errors, setErrors] = useState<Errors>({});
 	const [isUploadingBook, setIsUploadingBook] = useState(false);
+	const [isUploadingBookCover, setIsUploadingBookCover] = useState(false);
 	const [showPdf, setShowPdf] = useState(false);
 	const [uploadedPdfUrl, setUploadedPdfUrl] = useState<string | undefined>(
 		undefined
@@ -152,6 +155,7 @@ export default function EbookDetailsPage() {
 				detail: editedEbook.detail,
 				status: editedEbook.status,
 				bookFile: editedEbook.bookFile || null,
+				bookCover: editedEbook.bookCover || null, // <-- ensure bookCover is sent
 			};
 			const response = await fetch(`/api/ebook/${ebookId}`, {
 				method: "PUT",
@@ -196,14 +200,14 @@ export default function EbookDetailsPage() {
 			const formData = new FormData();
 			formData.append("file", file);
 			formData.append("ebookId", ebookId);
-			const response = await fetch("/api/upload/ebook-file", {
+			const response = await fetch("/api/upload/pdf", {
 				method: "POST",
 				body: formData,
 			});
 			if (!response.ok) throw new Error("Failed to upload PDF");
-			const { fileUrl } = await response.json();
-			setEditedEbook((prev) => (prev ? { ...prev, bookFile: fileUrl } : null));
-			setUploadedPdfUrl(fileUrl);
+			const { pdfUrl } = await response.json(); // <-- use pdfUrl, not fileUrl
+			setEditedEbook((prev) => (prev ? { ...prev, bookFile: pdfUrl } : null));
+			setUploadedPdfUrl(pdfUrl);
 			toast.dismiss(loadingToast);
 			toast.success("PDF uploaded successfully!");
 		} catch (error) {
@@ -216,10 +220,57 @@ export default function EbookDetailsPage() {
 		}
 	};
 
+	const handleBookCoverUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+		const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+		if (!validTypes.includes(file.type)) {
+			toast.error("Please select a valid image file (JPEG, PNG, or WebP)");
+			return;
+		}
+		const maxSize = 5 * 1024 * 1024;
+		if (file.size > maxSize) {
+			toast.error("Image size must be less than 5MB");
+			return;
+		}
+		setIsUploadingBookCover(true);
+		const loadingToast = toast.loading("Uploading book cover...");
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("ebookId", ebookId);
+			const response = await fetch("/api/upload/profile-image", {
+				method: "POST",
+				body: formData,
+			});
+			if (!response.ok) throw new Error("Failed to upload book cover");
+			const { imageUrl } = await response.json();
+			setEditedEbook((prev) =>
+				prev ? { ...prev, bookCover: imageUrl } : null
+			);
+			toast.dismiss(loadingToast);
+			toast.success("Book cover uploaded successfully!");
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to upload book cover"
+			);
+		} finally {
+			setIsUploadingBookCover(false);
+		}
+	};
+
 	const handleRemoveBookFile = () => {
 		setEditedEbook((prev) => (prev ? { ...prev, bookFile: "" } : null));
 		setUploadedPdfUrl(undefined);
 		toast.success("PDF removed");
+	};
+
+	const handleRemoveBookCover = () => {
+		setEditedEbook((prev) => (prev ? { ...prev, bookCover: "" } : null));
+		toast.success("Book cover removed");
 	};
 
 	const formatDate = (dateString: string | Date) => {
@@ -244,8 +295,7 @@ export default function EbookDetailsPage() {
 			setEditedEbook({ ...ebook });
 			setUploadedPdfUrl(undefined);
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isEditing]);
+	}, [isEditing, ebook]);
 
 	return (
 		<div className="p-6 space-y-6">
@@ -379,6 +429,51 @@ export default function EbookDetailsPage() {
 								)}
 								<p className="text-xs text-gray-500">
 									Upload a PDF file for the ebook (max 20MB)
+								</p>
+							</div>
+						)}
+						{/* Book Cover upload */}
+						{isEditing && (
+							<div className="space-y-2">
+								<Label htmlFor="bookCover">Book Cover (Image)</Label>
+								<div className="relative">
+									<Input
+										id="bookCover"
+										type="file"
+										accept="image/jpeg,image/jpg,image/png,image/webp"
+										onChange={handleBookCoverUpload}
+										disabled={isUploadingBookCover}
+									/>
+									{/* Always show the current cover image if present */}
+									{(editedEbook?.bookCover || ebook?.bookCover) && (
+										<div className="flex items-center gap-2 mt-2">
+											<img
+												src={editedEbook?.bookCover || ebook?.bookCover}
+												alt="Book Cover"
+												className="w-16 h-20 object-cover rounded border"
+											/>
+											{(editedEbook?.bookCover || ebook?.bookCover) && (
+												<Button
+													type="button"
+													variant="ghost"
+													size="icon"
+													onClick={handleRemoveBookCover}
+													title="Remove book cover"
+													tabIndex={-1}
+												>
+													<Trash2 className="h-4 w-4 text-red-500" />
+												</Button>
+											)}
+										</div>
+									)}
+								</div>
+								{isUploadingBookCover && (
+									<p className="text-xs text-blue-600">
+										Uploading book cover...
+									</p>
+								)}
+								<p className="text-xs text-gray-500">
+									Upload a cover image for the book (JPEG, PNG, WebP, max 5MB)
 								</p>
 							</div>
 						)}
@@ -635,6 +730,49 @@ export default function EbookDetailsPage() {
 													Upload a PDF file for the ebook (max 20MB)
 												</p>
 											</div>
+											<div className="space-y-2">
+												<Label htmlFor="bookCover">Book Cover (Image)</Label>
+												<div className="relative">
+													<Input
+														id="bookCover"
+														type="file"
+														accept="image/jpeg,image/jpg,image/png,image/webp"
+														onChange={handleBookCoverUpload}
+														disabled={isUploadingBookCover}
+													/>
+													{/* Always show the current cover image if present */}
+													{(editedEbook?.bookCover || ebook?.bookCover) && (
+														<div className="flex items-center gap-2 mt-2">
+															<img
+																src={editedEbook?.bookCover || ebook?.bookCover}
+																alt="Book Cover"
+																className="w-16 h-20 object-cover rounded border"
+															/>
+															{(editedEbook?.bookCover || ebook?.bookCover) && (
+																<Button
+																	type="button"
+																	variant="ghost"
+																	size="icon"
+																	onClick={handleRemoveBookCover}
+																	title="Remove book cover"
+																	tabIndex={-1}
+																>
+																	<Trash2 className="h-4 w-4 text-red-500" />
+																</Button>
+															)}
+														</div>
+													)}
+												</div>
+												{isUploadingBookCover && (
+													<p className="text-xs text-blue-600">
+														Uploading book cover...
+													</p>
+												)}
+												<p className="text-xs text-gray-500">
+													Upload a cover image for the book (JPEG, PNG, WebP,
+													max 5MB)
+												</p>
+											</div>
 										</div>
 									) : (
 										<div className="space-y-6">
@@ -713,6 +851,20 @@ export default function EbookDetailsPage() {
 													>
 														{ebook.bookFile}
 													</a>
+												</div>
+											)}
+											{ebook?.bookCover && (
+												<div className="space-y-2 pt-2 border-t border-border">
+													<h3 className="text-sm font-medium text-muted-foreground">
+														Book Cover
+													</h3>
+													<div className="w-24 h-32 rounded-lg overflow-hidden border">
+														<img
+															src={ebook.bookCover}
+															alt="Book Cover"
+															className="w-full h-full object-cover"
+														/>
+													</div>
 												</div>
 											)}
 										</div>

@@ -183,13 +183,13 @@ export default function AudioLibraryDetailPage() {
 			const formData = new FormData();
 			formData.append("file", file);
 			formData.append("audioLibraryId", audioLibraryId);
-			const response = await fetch("/api/upload/song-thumbnail", {
+			const response = await fetch("/api/upload/profile-image", {
 				method: "POST",
 				body: formData,
 			});
 			if (!response.ok) throw new Error("Failed to upload thumbnail");
-			const { thumbnailUrl } = await response.json();
-			setSongForm((prev) => ({ ...prev, thumbnail: thumbnailUrl }));
+			const { imageUrl } = await response.json();
+			setSongForm((prev) => ({ ...prev, thumbnail: imageUrl }));
 			toast.success("Thumbnail uploaded!");
 		} catch {
 			toast.error("Failed to upload thumbnail");
