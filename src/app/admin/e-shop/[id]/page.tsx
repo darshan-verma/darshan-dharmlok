@@ -76,8 +76,8 @@ export default function ProductDetailPage() {
 	const [isSaving, setIsSaving] = useState(false);
 	const [editedProduct, setEditedProduct] = useState<Product | null>(null);
 	const [errors, setErrors] = useState<Record<string, string>>({});
-	const [imageInput, setImageInput] = useState("");
-	const [videoInput, setVideoInput] = useState("");
+	// const [imageInput, setImageInput] = useState("");
+	// const [videoInput, setVideoInput] = useState("");
 	const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
 	const [isAddingCategory, setIsAddingCategory] = useState(false);
 	const [newCategory, setNewCategory] = useState("");
@@ -160,16 +160,16 @@ export default function ProductDetailPage() {
 		}
 	};
 
-	const handleAddImage = () => {
-		const url = imageInput.trim();
-		if (!url || !editedProduct) return;
-		if (editedProduct.images.includes(url)) return;
-		setEditedProduct({
-			...editedProduct,
-			images: [...editedProduct.images, url],
-		});
-		setImageInput("");
-	};
+	// const handleAddImage = () => {
+	// 	const url = imageInput.trim();
+	// 	if (!url || !editedProduct) return;
+	// 	if (editedProduct.images.includes(url)) return;
+	// 	setEditedProduct({
+	// 		...editedProduct,
+	// 		images: [...editedProduct.images, url],
+	// 	});
+	// 	setImageInput("");
+	// };
 	// --- Image Upload ---
 	const handleImageUpload = async (
 		event: React.ChangeEvent<HTMLInputElement>
@@ -212,16 +212,16 @@ export default function ProductDetailPage() {
 		});
 	};
 
-	const handleAddVideo = () => {
-		const url = videoInput.trim();
-		if (!url || !editedProduct) return;
-		if (editedProduct.videos.includes(url)) return;
-		setEditedProduct({
-			...editedProduct,
-			videos: [...editedProduct.videos, url],
-		});
-		setVideoInput("");
-	};
+	// const handleAddVideo = () => {
+	// 	const url = videoInput.trim();
+	// 	if (!url || !editedProduct) return;
+	// 	if (editedProduct.videos.includes(url)) return;
+	// 	setEditedProduct({
+	// 		...editedProduct,
+	// 		videos: [...editedProduct.videos, url],
+	// 	});
+	// 	setVideoInput("");
+	// };
 	// --- Video Upload ---
 	const handleVideoUpload = async (
 		event: React.ChangeEvent<HTMLInputElement>

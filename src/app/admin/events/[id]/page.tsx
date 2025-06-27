@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,10 +63,10 @@ export default function EventDetailPage() {
 	const [isSaving, setIsSaving] = useState(false);
 	const [editedEvent, setEditedEvent] = useState<Event | null>(null);
 	const [errors, setErrors] = useState<Record<string, string>>({});
-	const [bannerInput, setBannerInput] = useState("");
-	const [relatedImageInput, setRelatedImageInput] = useState("");
 	const [isUploadingBanner, setIsUploadingBanner] = useState(false);
 	const [isUploadingRelated, setIsUploadingRelated] = useState(false);
+	const bannerFileInputRef = useRef<HTMLInputElement>(null);
+	const relatedFileInputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
 		const fetchEvent = async () => {
@@ -124,33 +124,12 @@ export default function EventDetailPage() {
 		}
 	};
 
-	const handleAddBanner = () => {
-		const url = bannerInput.trim();
-		if (!url || !editedEvent) return;
-		setEditedEvent({
-			...editedEvent,
-			bannerImage: url,
-		});
-		setBannerInput("");
-	};
-
 	const handleRemoveBanner = () => {
 		if (!editedEvent) return;
 		setEditedEvent({
 			...editedEvent,
 			bannerImage: "",
 		});
-	};
-
-	const handleAddRelatedImage = () => {
-		const url = relatedImageInput.trim();
-		if (!url || !editedEvent) return;
-		if (editedEvent.relatedImages?.includes(url)) return;
-		setEditedEvent({
-			...editedEvent,
-			relatedImages: [...(editedEvent.relatedImages || []), url],
-		});
-		setRelatedImageInput("");
 	};
 
 	const handleRemoveRelatedImage = (url: string) => {
@@ -163,6 +142,68 @@ export default function EventDetailPage() {
 		});
 	};
 
+	const handleBannerFileUpload = async (
+		e: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = e.target.files?.[0];
+		if (!file || !editedEvent) return;
+		setIsUploadingBanner(true);
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			const resp = await fetch("/api/upload/profile-image", {
+				method: "POST",
+				body: formData,
+			});
+			if (!resp.ok) throw new Error("Failed to upload image");
+			const { imageUrl } = await resp.json();
+			setEditedEvent({ ...editedEvent, bannerImage: imageUrl });
+			toast.success("Banner image uploaded!");
+		} catch {
+			toast.error("Failed to upload banner image");
+		} finally {
+			setIsUploadingBanner(false);
+			if (bannerFileInputRef.current) bannerFileInputRef.current.value = "";
+		}
+	};
+
+	const handleRelatedFileUpload = async (
+		e: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const files = e.target.files;
+		if (!files || !editedEvent) return;
+		setIsUploadingRelated(true);
+		try {
+			const uploadedUrls: string[] = [];
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
+				const formData = new FormData();
+				formData.append("file", file);
+				const resp = await fetch("/api/upload/profile-image", {
+					method: "POST",
+					body: formData,
+				});
+				if (!resp.ok) throw new Error("Failed to upload image");
+				const { imageUrl } = await resp.json();
+				uploadedUrls.push(imageUrl);
+			}
+			setEditedEvent({
+				...editedEvent,
+				relatedImages: [...(editedEvent.relatedImages || []), ...uploadedUrls],
+			});
+			toast.success(
+				uploadedUrls.length > 1
+					? "Related images uploaded!"
+					: "Related image uploaded!"
+			);
+		} catch {
+			toast.error("Failed to upload related image(s)");
+		} finally {
+			setIsUploadingRelated(false);
+			if (relatedFileInputRef.current) relatedFileInputRef.current.value = "";
+		}
+	};
+
 	// Helper to extract src from iframe HTML or return direct URL
 	const extractGoogleMapsSrc = (input?: string) => {
 		if (!input) return "";
@@ -172,12 +213,6 @@ export default function EventDetailPage() {
 		// Otherwise, assume it's a direct URL
 		return input.trim();
 	};
-
-	// Helper to check if the location is a valid Google Maps embed URL
-	const isGoogleMapsEmbed = (url?: string) =>
-		typeof url === "string" &&
-		(url.includes("maps.google.com/maps") ||
-			url.includes("google.com/maps/embed"));
 
 	if (!event || !editedEvent) {
 		return (
@@ -514,18 +549,17 @@ export default function EventDetailPage() {
 									<Label>Banner Image</Label>
 									<div className="flex gap-2 items-center">
 										<Input
-											value={bannerInput}
-											onChange={(e) => setBannerInput(e.target.value)}
-											placeholder="Paste banner image URL"
+											ref={bannerFileInputRef}
+											type="file"
+											accept="image/*"
+											onChange={handleBannerFileUpload}
+											disabled={isUploadingBanner}
 										/>
-										<Button
-											type="button"
-											variant="outline"
-											onClick={handleAddBanner}
-											disabled={!bannerInput.trim()}
-										>
-											Add
-										</Button>
+										{isUploadingBanner && (
+											<span className="text-xs text-blue-600">
+												Uploading...
+											</span>
+										)}
 									</div>
 									{editedEvent.bannerImage && (
 										<div className="relative w-40 h-24 mt-2 rounded border overflow-hidden flex items-center justify-center bg-muted">
@@ -553,18 +587,18 @@ export default function EventDetailPage() {
 									<Label>Related Images</Label>
 									<div className="flex gap-2 items-center">
 										<Input
-											value={relatedImageInput}
-											onChange={(e) => setRelatedImageInput(e.target.value)}
-											placeholder="Paste related image URL"
+											ref={relatedFileInputRef}
+											type="file"
+											accept="image/*"
+											multiple // <-- allow multiple files
+											onChange={handleRelatedFileUpload}
+											disabled={isUploadingRelated}
 										/>
-										<Button
-											type="button"
-											variant="outline"
-											onClick={handleAddRelatedImage}
-											disabled={!relatedImageInput.trim()}
-										>
-											Add
-										</Button>
+										{isUploadingRelated && (
+											<span className="text-xs text-blue-600">
+												Uploading...
+											</span>
+										)}
 									</div>
 									<div className="flex flex-wrap gap-3 mt-2">
 										{editedEvent.relatedImages &&
