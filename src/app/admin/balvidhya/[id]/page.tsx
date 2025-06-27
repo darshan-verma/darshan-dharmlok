@@ -222,7 +222,7 @@ export default function BalvidhyaDetailPage() {
 			setIsSaving(false);
 		}
 	};
-
+	
 	const handleImageUpload = async (
 		event: React.ChangeEvent<HTMLInputElement>
 	) => {
@@ -274,6 +274,10 @@ export default function BalvidhyaDetailPage() {
 
 	const handleRemoveVideoUrl = () => {
 		setEditedBalvidhya((prev) => (prev ? { ...prev, videoUrl: "" } : null));
+	};
+
+	const handleRemoveBookFile = () => {
+		setEditedBalvidhya((prev) => (prev ? { ...prev, bookFile: "" } : null));
 	};
 
 	const handleRemoveVideoFile = () => {
@@ -717,7 +721,7 @@ export default function BalvidhyaDetailPage() {
 												</p>
 											</div>
 											{editedBalvidhya?.type === "book" && (
-												<div className="space-y-2">
+												<div className="space-y-2 relative">
 													<Label htmlFor="bookFile">Book File (PDF)</Label>
 													<Input
 														id="bookFile"
@@ -728,26 +732,39 @@ export default function BalvidhyaDetailPage() {
 															if (!file) return;
 															const formData = new FormData();
 															formData.append("file", file);
-															formData.append("type", "bookFile");
-															const resp = await fetch(
-																"/api/upload/content-file",
-																{
-																	method: "POST",
-																	body: formData,
-																}
-															);
+															const resp = await fetch("/api/upload/pdf", {
+																method: "POST",
+																body: formData,
+															});
 															if (resp.ok) {
-																const { fileUrl } = await resp.json();
+																const { pdfUrl } = await resp.json();
 																setEditedBalvidhya((prev: Balvidhya | null) =>
-																	prev ? { ...prev, bookFile: fileUrl } : prev
+																	prev ? { ...prev, bookFile: pdfUrl } : prev
+																);
+															} else {
+																const err = await resp.json();
+																toast.error(
+																	err.error || "Failed to upload book file"
 																);
 															}
 														}}
 													/>
 													{editedBalvidhya?.bookFile && (
-														<p className="text-xs text-green-700 break-all">
-															Uploaded: {editedBalvidhya.bookFile}
-														</p>
+														<div className="flex items-center gap-2 mt-1">
+															<p className="text-xs text-green-700 break-all">
+																Uploaded: {editedBalvidhya.bookFile}
+															</p>
+															<Button
+																type="button"
+																variant="ghost"
+																size="icon"
+																onClick={handleRemoveBookFile}
+																title="Remove book file"
+																tabIndex={-1}
+															>
+																<Trash2 className="h-4 w-4 text-red-500" />
+															</Button>
+														</div>
 													)}
 													<p className="text-xs text-gray-500">
 														Upload a PDF file for the book (max 20MB)
@@ -766,24 +783,25 @@ export default function BalvidhyaDetailPage() {
 															if (!file) return;
 															const formData = new FormData();
 															formData.append("file", file);
-															formData.append("type", "videoFile");
-															const resp = await fetch(
-																"/api/upload/content-file",
-																{
-																	method: "POST",
-																	body: formData,
-																}
-															);
+															const resp = await fetch("/api/upload/video", {
+																method: "POST",
+																body: formData,
+															});
 															if (resp.ok) {
-																const { fileUrl } = await resp.json();
+																const { videoUrl } = await resp.json();
 																setEditedBalvidhya((prev: Balvidhya | null) =>
 																	prev
 																		? {
 																				...prev,
-																				videoFile: fileUrl,
+																				videoFile: videoUrl,
 																				videoUrl: "",
 																		  }
 																		: prev
+																);
+															} else {
+																const err = await resp.json();
+																toast.error(
+																	err.error || "Failed to upload video file"
 																);
 															}
 														}}

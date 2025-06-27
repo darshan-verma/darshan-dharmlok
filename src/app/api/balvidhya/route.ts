@@ -164,9 +164,10 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json(
 			{
 				error: "Error creating item",
-				details: typeof error === "object" && error !== null && "message" in error
-					? (error as { message?: string }).message
-					: String(error),
+				details:
+					typeof error === "object" && error !== null && "message" in error
+						? (error as { message?: string }).message
+						: String(error),
 			},
 			{ status: 500 }
 		);

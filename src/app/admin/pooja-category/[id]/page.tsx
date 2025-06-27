@@ -101,6 +101,7 @@ export default function PoojaCategoryDetailsPage() {
 		null
 	);
 	const [panditjiDropdownOpen, setPanditjiDropdownOpen] = useState(false);
+	const [showDetailsAndForm, setShowDetailsAndForm] = useState(false);
 
 	// Fetch pooja category details
 	useEffect(() => {
@@ -151,11 +152,19 @@ export default function PoojaCategoryDetailsPage() {
 		if (poojaCategoryId) fetchOfferings();
 	}, [poojaCategoryId]);
 
-	// Filter Panditji dropdown by search
+	// Filter Panditji dropdown by search and exclude already added
 	const filteredPanditjis = allPanditjis.filter(
 		(p) =>
-			p.name.toLowerCase().includes(panditjiSearch.toLowerCase()) ||
-			(p.email?.toLowerCase().includes(panditjiSearch.toLowerCase()) ?? false)
+			// Exclude if already in offerings (unless editing that offering)
+			!offerings.some(
+				(o) =>
+					o.provider.id === p.id &&
+					// Allow editing the same Panditji
+					(editingOfferingId ? o.id !== editingOfferingId : true)
+			) &&
+			(p.name.toLowerCase().includes(panditjiSearch.toLowerCase()) ||
+				(p.email?.toLowerCase().includes(panditjiSearch.toLowerCase()) ??
+					false))
 	);
 
 	// Handle add/update offering
@@ -276,194 +285,208 @@ export default function PoojaCategoryDetailsPage() {
 					<ArrowLeft className="h-4 w-4" />
 				</Button>
 				<h1 className="text-2xl font-bold">Pooja Category Details</h1>
+				<Button
+					variant="default"
+					className="ml-auto"
+					onClick={() => setShowDetailsAndForm((v) => !v)}
+				>
+					{showDetailsAndForm ? "Close Form" : "Open Form"}
+				</Button>
 			</div>
 
-			{/* Pooja Category Details */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-				{/* Pooja Category Details - more compact */}
-				<Card className="md:col-span-1">
-					<CardHeader className="pb-1 pt-3">
-						<CardTitle className="text-lg">
-							{pooja?.name || "Pooja Category"}
-						</CardTitle>
-						<CardDescription className="text-sm line-clamp-2">
-							{pooja?.description}
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="space-y-0.5 pt-0 pb-3 text-sm">
-						<div className="flex justify-between py-0.5 border-b border-gray-100">
-							<span className="font-medium">Date:</span>
-							<span>
-								{pooja?.date ? new Date(pooja.date).toLocaleDateString() : "-"}
-							</span>
-						</div>
-						<div className="flex justify-between py-0.5 border-b border-gray-100">
-							<span className="font-medium">Price:</span>
-							<span>
-								{typeof pooja?.price === "number" ? `₹${pooja.price}` : "-"}
-							</span>
-						</div>
-						<div className="flex justify-between items-center py-0.5">
-							<span className="font-medium">Status:</span>
-							<span
-								className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-sm ${
-									pooja?.status === "Active"
-										? "bg-green-100 text-green-800"
-										: "bg-red-100 text-red-800"
-								}`}
-							>
-								{pooja?.status === "Active" ? "Active" : "Inactive"}
-							</span>
-						</div>
-						{pooja?.details && (
-							<div className="pt-1 mt-1 border-t border-gray-100">
-								<span className="font-medium">Details:</span>
-								<p className="text-sm mt-0.5 line-clamp-2">{pooja?.details}</p>
-							</div>
-						)}
-					</CardContent>
-				</Card>
-
-				{/* Admin: Add/Edit Panditji Offering */}
-				<Card className="md:col-span-2">
-					<CardHeader className="pb-2 pt-3">
-						<CardTitle className="text-lg">
-							{editingOfferingId
-								? "Edit Panditji Offering"
-								: "Add Panditji Offering"}
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="pt-0">
-						<form onSubmit={handleOfferingSubmit} className="space-y-3">
-							<div>
-								<label className="block text-sm font-medium mb-1">
-									Select Panditji <span className="text-red-500">*</span>
-								</label>
-								<Popover
-									open={panditjiDropdownOpen}
-									onOpenChange={setPanditjiDropdownOpen}
-								>
-									<PopoverTrigger asChild>
-										<Button
-											variant="outline"
-											role="combobox"
-											className="w-full justify-between h-9 text-sm"
-											disabled={!!editingOfferingId}
-											type="button"
-										>
-											<span className="flex-grow text-left truncate">
-												{selectedPanditjiId
-													? allPanditjis.find(
-															(p) => p.id === selectedPanditjiId
-													  )?.name
-													: "Click to select Panditji"}
-											</span>
-											{selectedPanditjiId ? (
-												<X
-													className="h-4 w-4 ml-2 text-gray-500 hover:text-gray-700 cursor-pointer"
-													onClick={(e) => {
-														e.preventDefault();
-														e.stopPropagation();
-														setSelectedPanditjiId("");
-														setPanditjiSearch("");
-														setPanditjiDropdownOpen(false);
-													}}
-													role="button"
-													aria-label="Clear selection"
-												/>
-											) : (
-												<span className="ml-2 text-gray-400">&#9662;</span>
-											)}
-										</Button>
-									</PopoverTrigger>
-									<PopoverContent className="w-[320px] p-2">
-										<Input
-											placeholder="Search Panditji by name or email"
-											value={panditjiSearch}
-											onChange={(e) => setPanditjiSearch(e.target.value)}
-											className="mb-2 h-8 text-sm"
-											autoFocus
-										/>
-										<div className="max-h-48 overflow-y-auto">
-											{filteredPanditjis.length === 0 ? (
-												<div className="px-3 py-2 text-gray-500 text-sm select-none">
-													No Panditji found
-												</div>
-											) : (
-												filteredPanditjis.map((p) => (
-													<div
-														key={p.id}
-														className={`px-3 py-2 cursor-pointer hover:bg-muted rounded text-sm ${
-															selectedPanditjiId === p.id
-																? "bg-muted font-semibold"
-																: ""
-														}`}
-														onClick={() => {
-															setSelectedPanditjiId(p.id);
-															setPanditjiDropdownOpen(false);
-														}}
-													>
-														{p.name} {p.email ? `(${p.email})` : ""}
-													</div>
-												))
-											)}
-										</div>
-									</PopoverContent>
-								</Popover>
-							</div>
-							<div>
-								<label className="block text-sm font-medium mb-1">
-									Price (₹) <span className="text-red-500">*</span>
-								</label>
-								<Input
-									type="number"
-									value={formPrice}
-									onChange={(e) => setFormPrice(e.target.value)}
-									placeholder="Enter price"
-									required
-									min={0}
-									className="h-9 text-sm"
-								/>
-							</div>
-							<div>
-								<label className="block text-sm font-medium mb-1">
-									Details
-								</label>
-								<Textarea
-									value={formDetails}
-									onChange={(e) => setFormDetails(e.target.value)}
-									placeholder="Describe the service"
-									rows={2}
-									className="text-sm"
-								/>
-							</div>
-							<Button
-								type="submit"
-								disabled={isSubmitting}
-								size="sm"
-								className="mt-1 text-sm"
-							>
-								{isSubmitting ? (
-									<>
-										<Save className="h-4 w-4 mr-2 animate-spin" />
-										Saving...
-									</>
-								) : editingOfferingId ? (
-									<>
-										<Save className="h-4 w-4 mr-2" />
-										Update Offering
-									</>
-								) : (
-									<>
-										<PlusCircle className="h-4 w-4 mr-2" />
-										Add Offering
-									</>
+			{/* Collapsible Details and Add Offering section */}
+			{showDetailsAndForm && (
+				<div className="mb-6">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						{/* Pooja Category Details Card */}
+						<Card>
+							<CardHeader className="pb-1 pt-3">
+								<CardTitle className="text-lg">
+									{pooja?.name || "Pooja Category"}
+								</CardTitle>
+								<CardDescription className="text-sm line-clamp-2">
+									{pooja?.description}
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="space-y-0.5 pt-0 pb-3 text-sm">
+								<div className="flex justify-between py-0.5 border-b border-gray-100">
+									<span className="font-medium">Date:</span>
+									<span>
+										{pooja?.date
+											? new Date(pooja.date).toLocaleDateString()
+											: "-"}
+									</span>
+								</div>
+								<div className="flex justify-between py-0.5 border-b border-gray-100">
+									<span className="font-medium">Price:</span>
+									<span>
+										{typeof pooja?.price === "number" ? `₹${pooja.price}` : "-"}
+									</span>
+								</div>
+								<div className="flex justify-between items-center py-0.5">
+									<span className="font-medium">Status:</span>
+									<span
+										className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-sm ${
+											pooja?.status === "Active"
+												? "bg-green-100 text-green-800"
+												: "bg-red-100 text-red-800"
+										}`}
+									>
+										{pooja?.status === "Active" ? "Active" : "Inactive"}
+									</span>
+								</div>
+								{pooja?.details && (
+									<div className="pt-1 mt-1 border-t border-gray-100">
+										<span className="font-medium">Details:</span>
+										<p className="text-sm mt-0.5 line-clamp-2">
+											{pooja?.details}
+										</p>
+									</div>
 								)}
-							</Button>
-						</form>
-					</CardContent>
-				</Card>
-			</div>
+							</CardContent>
+						</Card>
+						{/* Add/Edit Panditji Offering Card */}
+						<Card>
+							<CardHeader className="pb-2 pt-3">
+								<CardTitle className="text-lg">
+									{editingOfferingId
+										? "Edit Panditji Offering"
+										: "Add Panditji Offering"}
+								</CardTitle>
+							</CardHeader>
+							<CardContent className="pt-0">
+								<form onSubmit={handleOfferingSubmit} className="space-y-3">
+									<div>
+										<label className="block text-sm font-medium mb-1">
+											Select Panditji <span className="text-red-500">*</span>
+										</label>
+										<Popover
+											open={panditjiDropdownOpen}
+											onOpenChange={setPanditjiDropdownOpen}
+										>
+											<PopoverTrigger asChild>
+												<Button
+													variant="outline"
+													role="combobox"
+													className="w-full justify-between h-9 text-sm"
+													disabled={!!editingOfferingId}
+													type="button"
+												>
+													<span className="flex-grow text-left truncate">
+														{selectedPanditjiId
+															? allPanditjis.find(
+																	(p) => p.id === selectedPanditjiId
+															  )?.name
+															: "Click to select Panditji"}
+													</span>
+													{selectedPanditjiId ? (
+														<X
+															className="h-4 w-4 ml-2 text-gray-500 hover:text-gray-700 cursor-pointer"
+															onClick={(e) => {
+																e.preventDefault();
+																e.stopPropagation();
+																setSelectedPanditjiId("");
+																setPanditjiSearch("");
+																setPanditjiDropdownOpen(false);
+															}}
+															role="button"
+															aria-label="Clear selection"
+														/>
+													) : (
+														<span className="ml-2 text-gray-400">&#9662;</span>
+													)}
+												</Button>
+											</PopoverTrigger>
+											<PopoverContent className="w-[320px] p-2">
+												<Input
+													placeholder="Search Panditji by name or email"
+													value={panditjiSearch}
+													onChange={(e) => setPanditjiSearch(e.target.value)}
+													className="mb-2 h-8 text-sm"
+													autoFocus
+												/>
+												<div className="max-h-48 overflow-y-auto">
+													{filteredPanditjis.length === 0 ? (
+														<div className="px-3 py-2 text-gray-500 text-sm select-none">
+															No Panditji found
+														</div>
+													) : (
+														filteredPanditjis.map((p) => (
+															<div
+																key={p.id}
+																className={`px-3 py-2 cursor-pointer hover:bg-muted rounded text-sm ${
+																	selectedPanditjiId === p.id
+																		? "bg-muted font-semibold"
+																		: ""
+																}`}
+																onClick={() => {
+																	setSelectedPanditjiId(p.id);
+																	setPanditjiDropdownOpen(false);
+																}}
+															>
+																{p.name} {p.email ? `(${p.email})` : ""}
+															</div>
+														))
+													)}
+												</div>
+											</PopoverContent>
+										</Popover>
+									</div>
+									<div>
+										<label className="block text-sm font-medium mb-1">
+											Price (₹) <span className="text-red-500">*</span>
+										</label>
+										<Input
+											type="number"
+											value={formPrice}
+											onChange={(e) => setFormPrice(e.target.value)}
+											placeholder="Enter price"
+											required
+											min={0}
+											className="h-9 text-sm"
+										/>
+									</div>
+									<div>
+										<label className="block text-sm font-medium mb-1">
+											Details
+										</label>
+										<Textarea
+											value={formDetails}
+											onChange={(e) => setFormDetails(e.target.value)}
+											placeholder="Describe the service"
+											rows={2}
+											className="text-sm"
+										/>
+									</div>
+									<Button
+										type="submit"
+										disabled={isSubmitting}
+										size="sm"
+										className="mt-1 text-sm"
+									>
+										{isSubmitting ? (
+											<>
+												<Save className="h-4 w-4 mr-2 animate-spin" />
+												Saving...
+											</>
+										) : editingOfferingId ? (
+											<>
+												<Save className="h-4 w-4 mr-2" />
+												Update Offering
+											</>
+										) : (
+											<>
+												<PlusCircle className="h-4 w-4 mr-2" />
+												Add Offering
+											</>
+										)}
+									</Button>
+								</form>
+							</CardContent>
+						</Card>
+					</div>
+				</div>
+			)}
 
 			{/* Offerings Table */}
 			<Card>
