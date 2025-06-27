@@ -27,7 +27,6 @@ interface Props {
 export function PoojaOfferingForm({
 	allPanditjis,
 	offerings,
-	poojaCategoryId,
 	isSubmitting,
 	editingOfferingId,
 	onSubmit,
