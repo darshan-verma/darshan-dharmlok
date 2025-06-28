@@ -10,11 +10,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
 import { Plus, Trash2, Video as VideoIcon, Save } from "lucide-react";
-import { DharamshalaData, Faq, TravelFieldSetter } from "./types";
+import {
+	DharamshalaData,
+	Faq,
+	TravelFieldSetter,
+	BlockNoteBlock,
+	BlockNoteField,
+} from "./types";
 import { toast } from "@/lib/toast";
+import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 
 type Props = {
 	editedDharamshala: DharamshalaData | null;
@@ -203,6 +209,23 @@ export function DharamshalaInfoCard({
 			prev.filter((vid: string) => vid !== url)
 		);
 	};
+	function safeBlockNoteHtml(jsonString?: string) {
+		try {
+			if (!jsonString) return "";
+			const blocks: BlockNoteBlock[] = JSON.parse(jsonString);
+			if (!Array.isArray(blocks)) return "";
+			return blocks
+				.map((block) => block.content?.map?.((c) => c.text).join(" ") || "")
+				.join("<br/>");
+		} catch {
+			return "";
+		}
+	}
+
+	// Rich text editor handler
+	function handleBlockNoteChange(field: BlockNoteField, val: string): void {
+		setEditedDharamshala((prev) => (prev ? { ...prev, [field]: val } : prev));
+	}
 
 	return (
 		<>
@@ -271,37 +294,60 @@ export function DharamshalaInfoCard({
 						<CardHeader>
 							<CardTitle>Dharamshala Information</CardTitle>
 						</CardHeader>
+
 						<CardContent className="space-y-4">
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<Card>
+									<CardHeader>
+										<CardTitle>Description</CardTitle>
+									</CardHeader>
+									<CardContent>
+										{isEditing ? (
+											<BlockNoteEditor
+												initialContent={editedDharamshala?.description || ""}
+												onChange={(val: string) =>
+													handleBlockNoteChange("description", val)
+												}
+												editable={isEditing}
+											/>
+										) : (
+											<div
+												className="prose prose-sm max-w-none"
+												dangerouslySetInnerHTML={{
+													__html: safeBlockNoteHtml(
+														editedDharamshala?.description
+													),
+												}}
+											/>
+										)}
+									</CardContent>
+								</Card>
 								<div className="space-y-2">
-									<Label htmlFor="description">Description</Label>
-									<Textarea
-										id="description"
-										value={editedDharamshala?.description || ""}
-										onChange={(e) =>
-											setEditedDharamshala((prev) =>
-												prev ? { ...prev, description: e.target.value } : prev
-											)
-										}
-										rows={3}
-										disabled={!isEditing}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="additionalInfo">Additional Info</Label>
-									<Textarea
-										id="additionalInfo"
-										value={editedDharamshala?.additionalInfo || ""}
-										onChange={(e) =>
-											setEditedDharamshala((prev) =>
-												prev
-													? { ...prev, additionalInfo: e.target.value }
-													: prev
-											)
-										}
-										rows={3}
-										disabled={!isEditing}
-									/>
+									<Card>
+									<CardHeader>
+										<CardTitle>Additional Info</CardTitle>
+									</CardHeader>
+									<CardContent>
+										{isEditing ? (
+											<BlockNoteEditor
+												initialContent={editedDharamshala?.additionalInfo || ""}
+												onChange={(val: string) =>
+													handleBlockNoteChange("additionalInfo", val)
+												}
+												editable={isEditing}
+											/>
+										) : (
+											<div
+												className="prose prose-sm max-w-none"
+												dangerouslySetInnerHTML={{
+													__html: safeBlockNoteHtml(
+														editedDharamshala?.additionalInfo
+													),
+												}}
+											/>
+										)}
+									</CardContent>
+								</Card>
 								</div>
 							</div>
 

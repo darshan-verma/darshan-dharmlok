@@ -30,3 +30,12 @@ export type DharamshalaData = {
 
 // Helper types for the DharamshalaInfoCard component
 export type TravelFieldSetter = React.Dispatch<React.SetStateAction<string[]>>;
+
+export type BlockNoteBlock = {
+	content?: { text: string }[];
+	[key: string]: unknown;
+};
+export type BlockNoteField =
+	| "description"
+	| "additionalInfo"
+

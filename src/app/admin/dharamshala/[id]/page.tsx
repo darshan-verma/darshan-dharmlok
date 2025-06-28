@@ -134,7 +134,7 @@ export default function DharamshalaDetailPage() {
 			if (!response.ok) throw new Error("Failed to update dharamshala");
 			const updated = await response.json();
 			setDharamshala(updated);
-			setEditedDharamshala(updated);
+			setEditedDharamshala(updated); // <-- Make sure to update this!
 			setAmenities(updated.amenities || []);
 			setDharamshalaFaqs(updated.dharamshalaFaqs || []);
 			setImageFiles(
