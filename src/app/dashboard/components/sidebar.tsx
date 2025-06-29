@@ -178,15 +178,28 @@ const menuConfig: Record<UserType, MenuItem[]> = {
 	hotel_dharamshala_vendor: sharedMenuItems,
 };
 
+// Type guard function to check if a string is a valid UserType
+function isUserType(type: string | undefined): type is UserType {
+	if (!type) return false;
+	return [
+		"kathavachak",
+		"dharmguru",
+		"seller",
+		"panditji",
+		"hotel_dharamshala_vendor",
+	].includes(type);
+}
+
 export default function DashboardSidebar({
 	userType,
 	className,
 }: {
-	userType?: UserType;
+	userType?: string;
 	className?: string;
 }) {
 	const pathname = usePathname();
-	const menuItems = userType ? menuConfig[userType] || [] : [];
+	const validUserType = userType && isUserType(userType) ? userType : undefined;
+	const menuItems = validUserType ? menuConfig[validUserType] : [];
 
 	return (
 		<Sidebar
