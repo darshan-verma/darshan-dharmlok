@@ -19,15 +19,20 @@ import {
 	SidebarFooter,
 } from "@/components/ui/sidebar";
 import {
-	LayoutDashboard,
 	UserCircle2,
+	HandHeart,
+	Store,
+	Building2,
+	BadgeDollarSign,
+	MailQuestion,
+	ShoppingBag,
+	Calendar,
+	LogOut,
+	Settings,
+	Cast,
+	BookOpen,
 	Video,
 	Image as ImageIcon,
-	Calendar,
-	ShoppingBag,
-	BookOpen,
-	Settings,
-	LogOut,
 } from "lucide-react";
 
 interface MenuItem {
@@ -47,16 +52,9 @@ type UserType =
 
 // Define menu items for each userType
 const sharedMenuItems: MenuItem[] = [
-	{
-		label: "Go Live",
-		href: "/dashboard/kathavachak/go-live",
-		icon: LayoutDashboard,
-	},
-	{
-		label: "Posts",
-		href: "/dashboard/kathavachak/posts",
-		icon: BookOpen,
-	},
+	{ label: "Go Live", href: "/dashboard/kathavachak/go-live", icon: Cast },
+	// Changed Posts href to main kathavachak page
+	{ label: "Posts", href: "/dashboard/kathavachak", icon: BookOpen },
 	{
 		label: "Biography",
 		href: "/dashboard/kathavachak/biography",
@@ -72,25 +70,21 @@ const sharedMenuItems: MenuItem[] = [
 		href: "/dashboard/kathavachak/photos",
 		icon: ImageIcon,
 	},
-	{
-		label: "My Events",
-		href: "/dashboard/kathavachak/events",
-		icon: Calendar,
-	},
+	{ label: "My Events", href: "/dashboard/kathavachak/events", icon: Calendar },
 	{
 		label: "My Advertisement",
 		href: "/dashboard/kathavachak/advertisement",
-		icon: LayoutDashboard,
+		icon: BadgeDollarSign,
 	},
 	{
 		label: "My Temple Booking",
 		href: "/dashboard/kathavachak/temple-booking",
-		icon: Calendar,
+		icon: Building2,
 	},
 	{
 		label: "My Dharamshala Booking",
 		href: "/dashboard/kathavachak/dharamshala-booking",
-		icon: Calendar,
+		icon: Building2,
 	},
 	{
 		label: "My Eshop Orders",
@@ -105,12 +99,12 @@ const sharedMenuItems: MenuItem[] = [
 	{
 		label: "My Pooja Services",
 		href: "/dashboard/kathavachak/pooja-services",
-		icon: BookOpen,
+		icon: HandHeart,
 	},
 	{
 		label: "Services",
 		href: "/dashboard/kathavachak/services",
-		icon: BookOpen,
+		icon: HandHeart,
 	},
 	{
 		label: "Add Your Events",
@@ -120,12 +114,12 @@ const sharedMenuItems: MenuItem[] = [
 	{
 		label: "Events Request List",
 		href: "/dashboard/kathavachak/events-request-list",
-		icon: Calendar,
+		icon: MailQuestion,
 	},
 	{
 		label: "Apply for Paid Promotions",
 		href: "/dashboard/kathavachak/paid-promotions",
-		icon: LayoutDashboard,
+		icon: BadgeDollarSign,
 	},
 	{
 		label: "Bookmarks - Temple",
@@ -135,7 +129,7 @@ const sharedMenuItems: MenuItem[] = [
 	{
 		label: "Bookmarks - Vendors",
 		href: "/dashboard/kathavachak/bookmarks/vendors",
-		icon: ShoppingBag,
+		icon: Store,
 	},
 	{
 		label: "Bookmarks - Eshop",
@@ -145,13 +139,9 @@ const sharedMenuItems: MenuItem[] = [
 	{
 		label: "Bookmarks - Pooja",
 		href: "/dashboard/kathavachak/bookmarks/pooja",
-		icon: BookOpen,
+		icon: HandHeart,
 	},
-	{
-		label: "Setting",
-		href: "/dashboard/kathavachak/setting",
-		icon: Settings,
-	},
+	{ label: "Setting", href: "/dashboard/kathavachak/setting", icon: Settings },
 	{
 		label: "Update Biography",
 		href: "/dashboard/kathavachak/update-biography",
@@ -162,11 +152,7 @@ const sharedMenuItems: MenuItem[] = [
 		href: "/dashboard/kathavachak/add-photo",
 		icon: ImageIcon,
 	},
-	{
-		label: "Add Video",
-		href: "/dashboard/kathavachak/add-video",
-		icon: Video,
-	},
+	{ label: "Add Video", href: "/dashboard/kathavachak/add-video", icon: Video },
 	// ...add more as needed
 ];
 
@@ -233,7 +219,36 @@ export default function DashboardSidebar({
 								asChild
 							>
 								<Link href={item.href}>
-									<item.icon className="h-5 w-5" />
+									<item.icon
+										className={cn(
+											"h-5 w-5",
+											item.label === "Go Live" && "text-teal-500",
+											item.label === "Posts" && "text-green-600",
+											item.label === "Biography" && "text-amber-500",
+											item.label === "Video Gallery" && "text-purple-500",
+											item.label === "Photo Gallery" && "text-blue-500",
+											item.label === "My Events" && "text-red-500",
+											item.label === "My Advertisement" && "text-yellow-500",
+											item.label === "My Temple Booking" && "text-cyan-500",
+											item.label === "My Dharamshala Booking" &&
+												"text-cyan-500",
+											item.label === "My Eshop Orders" && "text-pink-500",
+											item.label === "My Events Orders" && "text-red-500",
+											item.label === "My Pooja Services" && "text-green-500",
+											item.label === "Services" && "text-green-500",
+											item.label === "Add Your Events" && "text-red-500",
+											item.label === "Events Request List" && "text-purple-500",
+											item.label === "Apply for Paid Promotions" &&
+												"text-yellow-500",
+											item.label === "Bookmarks - Temple" && "text-green-600",
+											item.label === "Bookmarks - Vendors" && "text-blue-500",
+											item.label === "Bookmarks - Eshop" && "text-pink-500",
+											item.label === "Bookmarks - Pooja" && "text-green-500",
+											item.label === "Update Biography" && "text-amber-500",
+											item.label === "Add Photo" && "text-blue-500",
+											item.label === "Add Video" && "text-purple-500"
+										)}
+									/>
 									<span>{item.label}</span>
 								</Link>
 							</SidebarMenuButton>

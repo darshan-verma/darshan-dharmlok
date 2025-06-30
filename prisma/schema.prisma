@@ -37,6 +37,7 @@ model User {
     serviceOfferings ServiceOffering[] @relation("UserToServiceOffering")
     images String[]
     videos String[]
+    posts Post[]
 }
 // Address Model
 model Address {
@@ -343,4 +344,31 @@ model Event {
     status        String
     createdAt     DateTime @default(now())
     updatedAt     DateTime @updatedAt
+}
+
+model Post {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    caption   String
+    likes     Int      @default(0)
+    comments  Int      @default(0)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    user   User   @relation(fields: [userId], references: [id])
+    userId String @db.ObjectId
+
+    media Media[]
+
+    @@index([userId])
+}
+
+model Media {
+    id     String @id @default(auto()) @map("_id") @db.ObjectId
+    type   String // "image" or "video"
+    url    String
+
+    post   Post   @relation(fields: [postId], references: [id])
+    postId String @db.ObjectId
+
+    @@index([postId])
 }
