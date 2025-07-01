@@ -459,7 +459,7 @@ if (data.newImages || data.deletedImages) {
 			}
 
 			// --- Add this block to support saving posts (images/videos) ---
-			const updateData: any = {};
+			const updateData: Prisma.UserUpdateInput = {};
 			if (data.name !== undefined) updateData.name = data.name;
 			if (data.email !== undefined) updateData.email = data.email;
 			if (data.phone !== undefined) updateData.phone = data.phone;

@@ -77,12 +77,10 @@ const formatDate = (dateString: string) => {
 
 export default function EventsTable({
 	events,
-	setEvents,
 	onAddEvent,
 	onEditEvent,
 	onDeleteEvent,
 	onUpdateStatus,
-	onViewEvent,
 }: EventsTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");

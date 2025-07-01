@@ -15,7 +15,7 @@ const parseJsonArrayField = <T = unknown>(
 };
 
 // GET all temples
-export async function GET(req: NextRequest) {
+export async function GET(_: NextRequest) {
 	try {
 		const temples = await prisma.temple.findMany({
 			orderBy: { createdAt: "desc" },

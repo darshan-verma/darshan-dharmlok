@@ -30,7 +30,6 @@ export default function HotelDharamshalaDetailPage() {
 		useState<Partial<HotelDharamshala> | null>(null);
 	const [imageError, setImageError] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
-	const [showAddresses, setShowAddresses] = useState(false);
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
 

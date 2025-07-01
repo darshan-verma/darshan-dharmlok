@@ -77,7 +77,6 @@ export async function POST(req: Request) {
 			);
 		}
 		// 6) Prepare response
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { password: _, ...safeUser } = user;
 		console.log("[SignIn] Authentication successful for user:", user.id);
 

@@ -338,9 +338,13 @@ const CreatePostForm = ({
 			onPostCreated(createdPost);
 			resetForm();
 			showToast("success", "Your post has been successfully published!");
-		} catch (error: any) {
+		} catch (error) {
+			const err = error as { message?: string };
 			console.error(error);
-			showToast("error", `Could not create post: ${error.message}`);
+			showToast(
+				"error",
+				`Could not create post: ${err.message ?? "Unknown error"}`
+			);
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -553,9 +557,13 @@ const PostItem = ({ post, onEdit, onDelete }: PostItemProps) => {
 			showToast("success", "Your post has been successfully deleted.");
 			onDelete(post.id);
 			setShowDeleteConfirm(false);
-		} catch (error: any) {
+		} catch (error) {
+			const err = error as { message?: string };
 			console.error("Error deleting post:", error);
-			showToast("error", `Could not delete post: ${error.message}`);
+			showToast(
+				"error",
+				`Could not delete post: ${err.message ?? "Unknown error"}`
+			);
 		} finally {
 			setIsDeleting(false);
 		}
@@ -731,9 +739,10 @@ export default function Posts({
 			);
 			showToast("success", "Post updated successfully");
 			setIsEditDialogOpen(false);
-		} catch (error: any) {
+		} catch (error) {
+			const err = error as { message?: string };
 			console.error("Error updating post:", error);
-			showToast("error", error.message || "Failed to update post");
+			showToast("error", err.message || "Failed to update post");
 		}
 	};
 
@@ -809,7 +818,7 @@ export default function Posts({
 					<DialogHeader>
 						<DialogTitle>Edit post</DialogTitle>
 						<DialogDescription>
-							Make changes to your post here. Click save when you're done.
+							Make changes to your post here. Click save when you&apos;re done.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-4 py-4">

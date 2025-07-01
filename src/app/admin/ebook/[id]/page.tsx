@@ -24,6 +24,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/lib/toast";
+import Image from "next/image";
 
 const ebookTypes = [
 	{ value: "pdf", label: "PDF" },
@@ -447,8 +448,8 @@ export default function EbookDetailsPage() {
 									{/* Always show the current cover image if present */}
 									{(editedEbook?.bookCover || ebook?.bookCover) && (
 										<div className="flex items-center gap-2 mt-2">
-											<img
-												src={editedEbook?.bookCover || ebook?.bookCover}
+											<Image
+												src={editedEbook?.bookCover || ebook?.bookCover || ""}
 												alt="Book Cover"
 												className="w-16 h-20 object-cover rounded border"
 											/>
@@ -743,8 +744,8 @@ export default function EbookDetailsPage() {
 													{/* Always show the current cover image if present */}
 													{(editedEbook?.bookCover || ebook?.bookCover) && (
 														<div className="flex items-center gap-2 mt-2">
-															<img
-																src={editedEbook?.bookCover || ebook?.bookCover}
+															<Image
+																src={editedEbook?.bookCover || ebook?.bookCover || ""}
 																alt="Book Cover"
 																className="w-16 h-20 object-cover rounded border"
 															/>
@@ -859,7 +860,7 @@ export default function EbookDetailsPage() {
 														Book Cover
 													</h3>
 													<div className="w-24 h-32 rounded-lg overflow-hidden border">
-														<img
+														<Image
 															src={ebook.bookCover}
 															alt="Book Cover"
 															className="w-full h-full object-cover"

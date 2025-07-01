@@ -15,8 +15,6 @@ import {
 	SelectContent,
 	SelectGroup,
 	SelectItem,
-	SelectTrigger,
-	SelectValue,
 } from "@/components/ui/select";
 import { Save } from "lucide-react";
 
@@ -26,13 +24,26 @@ interface UserPreferences {
 	language: string;
 }
 
+interface User {
+	preferences?: UserPreferences;
+	// ...add other user fields if needed...
+}
+
+interface UserPreferencesTabProps {
+	isEditing: boolean;
+	editedUser: User;
+	setEditedUser: React.Dispatch<React.SetStateAction<User>>;
+	handleSaveChanges: () => void;
+	user: User;
+}
+
 export default function UserPreferencesTab({
 	isEditing,
 	editedUser,
 	setEditedUser,
 	handleSaveChanges,
 	user,
-}: any) {
+}: UserPreferencesTabProps) {
 	return (
 		<Card>
 			<CardHeader>
@@ -52,17 +63,13 @@ export default function UserPreferencesTab({
 									id="notifications"
 									checked={editedUser?.preferences?.notifications || false}
 									onChange={(e) =>
-										setEditedUser((prev: any) =>
-											prev
-												? {
-														...prev,
-														preferences: {
-															...(prev.preferences as UserPreferences),
-															notifications: e.target.checked,
-														},
-												  }
-												: null
-										)
+										setEditedUser((prev) => ({
+											...prev,
+											preferences: {
+												...(prev.preferences as UserPreferences),
+												notifications: e.target.checked,
+											},
+										}))
 									}
 									className="h-4 w-4"
 								/>
@@ -74,17 +81,13 @@ export default function UserPreferencesTab({
 									id="newsletter"
 									checked={editedUser?.preferences?.newsletter || false}
 									onChange={(e) =>
-										setEditedUser((prev: any) =>
-											prev
-												? {
-														...prev,
-														preferences: {
-															...(prev.preferences as UserPreferences),
-															newsletter: e.target.checked,
-														},
-												  }
-												: null
-										)
+										setEditedUser((prev) => ({
+											...prev,
+											preferences: {
+												...(prev.preferences as UserPreferences),
+												newsletter: e.target.checked,
+											},
+										}))
 									}
 									className="h-4 w-4"
 								/>
@@ -94,25 +97,17 @@ export default function UserPreferencesTab({
 								<Select
 									value={editedUser?.preferences?.language || ""}
 									onValueChange={(value) =>
-										setEditedUser((prev: any) =>
-											prev
-												? {
-														...prev,
-														preferences: {
-															...(prev.preferences as UserPreferences),
-															language: value,
-														},
-												  }
-												: null
-										)
+										setEditedUser((prev) => ({
+											...prev,
+											preferences: {
+												...(prev.preferences as UserPreferences),
+												language: value,
+											},
+										}))
 									}
 								>
-									<SelectTrigger id="language">
-										<SelectValue placeholder="Select language" />
-									</SelectTrigger>
 									<SelectContent>
 										<SelectGroup>
-											<SelectItem value="Hindi">Hindi</SelectItem>
 											<SelectItem value="English">English</SelectItem>
 											<SelectItem value="Sanskrit">Sanskrit</SelectItem>
 											<SelectItem value="Tamil">Tamil</SelectItem>

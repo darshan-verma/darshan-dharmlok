@@ -66,12 +66,14 @@ export default function RouteProtection({
 				</h2>
 				<div className="space-y-2 text-sm">
 					<p>
-						<strong>Required Role:</strong> "{requiredRole}" (lowercase: "
-						{requiredRole.toLowerCase()}")
+						<strong>Required Role:</strong> &quot;{requiredRole}&quot;
+						(lowercase: &quot;
+						{requiredRole.toLowerCase()}&quot;)
 					</p>
 					<p>
-						<strong>Your Role:</strong> "{session.user.role}" (lowercase: "
-						{session.user.role.toLowerCase()}")
+						<strong>Your Role:</strong> &quot;{session.user.role}&quot;
+						(lowercase: &quot;
+						{session.user.role.toLowerCase()}&quot;)
 					</p>
 					<p>
 						<strong>Case-insensitive Match:</strong>{" "}

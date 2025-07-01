@@ -20,6 +20,58 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 
+// Define types for address
+interface Address {
+	id?: string;
+	type: "home" | "work" | "other";
+	label?: string;
+	line1: string;
+	line2?: string;
+	city: string;
+	state?: string;
+	pincode?: string;
+	country: string;
+}
+
+// Define type for user
+interface User {
+	id?: string;
+	name: string;
+	email: string;
+	phone?: string;
+	userType?: string;
+	status?: string;
+	addresses?: Address[];
+}
+
+// Define error types
+interface AddressErrors {
+	label?: string;
+	line1?: string;
+	city?: string;
+	country?: string;
+}
+
+interface UserErrors {
+	name?: string;
+	email?: string;
+	phone?: string;
+	addresses?: AddressErrors[];
+}
+
+interface UserDetailsTabProps {
+	isEditing: boolean;
+	editedUser: User;
+	setEditedUser: React.Dispatch<React.SetStateAction<User>>;
+	errors: UserErrors;
+	setErrors: React.Dispatch<React.SetStateAction<UserErrors>>;
+	handleSaveChanges: () => void;
+	isSaving: boolean;
+	formatPhoneNumber: (phone: string) => string;
+	setAddressesToDelete: React.Dispatch<React.SetStateAction<string[]>>;
+	user: User;
+}
+
 export default function UserDetailsTab({
 	isEditing,
 	editedUser,
@@ -31,7 +83,7 @@ export default function UserDetailsTab({
 	formatPhoneNumber,
 	setAddressesToDelete,
 	user,
-}: any) {
+}: UserDetailsTabProps) {
 	return (
 		<Card>
 			<CardHeader>
@@ -93,7 +145,7 @@ export default function UserDetailsTab({
 												phone: formatted,
 											});
 											if (errors.phone) {
-												setErrors((prev: any) => ({
+												setErrors((prev) => ({
 													...prev,
 													phone: undefined,
 												}));
@@ -120,7 +172,7 @@ export default function UserDetailsTab({
 										variant="outline"
 										size="sm"
 										onClick={() => {
-											setEditedUser((prev: any) => ({
+											setEditedUser((prev) => ({
 												...prev,
 												addresses: [
 													...(prev?.addresses || []),
@@ -139,7 +191,7 @@ export default function UserDetailsTab({
 									</Button>
 								</div>
 
-								{editedUser.addresses.map((address: any, index: number) => (
+								{editedUser.addresses.map((address: Address, index: number) => (
 									<div
 										key={index}
 										className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0"
@@ -164,17 +216,16 @@ export default function UserDetailsTab({
 												onClick={() => {
 													const addr = editedUser.addresses?.[index];
 													if (addr?.id) {
-														setAddressesToDelete((prevDel: any) => [
+														setAddressesToDelete((prevDel) => [
 															...prevDel,
 															addr.id!,
 														]);
 													}
-													setEditedUser((prev: any) => ({
+													setEditedUser((prev) => ({
 														...prev,
 														addresses:
 															prev?.addresses?.filter(
-																(_: any, addrIndex: number) =>
-																	addrIndex !== index
+																(_, addrIndex) => addrIndex !== index
 															) || [],
 													}));
 												}}
@@ -190,11 +241,11 @@ export default function UserDetailsTab({
 												</Label>
 												<Select
 													value={address.type}
-													onValueChange={(value) => {
-														setEditedUser((prev: any) => ({
+													onValueChange={(value: string) => {
+														setEditedUser((prev) => ({
 															...prev,
 															addresses: prev?.addresses?.map(
-																(addr: any, addrIndex: number) =>
+																(addr, addrIndex) =>
 																	addrIndex === index
 																		? {
 																				...addr,
@@ -232,10 +283,10 @@ export default function UserDetailsTab({
 														id={`address-label-${index}`}
 														value={address.label || ""}
 														onChange={(e) => {
-															setEditedUser((prev: any) => ({
+															setEditedUser((prev) => ({
 																...prev,
 																addresses: prev?.addresses?.map(
-																	(addr: any, addrIndex: number) =>
+																	(addr, addrIndex) =>
 																		addrIndex === index
 																			? {
 																					...addr,
@@ -269,13 +320,12 @@ export default function UserDetailsTab({
 												id={`address-line1-${index}`}
 												value={address.line1 || ""}
 												onChange={(e) => {
-													setEditedUser((prev: any) => ({
+													setEditedUser((prev) => ({
 														...prev,
-														addresses: prev?.addresses?.map(
-															(addr: any, addrIndex: number) =>
-																addrIndex === index
-																	? { ...addr, line1: e.target.value }
-																	: addr
+														addresses: prev?.addresses?.map((addr, addrIndex) =>
+															addrIndex === index
+																? { ...addr, line1: e.target.value }
+																: addr
 														),
 													}));
 												}}
@@ -301,13 +351,12 @@ export default function UserDetailsTab({
 												id={`address-line2-${index}`}
 												value={address.line2 || ""}
 												onChange={(e) => {
-													setEditedUser((prev: any) => ({
+													setEditedUser((prev) => ({
 														...prev,
-														addresses: prev?.addresses?.map(
-															(addr: any, addrIndex: number) =>
-																addrIndex === index
-																	? { ...addr, line2: e.target.value }
-																	: addr
+														addresses: prev?.addresses?.map((addr, addrIndex) =>
+															addrIndex === index
+																? { ...addr, line2: e.target.value }
+																: addr
 														),
 													}));
 												}}
@@ -322,10 +371,10 @@ export default function UserDetailsTab({
 													id={`address-city-${index}`}
 													value={address.city || ""}
 													onChange={(e) => {
-														setEditedUser((prev: any) => ({
+														setEditedUser((prev) => ({
 															...prev,
 															addresses: prev?.addresses?.map(
-																(addr: any, addrIndex: number) =>
+																(addr, addrIndex) =>
 																	addrIndex === index
 																		? { ...addr, city: e.target.value }
 																		: addr
@@ -353,10 +402,10 @@ export default function UserDetailsTab({
 													id={`address-state-${index}`}
 													value={address.state || ""}
 													onChange={(e) => {
-														setEditedUser((prev: any) => ({
+														setEditedUser((prev) => ({
 															...prev,
 															addresses: prev?.addresses?.map(
-																(addr: any, addrIndex: number) =>
+																(addr, addrIndex) =>
 																	addrIndex === index
 																		? { ...addr, state: e.target.value }
 																		: addr
@@ -374,10 +423,10 @@ export default function UserDetailsTab({
 													id={`address-pincode-${index}`}
 													value={address.pincode || ""}
 													onChange={(e) => {
-														setEditedUser((prev: any) => ({
+														setEditedUser((prev) => ({
 															...prev,
 															addresses: prev?.addresses?.map(
-																(addr: any, addrIndex: number) =>
+																(addr, addrIndex) =>
 																	addrIndex === index
 																		? {
 																				...addr,
@@ -399,16 +448,15 @@ export default function UserDetailsTab({
 												id={`address-country-${index}`}
 												value={address.country || ""}
 												onChange={(e) => {
-													setEditedUser((prev: any) => ({
+													setEditedUser((prev) => ({
 														...prev,
-														addresses: prev?.addresses?.map(
-															(addr: any, addrIndex: number) =>
-																addrIndex === index
-																	? {
-																			...addr,
-																			country: e.target.value,
-																	  }
-																	: addr
+														addresses: prev?.addresses?.map((addr, addrIndex) =>
+															addrIndex === index
+																? {
+																		...addr,
+																		country: e.target.value,
+																  }
+																: addr
 														),
 													}));
 												}}
@@ -485,7 +533,7 @@ export default function UserDetailsTab({
 									Addresses
 								</h3>
 								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-									{user.addresses.map((address: any, index: number) => (
+									{user.addresses.map((address: Address, index: number) => (
 										<Card key={index} className="border-border">
 											<CardHeader className="pb-2">
 												<div className="flex items-center gap-2">

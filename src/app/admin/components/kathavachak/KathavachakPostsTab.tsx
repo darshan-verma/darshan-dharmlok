@@ -11,6 +11,24 @@ import {
 } from "@/components/ui/card";
 import { Plus, Trash2, Save } from "lucide-react";
 
+interface KathavachakPostsTabProps {
+	isEditing: boolean;
+	postImages: string[];
+	postVideos: string[];
+	isUploadingPostImage: boolean;
+	isUploadingPostVideo: boolean;
+	handlePostImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+	handleRemovePostImage: (img: string) => void;
+	handlePostVideoUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+	handleRemovePostVideo: (vid: string) => void;
+	isSavingPosts: boolean;
+	handleSavePosts: () => void;
+	showImageUpload: boolean;
+	setShowImageUpload: React.Dispatch<React.SetStateAction<boolean>>;
+	showVideoUpload: boolean;
+	setShowVideoUpload: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
 export default function KathavachakPostsTab({
 	isEditing,
 	postImages,
@@ -27,7 +45,7 @@ export default function KathavachakPostsTab({
 	setShowImageUpload,
 	showVideoUpload,
 	setShowVideoUpload,
-}: any) {
+}: KathavachakPostsTabProps) {
 	return (
 		<Card>
 			<CardHeader>
