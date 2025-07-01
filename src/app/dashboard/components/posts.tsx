@@ -25,7 +25,6 @@ import {
 	VideoIcon,
 	Send,
 	RefreshCcw,
-	Clock,
 	Heart,
 	MessageCircle,
 	Trash2,
@@ -764,7 +763,7 @@ export default function Posts({
 
 	return (
 		<>
-			<div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+			<div className="grid grid-cols-1 lg:grid-cols-3 gap-16 items-start">
 				<div className="lg:col-span-2 space-y-6">
 					<CreatePostForm
 						userId={userId}

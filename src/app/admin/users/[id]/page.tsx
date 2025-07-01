@@ -50,7 +50,7 @@ interface User {
 	rank?: number;
 	availability?: number;
 	kycApproved?: number;
-	status?: string;
+	status?: "Active" | "Inactive" | "Suspended";
 	isLoggedIn: boolean;
 	lastLogoutAt?: string | Date | null;
 	lastActiveAt?: string | Date | null;

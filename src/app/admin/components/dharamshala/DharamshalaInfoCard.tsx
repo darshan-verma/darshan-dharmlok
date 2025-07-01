@@ -16,11 +16,12 @@ import {
 	DharamshalaData,
 	Faq,
 	TravelFieldSetter,
-	BlockNoteBlock,
 	BlockNoteField,
 } from "./types";
 import { toast } from "@/lib/toast";
 import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
+import { BlockNoteView } from "@blocknote/mantine";
+import { useCreateBlockNote } from "@blocknote/react";
 
 type Props = {
 	editedDharamshala: DharamshalaData | null;
@@ -209,19 +210,7 @@ export function DharamshalaInfoCard({
 			prev.filter((vid: string) => vid !== url)
 		);
 	};
-	function safeBlockNoteHtml(jsonString?: string) {
-		try {
-			if (!jsonString) return "";
-			const blocks: BlockNoteBlock[] = JSON.parse(jsonString);
-			if (!Array.isArray(blocks)) return "";
-			return blocks
-				.map((block) => block.content?.map?.((c) => c.text).join(" ") || "")
-				.join("<br/>");
-		} catch {
-			return "";
-		}
-	}
-
+	
 	// Rich text editor handler
 	function handleBlockNoteChange(field: BlockNoteField, val: string): void {
 		setEditedDharamshala((prev) => (prev ? { ...prev, [field]: val } : prev));
@@ -311,43 +300,65 @@ export function DharamshalaInfoCard({
 												editable={isEditing}
 											/>
 										) : (
-											<div
-												className="prose prose-sm max-w-none"
-												dangerouslySetInnerHTML={{
-													__html: safeBlockNoteHtml(
-														editedDharamshala?.description
-													),
-												}}
-											/>
+											<>
+												{editedDharamshala?.description ? (
+													<BlockNoteView
+														editor={useCreateBlockNote({
+															initialContent: JSON.parse(
+																editedDharamshala.description
+															),
+														})}
+														editable={false}
+														theme="light" // or use `resolvedTheme` if you want to support dark mode
+														className="p-3"
+													/>
+												) : (
+													<p className="text-muted-foreground italic p-3">
+														No biography has been added yet.
+													</p>
+												)}
+											</>
 										)}
 									</CardContent>
 								</Card>
 								<div className="space-y-2">
 									<Card>
-									<CardHeader>
-										<CardTitle>Additional Info</CardTitle>
-									</CardHeader>
-									<CardContent>
-										{isEditing ? (
-											<BlockNoteEditor
-												initialContent={editedDharamshala?.additionalInfo || ""}
-												onChange={(val: string) =>
-													handleBlockNoteChange("additionalInfo", val)
-												}
-												editable={isEditing}
-											/>
-										) : (
-											<div
-												className="prose prose-sm max-w-none"
-												dangerouslySetInnerHTML={{
-													__html: safeBlockNoteHtml(
-														editedDharamshala?.additionalInfo
-													),
-												}}
-											/>
-										)}
-									</CardContent>
-								</Card>
+										<CardHeader>
+											<CardTitle>Additional Info</CardTitle>
+										</CardHeader>
+										<CardContent>
+											{isEditing ? (
+												<BlockNoteEditor
+													initialContent={
+														editedDharamshala?.additionalInfo || ""
+													}
+													onChange={(val: string) =>
+														handleBlockNoteChange("additionalInfo", val)
+													}
+													editable={isEditing}
+												/>
+											) : (
+												<>
+													{editedDharamshala?.additionalInfo ? (
+														<BlockNoteView
+															editor={useCreateBlockNote({
+																initialContent: JSON.parse(
+																	editedDharamshala.additionalInfo
+																),
+															})}
+															editable={false}
+															theme="light" // or use `resolvedTheme` if you want to support dark mode
+															className="p-3"
+														/>
+													) : (
+														<p className="text-muted-foreground italic p-3">
+															No biography has been added yet.
+														</p>
+													)}
+												</>
+											)}
+										</CardContent>
+									</Card>
 								</div>
 							</div>
 

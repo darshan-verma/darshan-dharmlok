@@ -20,6 +20,8 @@ import {
 	BlockNoteField,
 } from "./types";
 import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
+import { BlockNoteView } from "@blocknote/mantine";
+import { useCreateBlockNote } from "@blocknote/react";
 import { toast } from "@/lib/toast";
 
 type Props = {
@@ -306,12 +308,22 @@ export function TempleInfoCard({
 												editable={isEditing}
 											/>
 										) : (
-											<div
-												className="prose prose-sm max-w-none"
-												dangerouslySetInnerHTML={{
-													__html: safeBlockNoteHtml(editedTemple?.description),
-												}}
-											/>
+											<>
+												{editedTemple?.description ? (
+													<BlockNoteView
+														editor={useCreateBlockNote({
+															initialContent: JSON.parse(editedTemple.description),
+														})}
+														editable={false}
+														theme="light" // or use `resolvedTheme` if you want to support dark mode
+														className="p-3"
+													/>
+												) : (
+													<p className="text-muted-foreground italic p-3">
+														No biography has been added yet.
+													</p>
+						)}
+					</>
 										)}
 									</CardContent>
 								</Card>
@@ -331,13 +343,23 @@ export function TempleInfoCard({
 												editable={isEditing}
 											/>
 										) : (
-											<div
-												className="prose prose-sm max-w-none"
-												dangerouslySetInnerHTML={{
-													__html: safeBlockNoteHtml(editedTemple?.history),
-												}}
-											/>
-										)}
+											<>
+												{editedTemple?.history ? (
+													<BlockNoteView
+														editor={useCreateBlockNote({
+															initialContent: JSON.parse(editedTemple.history),
+														})}
+														editable={false}
+														theme="light" // or use `resolvedTheme` if you want to support dark mode
+														className="p-3"
+													/>
+												) : (
+													<p className="text-muted-foreground italic p-3">
+														No biography has been added yet.
+													</p>
+												)}
+										</>
+									)}
 									</CardContent>
 								</Card>
 
@@ -383,12 +405,22 @@ export function TempleInfoCard({
 												editable={isEditing}
 											/>
 										) : (
-											<div
-												className="prose prose-sm max-w-none"
-												dangerouslySetInnerHTML={{
-													__html: safeBlockNoteHtml(editedTemple?.rituals),
-												}}
-											/>
+											<>
+												{editedTemple?.rituals ? (
+													<BlockNoteView
+														editor={useCreateBlockNote({
+															initialContent: JSON.parse(editedTemple.rituals),
+														})}
+														editable={false}
+														theme="light" // or use `resolvedTheme` if you want to support dark mode
+														className="p-3"
+													/>
+												) : (
+													<p className="text-muted-foreground italic p-3">
+														No biography has been added yet.
+													</p>
+												)}
+										</>
 										)}
 									</CardContent>
 								</Card>

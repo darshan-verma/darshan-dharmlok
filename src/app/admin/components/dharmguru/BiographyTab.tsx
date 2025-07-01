@@ -5,6 +5,8 @@ import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
 import { Dharmguru } from "./types";
+import { BlockNoteView } from "@blocknote/mantine";
+import { useCreateBlockNote } from "@blocknote/react";
 
 interface BiographyTabProps {
 	editedDharmguru: Partial<Dharmguru> | null;
@@ -19,7 +21,6 @@ export default function BiographyTab({
 	editedDharmguru,
 	isEditing,
 	handleBlockNoteChange,
-	safeBlockNoteHtml,
 	onSave,
 	isSaving,
 }: BiographyTabProps) {
@@ -34,20 +35,22 @@ export default function BiographyTab({
 					/>
 				) : (
 					<>
-						{editedDharmguru?.bio && safeBlockNoteHtml(editedDharmguru?.bio) ? (
-							<div
-								className="prose prose-sm max-w-none text-foreground"
-								dangerouslySetInnerHTML={{
-									__html: safeBlockNoteHtml(editedDharmguru?.bio),
-								}}
-							/>
-						) : (
-							<p className="text-muted-foreground italic">
-								No biography has been added yet.
-							</p>
-						)}
-					</>
-				)}
+						{editedDharmguru?.bio ? (
+													<BlockNoteView
+														editor={useCreateBlockNote({
+															initialContent: JSON.parse(editedDharmguru.bio),
+														})}
+														editable={false}
+														theme="light" // or use `resolvedTheme` if you want to support dark mode
+														className="p-3"
+													/>
+												) : (
+													<p className="text-muted-foreground italic p-3">
+														No biography has been added yet.
+													</p>
+												)}
+											</>
+										)}
 			</CardContent>
 			{isEditing && onSave && (
 				<CardFooter>

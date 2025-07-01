@@ -1,14 +1,30 @@
 "use client";
 
 import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Save } from "lucide-react";
+import { User } from "@/types/user";
+import { BlockNoteView } from "@blocknote/mantine";
+import { useCreateBlockNote } from "@blocknote/react"; 
+
+
+interface BiographyTabProps {
+	editedUser: Partial<User> | null;
+	isEditing: boolean;
+	handleBlockNoteChange: (field: "bio", val: string) => void;
+	onSave?: () => void; 
+	isSaving?: boolean; 
+}
 
 export default function UserBiographyTab({
 	isEditing,
 	editedUser,
 	handleBlockNoteChange,
-	safeBlockNoteHtml,
-}: any) {
+	onSave,
+	isSaving,
+
+}: BiographyTabProps) {
 	return (
 		<Card>
 			<CardContent className="px-1">
@@ -23,12 +39,14 @@ export default function UserBiographyTab({
 						</div>
 					) : (
 						<div>
-							{editedUser?.bio && safeBlockNoteHtml(editedUser?.bio) ? (
-								<div
-									className="prose prose-sm max-w-none text-foreground p-3"
-									dangerouslySetInnerHTML={{
-										__html: safeBlockNoteHtml(editedUser?.bio),
-									}}
+							{editedUser?.bio ? (
+								<BlockNoteView
+									editor={useCreateBlockNote({
+										initialContent: JSON.parse(editedUser.bio),
+									})}
+									editable={false}
+									theme="light" 
+									className="p-3"
 								/>
 							) : (
 								<p className="text-muted-foreground italic p-3">
@@ -39,6 +57,23 @@ export default function UserBiographyTab({
 					)}
 				</div>
 			</CardContent>
+			{isEditing && onSave && (
+				<CardFooter>
+					<Button onClick={onSave} disabled={isSaving}>
+						{isSaving ? (
+							<>
+								<Save className="h-4 w-4 mr-2 animate-spin" />
+								Saving...
+							</>
+						) : (
+							<>
+								<Save className="h-4 w-4 mr-2" />
+								Save Biography
+							</>
+						)}
+					</Button>
+				</CardFooter>
+			)}
 		</Card>
 	);
 }

@@ -5,12 +5,13 @@ import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
 import { Kathavachak } from "./types";
+import { BlockNoteView } from "@blocknote/mantine";
+import { useCreateBlockNote } from "@blocknote/react";
 
 interface BiographyTabProps {
 	editedKathavachak: Partial<Kathavachak> | null;
 	isEditing: boolean;
 	handleBlockNoteChange: (field: "bio", val: string) => void;
-	safeBlockNoteHtml: (jsonString?: string) => string;
 	onSave?: () => void; // <-- add this
 	isSaving?: boolean; // <-- add this (optional, for loading state)
 }
@@ -19,7 +20,6 @@ export default function BiographyTab({
 	editedKathavachak,
 	isEditing,
 	handleBlockNoteChange,
-	safeBlockNoteHtml,
 	onSave,
 	isSaving,
 }: BiographyTabProps) {
@@ -34,16 +34,17 @@ export default function BiographyTab({
 					/>
 				) : (
 					<>
-						{editedKathavachak?.bio &&
-						safeBlockNoteHtml(editedKathavachak?.bio) ? (
-							<div
-								className="prose prose-sm max-w-none text-foreground"
-								dangerouslySetInnerHTML={{
-									__html: safeBlockNoteHtml(editedKathavachak?.bio),
-								}}
+						{editedKathavachak?.bio ? (
+							<BlockNoteView
+								editor={useCreateBlockNote({
+									initialContent: JSON.parse(editedKathavachak.bio),
+								})}
+								editable={false}
+								theme="light" // or use `resolvedTheme` if you want to support dark mode
+								className="p-3"
 							/>
 						) : (
-							<p className="text-muted-foreground italic">
+							<p className="text-muted-foreground italic p-3">
 								No biography has been added yet.
 							</p>
 						)}

@@ -1,4 +1,3 @@
-import DashboardSidebar from "./components/sidebar";
 import { getServerSession } from "next-auth";
 import { PropsWithChildren } from "react";
 import SidebarProviderWrapper from "./components/sidebarWrapper";
@@ -15,7 +14,6 @@ export default async function DashboardLayout({ children }: PropsWithChildren) {
 	return (
 		<SidebarProviderWrapper>
 			<div style={{ display: "flex" }}>
-				<DashboardSidebar userType={userRole} />
 				<main style={{ flex: 1 }}>{children}</main>
 			</div>
 		</SidebarProviderWrapper>

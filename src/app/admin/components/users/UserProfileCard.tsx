@@ -42,7 +42,7 @@ interface User {
 	userType?: string;
 	profileImageUrl?: string;
 	addresses?: Address[];
-	status?: string;
+	status?: "Active" | "Inactive" | "Suspended";
 	isLoggedIn: boolean;
 	lastActiveAt?: string | Date | null;
 	createdAt: string | Date;

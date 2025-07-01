@@ -5,6 +5,8 @@ import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
 import { Seller } from "./types";
+import { BlockNoteView } from "@blocknote/mantine";
+import { useCreateBlockNote } from "@blocknote/react";
 
 interface BiographyTabProps {
 	editedSeller: Partial<Seller> | null;
@@ -19,7 +21,6 @@ export default function BiographyTab({
 	editedSeller,
 	isEditing,
 	handleBlockNoteChange,
-	safeBlockNoteHtml,
 	onSave,
 	isSaving,
 }: BiographyTabProps) {
@@ -34,15 +35,17 @@ export default function BiographyTab({
 					/>
 				) : (
 					<>
-						{editedSeller?.bio && safeBlockNoteHtml(editedSeller?.bio) ? (
-							<div
-								className="prose prose-sm max-w-none text-foreground"
-								dangerouslySetInnerHTML={{
-									__html: safeBlockNoteHtml(editedSeller?.bio),
-								}}
+						{editedSeller?.bio ? (
+							<BlockNoteView
+								editor={useCreateBlockNote({
+									initialContent: JSON.parse(editedSeller.bio),
+								})}
+								editable={false}
+								theme="light" // or use `resolvedTheme` if you want to support dark mode
+								className="p-3"
 							/>
 						) : (
-							<p className="text-muted-foreground italic">
+							<p className="text-muted-foreground italic p-3">
 								No biography has been added yet.
 							</p>
 						)}

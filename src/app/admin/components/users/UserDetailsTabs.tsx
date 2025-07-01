@@ -33,7 +33,7 @@ interface User {
 	userType?: string;
 	bio?: string;
 	addresses?: Address[];
-	status?: string;
+	status?: "Active" | "Inactive" | "Suspended";
 	preferences?: UserPreferences;
 }
 

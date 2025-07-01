@@ -4,6 +4,8 @@ import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
 import { HotelDharamshala } from "./types";
+import { BlockNoteView } from "@blocknote/mantine";
+import { useCreateBlockNote } from "@blocknote/react";
 
 interface BiographyTabProps {
 	editedHotelDharamshala: Partial<HotelDharamshala> | null;
@@ -18,7 +20,6 @@ export default function BiographyTab({
 	editedHotelDharamshala,
 	isEditing,
 	handleBlockNoteChange,
-	safeBlockNoteHtml,
 	onSave,
 	isSaving,
 }: BiographyTabProps) {
@@ -33,16 +34,17 @@ export default function BiographyTab({
 					/>
 				) : (
 					<>
-						{editedHotelDharamshala?.bio &&
-						safeBlockNoteHtml(editedHotelDharamshala?.bio) ? (
-							<div
-								className="prose prose-sm max-w-none text-foreground"
-								dangerouslySetInnerHTML={{
-									__html: safeBlockNoteHtml(editedHotelDharamshala?.bio),
-								}}
+						{editedHotelDharamshala?.bio ? (
+							<BlockNoteView
+								editor={useCreateBlockNote({
+									initialContent: JSON.parse(editedHotelDharamshala.bio),
+								})}
+								editable={false}
+								theme="light" // or use `resolvedTheme` if you want to support dark mode
+								className="p-3"
 							/>
 						) : (
-							<p className="text-muted-foreground italic">
+							<p className="text-muted-foreground italic p-3">
 								No biography has been added yet.
 							</p>
 						)}
