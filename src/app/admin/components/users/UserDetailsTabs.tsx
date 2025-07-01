@@ -62,6 +62,7 @@ interface UserDetailsTabsProps {
 	errors: FormErrors;
 	setErrors: (errors: FormErrors | ((prev: FormErrors) => FormErrors)) => void;
 	setAddressesToDelete: (fn: (prevState: string[]) => string[]) => void;
+
 	handleSaveChanges: () => void;
 	handleBlockNoteChange: (field: "bio", val: string) => void;
 	safeBlockNoteHtml: (jsonString?: string) => string;
@@ -86,13 +87,14 @@ interface UserDetailsTabsProps {
 
 export default function UserDetailsTabs({
 	user,
-	editedUser,
+	editedUser, //TMKC
 	setEditedUser,
 	isEditing,
 	isSaving,
 	errors,
 	setErrors,
 	setAddressesToDelete,
+
 	handleSaveChanges,
 	handleBlockNoteChange,
 	safeBlockNoteHtml,

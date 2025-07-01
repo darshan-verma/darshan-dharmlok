@@ -15,12 +15,12 @@ export interface Banner {
 }
 
 // GET /api/banner/[id]
-export async function GET(
-	req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest) {
 	try {
-		const { id } = params;
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
@@ -54,12 +54,12 @@ export async function GET(
 }
 
 // PUT /api/banner/[id]
-export async function PUT(
-	req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function PUT(req: NextRequest) {
 	try {
-		const { id } = params;
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
@@ -71,7 +71,7 @@ export async function PUT(
 			category,
 			type,
 			status,
-			imageUrl, // This can be string, null, or undefined from the body
+			imageUrl,
 		} = body as {
 			title?: string;
 			date?: string;
@@ -79,7 +79,7 @@ export async function PUT(
 			category?: string;
 			type?: string;
 			status?: string;
-			imageUrl?: string | null; // Explicitly allow null
+			imageUrl?: string | null;
 		};
 
 		const updateData: {
@@ -89,7 +89,7 @@ export async function PUT(
 			category?: string;
 			type?: string;
 			status?: string;
-			imageUrl?: string | null; // Allow null here as well
+			imageUrl?: string | null;
 		} = {};
 		if (title !== undefined) updateData.title = title;
 		if (date !== undefined) updateData.date = new Date(date);
@@ -98,7 +98,6 @@ export async function PUT(
 		if (type !== undefined) updateData.type = type;
 		if (status !== undefined) updateData.status = status;
 
-		// Handle imageUrl: if empty string or explicitly null, store as null
 		if (imageUrl !== undefined) {
 			updateData.imageUrl =
 				imageUrl === "" || imageUrl === null ? null : imageUrl;
@@ -136,12 +135,12 @@ export async function PUT(
 }
 
 // DELETE /api/banner/[id]
-export async function DELETE(
-	req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest) {
 	try {
-		const { id } = params;
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}

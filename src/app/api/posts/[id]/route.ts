@@ -3,11 +3,10 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
 // DELETE a post by ID
-export async function DELETE(
-	req: Request,
-	{ params }: { params: { id: string } }
-) {
-	const { id } = params;
+export async function DELETE(req: Request) {
+	const url = new URL(req.url);
+	const pathnameParts = url.pathname.split("/");
+	const id = pathnameParts[pathnameParts.length - 1];
 	try {
 		// First, delete all media associated with the post
 		await prisma.media.deleteMany({
@@ -39,11 +38,10 @@ export async function DELETE(
 }
 
 // PATCH (update) a post by ID
-export async function PATCH(
-	req: Request,
-	{ params }: { params: { id: string } }
-) {
-	const { id } = params;
+export async function PATCH(req: Request) {
+	const url = new URL(req.url);
+	const pathnameParts = url.pathname.split("/");
+	const id = pathnameParts[pathnameParts.length - 1];
 	try {
 		const { caption } = await req.json();
 		if (typeof caption !== "string") {

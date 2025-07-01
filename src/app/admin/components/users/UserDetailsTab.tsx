@@ -20,7 +20,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 
-// Define types for address
+// Define types for Address and User
 interface Address {
 	id?: string;
 	type: "home" | "work" | "other";
@@ -33,43 +33,42 @@ interface Address {
 	country: string;
 }
 
-// Define type for user
-interface User {
-	id?: string;
-	name: string;
-	email: string;
-	phone?: string;
-	userType?: string;
-	status?: string;
-	addresses?: Address[];
-}
-
-// Define error types
-interface AddressErrors {
+interface AddressError {
 	label?: string;
 	line1?: string;
 	city?: string;
 	country?: string;
 }
 
-interface UserErrors {
+interface EditedUser {
 	name?: string;
 	email?: string;
 	phone?: string;
-	addresses?: AddressErrors[];
+	userType?: string;
+	status?: "Active" | "Inactive" | "Suspended";
+	addresses?: Address[];
+	[key: string]: unknown;
+}
+
+interface Errors {
+	name?: string;
+	email?: string;
+	phone?: string;
+	addresses?: AddressError[];
+	[key: string]: unknown;
 }
 
 interface UserDetailsTabProps {
 	isEditing: boolean;
-	editedUser: User;
-	setEditedUser: React.Dispatch<React.SetStateAction<User>>;
-	errors: UserErrors;
-	setErrors: React.Dispatch<React.SetStateAction<UserErrors>>;
+	editedUser: EditedUser;
+	setEditedUser: React.Dispatch<React.SetStateAction<EditedUser>>;
+	errors: Errors;
+	setErrors: React.Dispatch<React.SetStateAction<Errors>>;
 	handleSaveChanges: () => void;
 	isSaving: boolean;
-	formatPhoneNumber: (phone: string) => string;
+	formatPhoneNumber: (val: string) => string;
 	setAddressesToDelete: React.Dispatch<React.SetStateAction<string[]>>;
-	user: User;
+	user: EditedUser;
 }
 
 export default function UserDetailsTab({
@@ -191,7 +190,7 @@ export default function UserDetailsTab({
 									</Button>
 								</div>
 
-								{editedUser.addresses.map((address: Address, index: number) => (
+								{editedUser.addresses.map((address, index) => (
 									<div
 										key={index}
 										className="space-y-4 border-t pt-4 first:border-t-0 first:pt-0"
@@ -241,7 +240,7 @@ export default function UserDetailsTab({
 												</Label>
 												<Select
 													value={address.type}
-													onValueChange={(value: string) => {
+													onValueChange={(value) => {
 														setEditedUser((prev) => ({
 															...prev,
 															addresses: prev?.addresses?.map(
@@ -606,3 +605,6 @@ export default function UserDetailsTab({
 		</Card>
 	);
 }
+
+// No changes needed in this file for "url splitting for infering params".
+// This file is a React component and does not handle API routes or URL params directly.

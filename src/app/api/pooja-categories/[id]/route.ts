@@ -2,13 +2,12 @@ import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 
 // GET /api/pooja-categories/[id]
-export async function GET(
-	req: NextRequest,
-	paramsPromise: Promise<{ params: { id: string } }>
-) {
+export async function GET(req: NextRequest) {
 	try {
-		const { params } = await paramsPromise;
-		const { id } = params;
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		const pooja = await prisma.poojaCategory.findUnique({
 			where: { id },
 		});
@@ -36,12 +35,12 @@ export async function GET(
 }
 
 // PUT /api/pooja-categories/[id]
-export async function PUT(
-	req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function PUT(req: NextRequest) {
 	try {
-		const { id } = params;
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		const body = await req.json();
 		const { name, description, date, price, details, status } = body;
 
@@ -105,12 +104,12 @@ export async function PUT(
 }
 
 // DELETE /api/pooja-categories/[id]
-export async function DELETE(
-	_req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest) {
 	try {
-		const { id } = params;
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		await prisma.poojaCategory.delete({ where: { id } });
 		return Response.json({ message: "Pooja Category deleted" });
 	} catch {

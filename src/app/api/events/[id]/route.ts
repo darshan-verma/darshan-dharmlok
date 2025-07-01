@@ -38,12 +38,12 @@ function parseArrayField(field: unknown): string[] {
 }
 
 // GET /api/events/[id]
-export async function GET(
-	_request: NextRequest,
-	context: { params: { id: string } }
-) {
-	const { id } = context.params;
+export async function GET(req: NextRequest) {
 	try {
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		const event = await prisma.event.findUnique({ where: { id } });
 		if (!event)
 			return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -84,12 +84,12 @@ export async function GET(
 }
 
 // PUT /api/events/[id]
-export async function PUT(
-	req: NextRequest,
-	context: { params: { id: string } }
-) {
-	const { id } = context.params;
+export async function PUT(req: NextRequest) {
 	try {
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		const body = await req.json();
 		const {
 			title,
@@ -187,12 +187,12 @@ export async function PUT(
 }
 
 // DELETE /api/events/[id]
-export async function DELETE(
-	_req: NextRequest,
-	context: { params: { id: string } }
-) {
-	const { id } = context.params;
+export async function DELETE(req: NextRequest) {
 	try {
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		await prisma.event.delete({ where: { id } });
 		return NextResponse.json({ success: true });
 	} catch {

@@ -7,6 +7,7 @@ import { Save } from "lucide-react";
 import { Dharmguru } from "./types";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
+import { useEffect } from "react";
 
 interface BiographyTabProps {
 	editedDharmguru: Partial<Dharmguru> | null;
@@ -24,6 +25,20 @@ export default function BiographyTab({
 	onSave,
 	isSaving,
 }: BiographyTabProps) {
+	const editor = useCreateBlockNote();
+
+	useEffect(() => {
+		if (!isEditing && editor && editedDharmguru?.bio) {
+			try {
+				const content = JSON.parse(editedDharmguru.bio);
+
+				editor.replaceBlocks(editor.topLevelBlocks, content);
+			} catch (e) {
+				console.error("Failed to parse and update BlockNote content", e);
+			}
+		}
+	}, [editedDharmguru?.bio, isEditing, editor]);
+
 	return (
 		<Card>
 			<CardContent className="p-4">
@@ -36,21 +51,19 @@ export default function BiographyTab({
 				) : (
 					<>
 						{editedDharmguru?.bio ? (
-													<BlockNoteView
-														editor={useCreateBlockNote({
-															initialContent: JSON.parse(editedDharmguru.bio),
-														})}
-														editable={false}
-														theme="light" // or use `resolvedTheme` if you want to support dark mode
-														className="p-3"
-													/>
-												) : (
-													<p className="text-muted-foreground italic p-3">
-														No biography has been added yet.
-													</p>
-												)}
-											</>
-										)}
+							<BlockNoteView
+								editor={editor}
+								editable={false}
+								theme="light" // or use `resolvedTheme` if you want to support dark mode
+								className="p-3"
+							/>
+						) : (
+							<p className="text-muted-foreground italic p-3">
+								No biography has been added yet.
+							</p>
+						)}
+					</>
+				)}
 			</CardContent>
 			{isEditing && onSave && (
 				<CardFooter>

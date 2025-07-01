@@ -30,16 +30,18 @@ const mapBalVidhyaForFrontend = (item: BalVidhya) => {
 };
 
 // GET: Get a specific BalVidhya item by id
-export async function GET(
-	req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest) {
 	try {
-		if (!params.id || !/^[0-9a-fA-F]{24}$/.test(params.id)) {
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
+		if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
+
 		const item = await prisma.balVidhya.findUnique({
-			where: { id: params.id },
+			where: { id },
 		});
 
 		if (!item) {
@@ -49,20 +51,18 @@ export async function GET(
 		return NextResponse.json(mapBalVidhyaForFrontend(item));
 	} catch (error) {
 		console.error("Error fetching BalVidhya item:", error);
-		return NextResponse.json(
-			{ error: "Failed to fetch item." },
-			{ status: 500 }
-		);
+		return NextResponse.json({ error: "Failed to fetch item." }, { status: 500 });
 	}
 }
 
 // PUT: Update a specific BalVidhya item
-export async function PUT(
-	req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function PUT(req: NextRequest) {
 	try {
-		if (!params.id || !/^[0-9a-fA-F]{24}$/.test(params.id)) {
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
+		if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
 		const body = await req.json();
@@ -129,14 +129,14 @@ export async function PUT(
 
 		// Ensure item exists before update
 		const existingItem = await prisma.balVidhya.findUnique({
-			where: { id: params.id },
+			where: { id },
 		});
 		if (!existingItem) {
 			return NextResponse.json({ error: "Content not found" }, { status: 404 });
 		}
 
 		const updatedItem = await prisma.balVidhya.update({
-			where: { id: params.id },
+			where: { id },
 			data: updateData,
 		});
 
@@ -169,25 +169,26 @@ export async function PUT(
 }
 
 // DELETE: Delete a specific BalVidhya item
-export async function DELETE(
-	req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest) {
 	try {
-		if (!params.id || !/^[0-9a-fA-F]{24}$/.test(params.id)) {
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
+		if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
 
 		// Ensure item exists before delete
 		const existingItem = await prisma.balVidhya.findUnique({
-			where: { id: params.id },
+			where: { id },
 		});
 		if (!existingItem) {
 			return NextResponse.json({ error: "Content not found" }, { status: 404 });
 		}
 
 		await prisma.balVidhya.delete({
-			where: { id: params.id },
+			where: { id },
 		});
 
 		return NextResponse.json({

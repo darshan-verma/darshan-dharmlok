@@ -6,6 +6,7 @@ import { Save } from "lucide-react";
 import { HotelDharamshala } from "./types";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
+import { useEffect } from "react";
 
 interface BiographyTabProps {
 	editedHotelDharamshala: Partial<HotelDharamshala> | null;
@@ -23,6 +24,19 @@ export default function BiographyTab({
 	onSave,
 	isSaving,
 }: BiographyTabProps) {
+	const editor = useCreateBlockNote();
+
+	useEffect(() => {
+		if (!isEditing && editor && editedHotelDharamshala?.bio) {
+			try {
+				const content = JSON.parse(editedHotelDharamshala.bio);
+				editor.replaceBlocks(editor.topLevelBlocks, content);
+			} catch (e) {
+				console.error("Failed to parse and update BlockNote content", e);
+			}
+		}
+	}, [editedHotelDharamshala?.bio, isEditing, editor]);
+
 	return (
 		<Card>
 			<CardContent className="p-4">
@@ -36,9 +50,7 @@ export default function BiographyTab({
 					<>
 						{editedHotelDharamshala?.bio ? (
 							<BlockNoteView
-								editor={useCreateBlockNote({
-									initialContent: JSON.parse(editedHotelDharamshala.bio),
-								})}
+								editor={editor}
 								editable={false}
 								theme="light" // or use `resolvedTheme` if you want to support dark mode
 								className="p-3"

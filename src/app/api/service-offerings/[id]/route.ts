@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function PUT(
-	req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function PUT(req: NextRequest) {
 	try {
-		const { id } = params;
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		const body = await req.json();
 		const { price, details, metadata, status } = body; // add status
 
@@ -30,12 +30,12 @@ export async function PUT(
 }
 
 // DELETE /api/service-offerings/[id]
-export async function DELETE(
-	_req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest) {
 	try {
-		const { id } = params;
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		await prisma.serviceOffering.delete({ where: { id } });
 		return Response.json({ message: "Service offering deleted" });
 	} catch {

@@ -16,12 +16,12 @@ interface CouponApi {
 }
 
 // GET /api/coupon/[id]
-export async function GET(
-	req: NextRequest,
-	context: { params: { id: string } }
-) {
-	const { id } = context.params;
+export async function GET(req: NextRequest) {
 	try {
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		const coupon = await prisma.coupon.findUnique({ where: { id } });
 		if (!coupon)
 			return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -53,12 +53,12 @@ export async function GET(
 }
 
 // PUT /api/coupon/[id]
-export async function PUT(
-	req: NextRequest,
-	context: { params: { id: string } }
-) {
-	const { id } = context.params;
+export async function PUT(req: NextRequest) {
 	try {
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		const body = await req.json();
 		const { name, date, discount, userLimit, timeUsed, validity, status } =
 			body as Partial<CouponApi>;
@@ -129,12 +129,12 @@ export async function PUT(
 }
 
 // DELETE /api/coupon/[id]
-export async function DELETE(
-	_req: NextRequest,
-	context: { params: { id: string } }
-) {
-	const { id } = context.params;
+export async function DELETE(req: NextRequest) {
 	try {
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		await prisma.coupon.delete({ where: { id } });
 		return NextResponse.json({ success: true });
 	} catch {

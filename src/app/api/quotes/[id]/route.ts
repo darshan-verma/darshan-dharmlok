@@ -11,12 +11,12 @@ export interface Quote {
 }
 
 // GET /api/quotes/[id]
-export async function GET(
-	req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest) {
 	try {
-		const { id } = params;
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
@@ -46,12 +46,12 @@ export async function GET(
 }
 
 // PUT /api/quotes/[id]
-export async function PUT(
-	req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function PUT(req: NextRequest) {
 	try {
-		const { id } = params;
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
@@ -95,12 +95,12 @@ export async function PUT(
 }
 
 // DELETE /api/quotes/[id]
-export async function DELETE(
-	req: NextRequest,
-	{ params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest) {
 	try {
-		const { id } = params;
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}

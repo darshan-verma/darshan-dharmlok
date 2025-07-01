@@ -22,6 +22,7 @@ import { toast } from "@/lib/toast";
 import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
+import { useEffect } from "react";
 
 type Props = {
 	editedDharamshala: DharamshalaData | null;
@@ -85,6 +86,43 @@ export function DharamshalaInfoCard({
 	setEditedDharamshala,
 	onSave,
 }: Props) {
+	const descriptionEditor = useCreateBlockNote();
+	const additionalInfoEditor = useCreateBlockNote();
+
+	useEffect(() => {
+		if (!isEditing && descriptionEditor && editedDharamshala?.description) {
+			try {
+				const content = JSON.parse(editedDharamshala.description);
+
+				descriptionEditor.replaceBlocks(
+					descriptionEditor.topLevelBlocks,
+					content
+				);
+			} catch (e) {
+				console.error("Failed to parse description for BlockNote", e);
+			}
+		}
+	}, [editedDharamshala?.description, isEditing, descriptionEditor]);
+
+	useEffect(() => {
+		if (
+			!isEditing &&
+			additionalInfoEditor &&
+			editedDharamshala?.additionalInfo
+		) {
+			try {
+				const content = JSON.parse(editedDharamshala.additionalInfo);
+
+				additionalInfoEditor.replaceBlocks(
+					additionalInfoEditor.topLevelBlocks,
+					content
+				);
+			} catch (e) {
+				console.error("Failed to parse additionalInfo for BlockNote", e);
+			}
+		}
+	}, [editedDharamshala?.additionalInfo, isEditing, additionalInfoEditor]);
+
 	if (!editedDharamshala) return null;
 
 	// Helper functions
@@ -210,7 +248,7 @@ export function DharamshalaInfoCard({
 			prev.filter((vid: string) => vid !== url)
 		);
 	};
-	
+
 	// Rich text editor handler
 	function handleBlockNoteChange(field: BlockNoteField, val: string): void {
 		setEditedDharamshala((prev) => (prev ? { ...prev, [field]: val } : prev));
@@ -283,7 +321,6 @@ export function DharamshalaInfoCard({
 						<CardHeader>
 							<CardTitle>Dharamshala Information</CardTitle>
 						</CardHeader>
-
 						<CardContent className="space-y-4">
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								<Card>
@@ -303,11 +340,7 @@ export function DharamshalaInfoCard({
 											<>
 												{editedDharamshala?.description ? (
 													<BlockNoteView
-														editor={useCreateBlockNote({
-															initialContent: JSON.parse(
-																editedDharamshala.description
-															),
-														})}
+														editor={descriptionEditor}
 														editable={false}
 														theme="light" // or use `resolvedTheme` if you want to support dark mode
 														className="p-3"
@@ -341,11 +374,7 @@ export function DharamshalaInfoCard({
 												<>
 													{editedDharamshala?.additionalInfo ? (
 														<BlockNoteView
-															editor={useCreateBlockNote({
-																initialContent: JSON.parse(
-																	editedDharamshala.additionalInfo
-																),
-															})}
+															editor={additionalInfoEditor}
 															editable={false}
 															theme="light" // or use `resolvedTheme` if you want to support dark mode
 															className="p-3"

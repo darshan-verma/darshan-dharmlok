@@ -33,12 +33,12 @@ function parseArrayField(field: unknown): string[] {
 }
 
 // GET /api/e-shop/[id]
-export async function GET(
-	_request: NextRequest,
-	context: { params: { id: string } }
-) {
-	const { id } = context.params;
+export async function GET(req: NextRequest) {
 	try {
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		const product = await prisma.product.findUnique({ where: { id } });
 		if (!product)
 			return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -53,7 +53,7 @@ export async function GET(
 				? product.category
 				: typeof product.category === "string"
 				? [product.category]
-				: [], // fallback for old data
+				: [],
 			pricePerUnit: Number(product.pricePerUnit),
 			availableQty: Number(product.availableQty),
 			description: product.description || "",
@@ -73,12 +73,12 @@ export async function GET(
 }
 
 // PUT /api/e-shop/[id]
-export async function PUT(
-	req: NextRequest,
-	context: { params: { id: string } }
-) {
-	const { id } = context.params;
+export async function PUT(req: NextRequest) {
 	try {
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		const body = await req.json();
 		const {
 			name,
@@ -109,7 +109,7 @@ export async function PUT(
 			!date ||
 			!category ||
 			!Array.isArray(category) ||
-			category.length !== 1 || // Changed: must be exactly one category
+			category.length !== 1 ||
 			pricePerUnit === undefined ||
 			availableQty === undefined ||
 			!status
@@ -145,7 +145,7 @@ export async function PUT(
 				? updated.category
 				: typeof updated.category === "string"
 				? [updated.category]
-				: [], // fallback for old data
+				: [],
 			pricePerUnit: Number(updated.pricePerUnit),
 			availableQty: Number(updated.availableQty),
 			description: updated.description || "",
@@ -165,12 +165,12 @@ export async function PUT(
 }
 
 // DELETE /api/e-shop/[id]
-export async function DELETE(
-	_req: NextRequest,
-	context: { params: { id: string } }
-) {
-	const { id } = context.params;
+export async function DELETE(req: NextRequest) {
 	try {
+		const url = new URL(req.url);
+		const pathnameParts = url.pathname.split("/");
+		const id = pathnameParts[pathnameParts.length - 1];
+
 		await prisma.product.delete({ where: { id } });
 		return NextResponse.json({ success: true });
 	} catch {

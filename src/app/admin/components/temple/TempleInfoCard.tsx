@@ -23,6 +23,7 @@ import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import { toast } from "@/lib/toast";
+import { useEffect } from "react";
 
 type Props = {
 	editedTemple: TempleData | null;
@@ -84,6 +85,47 @@ export function TempleInfoCard({
 	setEditedTemple,
 	onSave,
 }: Props) {
+	// Move useCreateBlockNote hooks to the top level
+	const descriptionEditor = useCreateBlockNote();
+	const historyEditor = useCreateBlockNote();
+	const ritualsEditor = useCreateBlockNote();
+
+	useEffect(() => {
+		if (!isEditing && descriptionEditor && editedTemple?.description) {
+			try {
+				const content = JSON.parse(editedTemple.description);
+				descriptionEditor.replaceBlocks(
+					descriptionEditor.topLevelBlocks,
+					content
+				);
+			} catch (e) {
+				console.error("Failed to parse description for BlockNote", e);
+			}
+		}
+	}, [editedTemple?.description, isEditing, descriptionEditor]);
+
+	useEffect(() => {
+		if (!isEditing && historyEditor && editedTemple?.history) {
+			try {
+				const content = JSON.parse(editedTemple.history);
+				historyEditor.replaceBlocks(historyEditor.topLevelBlocks, content);
+			} catch (e) {
+				console.error("Failed to parse history for BlockNote", e);
+			}
+		}
+	}, [editedTemple?.history, isEditing, historyEditor]);
+
+	useEffect(() => {
+		if (!isEditing && ritualsEditor && editedTemple?.rituals) {
+			try {
+				const content = JSON.parse(editedTemple.rituals);
+				ritualsEditor.replaceBlocks(ritualsEditor.topLevelBlocks, content);
+			} catch (e) {
+				console.error("Failed to parse rituals for BlockNote", e);
+			}
+		}
+	}, [editedTemple?.rituals, isEditing, ritualsEditor]);
+
 	if (!editedTemple) return null;
 
 	// Helper functions
@@ -311,19 +353,17 @@ export function TempleInfoCard({
 											<>
 												{editedTemple?.description ? (
 													<BlockNoteView
-														editor={useCreateBlockNote({
-															initialContent: JSON.parse(editedTemple.description),
-														})}
+														editor={descriptionEditor}
 														editable={false}
-														theme="light" // or use `resolvedTheme` if you want to support dark mode
+														theme="light"
 														className="p-3"
 													/>
 												) : (
 													<p className="text-muted-foreground italic p-3">
 														No biography has been added yet.
 													</p>
-						)}
-					</>
+												)}
+											</>
 										)}
 									</CardContent>
 								</Card>
@@ -346,11 +386,9 @@ export function TempleInfoCard({
 											<>
 												{editedTemple?.history ? (
 													<BlockNoteView
-														editor={useCreateBlockNote({
-															initialContent: JSON.parse(editedTemple.history),
-														})}
+														editor={historyEditor}
 														editable={false}
-														theme="light" // or use `resolvedTheme` if you want to support dark mode
+														theme="light"
 														className="p-3"
 													/>
 												) : (
@@ -358,8 +396,8 @@ export function TempleInfoCard({
 														No biography has been added yet.
 													</p>
 												)}
-										</>
-									)}
+											</>
+										)}
 									</CardContent>
 								</Card>
 
@@ -408,11 +446,9 @@ export function TempleInfoCard({
 											<>
 												{editedTemple?.rituals ? (
 													<BlockNoteView
-														editor={useCreateBlockNote({
-															initialContent: JSON.parse(editedTemple.rituals),
-														})}
+														editor={ritualsEditor}
 														editable={false}
-														theme="light" // or use `resolvedTheme` if you want to support dark mode
+														theme="light"
 														className="p-3"
 													/>
 												) : (
@@ -420,7 +456,7 @@ export function TempleInfoCard({
 														No biography has been added yet.
 													</p>
 												)}
-										</>
+											</>
 										)}
 									</CardContent>
 								</Card>

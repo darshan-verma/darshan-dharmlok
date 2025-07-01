@@ -6,6 +6,7 @@ import { Save } from "lucide-react";
 import { Panditji } from "./types";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
+import { useEffect } from "react";
 
 interface BiographyTabProps {
 	editedPanditji: Partial<Panditji> | null;
@@ -23,6 +24,19 @@ export default function BiographyTab({
 	onSave,
 	isSaving,
 }: BiographyTabProps) {
+	const editor = useCreateBlockNote();
+
+	useEffect(() => {
+		if (!isEditing && editor && editedPanditji?.bio) {
+			try {
+				const content = JSON.parse(editedPanditji.bio);
+				editor.replaceBlocks(editor.topLevelBlocks, content);
+			} catch (e) {
+				console.error("Failed to parse and update BlockNote content", e);
+			}
+		}
+	}, [editedPanditji?.bio, isEditing, editor]);
+
 	return (
 		<Card>
 			<CardContent className="p-4">
@@ -36,11 +50,9 @@ export default function BiographyTab({
 					<>
 						{editedPanditji?.bio ? (
 							<BlockNoteView
-								editor={useCreateBlockNote({
-									initialContent: JSON.parse(editedPanditji.bio),
-								})}
+								editor={editor}
 								editable={false}
-								theme="light" // or use `resolvedTheme` if you want to support dark mode
+								theme="light"
 								className="p-3"
 							/>
 						) : (

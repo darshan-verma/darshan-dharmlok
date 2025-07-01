@@ -101,7 +101,10 @@ export async function POST(req: Request) {
 		// Provide more specific error messages in development
 		if (error instanceof Prisma.PrismaClientValidationError) {
 			return NextResponse.json(
-				{ message: "Invalid data provided for post creation.", error: error.message },
+				{
+					message: "Invalid data provided for post creation.",
+					error: error.message,
+				},
 				{ status: 400 }
 			);
 		}
@@ -129,12 +132,12 @@ export async function POST(req: Request) {
  *       404:
  *         description: Post not found
  */
-export async function DELETE(
-	request: Request,
-	{ params }: { params: { id: string } }
-) {
+export async function DELETE(request: Request) {
 	try {
-		const postId = params.id;
+		const url = new URL(request.url);
+		const pathnameParts = url.pathname.split("/");
+		const postId = pathnameParts[pathnameParts.length - 1];
+
 		const postIndex = await prisma.post.findUnique({
 			where: { id: postId },
 		});

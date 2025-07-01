@@ -7,6 +7,7 @@ import { Save } from "lucide-react";
 import { Kathavachak } from "./types";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
+import { useEffect } from "react";
 
 interface BiographyTabProps {
 	editedKathavachak: Partial<Kathavachak> | null;
@@ -23,6 +24,19 @@ export default function BiographyTab({
 	onSave,
 	isSaving,
 }: BiographyTabProps) {
+	const editor = useCreateBlockNote();
+
+	useEffect(() => {
+		if (!isEditing && editor && editedKathavachak?.bio) {
+			try {
+				const content = JSON.parse(editedKathavachak.bio);
+				editor.replaceBlocks(editor.topLevelBlocks, content);
+			} catch (e) {
+				console.error("Failed to parse and update BlockNote content", e);
+			}
+		}
+	}, [editedKathavachak?.bio, isEditing, editor]);
+
 	return (
 		<Card>
 			<CardContent className="p-4">
@@ -36,11 +50,9 @@ export default function BiographyTab({
 					<>
 						{editedKathavachak?.bio ? (
 							<BlockNoteView
-								editor={useCreateBlockNote({
-									initialContent: JSON.parse(editedKathavachak.bio),
-								})}
+								editor={editor}
 								editable={false}
-								theme="light" // or use `resolvedTheme` if you want to support dark mode
+								theme="light"
 								className="p-3"
 							/>
 						) : (

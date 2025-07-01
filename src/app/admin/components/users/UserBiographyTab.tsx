@@ -6,56 +6,62 @@ import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
 import { User } from "@/types/user";
 import { BlockNoteView } from "@blocknote/mantine";
-import { useCreateBlockNote } from "@blocknote/react"; 
-
+import { useCreateBlockNote } from "@blocknote/react";
+import { useEffect } from "react";
 
 interface BiographyTabProps {
 	editedUser: Partial<User> | null;
 	isEditing: boolean;
 	handleBlockNoteChange: (field: "bio", val: string) => void;
-	onSave?: () => void; 
-	isSaving?: boolean; 
+	onSave?: () => void;
+	isSaving?: boolean;
 }
 
 export default function UserBiographyTab({
-	isEditing,
 	editedUser,
+	isEditing,
 	handleBlockNoteChange,
 	onSave,
 	isSaving,
-
 }: BiographyTabProps) {
+	const editor = useCreateBlockNote();
+
+	useEffect(() => {
+		if (!isEditing && editor && editedUser?.bio) {
+			try {
+				const content = JSON.parse(editedUser.bio);
+				editor.replaceBlocks(editor.topLevelBlocks, content);
+			} catch (e) {
+				console.error("Failed to parse and update BlockNote content", e);
+			}
+		}
+	}, [editedUser?.bio, isEditing, editor]);
+
 	return (
 		<Card>
-			<CardContent className="px-1">
-				<div className="space-y-1 ">
-					{isEditing ? (
-						<div className="">
-							<BlockNoteEditor
-								initialContent={editedUser?.bio || ""}
-								onChange={(val: string) => handleBlockNoteChange("bio", val)}
-								editable={isEditing}
+			<CardContent className="p-4">
+				{isEditing ? (
+					<BlockNoteEditor
+						initialContent={editedUser?.bio || ""}
+						onChange={(val: string) => handleBlockNoteChange("bio", val)}
+						editable={isEditing}
+					/>
+				) : (
+					<>
+						{editedUser?.bio ? (
+							<BlockNoteView
+								editor={editor}
+								editable={false}
+								theme="light"
+								className="p-3"
 							/>
-						</div>
-					) : (
-						<div>
-							{editedUser?.bio ? (
-								<BlockNoteView
-									editor={useCreateBlockNote({
-										initialContent: JSON.parse(editedUser.bio),
-									})}
-									editable={false}
-									theme="light" 
-									className="p-3"
-								/>
-							) : (
-								<p className="text-muted-foreground italic p-3">
-									No biography has been added yet.
-								</p>
-							)}
-						</div>
-					)}
-				</div>
+						) : (
+							<p className="text-muted-foreground italic p-3">
+								No biography has been added yet.
+							</p>
+						)}
+					</>
+				)}
 			</CardContent>
 			{isEditing && onSave && (
 				<CardFooter>
