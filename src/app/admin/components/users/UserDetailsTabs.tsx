@@ -7,7 +7,7 @@ import UserBiographyTab from "./UserBiographyTab";
 import UserPostsTab from "./UserPostsTab";
 import UserPreferencesTab from "./UserPreferencesTab";
 import UserActivityTab from "./UserActivityTab";
-import { FullUser, FormErrors, Address } from "@/types/user";
+import { FullUser, FormErrors } from "@/types/user";
 
 interface UserDetailsTabsProps {
 	user: FullUser | null;
@@ -25,9 +25,7 @@ interface UserDetailsTabsProps {
 	formatPhoneNumber: (value: string) => string;
 	handlePostImageUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
 	handlePostVideoUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
-	handleSavePosts: (
-		event: React.MouseEvent<HTMLButtonElement, MouseEvent>
-	) => void;
+	handleSavePosts: () => void;
 	handleRemovePostImage: (imageUrl: string) => void;
 	isUploadingPostImage: boolean;
 	isUploadingPostVideo: boolean;
