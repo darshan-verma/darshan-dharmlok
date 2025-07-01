@@ -7,61 +7,17 @@ import UserBiographyTab from "./UserBiographyTab";
 import UserPostsTab from "./UserPostsTab";
 import UserPreferencesTab from "./UserPreferencesTab";
 import UserActivityTab from "./UserActivityTab";
-
-interface Address {
-	id?: string;
-	type: "home" | "work" | "other";
-	label?: string;
-	line1: string;
-	line2?: string;
-	city: string;
-	state?: string;
-	country: string;
-	pincode?: string;
-}
-
-interface UserPreferences {
-	notifications: boolean;
-	newsletter: boolean;
-	language: string;
-}
-
-interface User {
-	name: string;
-	phone: string;
-	email: string;
-	userType?: string;
-	bio?: string;
-	addresses?: Address[];
-	status?: "Active" | "Inactive" | "Suspended";
-	preferences?: UserPreferences;
-}
-
-interface FormErrors {
-	name?: string;
-	email?: string;
-	phone?: string;
-	addresses?: {
-		[key: string]: {
-			line1?: string;
-			city?: string;
-			country?: string;
-			label?: string;
-		};
-	};
-}
+import { FullUser, FormErrors, Address } from "@/types/user";
 
 interface UserDetailsTabsProps {
-	user: User | null;
-	editedUser: Partial<User> | null;
-	setEditedUser: (
-		user: Partial<User> | ((prev: Partial<User> | null) => Partial<User> | null)
-	) => void;
+	user: FullUser | null;
+	editedUser: Partial<FullUser> | null;
+	setEditedUser: React.Dispatch<React.SetStateAction<Partial<FullUser>>>;
 	isEditing: boolean;
 	isSaving: boolean;
 	errors: FormErrors;
 	setErrors: (errors: FormErrors | ((prev: FormErrors) => FormErrors)) => void;
-	setAddressesToDelete: (fn: (prevState: string[]) => string[]) => void;
+	setAddressesToDelete: React.Dispatch<React.SetStateAction<string[]>>;
 
 	handleSaveChanges: () => void;
 	handleBlockNoteChange: (field: "bio", val: string) => void;
@@ -87,7 +43,7 @@ interface UserDetailsTabsProps {
 
 export default function UserDetailsTabs({
 	user,
-	editedUser, //TMKC
+	editedUser,
 	setEditedUser,
 	isEditing,
 	isSaving,

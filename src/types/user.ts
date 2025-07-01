@@ -31,3 +31,62 @@ export interface UserFormData {
 	phone: string;
 	// Add other fields as needed
 }
+
+export interface Address {
+	id?: string;
+	type: "home" | "work" | "other";
+	label?: string;
+	line1: string;
+	line2?: string;
+	city: string;
+	state?: string;
+	country: string;
+	pincode?: string;
+	createdAt?: string | Date;
+	updatedAt?: string | Date;
+}
+
+export interface UserPreferences {
+	notifications: boolean;
+	newsletter: boolean;
+	language: string;
+}
+
+export interface Activity {
+	date: string;
+	action: string;
+}
+
+export interface FullUser extends User {
+	userType?: string;
+	typeVendor?: string;
+	profileImageUrl?: string;
+	coverImageUrl?: string;
+	category?: string;
+	addresses?: Address[];
+	social?: number;
+	active?: number;
+	rank?: number;
+	availability?: number;
+	kycApproved?: number;
+	isLoggedIn: boolean;
+	lastLogoutAt?: string | Date | null;
+	lastActiveAt?: string | Date | null;
+	lastLoginAt?: string | Date | null;
+	preferences?: UserPreferences;
+	activities?: Activity[];
+}
+
+export interface FormErrors {
+	name?: string;
+	email?: string;
+	phone?: string;
+	addresses?: {
+		[key: string]: {
+			line1?: string;
+			city?: string;
+			country?: string;
+			label?: string;
+		};
+	};
+}

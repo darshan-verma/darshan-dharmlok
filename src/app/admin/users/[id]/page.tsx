@@ -7,83 +7,17 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import UserProfileCard from "@/app/admin/components/users/UserProfileCard";
 import UserDetailsTabs from "@/app/admin/components/users/UserDetailsTabs";
-
-interface Activity {
-	date: string;
-	action: string;
-}
-
-interface UserPreferences {
-	notifications: boolean;
-	newsletter: boolean;
-	language: string;
-}
-
-interface Address {
-	id?: string;
-	type: "home" | "work" | "other";
-	label?: string;
-	line1: string;
-	line2?: string;
-	city: string;
-	state?: string;
-	country: string;
-	pincode?: string;
-	createdAt?: string | Date;
-	updatedAt?: string | Date;
-}
-
-interface User {
-	id: string;
-	name: string;
-	phone: string;
-	email: string;
-	userType?: string;
-	typeVendor?: string;
-	profileImageUrl?: string;
-	bio?: string;
-	coverImageUrl?: string;
-	category?: string;
-	addresses?: Address[];
-	social?: number;
-	active?: number;
-	rank?: number;
-	availability?: number;
-	kycApproved?: number;
-	status?: "Active" | "Inactive" | "Suspended";
-	isLoggedIn: boolean;
-	lastLogoutAt?: string | Date | null;
-	lastActiveAt?: string | Date | null;
-	lastLoginAt?: string | Date | null;
-	createdAt: string | Date;
-	// Client-side only properties
-	preferences?: UserPreferences;
-	activities?: Activity[];
-}
-
-interface FormErrors {
-	name?: string;
-	email?: string;
-	phone?: string;
-	addresses?: {
-		[key: string]: {
-			line1?: string;
-			city?: string;
-			country?: string;
-			label?: string;
-		};
-	};
-}
+import { FullUser, FormErrors, Address } from "@/types/user";
 
 export default function UserDetailPage() {
 	const params = useParams();
 	const router = useRouter();
 	const userId = params?.id as string;
 
-	const [user, setUser] = useState<User | null>(null);
+	const [user, setUser] = useState<FullUser | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
-	const [editedUser, setEditedUser] = useState<Partial<User> | null>(null);
+	const [editedUser, setEditedUser] = useState<Partial<FullUser> | null>(null);
 	const [imageError, setImageError] = useState(false);
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [showAddresses, setShowAddresses] = useState(false);
@@ -191,7 +125,7 @@ export default function UserDetailPage() {
 				console.log("User data received:", userData);
 
 				// Create a complete user object with fallbacks for missing properties
-				const completeUser: User = {
+				const completeUser: FullUser = {
 					...userData,
 					id: userData.id,
 					name: userData.name || "",
@@ -202,7 +136,9 @@ export default function UserDetailPage() {
 					status: userData.status || "Active",
 					isLoggedIn: userData.isLoggedIn || false,
 					bio: userData.bio || "",
-					createdAt: userData.createdAt || new Date().toISOString(),
+					createdAt: userData.createdAt
+						? new Date(userData.createdAt)
+						: new Date(),
 					// Add client-side only properties
 					preferences: {
 						notifications: true,
@@ -244,7 +180,7 @@ export default function UserDetailPage() {
 			// Create a mock user as fallback for development
 			if (process.env.NODE_ENV !== "production") {
 				console.log("Using mock data as fallback in development");
-				const mockUser: User = {
+				const mockUser: FullUser = {
 					id: userId || "mock-id",
 					name: "Test User",
 					email: "test@example.com",
@@ -261,7 +197,7 @@ export default function UserDetailPage() {
 					status: "Active",
 					isLoggedIn: false,
 					bio: "This is a test user bio.",
-					createdAt: new Date().toISOString(),
+					createdAt: new Date(),
 					preferences: {
 						notifications: true,
 						newsletter: false,
@@ -285,7 +221,7 @@ export default function UserDetailPage() {
 		}
 	}, [userId, fetchUserData]);
 
-	const validateForm = (userData: Partial<User>): boolean => {
+	const validateForm = (userData: Partial<FullUser>): boolean => {
 		const newErrors: FormErrors = {};
 
 		if (!userData.name?.trim()) {
@@ -309,7 +245,7 @@ export default function UserDetailPage() {
 		}
 
 		if (userData.addresses) {
-			userData.addresses.forEach((address, index) => {
+			userData.addresses.forEach((address: Address, index: number) => {
 				if (!address.line1?.trim()) {
 					newErrors.addresses = newErrors.addresses || {};
 					newErrors.addresses[index] = newErrors.addresses[index] || {};
@@ -409,7 +345,7 @@ export default function UserDetailPage() {
 		}).format(date);
 	};
 
-	const getUserStatus = (user: User) => {
+	const getUserStatus = (user: FullUser) => {
 		if (!user.status || user.status === "Inactive") return "Inactive";
 		return user.isLoggedIn ? "Active (Online)" : "Active (Offline)";
 	};
@@ -597,10 +533,8 @@ export default function UserDetailPage() {
 			return "";
 		}
 	}
-	async function handleSavePosts(
-		event: React.MouseEvent<HTMLButtonElement, MouseEvent>
-	): Promise<void> {
-		event.preventDefault();
+	// Refactor handleSavePosts to take no arguments
+	async function handleSavePosts(): Promise<void> {
 		if (!userId) {
 			toast.error("Invalid Kathavachak ID");
 			return;
@@ -616,7 +550,7 @@ export default function UserDetailPage() {
 				body: JSON.stringify({
 					newImages,
 					deletedImages,
-					videos: postVideos, // You can optimize videos similarly if needed
+					videos: postVideos,
 				}),
 			});
 			if (!response.ok) {
@@ -654,7 +588,7 @@ export default function UserDetailPage() {
 
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<UserProfileCard
-					user={user}
+					user={user as any}
 					editedUser={editedUser}
 					isEditing={isEditing}
 					setIsEditing={setIsEditing}
@@ -666,20 +600,20 @@ export default function UserDetailPage() {
 					showAddresses={showAddresses}
 					setShowAddresses={setShowAddresses}
 					formatDate={formatDate}
-					getUserStatus={getUserStatus}
+					getUserStatus={getUserStatus as any}
 					getStatusColor={getStatusColor}
 				/>
 
 				<div className="md:col-span-2">
 					<UserDetailsTabs
-						user={user}
-						editedUser={editedUser}
-						setEditedUser={setEditedUser}
+						user={user as any}
+						editedUser={editedUser as any}
+						setEditedUser={setEditedUser as any}
 						isEditing={isEditing}
 						isSaving={isSaving}
 						errors={errors}
-						setErrors={setErrors}
-						setAddressesToDelete={setAddressesToDelete}
+						setErrors={setErrors as any}
+						setAddressesToDelete={setAddressesToDelete as any}
 						handleSaveChanges={handleSaveChanges}
 						handleBlockNoteChange={handleBlockNoteChange}
 						safeBlockNoteHtml={safeBlockNoteHtml}

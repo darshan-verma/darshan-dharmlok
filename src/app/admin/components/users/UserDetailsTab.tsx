@@ -19,6 +19,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { FullUser, FormErrors } from "@/types/user";
 
 // Define types for Address and User
 interface Address {
@@ -40,35 +41,17 @@ interface AddressError {
 	country?: string;
 }
 
-interface EditedUser {
-	name?: string;
-	email?: string;
-	phone?: string;
-	userType?: string;
-	status?: "Active" | "Inactive" | "Suspended";
-	addresses?: Address[];
-	[key: string]: unknown;
-}
-
-interface Errors {
-	name?: string;
-	email?: string;
-	phone?: string;
-	addresses?: AddressError[];
-	[key: string]: unknown;
-}
-
 interface UserDetailsTabProps {
 	isEditing: boolean;
-	editedUser: EditedUser;
-	setEditedUser: React.Dispatch<React.SetStateAction<EditedUser>>;
-	errors: Errors;
-	setErrors: React.Dispatch<React.SetStateAction<Errors>>;
+	editedUser: Partial<FullUser>;
+	setEditedUser: React.Dispatch<React.SetStateAction<Partial<FullUser>>>;
+	errors: FormErrors;
+	setErrors: React.Dispatch<React.SetStateAction<FormErrors>>;
 	handleSaveChanges: () => void;
 	isSaving: boolean;
 	formatPhoneNumber: (val: string) => string;
 	setAddressesToDelete: React.Dispatch<React.SetStateAction<string[]>>;
-	user: EditedUser;
+	user: FullUser;
 }
 
 export default function UserDetailsTab({
