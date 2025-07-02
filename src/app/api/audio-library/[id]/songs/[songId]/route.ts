@@ -50,7 +50,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-	req: NextRequest,
+	_: NextRequest,
 	context: { params: Promise<{ id: string; songId: string }> }
 ) {
 	const { songId } = await context.params;

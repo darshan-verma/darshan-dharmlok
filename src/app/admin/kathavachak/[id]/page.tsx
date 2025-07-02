@@ -519,28 +519,7 @@ export default function KathavachakDetailPage() {
 		setEditedKathavachak((prev) => (prev ? { ...prev, [field]: val } : prev));
 	}
 
-	type BlockNoteBlock = {
-		content?: { text: string }[];
-		[key: string]: unknown;
-	};
-
-	function safeBlockNoteHtml(jsonString?: string) {
-		try {
-			if (!jsonString) return "";
-			const blocks: BlockNoteBlock[] = JSON.parse(jsonString);
-			if (!Array.isArray(blocks)) return "";
-			return blocks
-				.map((block) => block.content?.map?.((c) => c.text).join(" ") || "")
-				.join("<br/>");
-		} catch {
-			return "";
-		}
-	}
-
-	async function handleSavePosts(
-		event: React.MouseEvent<HTMLButtonElement, MouseEvent>
-	): Promise<void> {
-		event.preventDefault();
+	async function handleSavePosts(): Promise<void> {
 		if (!kathavachakId) {
 			toast.error("Invalid Kathavachak ID");
 			return;
@@ -556,7 +535,7 @@ export default function KathavachakDetailPage() {
 				body: JSON.stringify({
 					newImages,
 					deletedImages,
-					videos: postVideos, // You can optimize videos similarly if needed
+					videos: postVideos,
 				}),
 			});
 			if (!response.ok) {
@@ -567,7 +546,6 @@ export default function KathavachakDetailPage() {
 			toast.success("Posts saved successfully!");
 			setIsEditing(false);
 			setIsSavingPosts(false);
-			// After save, reset tracking
 			setNewImages([]);
 			setDeletedImages([]);
 		} catch (error) {
@@ -680,7 +658,6 @@ export default function KathavachakDetailPage() {
 								editedKathavachak={editedKathavachak}
 								isEditing={isEditing}
 								handleBlockNoteChange={handleBlockNoteChange}
-								safeBlockNoteHtml={safeBlockNoteHtml}
 								onSave={handleSaveBiography}
 								isSaving={isSavingBiography}
 							/>

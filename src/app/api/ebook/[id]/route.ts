@@ -23,7 +23,7 @@ interface ErrorResponse {
 
 // GET /api/ebook/[id]
 export async function GET(
-	req: NextRequest,
+	_: NextRequest,
 	context: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await context.params;
@@ -159,7 +159,7 @@ export async function PUT(
 
 // DELETE /api/ebook/[id]
 export async function DELETE(
-	req: NextRequest,
+	_: NextRequest,
 	context: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await context.params;

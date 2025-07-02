@@ -11,7 +11,7 @@ interface SongCreateBody {
 }
 
 export async function GET(
-	req: NextRequest,
+	_: NextRequest,
 	context: { params: Promise<{ id: string }> }
 ) {
 	const { id: playlistId } = await context.params;

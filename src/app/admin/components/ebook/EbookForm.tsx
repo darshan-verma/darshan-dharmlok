@@ -48,6 +48,7 @@ interface EbookFormProps {
 	onSubmit: (ebookData: EbookFormData) => Promise<void>;
 	onCancel: () => void;
 	isLoading?: boolean;
+	errors?: Record<string, string>;
 }
 
 export default function EbookForm({
@@ -63,6 +64,7 @@ export default function EbookForm({
 	onSubmit,
 	onCancel,
 	isLoading = false,
+	errors = {},
 }: EbookFormProps) {
 	const [ebookData, setEbookData] = useState<EbookFormData>({
 		title: initialData.title || "",
@@ -74,6 +76,8 @@ export default function EbookForm({
 		status: initialData.status || "Active",
 	});
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+	const mergedErrors = { ...formErrors, ...errors };
 
 	const validateForm = (data: EbookFormData) => {
 		const errors: Record<string, string> = {};
@@ -116,10 +120,10 @@ export default function EbookForm({
 					value={ebookData.title}
 					onChange={(e) => handleInputChange("title", e.target.value)}
 					placeholder="Enter ebook title"
-					className={formErrors.title ? "border-red-500" : ""}
+					className={mergedErrors.title ? "border-red-500" : ""}
 				/>
-				{formErrors.title && (
-					<p className="text-sm text-red-500">{formErrors.title}</p>
+				{mergedErrors.title && (
+					<p className="text-sm text-red-500">{mergedErrors.title}</p>
 				)}
 			</div>
 			<div className="space-y-2">
@@ -129,10 +133,10 @@ export default function EbookForm({
 					type="date"
 					value={ebookData.date}
 					onChange={(e) => handleInputChange("date", e.target.value)}
-					className={formErrors.date ? "border-red-500" : ""}
+					className={mergedErrors.date ? "border-red-500" : ""}
 				/>
-				{formErrors.date && (
-					<p className="text-sm text-red-500">{formErrors.date}</p>
+				{mergedErrors.date && (
+					<p className="text-sm text-red-500">{mergedErrors.date}</p>
 				)}
 			</div>
 			<div className="space-y-2">
@@ -143,10 +147,10 @@ export default function EbookForm({
 					onChange={(e) => handleInputChange("description", e.target.value)}
 					placeholder="Enter ebook description"
 					rows={3}
-					className={formErrors.description ? "border-red-500" : ""}
+					className={mergedErrors.description ? "border-red-500" : ""}
 				/>
-				{formErrors.description && (
-					<p className="text-sm text-red-500">{formErrors.description}</p>
+				{mergedErrors.description && (
+					<p className="text-sm text-red-500">{mergedErrors.description}</p>
 				)}
 			</div>
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -158,7 +162,7 @@ export default function EbookForm({
 					>
 						<SelectTrigger
 							id="type"
-							className={formErrors.type ? "border-red-500" : ""}
+							className={mergedErrors.type ? "border-red-500" : ""}
 						>
 							<SelectValue placeholder="Select type" />
 						</SelectTrigger>
@@ -170,8 +174,8 @@ export default function EbookForm({
 							))}
 						</SelectContent>
 					</Select>
-					{formErrors.type && (
-						<p className="text-sm text-red-500">{formErrors.type}</p>
+					{mergedErrors.type && (
+						<p className="text-sm text-red-500">{mergedErrors.type}</p>
 					)}
 				</div>
 				<div className="space-y-2">
@@ -182,7 +186,7 @@ export default function EbookForm({
 					>
 						<SelectTrigger
 							id="category"
-							className={formErrors.category ? "border-red-500" : ""}
+							className={mergedErrors.category ? "border-red-500" : ""}
 						>
 							<SelectValue placeholder="Select category" />
 						</SelectTrigger>
@@ -194,8 +198,8 @@ export default function EbookForm({
 							))}
 						</SelectContent>
 					</Select>
-					{formErrors.category && (
-						<p className="text-sm text-red-500">{formErrors.category}</p>
+					{mergedErrors.category && (
+						<p className="text-sm text-red-500">{mergedErrors.category}</p>
 					)}
 				</div>
 			</div>
@@ -207,10 +211,10 @@ export default function EbookForm({
 					onChange={(e) => handleInputChange("detail", e.target.value)}
 					placeholder="Enter ebook detail"
 					rows={3}
-					className={formErrors.detail ? "border-red-500" : ""}
+					className={mergedErrors.detail ? "border-red-500" : ""}
 				/>
-				{formErrors.detail && (
-					<p className="text-sm text-red-500">{formErrors.detail}</p>
+				{mergedErrors.detail && (
+					<p className="text-sm text-red-500">{mergedErrors.detail}</p>
 				)}
 			</div>
 			<div className="space-y-2">
@@ -239,8 +243,8 @@ export default function EbookForm({
 					{isLoading ? "Saving..." : "Save Ebook"}
 				</Button>
 			</div>
-			{formErrors._submit && (
-				<p className="text-sm text-red-500 mt-2">{formErrors._submit}</p>
+			{mergedErrors._submit && (
+				<p className="text-sm text-red-500 mt-2">{mergedErrors._submit}</p>
 			)}
 		</div>
 	);

@@ -588,8 +588,26 @@ export default function UserDetailPage() {
 
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<UserProfileCard
-					user={user as any}
-					editedUser={editedUser}
+					user={
+						user
+							? {
+									...user,
+									createdAt: user.createdAt ?? new Date(),
+									status: user.status ?? "Active",
+									isLoggedIn: user.isLoggedIn ?? false,
+							  }
+							: null
+					}
+					editedUser={
+						editedUser
+							? {
+									...editedUser,
+									createdAt: editedUser.createdAt ?? new Date(),
+									status: editedUser.status ?? "Active",
+									isLoggedIn: editedUser.isLoggedIn ?? false,
+							  }
+							: null
+					}
 					isEditing={isEditing}
 					setIsEditing={setIsEditing}
 					imageError={imageError}
@@ -600,20 +618,24 @@ export default function UserDetailPage() {
 					showAddresses={showAddresses}
 					setShowAddresses={setShowAddresses}
 					formatDate={formatDate}
-					getUserStatus={getUserStatus as any}
+					getUserStatus={(u) => getUserStatus(u as FullUser)}
 					getStatusColor={getStatusColor}
 				/>
 
 				<div className="md:col-span-2">
 					<UserDetailsTabs
-						user={user as any}
-						editedUser={editedUser as any}
-						setEditedUser={setEditedUser as any}
+						user={user}
+						editedUser={editedUser}
+						setEditedUser={
+							setEditedUser as React.Dispatch<
+								React.SetStateAction<Partial<FullUser>>
+							>
+						}
 						isEditing={isEditing}
 						isSaving={isSaving}
 						errors={errors}
-						setErrors={setErrors as any}
-						setAddressesToDelete={setAddressesToDelete as any}
+						setErrors={setErrors}
+						setAddressesToDelete={setAddressesToDelete}
 						handleSaveChanges={handleSaveChanges}
 						handleBlockNoteChange={handleBlockNoteChange}
 						safeBlockNoteHtml={safeBlockNoteHtml}

@@ -34,12 +34,6 @@ interface Address {
 	country: string;
 }
 
-interface AddressError {
-	label?: string;
-	line1?: string;
-	city?: string;
-	country?: string;
-}
 
 interface UserDetailsTabProps {
 	isEditing: boolean;

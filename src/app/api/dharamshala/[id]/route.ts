@@ -15,7 +15,7 @@ const parseJsonArrayField = <T = unknown>(
 };
 
 export async function GET(
-	req: NextRequest,
+	_: NextRequest,
 	context: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await context.params;
@@ -201,7 +201,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-	req: NextRequest,
+	_: NextRequest,
 	context: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await context.params;
