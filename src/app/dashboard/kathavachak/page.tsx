@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Loader2, AlertTriangle } from "lucide-react";
-import Posts from "../components/posts";
 import RouteProtection from "../components/route-protection";
 import Sidebar from "../components/sidebar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -84,9 +83,7 @@ export default function KathavachakPage() {
 					<AlertDescription>
 						{error}
 						<div className="mt-4">
-							<Button onClick={() => window.location.reload()}>
-								Retry
-							</Button>
+							<Button onClick={() => window.location.reload()}>Retry</Button>
 						</div>
 					</AlertDescription>
 				</Alert>
@@ -104,14 +101,9 @@ export default function KathavachakPage() {
 				/>
 				<main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
 					{effectiveUser ? (
-						<Posts
-							userId={effectiveUser.id}
-							userName={effectiveUser.name || "User"}
-							profileImageUrl={
-								(effectiveUser as User).profileImageUrl ||
-								"/placeholder-avatar.png"
-							}
-						/>
+						<div className="mt-8">
+							{/* Posts component removed. Now handled in [section]/page.tsx as 'posts' section. */}
+						</div>
 					) : (
 						<LoadingState message="Preparing your dashboard..." />
 					)}

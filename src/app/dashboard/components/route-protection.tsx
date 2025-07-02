@@ -46,7 +46,7 @@ export default function RouteProtection({
 	// Show loading while checking auth
 	if (status === "loading") {
 		return (
-			<div className="flex justify-center items-center h-[calc(100vh-200px)]">
+			<div className="fixed inset-0 flex items-center justify-center z-50 bg-white/60">
 				<div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
 			</div>
 		);
@@ -55,47 +55,6 @@ export default function RouteProtection({
 	// If we're authenticated and have correct role, or no role is required
 	if (isAuthorized) {
 		return <>{children}</>;
-	}
-
-	// Show debugging information for authorization issues
-	if (status === "authenticated" && requiredRole && session?.user?.role) {
-		return (
-			<div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg shadow-sm">
-				<h2 className="text-xl font-semibold text-yellow-700 mb-3">
-					Authorization Debugging
-				</h2>
-				<div className="space-y-2 text-sm">
-					<p>
-						<strong>Required Role:</strong> &quot;{requiredRole}&quot;
-						(lowercase: &quot;
-						{requiredRole.toLowerCase()}&quot;)
-					</p>
-					<p>
-						<strong>Your Role:</strong> &quot;{session.user.role}&quot;
-						(lowercase: &quot;
-						{session.user.role.toLowerCase()}&quot;)
-					</p>
-					<p>
-						<strong>Case-insensitive Match:</strong>{" "}
-						{session.user.role.toLowerCase() === requiredRole.toLowerCase()
-							? "Yes ✅"
-							: "No ❌"}
-					</p>
-					<p>
-						<strong>Exact Match:</strong>{" "}
-						{session.user.role === requiredRole ? "Yes ✅" : "No ❌"}
-					</p>
-					<p className="mt-4">
-						<button
-							onClick={() => window.location.reload()}
-							className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-						>
-							Try Again
-						</button>
-					</p>
-				</div>
-			</div>
-		);
 	}
 
 	// This shouldn't render as we redirect in the useEffect

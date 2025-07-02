@@ -14,7 +14,7 @@ export default function UnauthorizedPage() {
 				restricted to users with specific roles.
 			</p>
 			<div className="flex gap-4">
-				<Button onClick={() => router.push("/dashboard")}>
+				<Button onClick={() => router.push("/admin")}>
 					Go to Dashboard
 				</Button>
 				<Button variant="outline" onClick={() => router.push("/")}>

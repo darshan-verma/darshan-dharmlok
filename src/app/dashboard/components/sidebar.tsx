@@ -53,8 +53,7 @@ type UserType =
 // Define menu items for each userType
 const sharedMenuItems: MenuItem[] = [
 	{ label: "Go Live", href: "/dashboard/kathavachak/go-live", icon: Cast },
-	// Changed Posts href to main kathavachak page
-	{ label: "Posts", href: "/dashboard/kathavachak", icon: BookOpen },
+	{ label: "Posts", href: "/dashboard/kathavachak/posts", icon: BookOpen },
 	{
 		label: "Biography",
 		href: "/dashboard/kathavachak/biography",
