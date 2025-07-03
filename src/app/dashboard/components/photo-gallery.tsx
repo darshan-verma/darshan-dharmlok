@@ -14,12 +14,18 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 
+interface Photo {
+	url: string;
+	title?: string;
+	description?: string;
+}
+
 interface UserProfile {
 	id: string;
 	name: string;
 	category?: string;
 	profileImageUrl?: string;
-	images?: string[];
+	images?: (string | Photo)[];
 }
 
 interface PhotoGalleryProps {
@@ -31,12 +37,11 @@ export default function PhotoGallery({
 	userId,
 	editable = true,
 }: PhotoGalleryProps) {
-	// Removed unused 'user' state
-	const [photos, setPhotos] = useState<string[]>([]);
+	const [photos, setPhotos] = useState<Photo[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [isUploading, setIsUploading] = useState(false);
-	const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+	const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
 
 	// Fetch user data including images
@@ -54,16 +59,48 @@ export default function PhotoGallery({
 			.then((data: UserProfile) => {
 				// Ensure we handle both array and single string cases
 				const imagesData = data.images || [];
-				setPhotos(Array.isArray(imagesData) ? imagesData : [imagesData]);
+
+				// Convert all images to Photo objects
+				const photoObjects = Array.isArray(imagesData)
+					? imagesData.map((img) => {
+							if (typeof img === "string") {
+								// Handle legacy string URLs
+								return { url: img };
+							} else if (img && typeof img === "object") {
+								// Already a Photo object from JSON[]
+								return img as Photo;
+							}
+							return { url: String(img) };
+					  })
+					: [{ url: String(imagesData) }];
+
+				setPhotos(photoObjects);
 			})
 			.catch((e: Error) => setError(e.message))
 			.finally(() => setLoading(false));
 	}, [userId]);
 
-	// Handle file upload
-	const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+	// Add a state for the photo details form
+	const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+	const [photoTitle, setPhotoTitle] = useState("");
+	const [photoDescription, setPhotoDescription] = useState("");
+	const [showDetailsForm, setShowDetailsForm] = useState(false);
+
+	// Handle file selection
+	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const files = e.target.files;
 		if (!files || files.length === 0) {
+			return;
+		}
+
+		// Store the file for later upload after adding details
+		setUploadedFile(files[0]);
+		setShowDetailsForm(true);
+	};
+
+	// Handle form submission and file upload
+	const handleUploadWithDetails = async () => {
+		if (!uploadedFile) {
 			return;
 		}
 
@@ -71,62 +108,65 @@ export default function PhotoGallery({
 		const loadingToast = toast.loading("Uploading image...");
 
 		try {
-			// Process each file
-			for (let i = 0; i < files.length; i++) {
-				const file = files[i];
+			// Validate file type
+			const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+			if (!validTypes.includes(uploadedFile.type)) {
+				toast.error("Please select a valid image file (JPEG, PNG, or WebP)");
+				return;
+			}
 
-				// Validate file type
-				const validTypes = [
-					"image/jpeg",
-					"image/jpg",
-					"image/png",
-					"image/webp",
-				];
-				if (!validTypes.includes(file.type)) {
-					toast.error("Please select a valid image file (JPEG, PNG, or WebP)");
-					continue;
+			// Validate file size (5MB limit)
+			const maxSize = 5 * 1024 * 1024;
+			if (uploadedFile.size > maxSize) {
+				toast.error("Image size must be less than 5MB");
+				return;
+			}
+
+			const formData = new FormData();
+			formData.append("file", uploadedFile);
+			formData.append("userId", userId);
+
+			try {
+				const response = await fetch("/api/upload/profile-image", {
+					method: "POST",
+					body: formData,
+				});
+
+				if (!response.ok) {
+					const errorText = await response.text();
+					throw new Error(`Failed to upload image: ${errorText}`);
 				}
 
-				// Validate file size (5MB limit)
-				const maxSize = 5 * 1024 * 1024;
-				if (file.size > maxSize) {
-					toast.error("Image size must be less than 5MB");
-					continue;
-				}
+				const data = await response.json();
 
-				const formData = new FormData();
-				formData.append("file", file);
-				formData.append("userId", userId);
+				// Create a new photo object with URL, title, and description
+				const newPhoto: Photo = {
+					url: data.imageUrl,
+					title: photoTitle.trim() || undefined,
+					description: photoDescription.trim() || undefined,
+				};
 
-				try {
-					const response = await fetch("/api/upload/profile-image", {
-						method: "POST",
-						body: formData,
-					});
+				// Add the new photo to the photos array
+				setPhotos((prev) => [...prev, newPhoto]);
 
-					if (!response.ok) {
-						const errorText = await response.text();
-						throw new Error(`Failed to upload image: ${errorText}`);
-					}
+				// Update the user record to persist the image with metadata
+				await fetch(`/api/users/${userId}`, {
+					method: "PUT",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						newImages: [newPhoto],
+					}),
+				});
 
-					const data = await response.json();
-
-					// Add the new image URL to the photos array
-					setPhotos((prev) => [...prev, data.imageUrl]);
-
-					// Update the user record to persist the image
-					await fetch(`/api/users/${userId}`, {
-						method: "PUT",
-						headers: {
-							"Content-Type": "application/json",
-						},
-						body: JSON.stringify({
-							newImages: [data.imageUrl],
-						}),
-					});
-				} catch (err) {
-					throw err;
-				}
+				// Reset form
+				setPhotoTitle("");
+				setPhotoDescription("");
+				setUploadedFile(null);
+				setShowDetailsForm(false);
+			} catch (err) {
+				throw err;
 			}
 
 			toast.dismiss(loadingToast);
@@ -138,13 +178,11 @@ export default function PhotoGallery({
 			);
 		} finally {
 			setIsUploading(false);
-			// Reset the file input to allow uploading the same file again
-			e.target.value = "";
 		}
 	};
 
 	// Handle image deletion
-	const handleDeletePhoto = async (photoUrl: string) => {
+	const handleDeletePhoto = async (photo: Photo) => {
 		if (!confirm("Are you sure you want to delete this photo?")) return;
 
 		setIsDeleting(true);
@@ -158,7 +196,7 @@ export default function PhotoGallery({
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
-					deletedImages: [photoUrl],
+					deletedImages: [photo],
 				}),
 			});
 
@@ -167,10 +205,10 @@ export default function PhotoGallery({
 			}
 
 			// Remove the deleted image from the UI
-			setPhotos((prev) => prev.filter((url) => url !== photoUrl));
+			setPhotos((prev) => prev.filter((p) => p.url !== photo.url));
 
 			// Close the dialog if open
-			if (selectedPhoto === photoUrl) {
+			if (selectedPhoto && selectedPhoto.url === photo.url) {
 				setSelectedPhoto(null);
 			}
 
@@ -213,14 +251,13 @@ export default function PhotoGallery({
 								<input
 									type="file"
 									accept="image/*"
-									multiple
 									className="hidden"
-									onChange={handleFileUpload}
+									onChange={handleFileSelect}
 									disabled={isUploading}
 								/>
 								<Button
 									type="button"
-									disabled={isUploading}
+									disabled={isUploading || showDetailsForm}
 									onClick={() => {
 										// Trigger file input click programmatically
 										const fileInput = document.querySelector(
@@ -237,33 +274,98 @@ export default function PhotoGallery({
 					)}
 				</div>
 
+				{/* Photo Details Form */}
+				{showDetailsForm && uploadedFile && (
+					<div className="bg-muted p-4 rounded-md mb-6">
+						<h3 className="text-lg font-medium mb-3">Add Photo Details</h3>
+						<div className="space-y-4">
+							<div>
+								<label
+									htmlFor="photoTitle"
+									className="block text-sm font-medium mb-1"
+								>
+									Title (optional)
+								</label>
+								<input
+									id="photoTitle"
+									type="text"
+									value={photoTitle}
+									onChange={(e) => setPhotoTitle(e.target.value)}
+									className="w-full p-2 border rounded-md"
+									placeholder="Give your photo a title"
+								/>
+							</div>
+							<div>
+								<label
+									htmlFor="photoDescription"
+									className="block text-sm font-medium mb-1"
+								>
+									Description (optional)
+								</label>
+								<textarea
+									id="photoDescription"
+									value={photoDescription}
+									onChange={(e) => setPhotoDescription(e.target.value)}
+									className="w-full p-2 border rounded-md"
+									placeholder="Add a description for your photo"
+									rows={3}
+								/>
+							</div>
+							<div className="flex justify-end space-x-2">
+								<Button
+									variant="outline"
+									onClick={() => {
+										setShowDetailsForm(false);
+										setUploadedFile(null);
+										setPhotoTitle("");
+										setPhotoDescription("");
+									}}
+								>
+									Cancel
+								</Button>
+								<Button
+									onClick={handleUploadWithDetails}
+									disabled={isUploading}
+								>
+									{isUploading ? "Uploading..." : "Upload Photo"}
+								</Button>
+							</div>
+						</div>
+					</div>
+				)}
+
 				{photos.length === 0 ? (
 					<div className="text-center p-8 text-muted-foreground">
 						<p>No photos yet. Add some to showcase your work.</p>
 					</div>
 				) : (
 					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-						{photos.map((photoUrl, index) => (
-							<div key={`${photoUrl}-${index}`} className="relative group">
+						{photos.map((photo, index) => (
+							<div key={`${photo.url}-${index}`} className="relative group">
 								<Dialog>
 									<DialogTrigger asChild>
 										<div
 											className="relative aspect-square rounded-md overflow-hidden cursor-pointer border"
-											onClick={() => setSelectedPhoto(photoUrl)}
+											onClick={() => setSelectedPhoto(photo)}
 										>
 											<Image
-												src={photoUrl}
-												alt={`Photo ${index + 1}`}
+												src={photo.url}
+												alt={photo.title || `Photo ${index + 1}`}
 												fill
 												sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
 												className="object-cover hover:scale-105 transition-transform duration-300"
 											/>
+											{photo.title && (
+												<div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white p-2 text-sm truncate">
+													{photo.title}
+												</div>
+											)}
 										</div>
 									</DialogTrigger>
 									<DialogContent className="max-w-3xl">
 										<DialogHeader>
 											<DialogTitle className="flex justify-between items-center">
-												<span>Photo {index + 1}</span>
+												<span>{photo.title || `Photo ${index + 1}`}</span>
 												<Button
 													variant="ghost"
 													size="icon"
@@ -275,13 +377,18 @@ export default function PhotoGallery({
 										</DialogHeader>
 										<div className="relative aspect-[4/3] w-full mt-2">
 											<Image
-												src={photoUrl}
-												alt={`Photo ${index + 1}`}
+												src={photo.url}
+												alt={photo.title || `Photo ${index + 1}`}
 												fill
 												sizes="80vw"
 												className="object-contain"
 											/>
 										</div>
+										{photo.description && (
+											<div className="mt-4 text-muted-foreground">
+												{photo.description}
+											</div>
+										)}
 									</DialogContent>
 								</Dialog>
 
@@ -292,7 +399,7 @@ export default function PhotoGallery({
 										className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
 										onClick={(e) => {
 											e.stopPropagation();
-											handleDeletePhoto(photoUrl);
+											handleDeletePhoto(photo);
 										}}
 										disabled={isDeleting}
 									>

@@ -208,27 +208,54 @@ export async function PUT(
 			);
 		}
 		// --- Handle images update ---
-		let updatedImages: string[] | undefined;
+		let updatedImages: any[] | undefined;
+
 		if (data.newImages || data.deletedImages) {
 			// Fetch current images from DB
 			const user = await prisma.user.findUnique({
 				where: { id },
 				select: { images: true },
 			});
-			let currentImages: string[] = Array.isArray(user?.images)
-				? user.images
-				: [];
+
+			let currentImages: any[] = Array.isArray(user?.images) ? user.images : [];
 
 			// Add new images
 			if (Array.isArray(data.newImages)) {
-				currentImages = [...currentImages, ...data.newImages];
+				// Process new images as JSON objects
+				const newImageObjects = data.newImages
+					.map((img: any) => {
+						if (typeof img === "string") {
+							// Convert simple string URLs to objects
+							return { url: img };
+						} else if (img && typeof img === "object" && "url" in img) {
+							// Return the image object directly
+							return {
+								url: img.url,
+								title: img.title || undefined,
+								description: img.description || undefined,
+							};
+						}
+						return null;
+					})
+					.filter(Boolean);
+
+				currentImages = [...currentImages, ...newImageObjects];
 			}
+
 			// Remove deleted images
 			if (Array.isArray(data.deletedImages)) {
-				currentImages = currentImages.filter(
-					(img) => !data.deletedImages.includes(img)
-				);
+				currentImages = currentImages.filter((img: any) => {
+					// Get the URL of the current image
+					const imgUrl = typeof img === "string" ? img : img.url;
+
+					// Check if this URL is in the deletedImages array
+					return !data.deletedImages.some((delImg: any) => {
+						const delImgUrl = typeof delImg === "string" ? delImg : delImg.url;
+						return delImgUrl === imgUrl;
+					});
+				});
 			}
+
 			updatedImages = currentImages;
 		}
 

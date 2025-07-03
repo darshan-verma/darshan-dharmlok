@@ -18,6 +18,19 @@ import KathavachakPostsTab from "@/app/admin/components/kathavachak/KathavachakP
 import KathavachakPreferencesTab from "@/app/admin/components/kathavachak/KathavachakPreferencesTab";
 import KathavachakActivityTab from "@/app/admin/components/kathavachak/KathavachakActivityTab";
 
+interface ImageObject {
+	url: string;
+	title?: string;
+	description?: string;
+}
+
+interface VideoObject {
+	url: string;
+	title?: string;
+	description?: string;
+	id?: string;
+}
+
 export default function KathavachakDetailPage() {
 	const params = useParams();
 	const router = useRouter();
@@ -39,15 +52,17 @@ export default function KathavachakDetailPage() {
 	// --- Posts Tab: Images & Videos State ---
 	const [showImageUpload, setShowImageUpload] = useState(false);
 	const [showVideoUpload, setShowVideoUpload] = useState(false);
-	const [postImages, setPostImages] = useState<string[]>([]);
-	const [postVideos, setPostVideos] = useState<string[]>([]);
+	const [postImages, setPostImages] = useState<ImageObject[]>([]);
+	const [postVideos, setPostVideos] = useState<VideoObject[]>([]);
 	const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
 	const [isUploadingPostVideo, setIsUploadingPostVideo] = useState(false);
 	const [isSavingPosts, setIsSavingPosts] = useState(false);
 
-	const [existingImages, setExistingImages] = useState<string[]>([]);
-	const [newImages, setNewImages] = useState<string[]>([]);
+	const [existingImages, setExistingImages] = useState<ImageObject[]>([]);
+	const [newImages, setNewImages] = useState<ImageObject[]>([]);
 	const [deletedImages, setDeletedImages] = useState<string[]>([]);
+	const [existingVideos, setExistingVideos] = useState<VideoObject[]>([]);
+	const [newVideos, setNewVideos] = useState<VideoObject[]>([]);
 	const [videosToDelete, setVideosToDelete] = useState<string[]>([]);
 
 	// Reset videos to delete when edit mode changes
@@ -67,30 +82,47 @@ export default function KathavachakDetailPage() {
 				const res = await fetch(`/api/users/${kathavachakId}`);
 				if (res.ok) {
 					const data = await res.json();
-					setExistingImages(
-						Array.isArray(data.images)
-							? data.images
-							: data.images
-							? [data.images]
-							: []
-					);
-					setPostImages(
-						Array.isArray(data.images)
-							? data.images
-							: data.images
-							? [data.images]
-							: []
-					);
+
+					// Handle images from the user data
+					let processedImages: ImageObject[] = [];
+
+					if (Array.isArray(data.images)) {
+						processedImages = data.images.map((img: string | ImageObject) => {
+							// Convert string images to ImageObject format
+							if (typeof img === "string") {
+								return { url: img };
+							}
+							return img;
+						});
+					} else if (data.images) {
+						// Single image case
+						if (typeof data.images === "string") {
+							processedImages = [{ url: data.images }];
+						} else {
+							processedImages = [data.images];
+						}
+					}
+
+					setExistingImages(processedImages);
+					setPostImages(processedImages);
 				}
+
 				// Fetch videos from the Video table
 				const videoRes = await fetch(`/api/videos?userId=${kathavachakId}`);
 				if (videoRes.ok) {
 					const videoData = await videoRes.json();
-					setPostVideos(
-						Array.isArray(videoData.videos)
-							? videoData.videos.map((v: { videoUrl: string }) => v.videoUrl)
-							: []
-					);
+					// Convert Video records to VideoObject format
+					const processedVideos: VideoObject[] = Array.isArray(videoData.videos)
+						? videoData.videos.map((v: any) => ({
+								url: v.videoUrl,
+								title: v.title,
+								description: v.description,
+								id: v.id,
+						  }))
+						: [];
+
+					setExistingVideos(processedVideos);
+					setPostVideos(processedVideos);
 				}
 			} catch {}
 		};
@@ -412,7 +444,7 @@ export default function KathavachakDetailPage() {
 		const files = event.target.files;
 		if (!files || files.length === 0) return;
 		setIsUploadingPostImage(true);
-		const uploaded: string[] = [];
+		const uploaded: ImageObject[] = [];
 		try {
 			for (let i = 0; i < files.length; i++) {
 				const file = files[i];
@@ -425,7 +457,7 @@ export default function KathavachakDetailPage() {
 				});
 				if (!response.ok) throw new Error("Failed to upload image");
 				const { imageUrl } = await response.json();
-				uploaded.push(imageUrl);
+				uploaded.push({ url: imageUrl });
 			}
 			setNewImages((prev) => [...prev, ...uploaded]);
 			setPostImages((prev) => [...prev, ...uploaded]);
@@ -437,15 +469,48 @@ export default function KathavachakDetailPage() {
 		}
 	};
 
-	const handleRemovePostImage = (url: string) => {
-		if (existingImages.includes(url)) {
-			setDeletedImages((prev) => [...prev, url]);
-			setExistingImages((prev) => prev.filter((img) => img !== url));
+	const handleRemovePostImage = (img: ImageObject) => {
+		const imgUrl = typeof img === "string" ? img : img.url;
+
+		// Remove from existing images
+		if (
+			existingImages.some((existImg) =>
+				typeof existImg === "string"
+					? existImg === imgUrl
+					: existImg.url === imgUrl
+			)
+		) {
+			setDeletedImages((prev) => [...prev, imgUrl]);
+			setExistingImages((prev) =>
+				prev.filter((existImg) =>
+					typeof existImg === "string"
+						? existImg !== imgUrl
+						: existImg.url !== imgUrl
+				)
+			);
 		}
-		if (newImages.includes(url)) {
-			setNewImages((prev) => prev.filter((img) => img !== url));
+
+		// Remove from new images
+		if (
+			newImages.some((newImg) =>
+				typeof newImg === "string" ? newImg === imgUrl : newImg.url === imgUrl
+			)
+		) {
+			setNewImages((prev) =>
+				prev.filter((newImg) =>
+					typeof newImg === "string" ? newImg !== imgUrl : newImg.url !== imgUrl
+				)
+			);
 		}
-		setPostImages((prev) => prev.filter((img) => img !== url));
+
+		// Remove from post images (UI)
+		setPostImages((prev) =>
+			prev.filter((postImg) =>
+				typeof postImg === "string"
+					? postImg !== imgUrl
+					: postImg.url !== imgUrl
+			)
+		);
 	};
 
 	// --- Video Upload Handler ---
@@ -455,7 +520,7 @@ export default function KathavachakDetailPage() {
 		const files = event.target.files;
 		if (!files || files.length === 0) return;
 		setIsUploadingPostVideo(true);
-		const uploaded: string[] = [];
+		const uploaded: VideoObject[] = [];
 		try {
 			for (let i = 0; i < files.length; i++) {
 				const file = files[i];
@@ -468,9 +533,17 @@ export default function KathavachakDetailPage() {
 					body: formData,
 				});
 				if (!response.ok) throw new Error("Failed to upload video");
-				const { videoUrl } = await response.json();
-				uploaded.push(videoUrl);
+				const { videoUrl, video } = await response.json();
+				// Create a VideoObject from the response
+				const videoObj: VideoObject = {
+					url: videoUrl,
+					title: file.name,
+					description: "",
+					id: video?.id,
+				};
+				uploaded.push(videoObj);
 			}
+			setNewVideos((prev) => [...prev, ...uploaded]);
 			setPostVideos((prev) => [...prev, ...uploaded]);
 			toast.success("Video(s) uploaded successfully!");
 		} catch {
@@ -480,11 +553,27 @@ export default function KathavachakDetailPage() {
 		}
 	};
 
-	const handleRemovePostVideo = (url: string) => {
+	const handleRemovePostVideo = (video: VideoObject) => {
+		const videoUrl = typeof video === "string" ? video : video.url;
+		const videoId = typeof video === "string" ? undefined : video.id;
+
 		// Add to videos to delete list so we can delete from database on save
-		setVideosToDelete((prev) => [...prev, url]);
+		if (videoId || videoUrl) {
+			setVideosToDelete((prev) => [...prev, videoId || videoUrl]);
+		}
+
 		// Remove from UI state
-		setPostVideos((prev) => prev.filter((vid) => vid !== url));
+		setPostVideos((prev) =>
+			prev.filter((vid) =>
+				typeof vid === "string" ? vid !== videoUrl : vid.url !== videoUrl
+			)
+		);
+
+		// Remove from existing videos
+		setExistingVideos((prev) => prev.filter((vid) => vid.url !== videoUrl));
+
+		// Remove from new videos
+		setNewVideos((prev) => prev.filter((vid) => vid.url !== videoUrl));
 	};
 
 	const formatDate = (dateString: string | Date) => {
@@ -560,11 +649,38 @@ export default function KathavachakDetailPage() {
 				throw new Error(errorData.error || "Failed to save posts");
 			}
 
+			// Update video titles and descriptions
+			const videosToUpdate = postVideos.filter(
+				(v) => typeof v !== "string" && v.id
+			);
+			for (const video of videosToUpdate) {
+				if (typeof video !== "string" && video.id) {
+					try {
+						const videoResponse = await fetch(`/api/videos/${video.id}`, {
+							method: "PATCH",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								title: video.title,
+								description: video.description,
+							}),
+						});
+
+						if (!videoResponse.ok) {
+							console.error(`Failed to update video ${video.id}`);
+						} else {
+							console.log(`Successfully updated video ${video.id}`);
+						}
+					} catch (error) {
+						console.error(`Error updating video ${video.id}:`, error);
+					}
+				}
+			}
+
 			// Delete videos that were removed from UI
 			if (videosToDelete.length > 0) {
 				console.log("Videos to delete:", videosToDelete);
 
-				// Find videos by URLs
+				// Find videos by URLs or IDs
 				const videosRes = await fetch(`/api/videos?userId=${kathavachakId}`);
 				if (videosRes.ok) {
 					const videoData = await videosRes.json();
@@ -579,9 +695,15 @@ export default function KathavachakDetailPage() {
 
 					console.log("All videos from DB:", videos);
 
-					// Find video IDs that match the URLs we want to delete
+					// Find video IDs that match the URLs or IDs we want to delete
 					const videoIdsToDelete = videos
-						.filter((v: any) => videosToDelete.includes(v.videoUrl))
+						.filter((v: any) => {
+							// Check if the URL is in our delete list
+							if (videosToDelete.includes(v.videoUrl)) return true;
+							// Check if the ID is in our delete list
+							if (videosToDelete.includes(v.id)) return true;
+							return false;
+						})
 						.map((v: any) => v.id);
 
 					console.log("Video IDs to delete:", videoIdsToDelete);
@@ -589,7 +711,7 @@ export default function KathavachakDetailPage() {
 					// If no matching videos found, log a warning
 					if (videoIdsToDelete.length === 0 && videosToDelete.length > 0) {
 						console.warn(
-							"No matching videos found in database for URLs:",
+							"No matching videos found in database for URLs or IDs:",
 							videosToDelete
 						);
 					}
@@ -676,6 +798,179 @@ export default function KathavachakDetailPage() {
 			setIsSavingBiography(false);
 		}
 	}
+
+	// New handlers for image title and description changes
+	const handleImageTitleChange = (img: ImageObject, title: string) => {
+		// Update the image in postImages
+		setPostImages((prev) =>
+			prev.map((image) => {
+				if (typeof image === "string") return image;
+				if (image.url === img.url) {
+					return { ...image, title };
+				}
+				return image;
+			})
+		);
+
+		// Also update in existingImages or newImages as appropriate
+		if (
+			existingImages.some(
+				(existImg) => typeof existImg !== "string" && existImg.url === img.url
+			)
+		) {
+			setExistingImages((prev) =>
+				prev.map((image) => {
+					if (typeof image === "string") return image;
+					if (image.url === img.url) {
+						return { ...image, title };
+					}
+					return image;
+				})
+			);
+		}
+
+		if (
+			newImages.some(
+				(newImg) => typeof newImg !== "string" && newImg.url === img.url
+			)
+		) {
+			setNewImages((prev) =>
+				prev.map((image) => {
+					if (typeof image === "string") return image;
+					if (image.url === img.url) {
+						return { ...image, title };
+					}
+					return image;
+				})
+			);
+		}
+	};
+
+	const handleImageDescriptionChange = (
+		img: ImageObject,
+		description: string
+	) => {
+		// Update the image in postImages
+		setPostImages((prev) =>
+			prev.map((image) => {
+				if (typeof image === "string") return image;
+				if (image.url === img.url) {
+					return { ...image, description };
+				}
+				return image;
+			})
+		);
+
+		// Also update in existingImages or newImages as appropriate
+		if (
+			existingImages.some(
+				(existImg) => typeof existImg !== "string" && existImg.url === img.url
+			)
+		) {
+			setExistingImages((prev) =>
+				prev.map((image) => {
+					if (typeof image === "string") return image;
+					if (image.url === img.url) {
+						return { ...image, description };
+					}
+					return image;
+				})
+			);
+		}
+
+		if (
+			newImages.some(
+				(newImg) => typeof newImg !== "string" && newImg.url === img.url
+			)
+		) {
+			setNewImages((prev) =>
+				prev.map((image) => {
+					if (typeof image === "string") return image;
+					if (image.url === img.url) {
+						return { ...image, description };
+					}
+					return image;
+				})
+			);
+		}
+	};
+
+	// New handlers for video title and description changes
+	const handleVideoTitleChange = (vid: VideoObject, title: string) => {
+		// Update the video in postVideos
+		setPostVideos((prev) =>
+			prev.map((video) => {
+				if (typeof video === "string") return video;
+				if (video.url === vid.url) {
+					return { ...video, title };
+				}
+				return video;
+			})
+		);
+
+		// Also update in existingVideos or newVideos as appropriate
+		if (existingVideos.some((existVid) => existVid.url === vid.url)) {
+			setExistingVideos((prev) =>
+				prev.map((video) => {
+					if (video.url === vid.url) {
+						return { ...video, title };
+					}
+					return video;
+				})
+			);
+		}
+
+		if (newVideos.some((newVid) => newVid.url === vid.url)) {
+			setNewVideos((prev) =>
+				prev.map((video) => {
+					if (video.url === vid.url) {
+						return { ...video, title };
+					}
+					return video;
+				})
+			);
+		}
+	};
+
+	const handleVideoDescriptionChange = (
+		vid: VideoObject,
+		description: string
+	) => {
+		// Update the video in postVideos
+		setPostVideos((prev) =>
+			prev.map((video) => {
+				if (typeof video === "string") return video;
+				if (video.url === vid.url) {
+					return { ...video, description };
+				}
+				return video;
+			})
+		);
+
+		// Also update in existingVideos or newVideos as appropriate
+		if (existingVideos.some((existVid) => existVid.url === vid.url)) {
+			setExistingVideos((prev) =>
+				prev.map((video) => {
+					if (video.url === vid.url) {
+						return { ...video, description };
+					}
+					return video;
+				})
+			);
+		}
+
+		if (newVideos.some((newVid) => newVid.url === vid.url)) {
+			setNewVideos((prev) =>
+				prev.map((video) => {
+					if (video.url === vid.url) {
+						return { ...video, description };
+					}
+					return video;
+				})
+			);
+		}
+	};
+
 	return (
 		<div className="p-6 space-y-6">
 			<div className="flex items-center gap-4">
@@ -768,6 +1063,10 @@ export default function KathavachakDetailPage() {
 									setShowImageUpload,
 									showVideoUpload,
 									setShowVideoUpload,
+									handleImageTitleChange,
+									handleImageDescriptionChange,
+									handleVideoTitleChange,
+									handleVideoDescriptionChange,
 								}}
 							/>
 						</TabsContent>

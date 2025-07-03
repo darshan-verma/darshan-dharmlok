@@ -35,7 +35,7 @@ model User {
     createdAt DateTime @default(now())
     addresses Address[]
     serviceOfferings ServiceOffering[] @relation("UserToServiceOffering")
-    images String[]
+    images Json[] // NEW: Store structured image data
     videos Video[]
     posts Post[]
 }
