@@ -208,25 +208,29 @@ export async function PUT(
 			);
 		}
 		// --- Handle images update ---
-let updatedImages: string[] | undefined;
-if (data.newImages || data.deletedImages) {
-    // Fetch current images from DB
-    const user = await prisma.user.findUnique({
-        where: { id },
-        select: { images: true },
-    });
-    let currentImages: string[] = Array.isArray(user?.images) ? user.images : [];
+		let updatedImages: string[] | undefined;
+		if (data.newImages || data.deletedImages) {
+			// Fetch current images from DB
+			const user = await prisma.user.findUnique({
+				where: { id },
+				select: { images: true },
+			});
+			let currentImages: string[] = Array.isArray(user?.images)
+				? user.images
+				: [];
 
-    // Add new images
-    if (Array.isArray(data.newImages)) {
-        currentImages = [...currentImages, ...data.newImages];
-    }
-    // Remove deleted images
-    if (Array.isArray(data.deletedImages)) {
-        currentImages = currentImages.filter((img) => !data.deletedImages.includes(img));
-    }
-    updatedImages = currentImages;
-}
+			// Add new images
+			if (Array.isArray(data.newImages)) {
+				currentImages = [...currentImages, ...data.newImages];
+			}
+			// Remove deleted images
+			if (Array.isArray(data.deletedImages)) {
+				currentImages = currentImages.filter(
+					(img) => !data.deletedImages.includes(img)
+				);
+			}
+			updatedImages = currentImages;
+		}
 
 		// Validate required fields if they are being updated
 		if (
@@ -551,6 +555,78 @@ if (data.newImages || data.deletedImages) {
 			{
 				error: "Failed to update user",
 				details: error instanceof Error ? error.message : "Unknown error",
+			},
+			{ status: 500 }
+		);
+	}
+}
+
+/**
+ * PATCH /api/users/[id]
+ * Partially updates user fields (e.g., bio)
+ *
+ * @param request - Request object containing fields to update
+ * @param context - Contains route parameters including user ID
+ * @returns JSON response with updated user data or error message
+ */
+export async function PATCH(
+	request: Request,
+	context: { params: Promise<{ id: string }> }
+) {
+	try {
+		const { id } = await context.params;
+
+		// Validate userId format for MongoDB ObjectId (24 character hex string)
+		if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+			return NextResponse.json(
+				{ error: "Invalid user ID format" },
+				{ status: 400 }
+			);
+		}
+
+		if (!prisma) {
+			return NextResponse.json(
+				{ error: "Database connection error" },
+				{ status: 500 }
+			);
+		}
+
+		let data;
+		try {
+			data = await request.json();
+		} catch (parseError) {
+			return NextResponse.json(
+				{ error: "Invalid request body" },
+				{ status: 400 }
+			);
+		}
+
+		// Only allow updating the bio field for PATCH
+		if (typeof data.bio !== "string") {
+			return NextResponse.json(
+				{ error: "Missing or invalid 'bio' field" },
+				{ status: 400 }
+			);
+		}
+
+		const updatedUser = await prisma.user.update({
+			where: { id },
+			data: { bio: data.bio },
+			select: {
+				id: true,
+				name: true,
+				category: true,
+				profileImageUrl: true,
+				bio: true,
+			},
+		});
+
+		return NextResponse.json(updatedUser);
+	} catch (error) {
+		return NextResponse.json(
+			{
+				error: "Failed to update user bio",
+				details: error instanceof Error ? error.message : error,
 			},
 			{ status: 500 }
 		);

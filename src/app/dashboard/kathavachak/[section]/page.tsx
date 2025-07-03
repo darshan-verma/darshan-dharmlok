@@ -6,7 +6,9 @@ import Biography from "../../components/biography";
 import Posts from "../../components/posts";
 import RouteProtection from "../../components/route-protection";
 import Sidebar from "../../components/sidebar";
+import MostLikedPosts from "../../components/most-liked-posts";
 import { Loader2 } from "lucide-react";
+import VideoGallery from "../../components/video-gallery";
 
 const LoadingState = ({ message }: { message: string }) => (
 	<div className="flex flex-col justify-center items-center h-[calc(100vh-200px)]">
@@ -47,6 +49,8 @@ export default function KathavachakSectionPage() {
 				profileImageUrl={session.user.image || "/placeholder-avatar.png"}
 			/>
 		);
+	} else if (section === "videos") {
+		content = <VideoGallery userId={session.user.id} editable={true} />;
 	} else {
 		content = (
 			<div className="text-center mt-8">
@@ -62,7 +66,12 @@ export default function KathavachakSectionPage() {
 					userType={session?.user?.role?.toLowerCase() || "kathavachak"}
 				/>
 				<main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-					{content}
+					<div className="grid grid-cols-1 lg:grid-cols-3 gap-16 items-start">
+						<div className="lg:col-span-2">{content}</div>
+						<div className="lg:col-span-1 space-y-6 lg:sticky top-6">
+							<MostLikedPosts />
+						</div>
+					</div>
 				</main>
 			</div>
 		</RouteProtection>

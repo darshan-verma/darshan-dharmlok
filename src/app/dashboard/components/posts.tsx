@@ -14,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { showToast } from "@/lib/toast";
-import MostLikedPosts from "./most-liked-posts";
 import {
 	PlusCircle,
 	X,
@@ -772,46 +771,40 @@ export default function Posts({
 
 	return (
 		<>
-			<div className="grid grid-cols-1 lg:grid-cols-3 gap-16 items-start">
-				<div className="lg:col-span-2 space-y-6">
-					<CreatePostForm
-						userId={userId}
-						userName={userName}
-						profileImageUrl={profileImageUrl}
-						onPostCreated={handlePostCreated}
-					/>
+			<div className="space-y-10">
+				<CreatePostForm
+					userId={userId}
+					userName={userName}
+					profileImageUrl={profileImageUrl}
+					onPostCreated={handlePostCreated}
+				/>
 
-					{isLoading ? (
-						<Card className="flex flex-col items-center justify-center p-12">
-							<Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
-							<p className="mt-4 text-muted-foreground">Loading posts...</p>
-						</Card>
-					) : posts.length > 0 ? (
-						<div className="space-y-6">
-							{posts.map((post) => (
-								<PostItem
-									key={post.id}
-									post={post}
-									onDelete={handlePostDeleted}
-									onEdit={handleEditClick}
-								/>
-							))}
-						</div>
-					) : (
-						<Card className="flex flex-col items-center justify-center p-12 border-dashed">
-							<CardHeader className="text-center">
-								<CardTitle>No Posts Yet</CardTitle>
-								<CardDescription>
-									Be the first to post! Your created posts will appear here.
-								</CardDescription>
-							</CardHeader>
-						</Card>
-					)}
-				</div>
-
-				<div className="lg:col-span-1 space-y-6 lg:sticky top-6">
-					<MostLikedPosts />
-				</div>
+				{isLoading ? (
+					<Card className="flex flex-col items-center justify-center p-12">
+						<Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
+						<p className="mt-4 text-muted-foreground">Loading posts...</p>
+					</Card>
+				) : posts.length > 0 ? (
+					<div className="space-y-10">
+						{posts.map((post) => (
+							<PostItem
+								key={post.id}
+								post={post}
+								onDelete={handlePostDeleted}
+								onEdit={handleEditClick}
+							/>
+						))}
+					</div>
+				) : (
+					<Card className="flex flex-col items-center justify-center p-12 border-dashed">
+						<CardHeader className="text-center">
+							<CardTitle>No Posts Yet</CardTitle>
+							<CardDescription>
+								Be the first to post! Your created posts will appear here.
+							</CardDescription>
+						</CardHeader>
+					</Card>
+				)}
 			</div>
 			<Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
 				<DialogContent className="sm:max-w-[425px]">
