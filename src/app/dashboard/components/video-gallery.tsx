@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 interface Video {
 	id: string;
 	title: string;
-	url: string;
+	videoUrl: string;
 	description?: string;
 }
 
@@ -62,18 +62,26 @@ export default function VideoGallery({
 		setLoading(true);
 		setError(null);
 
+		// First fetch the user profile to get basic user info
 		fetch(`/api/users/${userId}`)
 			.then((res) => {
-				if (!res.ok) {
-					throw new Error("Failed to fetch user data");
-				}
+				if (!res.ok) throw new Error("Failed to fetch user profile");
 				return res.json();
 			})
-			.then((data: UserProfile) => {
-				setUser(data);
+			.then((userData) => {
+				setUser(userData);
+
+				// Then fetch videos from the video API
+				return fetch(`/api/videos?userId=${userId}`);
+			})
+			.then((res) => {
+				if (!res.ok) throw new Error("Failed to fetch videos");
+				return res.json();
+			})
+			.then((data) => {
 				setVideos(data.videos || []);
 			})
-			.catch((e: Error) => setError(e.message))
+			.catch((e) => setError(e.message))
 			.finally(() => setLoading(false));
 	}, [userId]);
 
@@ -81,6 +89,7 @@ export default function VideoGallery({
 		if (!newVideo.title || !newVideo.file) return;
 		setIsSaving(true);
 		try {
+			// Upload the video file first
 			const formData = new FormData();
 			formData.append("file", newVideo.file);
 			formData.append("userId", userId);
@@ -89,20 +98,54 @@ export default function VideoGallery({
 				body: formData,
 			});
 			if (!uploadRes.ok) throw new Error("Failed to upload video file");
-			const { videoUrl } = await uploadRes.json();
+			const { videoUrl, video } = await uploadRes.json();
 
-			const res = await fetch(`/api/users/${userId}/videos`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					title: newVideo.title,
-					description: newVideo.description,
-					url: videoUrl,
-				}),
-			});
-			if (!res.ok) throw new Error("Failed to add video");
-			const addedVideo = await res.json();
-			setVideos((prev) => [addedVideo, ...prev]);
+			// If the video record was already created during upload, use it
+			if (video) {
+				// If needed, update the title and description
+				if (
+					video.title !== newVideo.title ||
+					video.description !== newVideo.description
+				) {
+					const updateRes = await fetch(`/api/videos/${video.id}`, {
+						method: "PATCH",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							title: newVideo.title,
+							description: newVideo.description,
+						}),
+					});
+					if (updateRes.ok) {
+						const updatedVideo = await updateRes.json();
+						setVideos((prev) => [updatedVideo, ...prev]);
+					} else {
+						// Still add the video even if update fails
+						setVideos((prev) => [video, ...prev]);
+					}
+				} else {
+					setVideos((prev) => [video, ...prev]);
+				}
+			} else {
+				// Create a new video record if not already created
+				const createRes = await fetch(`/api/videos`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						title: newVideo.title,
+						description: newVideo.description,
+						videoUrl,
+						userId,
+						status: "active",
+						category: "general",
+						type: "video",
+					}),
+				});
+				if (!createRes.ok) throw new Error("Failed to create video record");
+				const newVideoRecord = await createRes.json();
+				setVideos((prev) => [newVideoRecord, ...prev]);
+			}
+
+			// Reset form
 			setNewVideo({ title: "", description: "", file: null });
 			setIsAdding(false);
 		} catch (e) {
@@ -130,13 +173,14 @@ export default function VideoGallery({
 				videoUrl = data.videoUrl;
 			}
 
-			const res = await fetch(`/api/users/${userId}/videos/${editState.id}`, {
+			// Update the video record
+			const res = await fetch(`/api/videos/${editState.id}`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					title: editState.title,
 					description: editState.description,
-					...(videoUrl && { url: videoUrl }),
+					...(videoUrl && { videoUrl }), // Use videoUrl property name
 				}),
 			});
 			if (!res.ok) throw new Error("Failed to update video");
@@ -156,7 +200,7 @@ export default function VideoGallery({
 		// To prevent accidental deletion, you might want a confirmation modal here
 		setIsSaving(true);
 		try {
-			const res = await fetch(`/api/users/${userId}/videos/${id}`, {
+			const res = await fetch(`/api/videos/${id}`, {
 				method: "DELETE",
 			});
 			if (!res.ok) throw new Error("Failed to delete video");
@@ -331,7 +375,7 @@ export default function VideoGallery({
 									<>
 										<div className="aspect-video bg-black">
 											<video
-												src={video.url}
+												src={video.videoUrl}
 												controls
 												className="w-full h-full rounded-t-lg"
 												poster="/placeholder-video.png"

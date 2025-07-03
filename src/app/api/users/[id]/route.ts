@@ -472,9 +472,8 @@ export async function PUT(
 				updateData.profileImageUrl = data.profileImageUrl;
 			if (data.addresses !== undefined) updateData.addresses = data.addresses;
 
-			// Add this:
+			// Remove any update to videos relation in user update
 			if (data.images !== undefined) updateData.images = data.images;
-			if (data.videos !== undefined) updateData.videos = data.videos;
 			if (updatedImages !== undefined) updateData.images = updatedImages;
 
 			// Execute user update

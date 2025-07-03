@@ -35,6 +35,7 @@ export default function PanditjiDetailPage() {
 	const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
 	const [isUploadingPostVideo, setIsUploadingPostVideo] = useState(false);
 	const [isSavingPosts, setIsSavingPosts] = useState(false);
+	const [videosToDelete, setVideosToDelete] = useState<string[]>([]);
 
 	const [existingImages, setExistingImages] = useState<string[]>([]);
 	const [newImages, setNewImages] = useState<string[]>([]);
@@ -45,6 +46,7 @@ export default function PanditjiDetailPage() {
 		const fetchPosts = async () => {
 			if (!panditjiId) return;
 			try {
+				// Fetch user data for images
 				const res = await fetch(`/api/users/${panditjiId}`);
 				if (!res.ok) return;
 				const data = await res.json();
@@ -62,14 +64,20 @@ export default function PanditjiDetailPage() {
 						? [data.images]
 						: []
 				);
-				setPostVideos(
-					Array.isArray(data.videos)
-						? data.videos
-						: data.videos
-						? [data.videos]
-						: []
-				);
-			} catch {}
+
+				// Fetch videos from Video model
+				const videoRes = await fetch(`/api/videos?userId=${panditjiId}`);
+				if (videoRes.ok) {
+					const videoData = await videoRes.json();
+					setPostVideos(
+						Array.isArray(videoData.videos)
+							? videoData.videos.map((v: { videoUrl: string }) => v.videoUrl)
+							: []
+					);
+				}
+			} catch (error) {
+				console.error("Error fetching posts:", error);
+			}
 		};
 		fetchPosts();
 	}, [panditjiId]);
@@ -179,6 +187,20 @@ export default function PanditjiDetailPage() {
 			fetchPanditjiData();
 		}
 	}, [panditjiId, fetchPanditjiData]);
+
+	// Reset videosToDelete when edit mode changes
+	useEffect(() => {
+		if (!isEditing) {
+			setVideosToDelete([]);
+		}
+	}, [isEditing]);
+
+	// Effect to clean up videosToDelete when component unmounts
+	useEffect(() => {
+		return () => {
+			setVideosToDelete([]);
+		};
+	}, []);
 
 	const validateForm = (PanditjiData: Partial<Panditji>): boolean => {
 		const newErrors: FormErrors = {};
@@ -428,7 +450,8 @@ export default function PanditjiDetailPage() {
 				const formData = new FormData();
 				formData.append("file", file);
 				formData.append("userId", panditjiId);
-				const response = await fetch("/api/upload/panditji-video", {
+				// Use the correct video upload endpoint
+				const response = await fetch("/api/upload/video", {
 					method: "POST",
 					body: formData,
 				});
@@ -446,6 +469,10 @@ export default function PanditjiDetailPage() {
 	};
 
 	const handleRemovePostVideo = (url: string) => {
+		// Add to videos to delete list so we can delete from database on save
+		console.log("Marking video for deletion:", url);
+		setVideosToDelete((prev) => [...prev, url]);
+		// Remove from UI
 		setPostVideos((prev) => prev.filter((vid) => vid !== url));
 	};
 
@@ -460,25 +487,96 @@ export default function PanditjiDetailPage() {
 		setIsSavingPosts(true);
 		const loadingToast = toast.loading("Saving posts...");
 		try {
+			// First save image changes to the user model
 			const response = await fetch(`/api/users/${panditjiId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					newImages,
 					deletedImages,
-					videos: postVideos,
 				}),
 			});
+
 			if (!response.ok) {
 				const errorData = await response.json();
 				throw new Error(errorData.error || "Failed to save posts");
 			}
+
+			// Delete videos that were removed from UI
+			if (videosToDelete.length > 0) {
+				// Find videos by URLs
+				const videosRes = await fetch(`/api/videos?userId=${panditjiId}`);
+				if (videosRes.ok) {
+					const videoData = await videosRes.json();
+
+					// Make sure we have the expected structure
+					if (!videoData.videos || !Array.isArray(videoData.videos)) {
+						console.error("Unexpected video response format:", videoData);
+						throw new Error("Failed to get videos from server");
+					}
+
+					const { videos } = videoData;
+
+					// Debug log
+					console.log("Videos to delete:", videosToDelete);
+					console.log("All videos from DB:", videos);
+
+					// Find video IDs that match the URLs we want to delete
+					const videoIdsToDelete = videos
+						.filter((v: any) => videosToDelete.includes(v.videoUrl))
+						.map((v: any) => v.id);
+
+					console.log("Video IDs to delete:", videoIdsToDelete);
+
+					// If no matching videos found, log a warning
+					if (videoIdsToDelete.length === 0 && videosToDelete.length > 0) {
+						console.warn(
+							"No matching videos found in database for URLs:",
+							videosToDelete
+						);
+					}
+
+					// Delete each video by ID
+					const deleteResults = [];
+					for (const videoId of videoIdsToDelete) {
+						try {
+							const deleteResponse = await fetch(`/api/videos/${videoId}`, {
+								method: "DELETE",
+							});
+
+							if (!deleteResponse.ok) {
+								const errorText = await deleteResponse.text();
+								console.error(`Failed to delete video ${videoId}:`, errorText);
+								deleteResults.push({
+									id: videoId,
+									success: false,
+									error: errorText,
+								});
+							} else {
+								console.log(`Successfully deleted video ${videoId}`);
+								deleteResults.push({ id: videoId, success: true });
+							}
+						} catch (error) {
+							console.error(`Error deleting video ${videoId}:`, error);
+							deleteResults.push({
+								id: videoId,
+								success: false,
+								error: error instanceof Error ? error.message : String(error),
+							});
+						}
+					}
+
+					console.log("Video deletion results:", deleteResults);
+				}
+			}
+
 			toast.dismiss(loadingToast);
 			toast.success("Posts saved successfully!");
 			setIsEditing(false);
 			setIsSavingPosts(false);
 			setNewImages([]);
 			setDeletedImages([]);
+			setVideosToDelete([]);
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(
