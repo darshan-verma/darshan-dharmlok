@@ -299,6 +299,11 @@ export async function PUT(
 				userUpdateData.profileImageUrl = data.profileImageUrl ?? null;
 			}
 
+			// Include updated images if they were modified
+			if (updatedImages) {
+				userUpdateData.images = updatedImages;
+			}
+
 			console.log(
 				"Final update data:",
 				JSON.stringify(userUpdateData, null, 2)

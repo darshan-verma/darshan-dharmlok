@@ -9,6 +9,7 @@ import Sidebar from "../../components/sidebar";
 import MostLikedPosts from "../../components/most-liked-posts";
 import { Loader2 } from "lucide-react";
 import VideoGallery from "../../components/video-gallery";
+import PhotoGallery from "../../components/photo-gallery";
 
 const LoadingState = ({ message }: { message: string }) => (
 	<div className="flex flex-col justify-center items-center h-[calc(100vh-200px)]">
@@ -51,6 +52,8 @@ export default function KathavachakSectionPage() {
 		);
 	} else if (section === "videos") {
 		content = <VideoGallery userId={session.user.id} editable={true} />;
+	} else if (section === "photos") {
+		content = <PhotoGallery userId={session.user.id} editable={true} />;
 	} else {
 		content = (
 			<div className="text-center mt-8">
