@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Plus, Trash2, X } from "lucide-react";
+import { Loader2, Plus, Trash2,} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/lib/toast";
@@ -366,13 +366,6 @@ export default function PhotoGallery({
 										<DialogHeader>
 											<DialogTitle className="flex justify-between items-center">
 												<span>{photo.title || `Photo ${index + 1}`}</span>
-												<Button
-													variant="ghost"
-													size="icon"
-													onClick={() => setSelectedPhoto(null)}
-												>
-													<X className="h-4 w-4" />
-												</Button>
 											</DialogTitle>
 										</DialogHeader>
 										<div className="relative aspect-[4/3] w-full mt-2">
@@ -403,7 +396,7 @@ export default function PhotoGallery({
 										}}
 										disabled={isDeleting}
 									>
-										<Trash2 className="h-4 w-4" />
+										<Trash2 className="h-2 w-2" />
 									</Button>
 								)}
 							</div>

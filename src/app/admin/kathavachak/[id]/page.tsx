@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import { Kathavachak, FormErrors } from "../../components/kathavachak/types";
 import KathavachakProfileCard from "@/app/admin/components/kathavachak/KathavachakProfileCard";
 import KathavachakDetailsTab from "@/app/admin/components/kathavachak/KathavachakDetailsTab";
 import KathavachakBiographyTab from "@/app/admin/components/kathavachak/KathavachakBiographyTab";
-import KathavachakPostsTab from "@/app/admin/components/kathavachak/KathavachakPostsTab";
+import KathavachakPostsTab from "@/app/admin/components/kathavachak/KathavachakPostsTab.new";
 import KathavachakPreferencesTab from "@/app/admin/components/kathavachak/KathavachakPreferencesTab";
 import KathavachakActivityTab from "@/app/admin/components/kathavachak/KathavachakActivityTab";
 
@@ -52,12 +52,12 @@ export default function KathavachakDetailPage() {
 	// --- Posts Tab: Images & Videos State ---
 	const [showImageUpload, setShowImageUpload] = useState(false);
 	const [showVideoUpload, setShowVideoUpload] = useState(false);
-	const [postImages, setPostImages] = useState<ImageObject[]>([]);
-	const [postVideos, setPostVideos] = useState<VideoObject[]>([]);
 	const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
 	const [isUploadingPostVideo, setIsUploadingPostVideo] = useState(false);
 	const [isSavingPosts, setIsSavingPosts] = useState(false);
 
+	// Directly manage existing/new arrays and derive post arrays from them
+	// This prevents unnecessary state updates and re-renders
 	const [existingImages, setExistingImages] = useState<ImageObject[]>([]);
 	const [newImages, setNewImages] = useState<ImageObject[]>([]);
 	const [deletedImages, setDeletedImages] = useState<string[]>([]);
@@ -104,7 +104,6 @@ export default function KathavachakDetailPage() {
 					}
 
 					setExistingImages(processedImages);
-					setPostImages(processedImages);
 				}
 
 				// Fetch videos from the Video table
@@ -122,7 +121,6 @@ export default function KathavachakDetailPage() {
 						: [];
 
 					setExistingVideos(processedVideos);
-					setPostVideos(processedVideos);
 				}
 			} catch {}
 		};
@@ -437,12 +435,23 @@ export default function KathavachakDetailPage() {
 		toast.success("Profile image removed");
 	};
 
+	// Derived post images and videos with useMemo for stability
+	const postImages = useMemo(
+		() => [...existingImages, ...newImages],
+		[existingImages, newImages]
+	);
+
+	const postVideos = useMemo(
+		() => [...existingVideos, ...newVideos],
+		[existingVideos, newVideos]
+	);
+
 	// --- Image Upload Handler ---
 	const handlePostImageUpload = async (
 		event: React.ChangeEvent<HTMLInputElement>
-	) => {
+	): Promise<ImageObject[]> => {
 		const files = event.target.files;
-		if (!files || files.length === 0) return;
+		if (!files || files.length === 0) return [];
 		setIsUploadingPostImage(true);
 		const uploaded: ImageObject[] = [];
 		try {
@@ -457,13 +466,19 @@ export default function KathavachakDetailPage() {
 				});
 				if (!response.ok) throw new Error("Failed to upload image");
 				const { imageUrl } = await response.json();
-				uploaded.push({ url: imageUrl });
+				const newImage: ImageObject = {
+					url: imageUrl,
+					title: file.name.split(".")[0] || "",
+					description: "",
+				};
+				uploaded.push(newImage);
 			}
 			setNewImages((prev) => [...prev, ...uploaded]);
-			setPostImages((prev) => [...prev, ...uploaded]);
 			toast.success("Image(s) uploaded successfully!");
-		} catch {
+			return uploaded;
+		} catch (error) {
 			toast.error("Failed to upload image(s)");
+			return [];
 		} finally {
 			setIsUploadingPostImage(false);
 		}
@@ -502,15 +517,6 @@ export default function KathavachakDetailPage() {
 				)
 			);
 		}
-
-		// Remove from post images (UI)
-		setPostImages((prev) =>
-			prev.filter((postImg) =>
-				typeof postImg === "string"
-					? postImg !== imgUrl
-					: postImg.url !== imgUrl
-			)
-		);
 	};
 
 	// --- Video Upload Handler ---
@@ -527,24 +533,21 @@ export default function KathavachakDetailPage() {
 				const formData = new FormData();
 				formData.append("file", file);
 				formData.append("userId", KathavachakId);
-				// Use the correct video upload endpoint
 				const response = await fetch("/api/upload/video", {
 					method: "POST",
 					body: formData,
 				});
 				if (!response.ok) throw new Error("Failed to upload video");
 				const { videoUrl, video } = await response.json();
-				// Create a VideoObject from the response
 				const videoObj: VideoObject = {
 					url: videoUrl,
-					title: file.name,
+					title: file.name.split(".")[0] || "",
 					description: "",
 					id: video?.id,
 				};
 				uploaded.push(videoObj);
 			}
 			setNewVideos((prev) => [...prev, ...uploaded]);
-			setPostVideos((prev) => [...prev, ...uploaded]);
 			toast.success("Video(s) uploaded successfully!");
 		} catch {
 			toast.error("Failed to upload video(s)");
@@ -561,13 +564,6 @@ export default function KathavachakDetailPage() {
 		if (videoId || videoUrl) {
 			setVideosToDelete((prev) => [...prev, videoId || videoUrl]);
 		}
-
-		// Remove from UI state
-		setPostVideos((prev) =>
-			prev.filter((vid) =>
-				typeof vid === "string" ? vid !== videoUrl : vid.url !== videoUrl
-			)
-		);
 
 		// Remove from existing videos
 		setExistingVideos((prev) => prev.filter((vid) => vid.url !== videoUrl));
@@ -800,176 +796,138 @@ export default function KathavachakDetailPage() {
 	}
 
 	// New handlers for image title and description changes
-	const handleImageTitleChange = (img: ImageObject, title: string) => {
-		// Update the image in postImages
-		setPostImages((prev) =>
-			prev.map((image) => {
-				if (typeof image === "string") return image;
-				if (image.url === img.url) {
-					return { ...image, title };
-				}
-				return image;
-			})
-		);
+	const handleImageTitleChange = useCallback(
+		(img: ImageObject, title: string) => {
+			// Update in existingImages or newImages as appropriate
+			if (
+				existingImages.some(
+					(existImg) => typeof existImg !== "string" && existImg.url === img.url
+				)
+			) {
+				setExistingImages((prev) =>
+					prev.map((image) => {
+						if (typeof image === "string") return image;
+						if (image.url === img.url) {
+							return { ...image, title };
+						}
+						return image;
+					})
+				);
+			}
 
-		// Also update in existingImages or newImages as appropriate
-		if (
-			existingImages.some(
-				(existImg) => typeof existImg !== "string" && existImg.url === img.url
-			)
-		) {
-			setExistingImages((prev) =>
-				prev.map((image) => {
-					if (typeof image === "string") return image;
-					if (image.url === img.url) {
-						return { ...image, title };
-					}
-					return image;
-				})
-			);
-		}
+			if (
+				newImages.some(
+					(newImg) => typeof newImg !== "string" && newImg.url === img.url
+				)
+			) {
+				setNewImages((prev) =>
+					prev.map((image) => {
+						if (typeof image === "string") return image;
+						if (image.url === img.url) {
+							return { ...image, title };
+						}
+						return image;
+					})
+				);
+			}
+		},
+		[existingImages, newImages]
+	);
 
-		if (
-			newImages.some(
-				(newImg) => typeof newImg !== "string" && newImg.url === img.url
-			)
-		) {
-			setNewImages((prev) =>
-				prev.map((image) => {
-					if (typeof image === "string") return image;
-					if (image.url === img.url) {
-						return { ...image, title };
-					}
-					return image;
-				})
-			);
-		}
-	};
+	const handleImageDescriptionChange = useCallback(
+		(img: ImageObject, description: string) => {
+			// Update in existingImages or newImages as appropriate
+			if (
+				existingImages.some(
+					(existImg) => typeof existImg !== "string" && existImg.url === img.url
+				)
+			) {
+				setExistingImages((prev) =>
+					prev.map((image) => {
+						if (typeof image === "string") return image;
+						if (image.url === img.url) {
+							return { ...image, description };
+						}
+						return image;
+					})
+				);
+			}
 
-	const handleImageDescriptionChange = (
-		img: ImageObject,
-		description: string
-	) => {
-		// Update the image in postImages
-		setPostImages((prev) =>
-			prev.map((image) => {
-				if (typeof image === "string") return image;
-				if (image.url === img.url) {
-					return { ...image, description };
-				}
-				return image;
-			})
-		);
-
-		// Also update in existingImages or newImages as appropriate
-		if (
-			existingImages.some(
-				(existImg) => typeof existImg !== "string" && existImg.url === img.url
-			)
-		) {
-			setExistingImages((prev) =>
-				prev.map((image) => {
-					if (typeof image === "string") return image;
-					if (image.url === img.url) {
-						return { ...image, description };
-					}
-					return image;
-				})
-			);
-		}
-
-		if (
-			newImages.some(
-				(newImg) => typeof newImg !== "string" && newImg.url === img.url
-			)
-		) {
-			setNewImages((prev) =>
-				prev.map((image) => {
-					if (typeof image === "string") return image;
-					if (image.url === img.url) {
-						return { ...image, description };
-					}
-					return image;
-				})
-			);
-		}
-	};
+			if (
+				newImages.some(
+					(newImg) => typeof newImg !== "string" && newImg.url === img.url
+				)
+			) {
+				setNewImages((prev) =>
+					prev.map((image) => {
+						if (typeof image === "string") return image;
+						if (image.url === img.url) {
+							return { ...image, description };
+						}
+						return image;
+					})
+				);
+			}
+		},
+		[existingImages, newImages]
+	);
 
 	// New handlers for video title and description changes
-	const handleVideoTitleChange = (vid: VideoObject, title: string) => {
-		// Update the video in postVideos
-		setPostVideos((prev) =>
-			prev.map((video) => {
-				if (typeof video === "string") return video;
-				if (video.url === vid.url) {
-					return { ...video, title };
-				}
-				return video;
-			})
-		);
+	const handleVideoTitleChange = useCallback(
+		(vid: VideoObject, title: string) => {
+			// Update in existingVideos or newVideos as appropriate
+			if (existingVideos.some((existVid) => existVid.url === vid.url)) {
+				setExistingVideos((prev) =>
+					prev.map((video) => {
+						if (video.url === vid.url) {
+							return { ...video, title };
+						}
+						return video;
+					})
+				);
+			}
 
-		// Also update in existingVideos or newVideos as appropriate
-		if (existingVideos.some((existVid) => existVid.url === vid.url)) {
-			setExistingVideos((prev) =>
-				prev.map((video) => {
-					if (video.url === vid.url) {
-						return { ...video, title };
-					}
-					return video;
-				})
-			);
-		}
+			if (newVideos.some((newVid) => newVid.url === vid.url)) {
+				setNewVideos((prev) =>
+					prev.map((video) => {
+						if (video.url === vid.url) {
+							return { ...video, title };
+						}
+						return video;
+					})
+				);
+			}
+		},
+		[existingVideos, newVideos]
+	);
 
-		if (newVideos.some((newVid) => newVid.url === vid.url)) {
-			setNewVideos((prev) =>
-				prev.map((video) => {
-					if (video.url === vid.url) {
-						return { ...video, title };
-					}
-					return video;
-				})
-			);
-		}
-	};
+	const handleVideoDescriptionChange = useCallback(
+		(vid: VideoObject, description: string) => {
+			// Update in existingVideos or newVideos as appropriate
+			if (existingVideos.some((existVid) => existVid.url === vid.url)) {
+				setExistingVideos((prev) =>
+					prev.map((video) => {
+						if (video.url === vid.url) {
+							return { ...video, description };
+						}
+						return video;
+					})
+				);
+			}
 
-	const handleVideoDescriptionChange = (
-		vid: VideoObject,
-		description: string
-	) => {
-		// Update the video in postVideos
-		setPostVideos((prev) =>
-			prev.map((video) => {
-				if (typeof video === "string") return video;
-				if (video.url === vid.url) {
-					return { ...video, description };
-				}
-				return video;
-			})
-		);
-
-		// Also update in existingVideos or newVideos as appropriate
-		if (existingVideos.some((existVid) => existVid.url === vid.url)) {
-			setExistingVideos((prev) =>
-				prev.map((video) => {
-					if (video.url === vid.url) {
-						return { ...video, description };
-					}
-					return video;
-				})
-			);
-		}
-
-		if (newVideos.some((newVid) => newVid.url === vid.url)) {
-			setNewVideos((prev) =>
-				prev.map((video) => {
-					if (video.url === vid.url) {
-						return { ...video, description };
-					}
-					return video;
-				})
-			);
-		}
-	};
+			if (newVideos.some((newVid) => newVid.url === vid.url)) {
+				setNewVideos((prev) =>
+					prev.map((video) => {
+						if (video.url === vid.url) {
+							return { ...video, description };
+						}
+						return video;
+					})
+				);
+			}
+		},
+		[existingVideos, newVideos]
+	);
 
 	return (
 		<div className="p-6 space-y-6">
@@ -1046,29 +1004,44 @@ export default function KathavachakDetailPage() {
 						</TabsContent>
 
 						<TabsContent value="posts" className="space-y-4">
-							<KathavachakPostsTab
-								{...{
+							{/* Wrap KathavachakPostsTab in useMemo to prevent unnecessary re-renders */}
+							{useMemo(
+								() => (
+									<KathavachakPostsTab
+										isEditing={isEditing}
+										postImages={postImages}
+										postVideos={postVideos}
+										isUploadingPostImage={isUploadingPostImage}
+										isUploadingPostVideo={isUploadingPostVideo}
+										handlePostImageUpload={handlePostImageUpload}
+										handleRemovePostImage={handleRemovePostImage}
+										handlePostVideoUpload={handlePostVideoUpload}
+										handleRemovePostVideo={handleRemovePostVideo}
+										isSavingPosts={isSavingPosts}
+										handleSavePosts={handleSavePosts}
+										showImageUpload={showImageUpload}
+										setShowImageUpload={setShowImageUpload}
+										showVideoUpload={showVideoUpload}
+										setShowVideoUpload={setShowVideoUpload}
+										handleImageTitleChange={handleImageTitleChange}
+										handleImageDescriptionChange={handleImageDescriptionChange}
+										handleVideoTitleChange={handleVideoTitleChange}
+										handleVideoDescriptionChange={handleVideoDescriptionChange}
+									/>
+								),
+								[
 									isEditing,
 									postImages,
 									postVideos,
 									isUploadingPostImage,
 									isUploadingPostVideo,
-									handlePostImageUpload,
-									handleRemovePostImage,
-									handlePostVideoUpload,
-									handleRemovePostVideo,
 									isSavingPosts,
-									handleSavePosts,
 									showImageUpload,
-									setShowImageUpload,
 									showVideoUpload,
-									setShowVideoUpload,
-									handleImageTitleChange,
-									handleImageDescriptionChange,
-									handleVideoTitleChange,
-									handleVideoDescriptionChange,
-								}}
-							/>
+									// Exclude function handlers from the dependency array
+									// since they're memoized in the parent
+								]
+							)}
 						</TabsContent>
 
 						<TabsContent value="preferences" className="space-y-4">
