@@ -10,6 +10,7 @@ import MostLikedPosts from "../../components/most-liked-posts";
 import { Loader2 } from "lucide-react";
 import VideoGallery from "../../components/video-gallery";
 import PhotoGallery from "../../components/photo-gallery";
+import { useEffect, useState } from "react";
 
 const LoadingState = ({ message }: { message: string }) => (
 	<div className="flex flex-col justify-center items-center h-[calc(100vh-200px)]">
@@ -24,6 +25,16 @@ export default function KathavachakSectionPage() {
 	const section = Array.isArray(params.section)
 		? params.section[0]
 		: params.section;
+	const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);	
+
+	 useEffect(() => {
+        if (session?.user?.id) {
+            fetch(`/api/users/${session.user.id}`)
+                .then((res) => res.json())
+                .then((user) => setProfileImageUrl(user.profileImageUrl || "/placeholder-avatar.png"))
+                .catch(() => setProfileImageUrl("/placeholder-avatar.png"));
+        }
+    }, [session?.user?.id]);
 
 	if (sessionStatus === "loading") {
 		return <LoadingState message="Loading session..." />;
@@ -47,7 +58,7 @@ export default function KathavachakSectionPage() {
 			<Posts
 				userId={session.user.id}
 				userName={session.user.name || "User"}
-				profileImageUrl={session.user.image || "/placeholder-avatar.png"}
+				profileImageUrl={profileImageUrl || "/placeholder-avatar.png"}
 			/>
 		);
 	} else if (section === "videos") {

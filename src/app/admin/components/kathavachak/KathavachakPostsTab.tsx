@@ -178,7 +178,6 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 
 	// ----------- Image Upload Flow: Dialog confirm -----------
 	const handleDetailsConfirm = useCallback(async (title: string, description: string) => {
-		console.log("CallBack 4")
 		setIsDetailsDialogOpen(false);
 		if (!pendingFile) return;
 		const dataTransfer = new DataTransfer();
@@ -189,27 +188,32 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 			},
 		} as unknown as React.ChangeEvent<HTMLInputElement>;
 
-		try {
-			const uploadedImages = await handlePostImageUpload(event);
-			if (!uploadedImages || uploadedImages.length === 0) return;
-			const uploadedImage = uploadedImages[0];
-			if (title && handleImageTitleChange) handleImageTitleChange(uploadedImage, title);
-			if (description && handleImageDescriptionChange) handleImageDescriptionChange(uploadedImage, description);
-			setImageDetailsOpen((prev) => ({ ...prev, [uploadedImage.url]: true }));
-		} catch (error) {
-			console.error("Failed to handle image upload:", error);
-		} finally {
-			setPendingFile(null);
-			if (tempUploadedImageUrl) {
-				URL.revokeObjectURL(tempUploadedImageUrl);
-				setTempUploadedImageUrl("");
-			}
-		}
-	}, [pendingFile, tempUploadedImageUrl]);
+		 try {
+        await handlePostImageUpload(event);
+        // Timeout to allow parent to update postImages before accessing the last element
+        setTimeout(() => {
+            const updatedImages = getUrls(postImages);
+            const lastUrl = updatedImages[updatedImages.length - 1];
+            const lastImage = postImages.find((img) => img.url === lastUrl);
+            if (lastImage) {
+                if (title && handleImageTitleChange) handleImageTitleChange(lastImage, title);
+                if (description && handleImageDescriptionChange) handleImageDescriptionChange(lastImage, description);
+                setImageDetailsOpen((prev) => ({ ...prev, [lastImage.url]: true }));
+            }
+        }, 0);
+    } catch (error) {
+        console.error("Failed to handle image upload:", error);
+    } finally {
+        setPendingFile(null);
+        if (tempUploadedImageUrl) {
+            URL.revokeObjectURL(tempUploadedImageUrl);
+            setTempUploadedImageUrl("");
+        }
+    }
+}, [pendingFile, tempUploadedImageUrl, postImages]);
 
 	// ----------- Video Upload Flow: Initial selection -----------
 	const handleInitialVideoSelection = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-		console.log("CallBack 5")
 		const files = e.target.files;
 		if (!files || files.length === 0) return;
 
@@ -222,7 +226,6 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 
 	// ----------- Video Upload Flow: Dialog confirm -----------
 	const handleVideoDetailsConfirm = useCallback(async (title: string, description: string) => {
-		console.log("CallBack 6")
 		setIsVideoDetailsDialogOpen(false);
 		if (!pendingVideoFile) return;
 
