@@ -11,7 +11,7 @@ import {
 	CardFooter,
 	CardDescription,
 } from "@/components/ui/card";
-import { Save, Pencil } from "lucide-react";
+import { Save, Pencil, Loader2 } from "lucide-react";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
@@ -93,47 +93,49 @@ export default function Biography({ userId, editable = true }: BiographyProps) {
 
 	if (loading)
 		return (
-			<div className="flex justify-center items-center h-40">Loading...</div>
+			<Card className="flex flex-col items-center justify-center p-12">
+				<Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
+			</Card>
 		);
 	if (error)
 		return <div className="text-red-500 text-center mt-8">{error}</div>;
 	if (!user) return null;
 
 	return (
-		<div className="flex justify-center w-full min-h-[calc(100vh-120px)] bg-muted/30 py-8">
-			<Card className="w-full max-w-2xl shadow-lg border-0 bg-white dark:bg-zinc-900 relative flex flex-col">
+		<div className="space-y-10">
+			<Card className="w-full rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 bg-background relative">
 				{editable && !isEditing && (
 					<Button
 						size="sm"
 						variant="outline"
-						className="absolute top-5 right-5 px-4 py-1 rounded-full border-primary/40 hover:border-primary z-10"
+						className="absolute top-4 right-4 px-4 py-1 rounded-full border-primary/40 hover:border-primary z-10"
 						onClick={handleEdit}
 					>
 						<Pencil className="h-4 w-4 mr-1" /> Edit Bio
 					</Button>
 				)}
-				<CardHeader className="flex flex-row items-center gap-6 pb-0 pt-6 px-6">
-					<div className="w-24 h-24 rounded-full overflow-hidden border-2 border-primary/30 shadow-md bg-white dark:bg-zinc-800 flex items-center justify-center">
+				<CardHeader className="flex flex-row items-center gap-6 p-4 border-b">
+					<div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 shadow-md bg-white dark:bg-zinc-800 flex items-center justify-center">
 						<Image
 							src={user.profileImageUrl || "/placeholder-avatar.png"}
 							alt={user.name}
-							width={96}
-							height={96}
+							width={64}
+							height={64}
 							className="object-cover w-full h-full"
 						/>
 					</div>
 					<div className="flex flex-col justify-center flex-1 gap-1">
-						<CardTitle className="text-2xl font-bold text-left">
+						<CardTitle className="text-xl font-bold text-left">
 							{user.name}
 						</CardTitle>
 						{user.category && (
-							<CardDescription className="text-base text-muted-foreground text-left">
+							<CardDescription className="text-sm text-muted-foreground text-left">
 								{user.category}
 							</CardDescription>
 						)}
 					</div>
 				</CardHeader>
-				<CardContent className="pt-2 pb-6 px-6">
+				<CardContent className="px-4 py-4">
 					{isEditing ? (
 						<BlockNoteEditor
 							initialContent={user?.bio || ""}
@@ -158,7 +160,7 @@ export default function Biography({ userId, editable = true }: BiographyProps) {
 					)}
 				</CardContent>
 				{isEditing && (
-					<CardFooter className="flex justify-end gap-3 px-6 pb-6">
+					<CardFooter className="flex justify-end gap-3 p-4 border-t">
 						<Button
 							variant="outline"
 							onClick={() => setIsEditing(false)}

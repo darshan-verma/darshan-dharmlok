@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 import {
 	Card,
 	CardHeader,
@@ -10,7 +10,15 @@ import {
 	CardContent,
 	CardDescription,
 } from "@/components/ui/card";
-import { Plus, Edit, Trash2, Save, X, Loader2 } from "lucide-react";
+import {
+	Plus,
+	Edit,
+	Trash2,
+	Save,
+	X,
+	Loader2,
+	Video as VideoIcon,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface Video {
@@ -214,10 +222,9 @@ export default function VideoGallery({
 
 	if (loading)
 		return (
-			<div className="flex flex-col justify-center items-center h-60">
-				<Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-				<p className="text-lg text-muted-foreground">Loading Videos...</p>
-			</div>
+			<Card className="flex flex-col items-center justify-center p-12">
+				<Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
+			</Card>
 		);
 
 	if (error)
@@ -225,98 +232,102 @@ export default function VideoGallery({
 	if (!user) return null;
 
 	return (
-		<Card className="w-full max-w-3xl mx-auto mt-8 shadow-lg border-0 bg-white dark:bg-zinc-900 rounded-xl">
-			<CardHeader className="flex flex-row items-center gap-5 pb-4 pt-6 px-6">
-				<div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/20 shadow-md bg-white dark:bg-zinc-800 flex items-center justify-center">
-					<Image
-						src={user.profileImageUrl || "/placeholder-avatar.png"}
-						alt={user.name}
-						width={64}
-						height={64}
-						className="object-cover w-full h-full"
-					/>
-				</div>
-				<div className="flex flex-col justify-center flex-1 gap-0.5 min-w-0">
-					<CardTitle className="text-xl font-bold text-left truncate">
-						Video Gallery
-					</CardTitle>
-					<CardDescription className="text-sm text-muted-foreground text-left truncate">
-						Manage your video content
-					</CardDescription>
-				</div>
+		<Card className="w-full rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 bg-background">
+			<CardHeader className="flex flex-row items-center gap-6 p-4 border-b">
+								<div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 shadow-md bg-white dark:bg-zinc-800 flex items-center justify-center">
+									<Image
+										src={user.profileImageUrl || "/placeholder-avatar.png"}
+										alt={user.name}
+										width={64}
+										height={64}
+										className="object-cover w-full h-full"
+									/>
+								</div>
+								<div className="flex flex-col justify-center flex-1 gap-1">
+									<CardTitle className="text-xl font-bold text-left">
+										{user.name}
+									</CardTitle>
+									{user.category && (
+										<CardDescription className="text-sm text-muted-foreground text-left">
+											{user.category}
+										</CardDescription>
+									)}
+								</div>
 				{editable && (
 					<Button
 						size="sm"
 						variant="default"
-						className="ml-auto px-4 py-2 rounded-full"
+						className="rounded-full px-4 py-2"
 						onClick={() => setIsAdding(!isAdding)}
 					>
 						<Plus className="h-4 w-4 mr-2" /> Add Video
 					</Button>
 				)}
 			</CardHeader>
-			<CardContent className="pt-2 pb-6 px-6">
+			<CardContent className="p-4">
 				{isAdding && (
-					<div className="mb-6 flex flex-col gap-3 bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-lg border border-zinc-200 dark:border-zinc-700">
-						<Input
-							placeholder="Video Title"
-							value={newVideo.title}
-							onChange={(e) =>
-								setNewVideo((v) => ({ ...v, title: e.target.value }))
-							}
-							className="text-sm"
-						/>
-						<Input
-							placeholder="Description (optional)"
-							value={newVideo.description}
-							onChange={(e) =>
-								setNewVideo((v) => ({ ...v, description: e.target.value }))
-							}
-							className="text-sm"
-						/>
-						<Input
-							type="file"
-							accept="video/*"
-							onChange={(e) =>
-								setNewVideo((v) => ({
-									...v,
-									file: e.target.files?.[0] || null,
-								}))
-							}
-							className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-						/>
-						<div className="flex justify-end gap-2 mt-2">
-							<Button
-								variant="outline"
-								onClick={() => setIsAdding(false)}
-								className="rounded-full px-5 text-sm"
-							>
-								<X className="h-4 w-4 mr-2" /> Cancel
-							</Button>
-							<Button
-								onClick={handleAddVideo}
-								disabled={isSaving || !newVideo.file || !newVideo.title}
-								className="rounded-full px-5 text-sm"
-							>
-								{isSaving ? (
-									<Loader2 className="h-4 w-4 mr-2 animate-spin" />
-								) : (
-									<Save className="h-4 w-4 mr-2" />
-								)}
-								Save Video
-							</Button>
-						</div>
-					</div>
+					<Card className="mb-6 border bg-muted/30 shadow-sm">
+						<CardContent className="p-4 space-y-3">
+							<Input
+								placeholder="Video Title"
+								value={newVideo.title}
+								onChange={(e) =>
+									setNewVideo((v) => ({ ...v, title: e.target.value }))
+								}
+								className="text-sm"
+							/>
+							<Input
+								placeholder="Description (optional)"
+								value={newVideo.description}
+								onChange={(e) =>
+									setNewVideo((v) => ({ ...v, description: e.target.value }))
+								}
+								className="text-sm"
+							/>
+							<Input
+								type="file"
+								accept="video/*"
+								onChange={(e) =>
+									setNewVideo((v) => ({
+										...v,
+										file: e.target.files?.[0] || null,
+									}))
+								}
+								className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+							/>
+							<div className="flex justify-end gap-2 mt-2">
+								<Button
+									variant="outline"
+									onClick={() => setIsAdding(false)}
+									className="rounded-full px-5 text-sm"
+								>
+									<X className="h-4 w-4 mr-2" /> Cancel
+								</Button>
+								<Button
+									onClick={handleAddVideo}
+									disabled={isSaving || !newVideo.file || !newVideo.title}
+									className="rounded-full px-5 text-sm"
+								>
+									{isSaving ? (
+										<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+									) : (
+										<Save className="h-4 w-4 mr-2" />
+									)}
+									Save Video
+								</Button>
+							</div>
+						</CardContent>
+					</Card>
 				)}
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 					{videos.length > 0 ? (
 						videos.map((video, idx) => (
 							<Card
 								key={video.id || idx}
-								className="shadow-md border bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-0 border-zinc-200 dark:border-zinc-700 overflow-hidden"
+								className="shadow-sm border rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-300"
 							>
 								{editState && editState.id === video.id ? (
-									<div className="p-4">
+									<div className="p-4 space-y-3">
 										<Input
 											value={editState.title}
 											onChange={(e) =>
@@ -324,7 +335,8 @@ export default function VideoGallery({
 													s ? { ...s, title: e.target.value } : null
 												)
 											}
-											className="text-base font-semibold mb-2"
+											placeholder="Video Title"
+											className="text-base font-medium"
 										/>
 										<Input
 											value={editState.description}
@@ -333,39 +345,43 @@ export default function VideoGallery({
 													s ? { ...s, description: e.target.value } : null
 												)
 											}
-											placeholder="Description"
-											className="text-sm mb-2"
+											placeholder="Description (optional)"
+											className="text-sm"
 										/>
-										<Input
-											type="file"
-											accept="video/*"
-											onChange={(e) =>
-												setEditState((s) =>
-													s ? { ...s, file: e.target.files?.[0] || null } : null
-												)
-											}
-											className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-										/>
-										<div className="flex gap-2 justify-end mt-3">
+										<div className="pt-1">
+											<Input
+												type="file"
+												accept="video/*"
+												onChange={(e) =>
+													setEditState((s) =>
+														s
+															? { ...s, file: e.target.files?.[0] || null }
+															: null
+													)
+												}
+												className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+											/>
+										</div>
+										<div className="flex gap-2 justify-end pt-2">
 											<Button
 												size="sm"
 												variant="outline"
 												onClick={() => setEditState(null)}
-												className="rounded-full px-3 text-xs"
+												className="rounded-full px-4"
 											>
-												<X className="h-3 w-3 mr-1" />
+												<X className="h-4 w-4 mr-2" />
 												Cancel
 											</Button>
 											<Button
 												size="sm"
 												onClick={handleSaveEdit}
 												disabled={isSaving}
-												className="rounded-full px-3 text-xs"
+												className="rounded-full px-4"
 											>
 												{isSaving ? (
-													<Loader2 className="h-3 w-3 mr-1 animate-spin" />
+													<Loader2 className="h-4 w-4 mr-2 animate-spin" />
 												) : (
-													<Save className="h-3 w-3 mr-1" />
+													<Save className="h-4 w-4 mr-2" />
 												)}
 												Save
 											</Button>
@@ -407,7 +423,7 @@ export default function VideoGallery({
 																file: null,
 															})
 														}
-														className="rounded-full h-8 w-8"
+														className="h-8 w-8 rounded-full hover:bg-primary/10"
 													>
 														<Edit className="h-4 w-4" />
 													</Button>
@@ -416,7 +432,7 @@ export default function VideoGallery({
 														variant="ghost"
 														onClick={() => handleDeleteVideo(video.id)}
 														disabled={isSaving}
-														className="rounded-full h-8 w-8 text-red-500 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50"
+														className="h-8 w-8 rounded-full text-red-500 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50"
 													>
 														<Trash2 className="h-4 w-4" />
 													</Button>
@@ -428,10 +444,23 @@ export default function VideoGallery({
 							</Card>
 						))
 					) : (
-						<div className="col-span-full text-center py-12">
-							<p className="text-muted-foreground italic">
+						<div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+							<div className="bg-muted/30 p-4 rounded-full mb-4">
+								<VideoIcon className="h-8 w-8 text-muted-foreground" />
+							</div>
+							<p className="text-muted-foreground font-medium">
 								No videos have been added yet.
 							</p>
+							{editable && (
+								<Button
+									variant="outline"
+									className="mt-4 rounded-full"
+									onClick={() => setIsAdding(true)}
+								>
+									<Plus className="h-4 w-4 mr-2" />
+									Add Your First Video
+								</Button>
+							)}
 						</div>
 					)}
 				</div>

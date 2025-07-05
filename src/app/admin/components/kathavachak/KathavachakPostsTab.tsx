@@ -10,7 +10,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { Plus, Trash2, Save } from "lucide-react";
+import { Plus, Trash2, Save} from "lucide-react";
 import { useCallback, useEffect, useRef, useState, memo } from "react";
 import ImageDetailsDialog from "./ImageDetailsDialog";
 import VideoDetailsDialog from "./VideoDetailsDialog";
