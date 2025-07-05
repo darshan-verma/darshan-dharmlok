@@ -14,7 +14,7 @@ import { Kathavachak, FormErrors } from "../../components/kathavachak/types";
 import KathavachakProfileCard from "@/app/admin/components/kathavachak/KathavachakProfileCard";
 import KathavachakDetailsTab from "@/app/admin/components/kathavachak/KathavachakDetailsTab";
 import KathavachakBiographyTab from "@/app/admin/components/kathavachak/KathavachakBiographyTab";
-import KathavachakPostsTab from "@/app/admin/components/kathavachak/KathavachakPostsTab.new";
+import KathavachakPostsTab from "@/app/admin/components/kathavachak/KathavachakPostsTab";
 import KathavachakPreferencesTab from "@/app/admin/components/kathavachak/KathavachakPreferencesTab";
 import KathavachakActivityTab from "@/app/admin/components/kathavachak/KathavachakActivityTab";
 

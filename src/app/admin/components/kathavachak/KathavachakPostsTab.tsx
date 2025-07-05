@@ -142,14 +142,17 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 
 	// ----------- Toggle handlers -----------
 	const toggleImageDetails = useCallback((url: string) => {
+		console.log("CallBack 1")
 		setImageDetailsOpen((prev) => ({ ...prev, [url]: !prev[url] }));
 	}, []);
 	const toggleVideoDetails = useCallback((url: string) => {
+		console.log("CallBack 2")
 		setVideoDetailsOpen((prev) => ({ ...prev, [url]: !prev[url] }));
 	}, []);
 
 	// ----------- Image Upload Flow: Initial selection -----------
 	const handleInitialImageSelection = useCallback((event: React.ChangeEvent<HTMLInputElement>): void => {
+		console.log("CallBack 3")
 		const files = event.target.files;
 		if (!files || files.length === 0) return;
 
@@ -171,10 +174,11 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 			} as unknown as React.ChangeEvent<HTMLInputElement>;
 			handlePostImageUpload(uploadEvent);
 		}
-	}, [handlePostImageUpload]);
+	}, []);
 
 	// ----------- Image Upload Flow: Dialog confirm -----------
 	const handleDetailsConfirm = useCallback(async (title: string, description: string) => {
+		console.log("CallBack 4")
 		setIsDetailsDialogOpen(false);
 		if (!pendingFile) return;
 		const dataTransfer = new DataTransfer();
@@ -201,10 +205,11 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 				setTempUploadedImageUrl("");
 			}
 		}
-	}, [pendingFile, tempUploadedImageUrl, handlePostImageUpload, handleImageTitleChange, handleImageDescriptionChange]);
+	}, [pendingFile, tempUploadedImageUrl]);
 
 	// ----------- Video Upload Flow: Initial selection -----------
 	const handleInitialVideoSelection = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+		console.log("CallBack 5")
 		const files = e.target.files;
 		if (!files || files.length === 0) return;
 
@@ -217,6 +222,7 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 
 	// ----------- Video Upload Flow: Dialog confirm -----------
 	const handleVideoDetailsConfirm = useCallback(async (title: string, description: string) => {
+		console.log("CallBack 6")
 		setIsVideoDetailsDialogOpen(false);
 		if (!pendingVideoFile) return;
 
@@ -250,7 +256,7 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 				setTempUploadedVideoUrl("");
 			}
 		}
-	}, [pendingVideoFile, tempUploadedVideoUrl, handlePostVideoUpload, postVideos, getUrls, handleVideoTitleChange, handleVideoDescriptionChange]);
+	}, [pendingVideoFile, tempUploadedVideoUrl, postVideos]);
 
 	// ----------- UI -----------
 	return (

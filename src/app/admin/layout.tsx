@@ -27,7 +27,7 @@ export default function AdminLayout({
 						</div>
 					</header>
 					<SidebarInset>
-						<div className="flex-1 overflow-auto p-4 md:p-6 h-[calc(100vh-60px)]">
+						<div className="flex-1 overflow-auto p-4 md:p-6">
 							{children}
 						</div>
 					</SidebarInset>
