@@ -62,3 +62,16 @@ export interface FormErrors {
 		};
 	};
 }
+
+export interface ImageObject {
+	url: string;
+	title?: string;
+	description?: string;
+}
+
+export interface VideoObject {
+	url: string;
+	title?: string;
+	description?: string;
+	id?: string;
+}

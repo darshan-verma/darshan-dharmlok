@@ -1,5 +1,5 @@
 "use client";
-
+//TODO : chunk splitting for admin using webpack config
 import * as React from "react";
 import {
 	LineChart,

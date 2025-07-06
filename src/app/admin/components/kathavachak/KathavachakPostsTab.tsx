@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -10,65 +9,39 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { Plus, Trash2, Save} from "lucide-react";
+import { Plus, Trash2, Save } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, memo } from "react";
 import ImageDetailsDialog from "./ImageDetailsDialog";
 import VideoDetailsDialog from "./VideoDetailsDialog";
+import type { ImageObject, VideoObject } from "./types";
 
 // Use a more stable state structure with URL keys
 
-interface ImageObject {
-	url: string;
-	title?: string;
-	description?: string;
-}
-
-interface VideoObject {
-	url: string;
-	title?: string;
-	description?: string;
-	id?: string;
-}
-
 interface KathavachakPostsTabProps {
 	isEditing: boolean;
-	postImages: ImageObject[];
 	postVideos: VideoObject[];
-	isUploadingPostImage: boolean;
-	isUploadingPostVideo: boolean;
-	handlePostImageUpload: (
-		e: React.ChangeEvent<HTMLInputElement>
-	) => Promise<ImageObject[]>;
-	handleRemovePostImage: (img: ImageObject) => void;
-	handlePostVideoUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-	handleRemovePostVideo: (vid: VideoObject) => void;
-	isSavingPosts: boolean;
-	handleSavePosts: () => void;
+	isUploadingPostVideo?: boolean;
+	handlePostVideoUpload?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+	handleRemovePostVideo?: (vid: VideoObject) => void;
+	isSavingPosts?: boolean;
+	handleSavePosts?: () => void;
 	showImageUpload: boolean;
 	setShowImageUpload: React.Dispatch<React.SetStateAction<boolean>>;
 	showVideoUpload: boolean;
 	setShowVideoUpload: React.Dispatch<React.SetStateAction<boolean>>;
-	handleImageTitleChange?: (img: ImageObject, title: string) => void;
-	handleImageDescriptionChange?: (
-		img: ImageObject,
-		description: string
-	) => void;
 	handleVideoTitleChange?: (vid: VideoObject, title: string) => void;
 	handleVideoDescriptionChange?: (
 		vid: VideoObject,
 		description: string
 	) => void;
+	userId: string;
 }
 
 // Wrap the component with memo to prevent unnecessary re-renders
 const KathavachakPostsTab = memo(function KathavachakPostsTab({
 	isEditing,
-	postImages,
 	postVideos,
-	isUploadingPostImage,
 	isUploadingPostVideo,
-	handlePostImageUpload,
-	handleRemovePostImage,
 	handlePostVideoUpload,
 	handleRemovePostVideo,
 	isSavingPosts,
@@ -77,20 +50,141 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 	setShowImageUpload,
 	showVideoUpload,
 	setShowVideoUpload,
-	handleImageTitleChange,
-	handleImageDescriptionChange,
 	handleVideoTitleChange,
 	handleVideoDescriptionChange,
+	userId,
 }: KathavachakPostsTabProps) {
 	// ----------- State -----------
-	const [imageDetailsOpen, setImageDetailsOpen] = useState<Record<string, boolean>>({});
-	const [videoDetailsOpen, setVideoDetailsOpen] = useState<Record<string, boolean>>({});
+	const [postImages, setPostImages] = useState<ImageObject[]>([]);
+	const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
+	const [imageDetailsOpen, setImageDetailsOpen] = useState<
+		Record<string, boolean>
+	>({});
+	const [videoDetailsOpen, setVideoDetailsOpen] = useState<
+		Record<string, boolean>
+	>({});
 	const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 	const [pendingFile, setPendingFile] = useState<File | null>(null);
 	const [tempUploadedImageUrl, setTempUploadedImageUrl] = useState("");
-	const [isVideoDetailsDialogOpen, setIsVideoDetailsDialogOpen] = useState(false);
+	const [isVideoDetailsDialogOpen, setIsVideoDetailsDialogOpen] =
+		useState(false);
 	const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
 	const [tempUploadedVideoUrl, setTempUploadedVideoUrl] = useState("");
+
+	// ----------- Fetch images from API -----------
+	useEffect(() => {
+		async function fetchImages() {
+			try {
+				if (!userId) {
+					console.error("No userId provided to KathavachakPostsTab");
+					return;
+				}
+				const res = await fetch(`/api/images?userId=${userId}`);
+				if (!res.ok) {
+					const errorText = await res.text();
+					console.error("Failed to fetch images:", errorText);
+					throw new Error("Failed to fetch images");
+				}
+				const data = await res.json();
+				setPostImages(data.images || []);
+			} catch (e) {
+				console.error(e);
+			}
+		}
+		fetchImages();
+	}, [userId]);
+
+	// ----------- Add image: POST to /api/images after S3 upload -----------
+	// Update: Accept title and description in upload handler
+	const handlePostImageUploadInternal = async (
+		e: React.ChangeEvent<HTMLInputElement>,
+		title?: string,
+		description?: string
+	) => {
+		const files = e.target.files;
+		if (!files || files.length === 0) return [];
+		setIsUploadingPostImage(true);
+		const uploaded: ImageObject[] = [];
+		for (let i = 0; i < files.length; i++) {
+			const file = files[i];
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("userId", userId);
+			const uploadRes = await fetch("/api/upload/profile-image", {
+				method: "POST",
+				body: formData,
+			});
+			if (!uploadRes.ok) continue;
+			const { imageUrl } = await uploadRes.json();
+			// Send title/description in the initial POST
+			const createRes = await fetch("/api/images", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ url: imageUrl, userId, title, description }),
+			});
+			if (!createRes.ok) continue;
+			const image = await createRes.json();
+			uploaded.push(image);
+			setPostImages((prev) => [...prev, image]);
+		}
+		setIsUploadingPostImage(false);
+		return uploaded;
+	};
+
+	// ----------- Remove image: DELETE /api/images/:id -----------
+	const handleRemovePostImage = async (img: ImageObject) => {
+		if (!(img as any).id) return;
+		try {
+			const res = await fetch(`/api/images/${(img as any).id}`, {
+				method: "DELETE",
+			});
+			if (res.ok) {
+				setPostImages((prev) =>
+					prev.filter((p) => (p as any).id !== (img as any).id)
+				);
+			}
+		} catch (e) {
+			console.error("Failed to delete image", e);
+		}
+	};
+
+	// ----------- Edit image title -----------
+	const handleImageTitleChangeInternal = async (
+		img: ImageObject,
+		title: string
+	) => {
+		if (!(img as any).id) return;
+		const res = await fetch(`/api/images/${(img as any).id}`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ title }),
+		});
+		if (res.ok) {
+			const updated = await res.json();
+			setPostImages((prev) =>
+				prev.map((p) => ((p as any).id === updated.id ? updated : p))
+			);
+		}
+	};
+
+	// ----------- Edit image description -----------
+	const handleImageDescriptionChangeInternal = async (
+		img: ImageObject,
+		description: string
+	) => {
+		if (!(img as any).id) return;
+		const res = await fetch(`/api/images/${(img as any).id}`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ description }),
+		});
+		if (res.ok) {
+			const updated = await res.json();
+			setPostImages((prev) =>
+				prev.map((p) => ((p as any).id === updated.id ? updated : p))
+			);
+		}
+	};
 
 	// ----------- Stable Refs for Previous Arrays -----------
 	const prevImageUrls = useRef<string[]>(postImages.map((img) => img.url));
@@ -142,124 +236,148 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 
 	// ----------- Toggle handlers -----------
 	const toggleImageDetails = useCallback((url: string) => {
-		console.log("CallBack 1")
+		console.log("CallBack 1");
 		setImageDetailsOpen((prev) => ({ ...prev, [url]: !prev[url] }));
 	}, []);
 	const toggleVideoDetails = useCallback((url: string) => {
-		console.log("CallBack 2")
+		console.log("CallBack 2");
 		setVideoDetailsOpen((prev) => ({ ...prev, [url]: !prev[url] }));
 	}, []);
 
 	// ----------- Image Upload Flow: Initial selection -----------
-	const handleInitialImageSelection = useCallback((event: React.ChangeEvent<HTMLInputElement>): void => {
-		console.log("CallBack 3")
-		const files = event.target.files;
-		if (!files || files.length === 0) return;
+	const handleInitialImageSelection = useCallback(
+		(event: React.ChangeEvent<HTMLInputElement>): void => {
+			console.log("CallBack 3");
+			const files = event.target.files;
+			if (!files || files.length === 0) return;
 
-		if (files.length === 1) {
-			const file = files[0];
-			const tempUrl = URL.createObjectURL(file);
-			setPendingFile(file);
-			setTempUploadedImageUrl(tempUrl);
-			setIsDetailsDialogOpen(true);
-		} else {
-			const dataTransfer = new DataTransfer();
-			for (let i = 0; i < files.length; i++) {
-				dataTransfer.items.add(files[i]);
+			if (files.length === 1) {
+				const file = files[0];
+				const tempUrl = URL.createObjectURL(file);
+				setPendingFile(file);
+				setTempUploadedImageUrl(tempUrl);
+				setIsDetailsDialogOpen(true);
+			} else {
+				const dataTransfer = new DataTransfer();
+				for (let i = 0; i < files.length; i++) {
+					dataTransfer.items.add(files[i]);
+				}
+				const uploadEvent = {
+					target: {
+						files: dataTransfer.files,
+					},
+				} as unknown as React.ChangeEvent<HTMLInputElement>;
+				handlePostImageUploadInternal(uploadEvent);
 			}
-			const uploadEvent = {
+		},
+		[]
+	);
+
+	// ----------- Image Upload Flow: Dialog confirm -----------
+	const handleDetailsConfirm = useCallback(
+		async (title: string, description: string) => {
+			setIsDetailsDialogOpen(false);
+			if (!pendingFile) return;
+			const dataTransfer = new DataTransfer();
+			dataTransfer.items.add(pendingFile);
+			const event = {
 				target: {
 					files: dataTransfer.files,
 				},
 			} as unknown as React.ChangeEvent<HTMLInputElement>;
-			handlePostImageUpload(uploadEvent);
-		}
-	}, []);
 
-	// ----------- Image Upload Flow: Dialog confirm -----------
-	const handleDetailsConfirm = useCallback(async (title: string, description: string) => {
-		setIsDetailsDialogOpen(false);
-		if (!pendingFile) return;
-		const dataTransfer = new DataTransfer();
-		dataTransfer.items.add(pendingFile);
-		const event = {
-			target: {
-				files: dataTransfer.files,
-			},
-		} as unknown as React.ChangeEvent<HTMLInputElement>;
-
-		 try {
-        await handlePostImageUpload(event);
-        // Timeout to allow parent to update postImages before accessing the last element
-        setTimeout(() => {
-            const updatedImages = getUrls(postImages);
-            const lastUrl = updatedImages[updatedImages.length - 1];
-            const lastImage = postImages.find((img) => img.url === lastUrl);
-            if (lastImage) {
-                if (title && handleImageTitleChange) handleImageTitleChange(lastImage, title);
-                if (description && handleImageDescriptionChange) handleImageDescriptionChange(lastImage, description);
-                setImageDetailsOpen((prev) => ({ ...prev, [lastImage.url]: true }));
-            }
-        }, 0);
-    } catch (error) {
-        console.error("Failed to handle image upload:", error);
-    } finally {
-        setPendingFile(null);
-        if (tempUploadedImageUrl) {
-            URL.revokeObjectURL(tempUploadedImageUrl);
-            setTempUploadedImageUrl("");
-        }
-    }
-}, [pendingFile, tempUploadedImageUrl, postImages]);
+			try {
+				await handlePostImageUploadInternal(event, title, description);
+				// Timeout to allow parent to update postImages before accessing the last element
+				setTimeout(() => {
+					const updatedImages = getUrls(postImages);
+					const lastUrl = updatedImages[updatedImages.length - 1];
+					const lastImage = postImages.find((img) => img.url === lastUrl);
+					if (lastImage) {
+						setImageDetailsOpen((prev) => ({ ...prev, [lastImage.url]: true }));
+					}
+				}, 0);
+			} catch (error) {
+				console.error("Failed to handle image upload:", error);
+			} finally {
+				setPendingFile(null);
+				if (tempUploadedImageUrl) {
+					URL.revokeObjectURL(tempUploadedImageUrl);
+					setTempUploadedImageUrl("");
+				}
+			}
+		},
+		[pendingFile, tempUploadedImageUrl, postImages]
+	);
 
 	// ----------- Video Upload Flow: Initial selection -----------
-	const handleInitialVideoSelection = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-		const files = e.target.files;
-		if (!files || files.length === 0) return;
+	const handleInitialVideoSelection = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			const files = e.target.files;
+			if (!files || files.length === 0) return;
 
-		const file = files[0];
-		const tempUrl = URL.createObjectURL(file);
-		setPendingVideoFile(file);
-		setTempUploadedVideoUrl(tempUrl);
-		setIsVideoDetailsDialogOpen(true);
-	}, []);
+			const file = files[0];
+			const tempUrl = URL.createObjectURL(file);
+			setPendingVideoFile(file);
+			setTempUploadedVideoUrl(tempUrl);
+			setIsVideoDetailsDialogOpen(true);
+		},
+		[]
+	);
 
 	// ----------- Video Upload Flow: Dialog confirm -----------
-	const handleVideoDetailsConfirm = useCallback(async (title: string, description: string) => {
-		setIsVideoDetailsDialogOpen(false);
-		if (!pendingVideoFile) return;
+	const handleVideoDetailsConfirm = useCallback(
+		async (title: string, description: string) => {
+			setIsVideoDetailsDialogOpen(false);
+			if (!pendingVideoFile) return;
 
-		const dataTransfer = new DataTransfer();
-		dataTransfer.items.add(pendingVideoFile);
-		const event = {
-			target: {
-				files: dataTransfer.files,
-			},
-		} as unknown as React.ChangeEvent<HTMLInputElement>;
+			const dataTransfer = new DataTransfer();
+			dataTransfer.items.add(pendingVideoFile);
+			const event = {
+				target: {
+					files: dataTransfer.files,
+				},
+			} as unknown as React.ChangeEvent<HTMLInputElement>;
 
-		try {
-			await handlePostVideoUpload(event);
-			// Timeout to allow parent to update postVideos before accessing the last element
-			setTimeout(() => {
-				const updatedVideos = getUrls(postVideos);
-				const lastUrl = updatedVideos[updatedVideos.length - 1];
-				const lastVideo = postVideos.find((v) => v.url === lastUrl);
-				if (lastVideo) {
-					if (title && handleVideoTitleChange) handleVideoTitleChange(lastVideo, title);
-					if (description && handleVideoDescriptionChange) handleVideoDescriptionChange(lastVideo, description);
-					setVideoDetailsOpen((prev) => ({ ...prev, [lastVideo.url]: true }));
+			try {
+				if (handlePostVideoUpload) {
+					await handlePostVideoUpload(event);
+					// Timeout to allow parent to update postVideos before accessing the last element
+					setTimeout(() => {
+						const updatedVideos = getUrls(postVideos);
+						const lastUrl = updatedVideos[updatedVideos.length - 1];
+						const lastVideo = postVideos.find((v) => v.url === lastUrl);
+						if (lastVideo) {
+							if (title && handleVideoTitleChange)
+								handleVideoTitleChange(lastVideo, title);
+							if (description && handleVideoDescriptionChange)
+								handleVideoDescriptionChange(lastVideo, description);
+							setVideoDetailsOpen((prev) => ({
+								...prev,
+								[lastVideo.url]: true,
+							}));
+						}
+					}, 0);
 				}
-			}, 0);
-		} catch (error) {
-			console.error("Failed to handle video upload:", error);
-		} finally {
-			setPendingVideoFile(null);
-			if (tempUploadedVideoUrl) {
-				URL.revokeObjectURL(tempUploadedVideoUrl);
-				setTempUploadedVideoUrl("");
+			} catch (error) {
+				console.error("Failed to handle video upload:", error);
+			} finally {
+				setPendingVideoFile(null);
+				if (tempUploadedVideoUrl) {
+					URL.revokeObjectURL(tempUploadedVideoUrl);
+					setTempUploadedVideoUrl("");
+				}
 			}
-		}
-	}, [pendingVideoFile, tempUploadedVideoUrl, postVideos]);
+		},
+		[
+			pendingVideoFile,
+			tempUploadedVideoUrl,
+			postVideos,
+			handlePostVideoUpload,
+			handleVideoTitleChange,
+			handleVideoDescriptionChange,
+		]
+	);
 
 	// ----------- UI -----------
 	return (
@@ -275,7 +393,9 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 						</div>
 						<div
 							className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-all duration-200 ${
-								isEditing ? "bg-blue-100 text-blue-800 opacity-100" : "opacity-0"
+								isEditing
+									? "bg-blue-100 text-blue-800 opacity-100"
+									: "opacity-0"
 							}`}
 							style={{
 								minWidth: 90,
@@ -444,7 +564,10 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 																placeholder="Add a title..."
 																value={img.title || ""}
 																onChange={(e) =>
-																	handleImageTitleChange?.(img, e.target.value)
+																	handleImageTitleChangeInternal?.(
+																		img,
+																		e.target.value
+																	)
 																}
 																className="w-full text-sm p-1.5 border rounded focus:ring-1 focus:ring-primary focus:border-primary"
 															/>
@@ -457,7 +580,7 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 																placeholder="Add a description..."
 																value={img.description || ""}
 																onChange={(e) =>
-																	handleImageDescriptionChange?.(
+																	handleImageDescriptionChangeInternal?.(
 																		img,
 																		e.target.value
 																	)
@@ -613,7 +736,7 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 						)}
 						<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3">
 							{postVideos.map((vid, idx: number) => {
-								const vidKey = vid.url;
+								const vidKey = vid.id || vid.url + "-" + idx;
 								return (
 									<div
 										key={vidKey}
@@ -625,7 +748,7 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 												controls
 												className="object-cover w-full h-full"
 											/>
-											{isEditing && (
+											{isEditing && handleRemovePostVideo && (
 												<Button
 													type="button"
 													variant="destructive"

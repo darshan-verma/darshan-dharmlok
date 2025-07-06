@@ -35,9 +35,20 @@ model User {
     createdAt DateTime @default(now())
     addresses Address[]
     serviceOfferings ServiceOffering[] @relation("UserToServiceOffering")
-    images Json[] // NEW: Store structured image data
+    images Image[] // Relation to Image model for user images
     videos Video[]
     posts Post[]
+}
+
+model Image {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    url         String
+    title       String?
+    description String?
+    user        User     @relation(fields: [userId], references: [id])
+    userId      String   @db.ObjectId
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
 }
 // Address Model
 model Address {

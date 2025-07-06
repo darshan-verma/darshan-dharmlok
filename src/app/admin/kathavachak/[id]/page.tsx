@@ -17,19 +17,7 @@ import KathavachakBiographyTab from "@/app/admin/components/kathavachak/Kathavac
 import KathavachakPostsTab from "@/app/admin/components/kathavachak/KathavachakPostsTab";
 import KathavachakPreferencesTab from "@/app/admin/components/kathavachak/KathavachakPreferencesTab";
 import KathavachakActivityTab from "@/app/admin/components/kathavachak/KathavachakActivityTab";
-
-interface ImageObject {
-	url: string;
-	title?: string;
-	description?: string;
-}
-
-interface VideoObject {
-	url: string;
-	title?: string;
-	description?: string;
-	id?: string;
-}
+import { ImageObject, VideoObject } from "../../components/kathavachak/types";
 
 export default function KathavachakDetailPage() {
 	const params = useParams();
@@ -52,7 +40,6 @@ export default function KathavachakDetailPage() {
 	// --- Posts Tab: Images & Videos State ---
 	const [showImageUpload, setShowImageUpload] = useState(false);
 	const [showVideoUpload, setShowVideoUpload] = useState(false);
-	const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
 	const [isUploadingPostVideo, setIsUploadingPostVideo] = useState(false);
 	const [isSavingPosts, setIsSavingPosts] = useState(false);
 
@@ -446,79 +433,6 @@ export default function KathavachakDetailPage() {
 		[existingVideos, newVideos]
 	);
 
-	// --- Image Upload Handler ---
-	const handlePostImageUpload = async (
-		event: React.ChangeEvent<HTMLInputElement>
-	): Promise<ImageObject[]> => {
-		const files = event.target.files;
-		if (!files || files.length === 0) return [];
-		setIsUploadingPostImage(true);
-		const uploaded: ImageObject[] = [];
-		try {
-			for (let i = 0; i < files.length; i++) {
-				const file = files[i];
-				const formData = new FormData();
-				formData.append("file", file);
-				formData.append("userId", KathavachakId);
-				const response = await fetch("/api/upload/kathavachak-image", {
-					method: "POST",
-					body: formData,
-				});
-				if (!response.ok) throw new Error("Failed to upload image");
-				const { imageUrl } = await response.json();
-				const newImage: ImageObject = {
-					url: imageUrl,
-					title: file.name.split(".")[0] || "",
-					description: "",
-				};
-				uploaded.push(newImage);
-			}
-			setNewImages((prev) => [...prev, ...uploaded]);
-			toast.success("Image(s) uploaded successfully!");
-			return uploaded;
-		} catch (error) {
-			toast.error("Failed to upload image(s)");
-			return [];
-		} finally {
-			setIsUploadingPostImage(false);
-		}
-	};
-
-	const handleRemovePostImage = (img: ImageObject) => {
-		const imgUrl = typeof img === "string" ? img : img.url;
-
-		// Remove from existing images
-		if (
-			existingImages.some((existImg) =>
-				typeof existImg === "string"
-					? existImg === imgUrl
-					: existImg.url === imgUrl
-			)
-		) {
-			setDeletedImages((prev) => [...prev, imgUrl]);
-			setExistingImages((prev) =>
-				prev.filter((existImg) =>
-					typeof existImg === "string"
-						? existImg !== imgUrl
-						: existImg.url !== imgUrl
-				)
-			);
-		}
-
-		// Remove from new images
-		if (
-			newImages.some((newImg) =>
-				typeof newImg === "string" ? newImg === imgUrl : newImg.url === imgUrl
-			)
-		) {
-			setNewImages((prev) =>
-				prev.filter((newImg) =>
-					typeof newImg === "string" ? newImg !== imgUrl : newImg.url !== imgUrl
-				)
-			);
-		}
-	};
-
 	// --- Video Upload Handler ---
 	const handlePostVideoUpload = async (
 		event: React.ChangeEvent<HTMLInputElement>
@@ -795,83 +709,6 @@ export default function KathavachakDetailPage() {
 		}
 	}
 
-	// New handlers for image title and description changes
-	const handleImageTitleChange = useCallback(
-		(img: ImageObject, title: string) => {
-			// Update in existingImages or newImages as appropriate
-			if (
-				existingImages.some(
-					(existImg) => typeof existImg !== "string" && existImg.url === img.url
-				)
-			) {
-				setExistingImages((prev) =>
-					prev.map((image) => {
-						if (typeof image === "string") return image;
-						if (image.url === img.url) {
-							return { ...image, title };
-						}
-						return image;
-					})
-				);
-			}
-
-			if (
-				newImages.some(
-					(newImg) => typeof newImg !== "string" && newImg.url === img.url
-				)
-			) {
-				setNewImages((prev) =>
-					prev.map((image) => {
-						if (typeof image === "string") return image;
-						if (image.url === img.url) {
-							return { ...image, title };
-						}
-						return image;
-					})
-				);
-			}
-		},
-		[existingImages, newImages]
-	);
-
-	const handleImageDescriptionChange = useCallback(
-		(img: ImageObject, description: string) => {
-			// Update in existingImages or newImages as appropriate
-			if (
-				existingImages.some(
-					(existImg) => typeof existImg !== "string" && existImg.url === img.url
-				)
-			) {
-				setExistingImages((prev) =>
-					prev.map((image) => {
-						if (typeof image === "string") return image;
-						if (image.url === img.url) {
-							return { ...image, description };
-						}
-						return image;
-					})
-				);
-			}
-
-			if (
-				newImages.some(
-					(newImg) => typeof newImg !== "string" && newImg.url === img.url
-				)
-			) {
-				setNewImages((prev) =>
-					prev.map((image) => {
-						if (typeof image === "string") return image;
-						if (image.url === img.url) {
-							return { ...image, description };
-						}
-						return image;
-					})
-				);
-			}
-		},
-		[existingImages, newImages]
-	);
-
 	// New handlers for video title and description changes
 	const handleVideoTitleChange = useCallback(
 		(vid: VideoObject, title: string) => {
@@ -1009,12 +846,8 @@ export default function KathavachakDetailPage() {
 								() => (
 									<KathavachakPostsTab
 										isEditing={isEditing}
-										postImages={postImages}
 										postVideos={postVideos}
-										isUploadingPostImage={isUploadingPostImage}
 										isUploadingPostVideo={isUploadingPostVideo}
-										handlePostImageUpload={handlePostImageUpload}
-										handleRemovePostImage={handleRemovePostImage}
 										handlePostVideoUpload={handlePostVideoUpload}
 										handleRemovePostVideo={handleRemovePostVideo}
 										isSavingPosts={isSavingPosts}
@@ -1023,17 +856,15 @@ export default function KathavachakDetailPage() {
 										setShowImageUpload={setShowImageUpload}
 										showVideoUpload={showVideoUpload}
 										setShowVideoUpload={setShowVideoUpload}
-										handleImageTitleChange={handleImageTitleChange}
-										handleImageDescriptionChange={handleImageDescriptionChange}
 										handleVideoTitleChange={handleVideoTitleChange}
 										handleVideoDescriptionChange={handleVideoDescriptionChange}
+										userId={kathavachakId}
 									/>
 								),
 								[
 									isEditing,
 									postImages,
 									postVideos,
-									isUploadingPostImage,
 									isUploadingPostVideo,
 									isSavingPosts,
 									showImageUpload,

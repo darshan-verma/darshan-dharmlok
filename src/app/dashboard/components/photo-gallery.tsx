@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 
 interface Photo {
+	id: string;
 	url: string;
 	title?: string;
 	description?: string;
@@ -71,34 +72,19 @@ export default function PhotoGallery({
 	useEffect(() => {
 		setLoading(true);
 		setError(null);
-
-		fetch(`/api/users/${userId}`)
-			.then((res) => {
-				if (!res.ok) {
-					throw new Error("Failed to fetch user data");
-				}
+		Promise.all([
+			fetch(`/api/users/${userId}`).then((res) => {
+				if (!res.ok) throw new Error("Failed to fetch user data");
 				return res.json();
-			})
-			.then((data: UserProfile) => {
-				setUser(data);
-				// Ensure we handle both array and single string cases
-				const imagesData = data.images || [];
-
-				// Convert all images to Photo objects
-				const photoObjects = Array.isArray(imagesData)
-					? imagesData.map((img) => {
-							if (typeof img === "string") {
-								// Handle legacy string URLs
-								return { url: img };
-							} else if (img && typeof img === "object") {
-								// Already a Photo object from JSON[]
-								return img as Photo;
-							}
-							return { url: String(img) };
-					  })
-					: [{ url: String(imagesData) }];
-
-				setPhotos(photoObjects);
+			}),
+			fetch(`/api/images?userId=${userId}`).then((res) => {
+				if (!res.ok) throw new Error("Failed to fetch images");
+				return res.json();
+			}),
+		])
+			.then(([userData, imagesData]) => {
+				setUser(userData);
+				setPhotos(imagesData.images || []);
 			})
 			.catch((e: Error) => setError(e.message))
 			.finally(() => setLoading(false));
@@ -150,49 +136,31 @@ export default function PhotoGallery({
 			formData.append("file", uploadedFile);
 			formData.append("userId", userId);
 
-			try {
-				const response = await fetch("/api/upload/profile-image", {
-					method: "POST",
-					body: formData,
-				});
+			const response = await fetch("/api/upload/profile-image", {
+				method: "POST",
+				body: formData,
+			});
 
-				if (!response.ok) {
-					const errorText = await response.text();
-					throw new Error(`Failed to upload image: ${errorText}`);
-				}
-
-				const data = await response.json();
-
-				// Create a new photo object with URL, title, and description
-				const newPhoto: Photo = {
-					url: data.imageUrl,
-					title: photoTitle.trim() || undefined,
-					description: photoDescription.trim() || undefined,
-				};
-
-				// Add the new photo to the photos array
-				setPhotos((prev) => [...prev, newPhoto]);
-
-				// Update the user record to persist the image with metadata
-				await fetch(`/api/users/${userId}`, {
-					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						newImages: [newPhoto],
-					}),
-				});
-
-				// Reset form
-				setPhotoTitle("");
-				setPhotoDescription("");
-				setUploadedFile(null);
-				setShowDetailsForm(false);
-			} catch (err) {
-				throw err;
-			}
-
+			if (!response.ok) throw new Error("Failed to upload image");
+			const data = await response.json();
+			const newPhoto = {
+				url: data.imageUrl,
+				title: photoTitle.trim() || undefined,
+				description: photoDescription.trim() || undefined,
+				userId,
+			};
+			const createRes = await fetch("/api/images", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(newPhoto),
+			});
+			if (!createRes.ok) throw new Error("Failed to create image record");
+			const created = await createRes.json();
+			setPhotos((prev) => [...prev, created]);
+			setPhotoTitle("");
+			setPhotoDescription("");
+			setUploadedFile(null);
+			setShowDetailsForm(false);
 			toast.dismiss(loadingToast);
 			toast.success("Image uploaded successfully!");
 		} catch (error) {
@@ -213,29 +181,11 @@ export default function PhotoGallery({
 		const loadingToast = toast.loading("Deleting image...");
 
 		try {
-			// Update the user record by sending the image to delete
-			const response = await fetch(`/api/users/${userId}`, {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					deletedImages: [photo],
-				}),
-			});
-
-			if (!response.ok) {
-				throw new Error("Failed to delete image");
-			}
-
-			// Remove the deleted image from the UI
-			setPhotos((prev) => prev.filter((p) => p.url !== photo.url));
-
-			// Close the dialog if open
-			if (selectedPhoto && selectedPhoto.url === photo.url) {
+			const res = await fetch(`/api/images/${photo.id}`, { method: "DELETE" });
+			if (!res.ok) throw new Error("Failed to delete image");
+			setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+			if (selectedPhoto && selectedPhoto.id === photo.id)
 				setSelectedPhoto(null);
-			}
-
 			toast.dismiss(loadingToast);
 			toast.success("Image deleted successfully!");
 		} catch (error) {
@@ -275,30 +225,20 @@ export default function PhotoGallery({
 				const data = await response.json();
 				imageUrl = data.imageUrl;
 			}
-			// Update the user record with the edited photo
-			await fetch(`/api/users/${userId}`, {
-				method: "PUT",
+			const photoToEdit = photos.find((p) => p.url === editState.url);
+			if (!photoToEdit) throw new Error("Image not found");
+			const res = await fetch(`/api/images/${photoToEdit.id}`, {
+				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					editedImage: {
-						oldUrl: editState.url,
-						url: imageUrl,
-						title: editState.title,
-						description: editState.description,
-					},
+					title: editState.title,
+					description: editState.description,
+					url: imageUrl,
 				}),
 			});
-			setPhotos((prev) =>
-				prev.map((p) =>
-					p.url === editState.url
-						? {
-								url: imageUrl,
-								title: editState.title,
-								description: editState.description,
-						  }
-						: p
-				)
-			);
+			if (!res.ok) throw new Error("Failed to update image");
+			const updated = await res.json();
+			setPhotos((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
 			setEditState(null);
 		} catch (e) {
 			toast.error(e instanceof Error ? e.message : "Failed to update photo");

@@ -208,56 +208,7 @@ export async function PUT(
 			);
 		}
 		// --- Handle images update ---
-		let updatedImages: any[] | undefined;
-
-		if (data.newImages || data.deletedImages) {
-			// Fetch current images from DB
-			const user = await prisma.user.findUnique({
-				where: { id },
-				select: { images: true },
-			});
-
-			let currentImages: any[] = Array.isArray(user?.images) ? user.images : [];
-
-			// Add new images
-			if (Array.isArray(data.newImages)) {
-				// Process new images as JSON objects
-				const newImageObjects = data.newImages
-					.map((img: any) => {
-						if (typeof img === "string") {
-							// Convert simple string URLs to objects
-							return { url: img };
-						} else if (img && typeof img === "object" && "url" in img) {
-							// Return the image object directly
-							return {
-								url: img.url,
-								title: img.title || undefined,
-								description: img.description || undefined,
-							};
-						}
-						return null;
-					})
-					.filter(Boolean);
-
-				currentImages = [...currentImages, ...newImageObjects];
-			}
-
-			// Remove deleted images
-			if (Array.isArray(data.deletedImages)) {
-				currentImages = currentImages.filter((img: any) => {
-					// Get the URL of the current image
-					const imgUrl = typeof img === "string" ? img : img.url;
-
-					// Check if this URL is in the deletedImages array
-					return !data.deletedImages.some((delImg: any) => {
-						const delImgUrl = typeof delImg === "string" ? delImg : delImg.url;
-						return delImgUrl === imgUrl;
-					});
-				});
-			}
-
-			updatedImages = currentImages;
-		}
+		// (Removed unused updatedImages logic)
 
 		// Validate required fields if they are being updated
 		if (
@@ -324,11 +275,6 @@ export async function PUT(
 			// Add this to handle profileImageUrl removal
 			if ("profileImageUrl" in data) {
 				userUpdateData.profileImageUrl = data.profileImageUrl ?? null;
-			}
-
-			// Include updated images if they were modified
-			if (updatedImages) {
-				userUpdateData.images = updatedImages;
 			}
 
 			console.log(
@@ -504,9 +450,9 @@ export async function PUT(
 				updateData.profileImageUrl = data.profileImageUrl;
 			if (data.addresses !== undefined) updateData.addresses = data.addresses;
 
-			// Remove any update to videos relation in user update
-			if (data.images !== undefined) updateData.images = data.images;
-			if (updatedImages !== undefined) updateData.images = updatedImages;
+			// Remove any update to images or videos relation in user update
+			// if (data.images !== undefined) updateData.images = data.images;
+			// if (updatedImages !== undefined) updateData.images = updatedImages;
 
 			// Execute user update
 			const updatedUser = await prisma.user.update({
