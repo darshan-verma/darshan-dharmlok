@@ -107,7 +107,7 @@ export default function Biography({ userId, editable = true }: BiographyProps) {
 				{editable && !isEditing && (
 					<Button
 						size="sm"
-						variant="outline"
+						type="button"
 						className="absolute top-4 right-4 px-4 py-1 rounded-full border-primary/40 hover:border-primary z-10"
 						onClick={handleEdit}
 					>

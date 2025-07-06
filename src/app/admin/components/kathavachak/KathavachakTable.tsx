@@ -67,12 +67,7 @@ interface KathavachakTableProps {
 }
 
 // Categories for Kathavachaks
-export const kathavachakCategories = [
-	"Sanatan",
-	"Jain",
-	"Sikh",
-	"Buddhism"
-];
+export const kathavachakCategories = ["Sanatan", "Jain", "Sikh", "Buddhism"];
 
 // Ranks for Kathavachaks
 export const kathavachakRanks = ["Junior", "Senior", "Expert", "Master"];
@@ -104,14 +99,6 @@ export const getCategoryColor = (category: string): string => {
 			return "bg-indigo-100 text-indigo-800";
 		case "Buddhism":
 			return "bg-emerald-100 text-emerald-800";
-		// case "Puranas":
-		// 	return "bg-cyan-100 text-cyan-800";
-		// case "Upanishads":
-		// 	return "bg-violet-100 text-violet-800";
-		// case "Bhakti Yoga":
-		// 	return "bg-fuchsia-100 text-fuchsia-800";
-		// case "Other":
-		// 	return "bg-slate-100 text-slate-800";
 		default:
 			return "bg-gray-100 text-gray-800";
 	}
@@ -124,7 +111,6 @@ export default function KathavachakTable({
 	onDeleteKathavachak,
 	onUpdateStatus,
 	onToggleApproval,
-	onLoginAsKathavachak,
 }: KathavachakTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -429,11 +415,11 @@ export default function KathavachakTable({
 													<Trash2 className="h-4 w-4" />
 													Delete
 												</DropdownMenuItem>
-												<DropdownMenuItem
-													onClick={() => onLoginAsKathavachak(kathavachak)}
-												>
-													<LogIn className="h-4 w-4 mr-2" />
-													Login as Kathavachak
+												<DropdownMenuItem asChild>
+													<a href="/dashboard/kathavachak/posts">
+														<LogIn className="h-4 w-4 mr-2" />
+														Login as Kathavachak
+													</a>
 												</DropdownMenuItem>
 											</DropdownMenuContent>
 										</DropdownMenu>

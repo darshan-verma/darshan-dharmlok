@@ -77,6 +77,17 @@ interface PostsProps {
 	profileImageUrl: string;
 }
 
+interface CommentType {
+	id: string;
+	text: string;
+	createdAt: string;
+	user: {
+		id: string;
+		name: string;
+		profileImageUrl: string;
+	};
+}
+
 // Media Carousel Component
 const MediaCarousel = ({
 	media,
@@ -525,13 +536,127 @@ interface PostItemProps {
 	post: Post;
 	onDelete: (postId: string) => void;
 	onEdit: (post: Post) => void;
+	currentUserId: string;
+	currentUserName: string;
+	currentUserImage: string;
 }
 
-const PostItem = ({ post, onEdit, onDelete }: PostItemProps) => {
-	const [isLiked, setIsLiked] = useState(false);
+const PostItem = ({
+	post,
+	onEdit,
+	onDelete,
+	currentUserId,
+	currentUserName,
+	currentUserImage,
+}: PostItemProps) => {
 	const [currentSlide, setCurrentSlide] = useState(0);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
+	const [likeCount, setLikeCount] = useState(post.likes || 0);
+	const [isLiked, setIsLiked] = useState(false);
+	const [likeLoading, setLikeLoading] = useState(false);
+	const [comments, setComments] = useState<CommentType[]>([]);
+	const [commentsOpen, setCommentsOpen] = useState(false);
+	const [commentInput, setCommentInput] = useState("");
+	const [commentsLoading, setCommentsLoading] = useState(false);
+	const [addingComment, setAddingComment] = useState(false);
+	const [deletingCommentId, setDeletingCommentId] = useState<string | null>(
+		null
+	);
+	const [commentCount, setCommentCount] = useState(post.comments || 0);
+
+	// Replace with real userId from auth/session
+	const CURRENT_USER_ID = currentUserId;
+	const CURRENT_USER_NAME = currentUserName;
+	const CURRENT_USER_IMAGE = currentUserImage;
+
+	useEffect(() => {
+		// Fetch like status and count
+		fetch(`/api/posts/${post.id}`)
+			.then((res) => (res.ok ? res.json() : null))
+			.then((data) => {
+				if (data) {
+					setLikeCount(data.likes?.length || 0);
+					setIsLiked(data.likes?.includes(CURRENT_USER_ID));
+				}
+			});
+	}, [post.id]);
+
+	const handleLike = async () => {
+		setLikeLoading(true);
+		try {
+			const method = isLiked ? "DELETE" : "POST";
+			const res = await fetch(`/api/posts/${post.id}/like`, {
+				method,
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ userId: CURRENT_USER_ID }),
+			});
+			if (res.ok) {
+				const data = await res.json();
+				setLikeCount(data.likes.length);
+				setIsLiked(!isLiked);
+			}
+		} finally {
+			setLikeLoading(false);
+		}
+	};
+
+	const fetchComments = async () => {
+		setCommentsLoading(true);
+		try {
+			const res = await fetch(`/api/posts/${post.id}/comments`);
+			if (res.ok) {
+				const data = await res.json();
+				setComments(data.comments || []);
+				setCommentCount((data.comments || []).length);
+			}
+		} finally {
+			setCommentsLoading(false);
+		}
+	};
+
+	const handleToggleComments = () => {
+		setCommentsOpen((open) => {
+			if (!open) fetchComments();
+			return !open;
+		});
+	};
+
+	const handleAddComment = async () => {
+		const text = commentInput.trim();
+		if (!text) return;
+		setAddingComment(true);
+		try {
+			const res = await fetch(`/api/posts/${post.id}/comments`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ userId: CURRENT_USER_ID, text }),
+			});
+			if (res.ok) {
+				const data = await res.json();
+				setComments((prev) => [data.comment, ...prev]);
+				setCommentInput("");
+				setCommentCount((prev) => prev + 1);
+			}
+		} finally {
+			setAddingComment(false);
+		}
+	};
+
+	const handleDeleteComment = async (commentId: string) => {
+		setDeletingCommentId(commentId);
+		try {
+			const res = await fetch(`/api/comments/${commentId}`, {
+				method: "DELETE",
+			});
+			if (res.ok) {
+				setComments((prev) => prev.filter((c) => c.id !== commentId));
+				setCommentCount((prev) => Math.max(0, prev - 1));
+			}
+		} finally {
+			setDeletingCommentId(null);
+		}
+	};
 
 	const handleNext = useCallback(() => {
 		setCurrentSlide((prev) => (prev === post.media.length - 1 ? 0 : prev + 1));
@@ -609,14 +734,14 @@ const PostItem = ({ post, onEdit, onDelete }: PostItemProps) => {
 					onNext={handleNext}
 					onPrev={handlePrev}
 				/>
-
 				<div className="p-4 space-y-3">
 					<div className="flex items-center">
 						<Button
-							variant="ghost"
+							variant="link"
 							size="icon"
-							className="rounded-full -ml-2"
-							onClick={() => setIsLiked(!isLiked)}
+							className="-ml-2 p-0 h-auto w-auto min-w-0 min-h-0 border-none bg-transparent shadow-none hover:bg-transparent focus:bg-transparent"
+							onClick={handleLike}
+							disabled={likeLoading}
 						>
 							<Heart
 								className={`h-6 w-6 transition-all ${
@@ -626,7 +751,12 @@ const PostItem = ({ post, onEdit, onDelete }: PostItemProps) => {
 								}`}
 							/>
 						</Button>
-						<Button variant="ghost" size="icon" className="rounded-full">
+						<Button
+							variant="ghost"
+							size="icon"
+							className="rounded-full"
+							onClick={handleToggleComments}
+						>
 							<MessageCircle className="h-6 w-6 text-muted-foreground" />
 						</Button>
 						<Button variant="ghost" size="icon" className="rounded-full">
@@ -640,22 +770,100 @@ const PostItem = ({ post, onEdit, onDelete }: PostItemProps) => {
 							<Bookmark className="h-6 w-6 text-muted-foreground" />
 						</Button>
 					</div>
-
 					<div className="px-1">
-						<p className="text-sm font-semibold">
-							{post.likes + (isLiked ? 1 : 0)} likes
-						</p>
-						<p className="text-sm text-muted-foreground cursor-pointer hover:underline">
-							View all {post.comments} comments
+						<p className="text-sm font-semibold">{likeCount} likes</p>
+						<p
+							className="text-sm text-muted-foreground cursor-pointer hover:underline"
+							onClick={handleToggleComments}
+						>
+							View all {commentCount} comments
 						</p>
 					</div>
-
 					<div className="px-1 text-sm">
 						<span className="font-semibold cursor-pointer hover:underline">
 							{post.user.name}
 						</span>{" "}
 						<span>{post.caption}</span>
 					</div>
+					{/* Comments Section */}
+					{commentsOpen && (
+						<div className="mt-3 border-t pt-3">
+							<div className="flex gap-2 mb-2">
+								<Image
+									src={CURRENT_USER_IMAGE}
+									alt={CURRENT_USER_NAME}
+									width={32}
+									height={32}
+									className="rounded-full"
+								/>
+								<input
+									type="text"
+									value={commentInput}
+									onChange={(e) => setCommentInput(e.target.value)}
+									placeholder="Add a comment..."
+									className="flex-1 border rounded px-3 py-2 text-sm"
+									disabled={addingComment}
+									onKeyDown={(e) => {
+										if (e.key === "Enter") handleAddComment();
+									}}
+								/>
+								<Button
+									size="sm"
+									disabled={addingComment || !commentInput.trim()}
+									onClick={handleAddComment}
+								>
+									Comment
+								</Button>
+							</div>
+							<div className="space-y-2 max-h-40 overflow-y-auto">
+								{commentsLoading ? (
+									<div className="text-xs text-gray-500">
+										Loading comments...
+									</div>
+								) : comments.length > 0 ? (
+									comments.map((c) => (
+										<div
+											key={c.id}
+											className="flex items-start gap-2 text-sm bg-white rounded p-2 border"
+										>
+											<Image
+												src={
+													c.user?.profileImageUrl ||
+													"/uploads/placeholder-avatar.svg"
+												}
+												alt={c.user?.name || "User"}
+												width={28}
+												height={28}
+												className="rounded-full"
+											/>
+											<div className="flex-1">
+												<div className="font-semibold">
+													{c.user?.name || "User"}
+												</div>
+												<div>{c.text}</div>
+												<div className="text-xs text-gray-400">
+													{new Date(c.createdAt).toLocaleString()}
+												</div>
+											</div>
+											{c.user?.id === CURRENT_USER_ID && (
+												<Button
+													size="icon"
+													variant="ghost"
+													className="text-red-500 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50"
+													onClick={() => handleDeleteComment(c.id)}
+													disabled={deletingCommentId === c.id}
+												>
+													<Trash2 className="h-4 w-4" />
+												</Button>
+											)}
+										</div>
+									))
+								) : (
+									<div className="text-xs text-gray-400">No comments yet.</div>
+								)}
+							</div>
+						</div>
+					)}
 				</div>
 			</CardContent>
 			<Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
@@ -792,6 +1000,9 @@ export default function Posts({
 								post={post}
 								onDelete={handlePostDeleted}
 								onEdit={handleEditClick}
+								currentUserId={userId}
+								currentUserName={userName}
+								currentUserImage={profileImageUrl}
 							/>
 						))}
 					</div>

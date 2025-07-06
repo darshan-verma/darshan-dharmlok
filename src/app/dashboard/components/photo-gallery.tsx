@@ -409,7 +409,7 @@ export default function PhotoGallery({
 						)}
 					</div>
 				) : (
-					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 gap-4">
+					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-4">
 						{photos.map((photo, index) => (
 							<div key={`${photo.url}-${index}`} className="relative group">
 								{editState && editState.url === photo.url ? (

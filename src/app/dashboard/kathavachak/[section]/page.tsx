@@ -25,16 +25,18 @@ export default function KathavachakSectionPage() {
 	const section = Array.isArray(params.section)
 		? params.section[0]
 		: params.section;
-	const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);	
+	const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
 
-	 useEffect(() => {
-        if (session?.user?.id) {
-            fetch(`/api/users/${session.user.id}`)
-                .then((res) => res.json())
-                .then((user) => setProfileImageUrl(user.profileImageUrl || "/placeholder-avatar.png"))
-                .catch(() => setProfileImageUrl("/placeholder-avatar.png"));
-        }
-    }, [session?.user?.id]);
+	useEffect(() => {
+		if (session?.user?.id) {
+			fetch(`/api/users/${session.user.id}`)
+				.then((res) => res.json())
+				.then((user) =>
+					setProfileImageUrl(user.profileImageUrl || "/placeholder-avatar.png")
+				)
+				.catch(() => setProfileImageUrl("/placeholder-avatar.png"));
+		}
+	}, [session?.user?.id]);
 
 	if (sessionStatus === "loading") {
 		return <LoadingState message="Loading session..." />;

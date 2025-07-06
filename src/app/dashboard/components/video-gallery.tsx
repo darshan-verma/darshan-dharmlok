@@ -234,25 +234,25 @@ export default function VideoGallery({
 	return (
 		<Card className="w-full rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 bg-background">
 			<CardHeader className="flex flex-row items-center gap-6 p-4 border-b">
-								<div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 shadow-md bg-white dark:bg-zinc-800 flex items-center justify-center">
-									<Image
-										src={user.profileImageUrl || "/placeholder-avatar.png"}
-										alt={user.name}
-										width={64}
-										height={64}
-										className="object-cover w-full h-full"
-									/>
-								</div>
-								<div className="flex flex-col justify-center flex-1 gap-1">
-									<CardTitle className="text-xl font-bold text-left">
-										{user.name}
-									</CardTitle>
-									{user.category && (
-										<CardDescription className="text-sm text-muted-foreground text-left">
-											{user.category}
-										</CardDescription>
-									)}
-								</div>
+				<div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 shadow-md bg-white dark:bg-zinc-800 flex items-center justify-center">
+					<Image
+						src={user.profileImageUrl || "./placeholder-avatar.svg"}
+						alt={user.name}
+						width={64}
+						height={64}
+						className="object-cover w-full h-full"
+					/>
+				</div>
+				<div className="flex flex-col justify-center flex-1 gap-1">
+					<CardTitle className="text-xl font-bold text-left">
+						{user.name}
+					</CardTitle>
+					{user.category && (
+						<CardDescription className="text-sm text-muted-foreground text-left">
+							{user.category}
+						</CardDescription>
+					)}
+				</div>
 				{editable && (
 					<Button
 						size="sm"
@@ -393,8 +393,7 @@ export default function VideoGallery({
 											<video
 												src={video.videoUrl}
 												controls
-												className="w-full h-full rounded-t-lg"
-												poster="/placeholder-video.png"
+												className="w-full h-full rounded-t-lg"												
 											>
 												Your browser does not support the video tag.
 											</video>
