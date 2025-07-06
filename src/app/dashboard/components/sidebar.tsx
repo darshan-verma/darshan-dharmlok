@@ -50,117 +50,120 @@ type UserType =
 	| "panditji"
 	| "hotel_dharamshala_vendor"; // Add more as needed
 
-// Define menu items for each userType
-const sharedMenuItems: MenuItem[] = [
-	{ label: "Go Live", href: "/dashboard/kathavachak/go-live", icon: Cast },
-	{ label: "Posts", href: "/dashboard/kathavachak/posts", icon: BookOpen },
-	{
-		label: "Biography",
-		href: "/dashboard/kathavachak/biography",
-		icon: UserCircle2,
-	},
-	{
-		label: "Video Gallery",
-		href: "/dashboard/kathavachak/videos",
-		icon: Video,
-	},
-	{
-		label: "Photo Gallery",
-		href: "/dashboard/kathavachak/photos",
-		icon: ImageIcon,
-	},
-	{ label: "My Events", href: "/dashboard/kathavachak/events", icon: Calendar },
-	{
-		label: "My Advertisement",
-		href: "/dashboard/kathavachak/advertisement",
-		icon: BadgeDollarSign,
-	},
-	{
-		label: "My Temple Booking",
-		href: "/dashboard/kathavachak/temple-booking",
-		icon: Building2,
-	},
-	{
-		label: "My Dharamshala Booking",
-		href: "/dashboard/kathavachak/dharamshala-booking",
-		icon: Building2,
-	},
-	{
-		label: "My Eshop Orders",
-		href: "/dashboard/kathavachak/eshop-orders",
-		icon: ShoppingBag,
-	},
-	{
-		label: "My Events Orders",
-		href: "/dashboard/kathavachak/events-orders",
-		icon: Calendar,
-	},
-	{
-		label: "My Pooja Services",
-		href: "/dashboard/kathavachak/pooja-services",
-		icon: HandHeart,
-	},
-	{
-		label: "Services",
-		href: "/dashboard/kathavachak/services",
-		icon: HandHeart,
-	},
-	{
-		label: "Add Your Events",
-		href: "/dashboard/kathavachak/add-events",
-		icon: Calendar,
-	},
-	{
-		label: "Events Request List",
-		href: "/dashboard/kathavachak/events-request-list",
-		icon: MailQuestion,
-	},
-	{
-		label: "Apply for Paid Promotions",
-		href: "/dashboard/kathavachak/paid-promotions",
-		icon: BadgeDollarSign,
-	},
-	{
-		label: "Bookmarks - Temple",
-		href: "/dashboard/kathavachak/bookmarks/temple",
-		icon: BookOpen,
-	},
-	{
-		label: "Bookmarks - Vendors",
-		href: "/dashboard/kathavachak/bookmarks/vendors",
-		icon: Store,
-	},
-	{
-		label: "Bookmarks - Eshop",
-		href: "/dashboard/kathavachak/bookmarks/eshop",
-		icon: ShoppingBag,
-	},
-	{
-		label: "Bookmarks - Pooja",
-		href: "/dashboard/kathavachak/bookmarks/pooja",
-		icon: HandHeart,
-	},
-	{ label: "Setting", href: "/dashboard/kathavachak/setting", icon: Settings },
-	{
-		label: "Update Biography",
-		href: "/dashboard/kathavachak/update-biography",
-		icon: UserCircle2,
-	},
-	{
-		label: "Add Photo",
-		href: "/dashboard/kathavachak/add-photo",
-		icon: ImageIcon,
-	},
-	{ label: "Add Video", href: "/dashboard/kathavachak/add-video", icon: Video },
-	// ...add more as needed
-];
+// Helper to generate menu items for a user type
+function generateMenuItems(userType: UserType): MenuItem[] {
+	const prefix = `/dashboard/${userType}`;
+	return [
+		{ label: "Go Live", href: `${prefix}/go-live`, icon: Cast },
+		{ label: "Posts", href: `${prefix}/posts`, icon: BookOpen },
+		{
+			label: "Biography",
+			href: `${prefix}/biography`,
+			icon: UserCircle2,
+		},
+		{
+			label: "Video Gallery",
+			href: `${prefix}/videos`,
+			icon: Video,
+		},
+		{
+			label: "Photo Gallery",
+			href: `${prefix}/photos`,
+			icon: ImageIcon,
+		},
+		{ label: "My Events", href: `${prefix}/events`, icon: Calendar },
+		{
+			label: "My Advertisement",
+			href: `${prefix}/advertisement`,
+			icon: BadgeDollarSign,
+		},
+		{
+			label: "My Temple Booking",
+			href: `${prefix}/temple-booking`,
+			icon: Building2,
+		},
+		{
+			label: "My Dharamshala Booking",
+			href: `${prefix}/dharamshala-booking`,
+			icon: Building2,
+		},
+		{
+			label: "My Eshop Orders",
+			href: `${prefix}/eshop-orders`,
+			icon: ShoppingBag,
+		},
+		{
+			label: "My Events Orders",
+			href: `${prefix}/events-orders`,
+			icon: Calendar,
+		},
+		{
+			label: "My Pooja Services",
+			href: `${prefix}/pooja-services`,
+			icon: HandHeart,
+		},
+		{
+			label: "Services",
+			href: `${prefix}/services`,
+			icon: HandHeart,
+		},
+		{
+			label: "Add Your Events",
+			href: `${prefix}/add-events`,
+			icon: Calendar,
+		},
+		{
+			label: "Events Request List",
+			href: `${prefix}/events-request-list`,
+			icon: MailQuestion,
+		},
+		{
+			label: "Apply for Paid Promotions",
+			href: `${prefix}/paid-promotions`,
+			icon: BadgeDollarSign,
+		},
+		{
+			label: "Bookmarks - Temple",
+			href: `${prefix}/bookmarks/temple`,
+			icon: BookOpen,
+		},
+		{
+			label: "Bookmarks - Vendors",
+			href: `${prefix}/bookmarks/vendors`,
+			icon: Store,
+		},
+		{
+			label: "Bookmarks - Eshop",
+			href: `${prefix}/bookmarks/eshop`,
+			icon: ShoppingBag,
+		},
+		{
+			label: "Bookmarks - Pooja",
+			href: `${prefix}/bookmarks/pooja`,
+			icon: HandHeart,
+		},
+		{ label: "Setting", href: `${prefix}/setting`, icon: Settings },
+		{
+			label: "Update Biography",
+			href: `${prefix}/update-biography`,
+			icon: UserCircle2,
+		},
+		{
+			label: "Add Photo",
+			href: `${prefix}/add-photo`,
+			icon: ImageIcon,
+		},
+		{ label: "Add Video", href: `${prefix}/add-video`, icon: Video },
+		// ...add more as needed
+	];
+}
 
 const menuConfig: Record<UserType, MenuItem[]> = {
-	kathavachak: sharedMenuItems,
-	dharmguru: sharedMenuItems,
-	seller: sharedMenuItems,
-	panditji: sharedMenuItems,
-	hotel_dharamshala_vendor: sharedMenuItems,
+	kathavachak: generateMenuItems("kathavachak"),
+	dharmguru: generateMenuItems("dharmguru"),
+	seller: generateMenuItems("seller"),
+	panditji: generateMenuItems("panditji"),
+	hotel_dharamshala_vendor: generateMenuItems("hotel_dharamshala_vendor"),
 };
 
 // Type guard function to check if a string is a valid UserType

@@ -375,6 +375,7 @@ model Event {
 
 model Post {
     id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    userType  String
     caption   String
     likes     String[] @db.ObjectId // Array of userIds who liked the post
     comments  Comment[] // Relation to comments on this post

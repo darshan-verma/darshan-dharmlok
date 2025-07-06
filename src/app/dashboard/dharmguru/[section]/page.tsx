@@ -19,7 +19,7 @@ const LoadingState = ({ message }: { message: string }) => (
 	</div>
 );
 
-export default function KathavachakSectionPage() {
+export default function DharmguruSectionPage() {
 	const { data: session, status: sessionStatus } = useSession();
 	const params = useParams();
 	const section = Array.isArray(params.section)
@@ -51,7 +51,7 @@ export default function KathavachakSectionPage() {
 		content = (
 			<Biography
 				userId={session.user.id}
-				userType={session.user.role?.toLowerCase() || "kathavachak"}
+				userType={session.user.role?.toLowerCase() || "dharmguru"}
 				editable={true}
 			/>
 		);
@@ -61,7 +61,7 @@ export default function KathavachakSectionPage() {
 				userId={session.user.id}
 				userName={session.user.name || "User"}
 				profileImageUrl={profileImageUrl || "/placeholder-avatar.png"}
-				userType={session.user.role?.toLowerCase() || "kathavachak"}
+				userType={session.user.role?.toLowerCase() || "dharmguru"}
 			/>
 		);
 	} else if (section === "videos") {
@@ -77,11 +77,9 @@ export default function KathavachakSectionPage() {
 	}
 
 	return (
-		<RouteProtection requiredRole="kathavachak">
+		<RouteProtection requiredRole="dharmguru">
 			<div className="flex bg-muted/40">
-				<Sidebar
-					userType={session?.user?.role?.toLowerCase() || "kathavachak"}
-				/>
+				<Sidebar userType={session?.user?.role?.toLowerCase() || "dharmguru"} />
 				<main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-16 items-start">
 						<div className="lg:col-span-2">{content}</div>

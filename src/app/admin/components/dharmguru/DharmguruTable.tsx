@@ -124,7 +124,6 @@ export default function DharmguruTable({
 	onDeleteDharmguru,
 	onUpdateStatus,
 	onToggleApproval,
-	onLoginAsDharmguru,
 }: DharmguruTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -429,11 +428,11 @@ export default function DharmguruTable({
 													<Trash2 className="h-4 w-4" />
 													Delete
 												</DropdownMenuItem>
-												<DropdownMenuItem
-													onClick={() => onLoginAsDharmguru(dharmguru)}
-												>
-													<LogIn className="h-4 w-4 mr-2" />
-													Login as Dharmguru
+												<DropdownMenuItem asChild>
+													<a href="/dashboard/dharmguru/posts">
+														<LogIn className="h-4 w-4 mr-2" />
+														Login as Dharmguru
+													</a>
 												</DropdownMenuItem>
 											</DropdownMenuContent>
 										</DropdownMenu>

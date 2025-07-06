@@ -75,6 +75,7 @@ interface PostsProps {
 	userId: string;
 	userName: string;
 	profileImageUrl: string;
+	userType: string; // made required
 }
 
 interface CommentType {
@@ -178,11 +179,13 @@ const CreatePostForm = ({
 	userName,
 	profileImageUrl,
 	onPostCreated,
+	userType,
 }: {
 	userId: string;
 	userName: string;
 	profileImageUrl: string;
 	onPostCreated: (post: Post) => void;
+	userType: string;
 }) => {
 	const [isUploading, setIsUploading] = useState(false);
 	const [uploadedMedia, setUploadedMedia] = useState<MediaItem[]>([]);
@@ -323,6 +326,7 @@ const CreatePostForm = ({
 			userId,
 			caption,
 			media: uploadedMedia,
+			userType, // add userType
 			user: {
 				id: userId,
 				name: userName,
@@ -366,6 +370,7 @@ const CreatePostForm = ({
 		userId,
 		userName,
 		profileImageUrl,
+		userType,
 	]);
 
 	return (
@@ -903,6 +908,7 @@ export default function Posts({
 	userId,
 	userName,
 	profileImageUrl,
+	userType,
 }: PostsProps) {
 	const [posts, setPosts] = useState<Post[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
@@ -961,7 +967,9 @@ export default function Posts({
 		const fetchPosts = async () => {
 			setIsLoading(true);
 			try {
-				const res = await fetch("/api/posts");
+				const res = await fetch(
+					`/api/posts?userId=${userId}&userType=${userType}`
+				);
 				if (!res.ok) {
 					throw new Error("Failed to fetch posts");
 				}
@@ -975,7 +983,7 @@ export default function Posts({
 			}
 		};
 		fetchPosts();
-	}, []);
+	}, [userId, userType]);
 
 	return (
 		<>
@@ -985,6 +993,7 @@ export default function Posts({
 					userName={userName}
 					profileImageUrl={profileImageUrl}
 					onPostCreated={handlePostCreated}
+					userType={userType}
 				/>
 
 				{isLoading ? (

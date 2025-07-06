@@ -11,9 +11,24 @@ import { Prisma } from "@prisma/client";
  *       200:
  *         description: A list of posts
  */
-export async function GET() {
+export async function GET(request: Request) {
+	const { searchParams } = new URL(request.url);
+	const userId = searchParams.get("userId");
+	const userType = searchParams.get("userType");
+
+	if (!userId || !userType) {
+		return NextResponse.json(
+			{ message: "Missing userId or userType" },
+			{ status: 400 }
+		);
+	}
+
 	try {
 		const posts = await prisma.post.findMany({
+			where: {
+				userId,
+				userType,
+			},
 			orderBy: {
 				createdAt: "desc",
 			},
@@ -60,9 +75,9 @@ export async function GET() {
 export async function POST(req: Request) {
 	try {
 		const body = await req.json();
-		const { userId, caption, media } = body;
+		const { userId, caption, media, userType } = body;
 
-		if (!userId || !caption || !media) {
+		if (!userId || !caption || !media || !userType) {
 			return NextResponse.json(
 				{ message: "Missing required fields" },
 				{ status: 400 }
@@ -72,6 +87,7 @@ export async function POST(req: Request) {
 		const newPost = await prisma.post.create({
 			data: {
 				caption,
+				userType, // <-- add userType here
 				user: {
 					connect: {
 						id: userId,
