@@ -10,9 +10,13 @@ import { Dharmguru, FormErrors } from "@/app/admin/components/dharmguru/types";
 import ProfileCard from "@/app/admin/components/dharmguru/ProfileCard";
 import DetailsTab from "@/app/admin/components/dharmguru/DetailsTab";
 import BiographyTab from "@/app/admin/components/dharmguru/BiographyTab";
-import PostsTab from "@/app/admin/components/dharmguru/PostsTab";
+import PostsTab from "@/app/admin/components/dharmguru/DharmguruPostsTab";
 import PreferencesTab from "@/app/admin/components/dharmguru/PreferencesTab";
 import ActivityTab from "@/app/admin/components/dharmguru/ActivityTab";
+import type {
+	ImageObject,
+	VideoObject,
+} from "@/app/admin/components/dharmguru/types";
 
 export default function DharmguruDetailPage() {
 	const params = useParams();
@@ -31,30 +35,35 @@ export default function DharmguruDetailPage() {
 	const [isSavingBiography, setIsSavingBiography] = useState(false);
 
 	// --- Posts Tab: Images & Videos State ---
-	const [postImages, setPostImages] = useState<string[]>([]);
-	const [postVideos, setPostVideos] = useState<string[]>([]);
+	const [postImages, setPostImages] = useState<ImageObject[]>([]);
+	const [postVideos, setPostVideos] = useState<VideoObject[]>([]);
 	const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
 	const [isUploadingPostVideo, setIsUploadingPostVideo] = useState(false);
 	const [isSavingPosts, setIsSavingPosts] = useState(false);
 
-	const [existingImages, setExistingImages] = useState<string[]>([]);
-	const [newImages, setNewImages] = useState<string[]>([]);
-	const [deletedImages, setDeletedImages] = useState<string[]>([]);
-	const [videosToDelete, setVideosToDelete] = useState<string[]>([]);
-
-	// Reset videos to delete when edit mode changes
+	// Fetch images/videos as objects (with metadata)
 	useEffect(() => {
-		if (!isEditing) {
-			setVideosToDelete([]);
-		}
-	}, [isEditing]);
-
-	// Effect to clean up videosToDelete when component unmounts
-	useEffect(() => {
-		return () => {
-			setVideosToDelete([]);
+		if (!dharmguruId) return;
+		const fetchMedia = async () => {
+			try {
+				const [imgRes, vidRes] = await Promise.all([
+					fetch(`/api/images?userId=${dharmguruId}`),
+					fetch(`/api/videos?userId=${dharmguruId}`),
+				]);
+				if (imgRes.ok) {
+					const data = await imgRes.json();
+					setPostImages(data.images || []);
+				}
+				if (vidRes.ok) {
+					const data = await vidRes.json();
+					setPostVideos(data.videos || []);
+				}
+			} catch (e) {
+				console.error("Failed to fetch media:", e);
+			}
 		};
-	}, []);
+		fetchMedia();
+	}, [dharmguruId]);
 
 	// Fetch Kathavachak data from API
 	const fetchDharmguruData = useCallback(async () => {
@@ -431,24 +440,6 @@ export default function DharmguruDetailPage() {
 		}
 	}
 
-	// Fetch posts (images/videos) on mount or dharmguruId change
-	// Add this near your other useEffect hooks
-	useEffect(() => {
-		const fetchVideos = async () => {
-			if (!dharmguruId) return;
-			try {
-				const res = await fetch(`/api/videos?userId=${dharmguruId}`);
-				if (!res.ok) return;
-				const data = await res.json();
-				// Set videos from the video API
-				setPostVideos(data.videos.map((v: any) => v.videoUrl));
-			} catch (error) {
-				console.error("Error fetching videos:", error);
-			}
-		};
-		fetchVideos();
-	}, [dharmguruId]);
-
 	// --- Image Upload Handler ---
 	const handlePostImageUpload = async (
 		event: React.ChangeEvent<HTMLInputElement>
@@ -456,23 +447,33 @@ export default function DharmguruDetailPage() {
 		const files = event.target.files;
 		if (!files || files.length === 0) return;
 		setIsUploadingPostImage(true);
-		const uploaded: string[] = [];
 		try {
 			for (let i = 0; i < files.length; i++) {
 				const file = files[i];
 				const formData = new FormData();
 				formData.append("file", file);
 				formData.append("userId", dharmguruId);
-				const response = await fetch("/api/upload/video", {
+				const uploadRes = await fetch("/api/upload/profile-image", {
 					method: "POST",
 					body: formData,
 				});
-				if (!response.ok) throw new Error("Failed to upload image");
-				const { imageUrl } = await response.json();
-				uploaded.push(imageUrl);
+				if (!uploadRes.ok) continue;
+				const { imageUrl } = await uploadRes.json();
+				// Create image object with empty title/description
+				const createRes = await fetch("/api/images", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						url: imageUrl,
+						userId: dharmguruId,
+						title: "",
+						description: "",
+					}),
+				});
+				if (!createRes.ok) continue;
+				const image = await createRes.json();
+				setPostImages((prev) => [...prev, image]);
 			}
-			setNewImages((prev) => [...prev, ...uploaded]);
-			setPostImages((prev) => [...prev, ...uploaded]);
 			toast.success("Image(s) uploaded successfully!");
 		} catch {
 			toast.error("Failed to upload image(s)");
@@ -481,15 +482,49 @@ export default function DharmguruDetailPage() {
 		}
 	};
 
-	const handleRemovePostImage = (url: string) => {
-		if (existingImages.includes(url)) {
-			setDeletedImages((prev) => [...prev, url]);
-			setExistingImages((prev) => prev.filter((img) => img !== url));
+	const handleRemovePostImage = async (img: ImageObject) => {
+		if (!img.id) return;
+		try {
+			const res = await fetch(`/api/images/${img.id}`, { method: "DELETE" });
+			if (res.ok) {
+				setPostImages((prev) => prev.filter((p) => p.id !== img.id));
+			}
+		} catch (e) {
+			toast.error("Failed to remove image");
 		}
-		if (newImages.includes(url)) {
-			setNewImages((prev) => prev.filter((img) => img !== url));
+	};
+
+	const handleImageTitleChange = async (img: ImageObject, title: string) => {
+		if (!img.id) return;
+		const res = await fetch(`/api/images/${img.id}`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ title }),
+		});
+		if (res.ok) {
+			const updated = await res.json();
+			setPostImages((prev) =>
+				prev.map((p) => (p.id === updated.id ? updated : p))
+			);
 		}
-		setPostImages((prev) => prev.filter((img) => img !== url));
+	};
+
+	const handleImageDescriptionChange = async (
+		img: ImageObject,
+		description: string
+	) => {
+		if (!img.id) return;
+		const res = await fetch(`/api/images/${img.id}`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ description }),
+		});
+		if (res.ok) {
+			const updated = await res.json();
+			setPostImages((prev) =>
+				prev.map((p) => (p.id === updated.id ? updated : p))
+			);
+		}
 	};
 
 	// --- Video Upload Handler ---
@@ -499,22 +534,33 @@ export default function DharmguruDetailPage() {
 		const files = event.target.files;
 		if (!files || files.length === 0) return;
 		setIsUploadingPostVideo(true);
-		const uploaded: string[] = [];
 		try {
 			for (let i = 0; i < files.length; i++) {
 				const file = files[i];
 				const formData = new FormData();
 				formData.append("file", file);
 				formData.append("userId", dharmguruId);
-				const response = await fetch("/api/upload/video", {
+				const uploadRes = await fetch("/api/upload/video", {
 					method: "POST",
 					body: formData,
 				});
-				if (!response.ok) throw new Error("Failed to upload video");
-				const { videoUrl } = await response.json();
-				uploaded.push(videoUrl);
+				if (!uploadRes.ok) continue;
+				const { videoUrl } = await uploadRes.json();
+				// Create video object with empty title/description
+				const createRes = await fetch("/api/videos", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						url: videoUrl,
+						userId: dharmguruId,
+						title: "",
+						description: "",
+					}),
+				});
+				if (!createRes.ok) continue;
+				const video = await createRes.json();
+				setPostVideos((prev) => [...prev, video]);
 			}
-			setPostVideos((prev) => [...prev, ...uploaded]);
 			toast.success("Video(s) uploaded successfully!");
 		} catch {
 			toast.error("Failed to upload video(s)");
@@ -523,121 +569,65 @@ export default function DharmguruDetailPage() {
 		}
 	};
 
-	const handleRemovePostVideo = (url: string) => {
-		// Add to videos to delete list so we can delete from database on save
-		console.log("Marking video for deletion:", url);
-		setVideosToDelete((prev) => [...prev, url]);
-		// Remove from UI state
-		setPostVideos((prev) => prev.filter((vid) => vid !== url));
+	const handleRemovePostVideo = async (vid: VideoObject) => {
+		if (!vid.id) return;
+		try {
+			const res = await fetch(`/api/videos/${vid.id}`, { method: "DELETE" });
+			if (res.ok) {
+				setPostVideos((prev) => prev.filter((v) => v.id !== vid.id));
+			}
+		} catch (e) {
+			toast.error("Failed to remove video");
+		}
 	};
 
-	async function handleSavePosts(
-		event: React.MouseEvent<HTMLButtonElement, MouseEvent>
-	): Promise<void> {
-		event.preventDefault();
-		if (!dharmguruId) {
-			toast.error("Invalid Dharmguru ID");
-			return;
+	const handleVideoTitleChange = async (vid: VideoObject, title: string) => {
+		if (!vid.id) return;
+		const res = await fetch(`/api/videos/${vid.id}`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ title }),
+		});
+		if (res.ok) {
+			const updated = await res.json();
+			setPostVideos((prev) =>
+				prev.map((v) => (v.id === updated.id ? updated : v))
+			);
 		}
+	};
+
+	const handleVideoDescriptionChange = async (
+		vid: VideoObject,
+		description: string
+	) => {
+		if (!vid.id) return;
+		const res = await fetch(`/api/videos/${vid.id}`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ description }),
+		});
+		if (res.ok) {
+			const updated = await res.json();
+			setPostVideos((prev) =>
+				prev.map((v) => (v.id === updated.id ? updated : v))
+			);
+		}
+	};
+
+	async function handleSavePosts(): Promise<void> {
 		setIsSavingPosts(true);
 		const loadingToast = toast.loading("Saving posts...");
 		try {
-			const response = await fetch(`/api/users/${dharmguruId}`, {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					newImages,
-					deletedImages,
-					// Remove videos: postVideos, - don't send videos array
-				}),
-			});
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.error || "Failed to save posts");
-			}
-
-			// Delete videos that were removed from UI
-			if (videosToDelete.length > 0) {
-				console.log("Videos to delete:", videosToDelete);
-
-				// Find videos by URLs
-				const videosRes = await fetch(`/api/videos?userId=${dharmguruId}`);
-				if (videosRes.ok) {
-					const videoData = await videosRes.json();
-
-					// Make sure we have the expected structure
-					if (!videoData.videos || !Array.isArray(videoData.videos)) {
-						console.error("Unexpected video response format:", videoData);
-						throw new Error("Failed to get videos from server");
-					}
-
-					const { videos } = videoData;
-
-					console.log("All videos from DB:", videos);
-
-					// Find video IDs that match the URLs we want to delete
-					const videoIdsToDelete = videos
-						.filter((v: any) => videosToDelete.includes(v.videoUrl))
-						.map((v: any) => v.id);
-
-					console.log("Video IDs to delete:", videoIdsToDelete);
-
-					// If no matching videos found, log a warning
-					if (videoIdsToDelete.length === 0 && videosToDelete.length > 0) {
-						console.warn(
-							"No matching videos found in database for URLs:",
-							videosToDelete
-						);
-					}
-
-					// Delete each video by ID
-					const deleteResults = [];
-					for (const videoId of videoIdsToDelete) {
-						try {
-							const deleteResponse = await fetch(`/api/videos/${videoId}`, {
-								method: "DELETE",
-							});
-
-							if (!deleteResponse.ok) {
-								const errorText = await deleteResponse.text();
-								console.error(`Failed to delete video ${videoId}:`, errorText);
-								deleteResults.push({
-									id: videoId,
-									success: false,
-									error: errorText,
-								});
-							} else {
-								console.log(`Successfully deleted video ${videoId}`);
-								deleteResults.push({ id: videoId, success: true });
-							}
-						} catch (error) {
-							console.error(`Error deleting video ${videoId}:`, error);
-							deleteResults.push({
-								id: videoId,
-								success: false,
-								error: error instanceof Error ? error.message : String(error),
-							});
-						}
-					}
-
-					console.log("Video deletion results:", deleteResults);
-				}
-			}
-
+			// No need to send arrays, as all changes are persisted on each action
 			toast.dismiss(loadingToast);
 			toast.success("Posts saved successfully!");
 			setIsEditing(false);
-			setIsSavingPosts(false);
-			setNewImages([]);
-			setDeletedImages([]);
-			setVideosToDelete([]);
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(
 				error instanceof Error ? error.message : "Failed to save posts"
 			);
+		} finally {
 			setIsSavingPosts(false);
 		}
 	}
@@ -718,6 +708,13 @@ export default function DharmguruDetailPage() {
 								isUploadingPostVideo={isUploadingPostVideo}
 								handleSavePosts={handleSavePosts}
 								isSavingPosts={isSavingPosts}
+								userId={dharmguruId}
+								handleImageTitleChange={handleImageTitleChange}
+								handleImageDescriptionChange={handleImageDescriptionChange}
+								handleVideoTitleChange={handleVideoTitleChange}
+								handleVideoDescriptionChange={handleVideoDescriptionChange}
+								onImageAdded={(img) => setPostImages((prev) => [...prev, img])}
+								onVideoAdded={vid => setPostVideos(prev => [...prev, vid])}
 							/>
 						</TabsContent>
 

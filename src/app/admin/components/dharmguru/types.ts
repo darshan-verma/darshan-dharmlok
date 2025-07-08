@@ -64,3 +64,18 @@ export interface FormErrors {
 		};
 	};
 }
+
+export interface ImageObject {
+	url: string;
+	title?: string;
+	description?: string;
+	id?: string;
+}
+
+export interface VideoObject {
+	url: string;
+	videoUrl?: string; // for compatibility with other APIs/components
+	title?: string;
+	description?: string;
+	id?: string;
+}
