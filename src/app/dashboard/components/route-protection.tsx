@@ -26,12 +26,10 @@ export default function RouteProtection({
 			return;
 		}
 
-		// If authenticated but role doesn't match (when role is required)
-		// Check case-insensitively to avoid capitalization issues
-		if (
-			requiredRole &&
-			session?.user?.role?.toLowerCase() !== requiredRole.toLowerCase()
-		) {
+		const userRole = session?.user?.role?.toLowerCase();
+		const required = requiredRole?.toLowerCase();
+		// Allow if user is admin or matches requiredRole
+		if (required && userRole !== required && userRole !== "admin") {
 			console.log(
 				`Role mismatch: Required ${requiredRole}, but user has ${session?.user?.role}`
 			);

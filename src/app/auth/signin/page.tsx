@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 
 export default function SignInPage() {
 	const router = useRouter();
+	useSession();
 	const [isLoading, setIsLoading] = useState(false);
 	const [showPassword, setShowPassword] = useState(false);
 	const [formData, setFormData] = useState({
@@ -57,12 +59,31 @@ export default function SignInPage() {
 				email: formData.email,
 				password: formData.password,
 			});
-			console.log(response);
 			if (response?.error) {
 				throw new Error(response.error);
 			}
 			toast.success("Sign in successful!");
-			router.replace("/admin");
+
+			// Wait for session to update and fetch the latest session
+			setTimeout(async () => {
+				const updatedSession = await getSession();
+				const role = updatedSession?.user?.role?.toLowerCase();
+				if (role === "admin") {
+					router.replace("/admin");
+				} else if (role === "kathavachak") {
+					router.replace("/dashboard/kathavachak/posts");
+				} else if (role === "dharmguru") {
+					router.replace("/dashboard/dharmguru/posts");
+				} else if (role === "hoteldharamshala") {
+					router.replace("/dashboard/hotel_dharamshala_vendor");
+				} else if (role === "panditji") {
+					router.replace("/dashboard/panditji");
+				} else if (role === "seller") {
+					router.replace("/dashboard/seller");
+				} else {
+					router.replace("/dashboard");
+				}
+			}, 300);
 		} catch (error) {
 			console.error("Sign in error:", error);
 			toast.error(error instanceof Error ? error.message : "Sign in failed");

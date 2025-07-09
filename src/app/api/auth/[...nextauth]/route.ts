@@ -49,7 +49,7 @@ const handler = NextAuth({
 					id: user.id,
 					email: user.email,
 					name: user.name,
-					role: user.userType || "user",
+					role: (user.userType || "user").toLowerCase(), // always lowercase
 				};
 			},
 		}),

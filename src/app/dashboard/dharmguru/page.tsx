@@ -7,6 +7,7 @@ import RouteProtection from "../components/route-protection";
 import Sidebar from "../components/sidebar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import ImpersonationRestoreButton from "../components/ImpersonationRestoreButton";
 
 interface User {
 	id: string;
@@ -92,21 +93,42 @@ export default function DharmguruPage() {
 	}
 
 	const effectiveUser = user || session?.user;
+	const isAdmin = session?.user?.role?.toLowerCase() === "admin";
 
 	return (
 		<RouteProtection requiredRole="dharmguru">
-			<div className="flex bg-muted/40">
-				<Sidebar userType={session?.user?.role?.toLowerCase() || "dharmguru"} />
-				<main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-					{effectiveUser ? (
-						<div className="mt-8">
-							{/* Posts component removed. Now handled in [section]/page.tsx as 'posts' section. */}
+			{isAdmin ? (
+				<div className="fixed inset-0 flex items-center justify-center bg-muted/40 z-50">
+					<div className="flex flex-col items-center justify-center gap-4 p-6 border rounded-lg bg-background shadow-sm">
+						<div className="flex items-center gap-2">
+							<AlertTriangle className="h-6 w-6 text-yellow-500" />
+							<span className="text-lg font-semibold text-primary">
+								Admin View
+							</span>
 						</div>
-					) : (
-						<LoadingState message="Preparing your dashboard..." />
-					)}
-				</main>
-			</div>
+						<p className="text-muted-foreground text-center max-w-md">
+							You are viewing the Dharmguru dashboard as an{" "}
+							<span className="font-medium">admin</span>
+							.<br />
+							User-specific data may not be available.
+						</p>
+						<ImpersonationRestoreButton />
+					</div>
+				</div>
+			) : (
+				<div className="flex bg-muted/40">
+					<Sidebar
+						userType={session?.user?.role?.toLowerCase() || "dharmguru"}
+					/>
+					<main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+						{effectiveUser ? (
+							<div className="mt-8">{/* User dashboard content here */}</div>
+						) : (
+							<LoadingState message="Preparing your dashboard..." />
+						)}
+					</main>
+				</div>
+			)}
 		</RouteProtection>
 	);
 }

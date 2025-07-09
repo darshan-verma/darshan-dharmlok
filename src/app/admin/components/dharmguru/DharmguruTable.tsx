@@ -67,12 +67,7 @@ interface DharmguruTableProps {
 }
 
 // Categories for Kathavachaks
-export const DharmguruCategories = [
-	"Sanatan",
-	"Jain",
-	"Sikh",
-	"Buddhism",
-];
+export const DharmguruCategories = ["Sanatan", "Jain", "Sikh", "Buddhism"];
 
 // Ranks for Kathavachaks
 export const DharmguruRanks = ["Junior", "Senior", "Expert", "Master"];
@@ -116,6 +111,12 @@ export const getCategoryColor = (category: string): string => {
 			return "bg-gray-100 text-gray-800";
 	}
 };
+
+function getCookie(name: string) {
+	const value = `; ${document.cookie}`;
+	const parts = value.split(`; ${name}=`);
+	if (parts.length === 2) return parts.pop()?.split(";").shift();
+}
 
 export default function DharmguruTable({
 	dharmgurus,
@@ -344,9 +345,7 @@ export default function DharmguruTable({
 												</Button>
 											</DropdownMenuTrigger>
 											<DropdownMenuContent align="end">
-												<DropdownMenuLabel>
-													Manage Dharmguru
-												</DropdownMenuLabel>
+												<DropdownMenuLabel>Manage Dharmguru</DropdownMenuLabel>
 												<DropdownMenuSeparator />
 												{!dharmguru.isApproved ? (
 													<DropdownMenuItem
@@ -419,20 +418,42 @@ export default function DharmguruTable({
 													className="flex items-center gap-2 text-red-600"
 													onSelect={(e) => {
 														e.preventDefault();
-														onDeleteDharmguru(
-															dharmguru.id,
-															dharmguru.name
-														);
+														onDeleteDharmguru(dharmguru.id, dharmguru.name);
 													}}
 												>
 													<Trash2 className="h-4 w-4" />
 													Delete
 												</DropdownMenuItem>
-												<DropdownMenuItem asChild>
-													<a href="/dashboard/dharmguru/posts">
-														<LogIn className="h-4 w-4 mr-2" />
-														Login as Dharmguru
-													</a>
+												<DropdownMenuItem
+													onClick={async () => {
+														// 1. Save admin session token
+														const adminToken = getCookie(
+															"next-auth.session-token"
+														);
+														if (adminToken) {
+															localStorage.setItem(
+																"adminSessionToken",
+																adminToken
+															);
+														}
+														// 2. Call impersonation API
+														try {
+															const res = await fetch("/api/auth/impersonate", {
+																method: "POST",
+																headers: { "Content-Type": "application/json" },
+																credentials: "include",
+																body: JSON.stringify({ userId: dharmguru.id }),
+															});
+															if (!res.ok)
+																throw new Error("Impersonation failed");
+															window.open("/dashboard/dharmguru", "_blank");
+														} catch (err) {
+															alert("Impersonation failed. Please try again.");
+														}
+													}}
+												>
+													<LogIn className="h-4 w-4 mr-2" />
+													Login as Dharmguru
 												</DropdownMenuItem>
 											</DropdownMenuContent>
 										</DropdownMenu>

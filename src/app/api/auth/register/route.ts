@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 			password: hashed,
 			name,
 			phone,
-			userType: userType || "User",
+			userType: (userType || "user").toLowerCase(), // always store lowercase
 		},
 	});
 

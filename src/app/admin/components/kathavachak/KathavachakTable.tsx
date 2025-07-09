@@ -104,6 +104,12 @@ export const getCategoryColor = (category: string): string => {
 	}
 };
 
+function getCookie(name: string) {
+	const value = `; ${document.cookie}`;
+	const parts = value.split(`; ${name}=`);
+	if (parts.length === 2) return parts.pop()?.split(";").shift();
+}
+
 export default function KathavachakTable({
 	kathavachaks,
 	onAddKathavachak,
@@ -415,11 +421,38 @@ export default function KathavachakTable({
 													<Trash2 className="h-4 w-4" />
 													Delete
 												</DropdownMenuItem>
-												<DropdownMenuItem asChild>
-													<a href="/dashboard/kathavachak/posts">
-														<LogIn className="h-4 w-4 mr-2" />
-														Login as Kathavachak
-													</a>
+												<DropdownMenuItem
+													onClick={async () => {
+														// 1. Save admin session token
+														const adminToken = getCookie(
+															"next-auth.session-token"
+														);
+														if (adminToken) {
+															localStorage.setItem(
+																"adminSessionToken",
+																adminToken
+															);
+														}
+														// 2. Call impersonation API
+														try {
+															const res = await fetch("/api/auth/impersonate", {
+																method: "POST",
+																headers: { "Content-Type": "application/json" },
+																credentials: "include",
+																body: JSON.stringify({
+																	userId: kathavachak.id,
+																}),
+															});
+															if (!res.ok)
+																throw new Error("Impersonation failed");
+															window.open("/dashboard/kathavachak", "_blank");
+														} catch (err) {
+															alert("Impersonation failed. Please try again.");
+														}
+													}}
+												>
+													<LogIn className="h-4 w-4 mr-2" />
+													Login as Kathavachak
 												</DropdownMenuItem>
 											</DropdownMenuContent>
 										</DropdownMenu>

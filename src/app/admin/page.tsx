@@ -45,6 +45,7 @@ import {
 	toastWarning,
 	toast,
 } from "@/lib/toast";
+import AdminRoute from "@/components/auth/AdminRoute";
 
 // Sample data
 const revenueData = [
@@ -293,7 +294,7 @@ interface ChartDataPoint {
 	value: number;
 }
 
-export default function DharmlokDashboard() {
+export default function AdminPage() {
 	const [isLoading, setIsLoading] = React.useState(false);
 
 	const loadDashboardData = async () => {
@@ -340,726 +341,742 @@ export default function DharmlokDashboard() {
 	}, []);
 
 	return (
-		<div className="w-full">
-			{/* Header */}
-			<div className="flex justify-between items-center mb-6">
-				<h1 className="text-2xl font-bold">Dharmlok Dashboard</h1>
-				<div className="flex items-center gap-4">
-					<form onSubmit={handleSearch} className="relative">
-						<span className="absolute inset-y-0 left-0 flex items-center pl-3">
-							<Search className="h-4 w-4 text-muted-foreground" />
-						</span>
-						<Input
-							type="text"
-							placeholder="Search..."
-							className="pl-10 w-[200px] h-8"
-						/>
-					</form>
-					<div
-						className="relative flex items-center justify-center cursor-pointer"
-						onClick={handleNotificationClick}
-					>
-						<Bell className="h-5 w-5 text-muted-foreground" />
-						<Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-[10px]">
-							3
-						</Badge>
-					</div>
-					<Avatar className="h-8 w-8 border border-border">
-						<div className="flex h-full w-full items-center justify-center rounded-full bg-primary">
-							<span className="text-xs font-medium text-primary-foreground">
-								A
+		<AdminRoute>
+			<div className="w-full">
+				{/* Header */}
+				<div className="flex justify-between items-center mb-6">
+					<h1 className="text-2xl font-bold">Dharmlok Dashboard</h1>
+					<div className="flex items-center gap-4">
+						<form onSubmit={handleSearch} className="relative">
+							<span className="absolute inset-y-0 left-0 flex items-center pl-3">
+								<Search className="h-4 w-4 text-muted-foreground" />
 							</span>
+							<Input
+								type="text"
+								placeholder="Search..."
+								className="pl-10 w-[200px] h-8"
+							/>
+						</form>
+						<div
+							className="relative flex items-center justify-center cursor-pointer"
+							onClick={handleNotificationClick}
+						>
+							<Bell className="h-5 w-5 text-muted-foreground" />
+							<Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-[10px]">
+								3
+							</Badge>
 						</div>
-					</Avatar>
+						<Avatar className="h-8 w-8 border border-border">
+							<div className="flex h-full w-full items-center justify-center rounded-full bg-primary">
+								<span className="text-xs font-medium text-primary-foreground">
+									A
+								</span>
+							</div>
+						</Avatar>
+					</div>
 				</div>
-			</div>
 
-			<div className="flex items-center justify-between mb-4">
-				<span className="text-sm text-muted-foreground">
-					27 Apr 2023 - 24 May 2023
-				</span>
-				<Button
-					size="sm"
-					variant="outline"
-					className="h-8"
-					onClick={handleDownload}
-					disabled={isLoading}
-				>
-					<Download className="h-4 w-4 mr-2" />
-					{isLoading ? "Preparing..." : "Download"}
-				</Button>
-			</div>
+				<div className="flex items-center justify-between mb-4">
+					<span className="text-sm text-muted-foreground">
+						27 Apr 2023 - 24 May 2023
+					</span>
+					<Button
+						size="sm"
+						variant="outline"
+						className="h-8"
+						onClick={handleDownload}
+						disabled={isLoading}
+					>
+						<Download className="h-4 w-4 mr-2" />
+						{isLoading ? "Preparing..." : "Download"}
+					</Button>
+				</div>
 
-			{/* Top Stats Row */}
-			<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-				{/* Top Performer Card */}
-				<Card className="col-span-1 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
-					<CardContent className="pt-6">
-						<div className="space-y-2">
-							<div className="flex items-center">
-								<span className="text-lg font-bold">Top Performer!</span>
-								<span className="ml-1">🎉</span>
-							</div>
-							<p className="text-xs text-muted-foreground">
-								Pandit Rajesh Sharma
-							</p>
-							<div className="pt-2">
-								<span className="text-2xl font-bold">₹1,52,319</span>
-								<div className="flex items-center text-xs text-green-600">
-									<ArrowUpRight className="h-3 w-3 mr-1" />
-									<span>+15% from last month</span>
+				{/* Top Stats Row */}
+				<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+					{/* Top Performer Card */}
+					<Card className="col-span-1 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
+						<CardContent className="pt-6">
+							<div className="space-y-2">
+								<div className="flex items-center">
+									<span className="text-lg font-bold">Top Performer!</span>
+									<span className="ml-1">🎉</span>
 								</div>
-							</div>
-							<div className="pt-2">
-								<Button
-									variant="secondary"
-									size="sm"
-									className="text-xs h-7 mt-1"
-								>
-									View Details
-								</Button>
-							</div>
-						</div>
-					</CardContent>
-				</Card>
-
-				{/* Revenue Card */}
-				<Card className="col-span-1">
-					<CardContent className="pt-6">
-						<div className="space-y-1">
-							<div className="flex items-center justify-between">
-								<span className="text-sm font-medium">Total Revenue</span>
-								<div className="flex items-center text-xs text-green-600">
-									<span>+23%</span>
-									<span className="text-[10px] ml-1">from last month</span>
+								<p className="text-xs text-muted-foreground">
+									Pandit Rajesh Sharma
+								</p>
+								<div className="pt-2">
+									<span className="text-2xl font-bold">₹1,52,319</span>
+									<div className="flex items-center text-xs text-green-600">
+										<ArrowUpRight className="h-3 w-3 mr-1" />
+										<span>+15% from last month</span>
+									</div>
 								</div>
-							</div>
-							<div className="text-2xl font-bold pb-1">₹12,52,310</div>
-							<MiniChart data={revenueData} color="#1E40AF" />
-						</div>
-					</CardContent>
-				</Card>
-
-				{/* Bookings Card */}
-				<Card className="col-span-1">
-					<CardContent className="pt-6">
-						<div className="space-y-1">
-							<div className="flex items-center justify-between">
-								<span className="text-sm font-medium">Bookings</span>
-								<div className="flex items-center text-xs text-red-600">
-									<span>-7%</span>
-									<span className="text-[10px] ml-1">from last month</span>
-								</div>
-							</div>
-							<div className="text-2xl font-bold pb-1">892</div>
-							<MiniChart data={bookingsData} color="#1E40AF" />
-						</div>
-					</CardContent>
-				</Card>
-
-				{/* New Users Card */}
-				<Card className="col-span-1">
-					<CardContent className="pt-6">
-						<div className="space-y-1">
-							<div className="flex items-center justify-between">
-								<span className="text-sm font-medium">New Users</span>
-								<div className="flex items-center text-xs text-green-600">
-									<span>+65%</span>
-									<span className="text-[10px] ml-1">from last month</span>
-								</div>
-							</div>
-							<div className="text-2xl font-bold pb-1">3,602</div>
-							<MiniChart data={newUsersData} color="#1E40AF" />
-						</div>
-					</CardContent>
-				</Card>
-			</div>
-
-			{/* Middle Section */}
-			<div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
-				{/* Revenue Section */}
-				<div className="col-span-12 md:col-span-8">
-					<Card className="h-full">
-						<CardHeader className="pb-0">
-							<div className="flex items-center justify-between">
-								<div className="flex items-center gap-2">
-									<CardTitle className="text-base">
-										Monthly Performance
-									</CardTitle>
-									<Badge
-										variant="outline"
-										className="font-normal h-6 bg-muted/30"
+								<div className="pt-2">
+									<Button
+										variant="secondary"
+										size="sm"
+										className="text-xs h-7 mt-1"
 									>
-										Last 30 days activity
-									</Badge>
+										View Details
+									</Button>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					{/* Revenue Card */}
+					<Card className="col-span-1">
+						<CardContent className="pt-6">
+							<div className="space-y-1">
+								<div className="flex items-center justify-between">
+									<span className="text-sm font-medium">Total Revenue</span>
+									<div className="flex items-center text-xs text-green-600">
+										<span>+23%</span>
+										<span className="text-[10px] ml-1">from last month</span>
+									</div>
+								</div>
+								<div className="text-2xl font-bold pb-1">₹12,52,310</div>
+								<MiniChart data={revenueData} color="#1E40AF" />
+							</div>
+						</CardContent>
+					</Card>
+
+					{/* Bookings Card */}
+					<Card className="col-span-1">
+						<CardContent className="pt-6">
+							<div className="space-y-1">
+								<div className="flex items-center justify-between">
+									<span className="text-sm font-medium">Bookings</span>
+									<div className="flex items-center text-xs text-red-600">
+										<span>-7%</span>
+										<span className="text-[10px] ml-1">from last month</span>
+									</div>
+								</div>
+								<div className="text-2xl font-bold pb-1">892</div>
+								<MiniChart data={bookingsData} color="#1E40AF" />
+							</div>
+						</CardContent>
+					</Card>
+
+					{/* New Users Card */}
+					<Card className="col-span-1">
+						<CardContent className="pt-6">
+							<div className="space-y-1">
+								<div className="flex items-center justify-between">
+									<span className="text-sm font-medium">New Users</span>
+									<div className="flex items-center text-xs text-green-600">
+										<span>+65%</span>
+										<span className="text-[10px] ml-1">from last month</span>
+									</div>
+								</div>
+								<div className="text-2xl font-bold pb-1">3,602</div>
+								<MiniChart data={newUsersData} color="#1E40AF" />
+							</div>
+						</CardContent>
+					</Card>
+				</div>
+
+				{/* Middle Section */}
+				<div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
+					{/* Revenue Section */}
+					<div className="col-span-12 md:col-span-8">
+						<Card className="h-full">
+							<CardHeader className="pb-0">
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-2">
+										<CardTitle className="text-base">
+											Monthly Performance
+										</CardTitle>
+										<Badge
+											variant="outline"
+											className="font-normal h-6 bg-muted/30"
+										>
+											Last 30 days activity
+										</Badge>
+									</div>
+									<Button variant="ghost" size="icon" className="h-8 w-8">
+										<span className="sr-only">Export</span>
+										<Download className="h-4 w-4" />
+									</Button>
+								</div>
+							</CardHeader>
+							<CardContent>
+								<div className="flex gap-8 pt-4 pb-4">
+									<div className="text-center">
+										<p className="text-sm text-muted-foreground">
+											Pooja Bookings
+										</p>
+										<p className="text-2xl font-semibold">248</p>
+									</div>
+									<div className="text-center">
+										<p className="text-sm text-muted-foreground">
+											Temple Visits
+										</p>
+										<p className="text-2xl font-semibold">189</p>
+									</div>
+									<div className="ml-auto text-right">
+										<p className="text-sm text-muted-foreground">
+											Returning Users
+										</p>
+										<div className="flex items-center justify-end">
+											<p className="text-2xl font-semibold">42%</p>
+											<Badge className="ml-2 bg-green-50 text-green-700 hover:bg-green-50 border-green-200">
+												+25%
+											</Badge>
+										</div>
+									</div>
+								</div>
+
+								<div className="h-[250px] pt-4">
+									<ResponsiveContainer width="100%" height="100%">
+										<BarChart
+											data={monthlyBarData}
+											margin={{ top: 10, right: 20, left: 20, bottom: 10 }}
+										>
+											<CartesianGrid
+												strokeDasharray="3 3"
+												vertical={false}
+												stroke="#f0f0f0"
+											/>
+											<XAxis
+												dataKey="name"
+												axisLine={false}
+												tickLine={false}
+												tick={{ fontSize: 12, fill: "#888" }}
+												dy={10}
+											/>
+											<YAxis
+												axisLine={false}
+												tickLine={false}
+												tick={{ fontSize: 12, fill: "#888" }}
+												dx={-10}
+												tickFormatter={(value) => `${value}k`}
+											/>
+											<Tooltip
+												contentStyle={{
+													backgroundColor: "white",
+													borderRadius: "6px",
+													boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+													border: "none",
+													padding: "8px 12px",
+												}}
+												cursor={{ fill: "rgba(0, 0, 0, 0.04)" }}
+												formatter={(value) => [`${value}`, "Value"]}
+											/>
+											<Bar
+												dataKey="current"
+												name="Current Month"
+												fill="#000000"
+												barSize={24}
+												radius={[4, 4, 0, 0]}
+											/>
+											<Bar
+												dataKey="previous"
+												name="Previous Month"
+												fill="#9CA3AF"
+												barSize={24}
+												radius={[4, 4, 0, 0]}
+											/>
+											<Legend
+												wrapperStyle={{ paddingTop: 20 }}
+												align="center"
+												verticalAlign="bottom"
+												iconType="circle"
+												iconSize={8}
+											/>
+										</BarChart>
+									</ResponsiveContainer>
+								</div>
+							</CardContent>
+						</Card>
+					</div>
+
+					{/* Revenue Chart */}
+					<div className="col-span-12 md:col-span-4">
+						<Card className="h-full">
+							<CardContent className="p-0">
+								<div className="h-[350px] pt-6">
+									<ResponsiveContainer width="100%" height="100%">
+										<LineChart
+											data={yearlyLineData}
+											margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+										>
+											<CartesianGrid
+												strokeDasharray="3 3"
+												vertical={false}
+												opacity={0.2}
+											/>
+											<XAxis dataKey="name" axisLine={false} tickLine={false} />
+											<YAxis axisLine={false} tickLine={false} display="none" />
+											<Tooltip
+												contentStyle={{
+													backgroundColor: "white",
+													borderRadius: "6px",
+													boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+													border: "none",
+												}}
+											/>
+											<Line
+												type="monotone"
+												dataKey="current"
+												stroke="#000000"
+												strokeWidth={2}
+												dot={false}
+											/>
+											<Line
+												type="monotone"
+												dataKey="previous"
+												stroke="#9CA3AF"
+												strokeWidth={2}
+												dot={false}
+											/>
+											<Line
+												type="monotone"
+												dataKey="target"
+												stroke="#E5E7EB"
+												strokeWidth={2}
+												dot={false}
+											/>
+										</LineChart>
+									</ResponsiveContainer>
+								</div>
+							</CardContent>
+						</Card>
+					</div>
+				</div>
+
+				{/* Bottom Section */}
+				<div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+					{/* Bookings by Location */}
+					<div className="col-span-12 md:col-span-4">
+						<Card>
+							<CardHeader className="flex flex-row items-center justify-between pb-2">
+								<div>
+									<CardTitle className="text-base">
+										Bookings by Location
+									</CardTitle>
+									<CardDescription className="text-xs">
+										Past 28 days activity
+									</CardDescription>
 								</div>
 								<Button variant="ghost" size="icon" className="h-8 w-8">
 									<span className="sr-only">Export</span>
 									<Download className="h-4 w-4" />
 								</Button>
-							</div>
-						</CardHeader>
-						<CardContent>
-							<div className="flex gap-8 pt-4 pb-4">
-								<div className="text-center">
-									<p className="text-sm text-muted-foreground">
-										Pooja Bookings
-									</p>
-									<p className="text-2xl font-semibold">248</p>
-								</div>
-								<div className="text-center">
-									<p className="text-sm text-muted-foreground">Temple Visits</p>
-									<p className="text-2xl font-semibold">189</p>
-								</div>
-								<div className="ml-auto text-right">
-									<p className="text-sm text-muted-foreground">
-										Returning Users
-									</p>
-									<div className="flex items-center justify-end">
-										<p className="text-2xl font-semibold">42%</p>
-										<Badge className="ml-2 bg-green-50 text-green-700 hover:bg-green-50 border-green-200">
-											+25%
-										</Badge>
-									</div>
-								</div>
-							</div>
-
-							<div className="h-[250px] pt-4">
-								<ResponsiveContainer width="100%" height="100%">
-									<BarChart
-										data={monthlyBarData}
-										margin={{ top: 10, right: 20, left: 20, bottom: 10 }}
-									>
-										<CartesianGrid
-											strokeDasharray="3 3"
-											vertical={false}
-											stroke="#f0f0f0"
-										/>
-										<XAxis
-											dataKey="name"
-											axisLine={false}
-											tickLine={false}
-											tick={{ fontSize: 12, fill: "#888" }}
-											dy={10}
-										/>
-										<YAxis
-											axisLine={false}
-											tickLine={false}
-											tick={{ fontSize: 12, fill: "#888" }}
-											dx={-10}
-											tickFormatter={(value) => `${value}k`}
-										/>
-										<Tooltip
-											contentStyle={{
-												backgroundColor: "white",
-												borderRadius: "6px",
-												boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-												border: "none",
-												padding: "8px 12px",
-											}}
-											cursor={{ fill: "rgba(0, 0, 0, 0.04)" }}
-											formatter={(value) => [`${value}`, "Value"]}
-										/>
-										<Bar
-											dataKey="current"
-											name="Current Month"
-											fill="#000000"
-											barSize={24}
-											radius={[4, 4, 0, 0]}
-										/>
-										<Bar
-											dataKey="previous"
-											name="Previous Month"
-											fill="#9CA3AF"
-											barSize={24}
-											radius={[4, 4, 0, 0]}
-										/>
-										<Legend
-											wrapperStyle={{ paddingTop: 20 }}
-											align="center"
-											verticalAlign="bottom"
-											iconType="circle"
-											iconSize={8}
-										/>
-									</BarChart>
-								</ResponsiveContainer>
-							</div>
-						</CardContent>
-					</Card>
-				</div>
-
-				{/* Revenue Chart */}
-				<div className="col-span-12 md:col-span-4">
-					<Card className="h-full">
-						<CardContent className="p-0">
-							<div className="h-[350px] pt-6">
-								<ResponsiveContainer width="100%" height="100%">
-									<LineChart
-										data={yearlyLineData}
-										margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-									>
-										<CartesianGrid
-											strokeDasharray="3 3"
-											vertical={false}
-											opacity={0.2}
-										/>
-										<XAxis dataKey="name" axisLine={false} tickLine={false} />
-										<YAxis axisLine={false} tickLine={false} display="none" />
-										<Tooltip
-											contentStyle={{
-												backgroundColor: "white",
-												borderRadius: "6px",
-												boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-												border: "none",
-											}}
-										/>
-										<Line
-											type="monotone"
-											dataKey="current"
-											stroke="#000000"
-											strokeWidth={2}
-											dot={false}
-										/>
-										<Line
-											type="monotone"
-											dataKey="previous"
-											stroke="#9CA3AF"
-											strokeWidth={2}
-											dot={false}
-										/>
-										<Line
-											type="monotone"
-											dataKey="target"
-											stroke="#E5E7EB"
-											strokeWidth={2}
-											dot={false}
-										/>
-									</LineChart>
-								</ResponsiveContainer>
-							</div>
-						</CardContent>
-					</Card>
-				</div>
-			</div>
-
-			{/* Bottom Section */}
-			<div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-				{/* Bookings by Location */}
-				<div className="col-span-12 md:col-span-4">
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between pb-2">
-							<div>
-								<CardTitle className="text-base">
-									Bookings by Location
-								</CardTitle>
-								<CardDescription className="text-xs">
-									Past 28 days activity
-								</CardDescription>
-							</div>
-							<Button variant="ghost" size="icon" className="h-8 w-8">
-								<span className="sr-only">Export</span>
-								<Download className="h-4 w-4" />
-							</Button>
-						</CardHeader>
-						<CardContent>
-							<div className="space-y-4">
-								{bookingsByLocation.map((location, index) => (
-									<div key={index} className="space-y-2">
-										<div className="flex items-center justify-between">
-											<span className="text-sm font-medium">
-												{location.name}
-											</span>
-											<div className="flex items-center">
+							</CardHeader>
+							<CardContent>
+								<div className="space-y-4">
+									{bookingsByLocation.map((location, index) => (
+										<div key={index} className="space-y-2">
+											<div className="flex items-center justify-between">
 												<span className="text-sm font-medium">
-													{location.percent}%
+													{location.name}
 												</span>
-												<span
-													className={`ml-2 text-xs ${
-														location.change.startsWith("+")
-															? "text-green-600"
-															: "text-red-600"
-													}`}
-												>
-													{location.change}
-												</span>
-											</div>
-										</div>
-										<Progress value={location.percent} className="h-2" />
-									</div>
-								))}
-							</div>
-						</CardContent>
-					</Card>
-				</div>
-
-				{/* Visitor Sources */}
-				<div className="col-span-12 md:col-span-4">
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between pb-2">
-							<div>
-								<CardTitle className="text-base">Visitor Sources</CardTitle>
-								<CardDescription></CardDescription>
-							</div>
-						</CardHeader>
-						<CardContent>
-							<div className="h-[300px] relative">
-								<div className="absolute inset-0 flex items-center justify-center">
-									<div className="relative h-[180px] w-[180px]">
-										<div className="absolute inset-0 flex items-center justify-center">
-											<div className="text-center">
-												<div className="text-3xl font-bold">10.2K</div>
-												<div className="text-sm text-muted-foreground">
-													Visitors
+												<div className="flex items-center">
+													<span className="text-sm font-medium">
+														{location.percent}%
+													</span>
+													<span
+														className={`ml-2 text-xs ${
+															location.change.startsWith("+")
+																? "text-green-600"
+																: "text-red-600"
+														}`}
+													>
+														{location.change}
+													</span>
 												</div>
 											</div>
-										</div>
-										<ResponsiveContainer width="100%" height="100%">
-											<PieChart>
-												<Pie
-													data={[
-														{
-															name: "Direct",
-															value: visitorSourceData.direct,
-															fill: "#000000",
-														},
-														{
-															name: "Social",
-															value: visitorSourceData.social,
-															fill: "#6B7280",
-														},
-														{
-															name: "Referral",
-															value: visitorSourceData.referral,
-															fill: "#D1D5DB",
-														},
-														{
-															name: "Search",
-															value: visitorSourceData.search,
-															fill: "#9CA3AF",
-														},
-														{
-															name: "Other",
-															value: visitorSourceData.other,
-															fill: "#F3F4F6",
-														},
-													]}
-													cx="50%"
-													cy="50%"
-													innerRadius={60}
-													outerRadius={80}
-													paddingAngle={2}
-													dataKey="value"
-												/>
-											</PieChart>
-										</ResponsiveContainer>
-									</div>
-								</div>
-								<div className="absolute bottom-0 w-full">
-									<div className="grid grid-cols-5 gap-2 text-center text-xs">
-										<div>
-											<div className="flex justify-center">
-												<div className="h-3 w-3 rounded-full bg-black"></div>
-											</div>
-											<span>Direct</span>
-										</div>
-										<div>
-											<div className="flex justify-center">
-												<div className="h-3 w-3 rounded-full bg-gray-500"></div>
-											</div>
-											<span>Social</span>
-										</div>
-										<div>
-											<div className="flex justify-center">
-												<div className="h-3 w-3 rounded-full bg-gray-300"></div>
-											</div>
-											<span>Referral</span>
-										</div>
-										<div>
-											<div className="flex justify-center">
-												<div className="h-3 w-3 rounded-full bg-gray-400"></div>
-											</div>
-											<span>Search</span>
-										</div>
-										<div>
-											<div className="flex justify-center">
-												<div className="h-3 w-3 rounded-full bg-gray-100"></div>
-											</div>
-											<span>Other</span>
-										</div>
-									</div>
-								</div>
-							</div>
-						</CardContent>
-					</Card>
-				</div>
-
-				{/* Customer Reviews */}
-				<div className="col-span-12 md:col-span-4">
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between pb-2">
-							<div>
-								<CardTitle className="text-base">User Reviews</CardTitle>
-								<CardDescription className="text-xs">
-									Based on 5,500 verified services
-								</CardDescription>
-							</div>
-							<Button variant="ghost" size="sm" className="h-8 gap-1">
-								<span>View All</span>
-								<ChevronRight className="h-4 w-4" />
-							</Button>
-						</CardHeader>
-						<CardContent>
-							<div className="space-y-4">
-								{/* Rating Distribution */}
-								<div className="space-y-2">
-									{customerReviews.distribution.map((rating) => (
-										<div key={rating.stars} className="flex items-center gap-2">
-											<div className="w-10 text-sm text-right">
-												{rating.stars} ★
-											</div>
-											<Progress
-												value={(rating.count / 5000) * 100}
-												className="h-2 flex-1"
-											/>
-											<div className="w-10 text-xs text-muted-foreground text-right">
-												{rating.count}
-											</div>
+											<Progress value={location.percent} className="h-2" />
 										</div>
 									))}
 								</div>
+							</CardContent>
+						</Card>
+					</div>
 
-								<div className="flex items-center justify-center">
-									<div className="text-center">
-										<div className="text-4xl font-bold">4.5</div>
-										<div className="flex items-center justify-center">
-											{[1, 2, 3, 4, 5].map((star) => (
-												<Star
-													key={star}
-													className={`h-4 w-4 ${
-														star <= 4
-															? "fill-primary text-primary"
-															: "fill-muted text-muted-foreground"
-													} ${
-														star === 5
-															? "fill-primary text-primary opacity-50"
-															: ""
-													}`}
-												/>
-											))}
+					{/* Visitor Sources */}
+					<div className="col-span-12 md:col-span-4">
+						<Card>
+							<CardHeader className="flex flex-row items-center justify-between pb-2">
+								<div>
+									<CardTitle className="text-base">Visitor Sources</CardTitle>
+									<CardDescription></CardDescription>
+								</div>
+							</CardHeader>
+							<CardContent>
+								<div className="h-[300px] relative">
+									<div className="absolute inset-0 flex items-center justify-center">
+										<div className="relative h-[180px] w-[180px]">
+											<div className="absolute inset-0 flex items-center justify-center">
+												<div className="text-center">
+													<div className="text-3xl font-bold">10.2K</div>
+													<div className="text-sm text-muted-foreground">
+														Visitors
+													</div>
+												</div>
+											</div>
+											<ResponsiveContainer width="100%" height="100%">
+												<PieChart>
+													<Pie
+														data={[
+															{
+																name: "Direct",
+																value: visitorSourceData.direct,
+																fill: "#000000",
+															},
+															{
+																name: "Social",
+																value: visitorSourceData.social,
+																fill: "#6B7280",
+															},
+															{
+																name: "Referral",
+																value: visitorSourceData.referral,
+																fill: "#D1D5DB",
+															},
+															{
+																name: "Search",
+																value: visitorSourceData.search,
+																fill: "#9CA3AF",
+															},
+															{
+																name: "Other",
+																value: visitorSourceData.other,
+																fill: "#F3F4F6",
+															},
+														]}
+														cx="50%"
+														cy="50%"
+														innerRadius={60}
+														outerRadius={80}
+														paddingAngle={2}
+														dataKey="value"
+													/>
+												</PieChart>
+											</ResponsiveContainer>
 										</div>
-										<div className="text-xs text-muted-foreground">
-											out of 5
+									</div>
+									<div className="absolute bottom-0 w-full">
+										<div className="grid grid-cols-5 gap-2 text-center text-xs">
+											<div>
+												<div className="flex justify-center">
+													<div className="h-3 w-3 rounded-full bg-black"></div>
+												</div>
+												<span>Direct</span>
+											</div>
+											<div>
+												<div className="flex justify-center">
+													<div className="h-3 w-3 rounded-full bg-gray-500"></div>
+												</div>
+												<span>Social</span>
+											</div>
+											<div>
+												<div className="flex justify-center">
+													<div className="h-3 w-3 rounded-full bg-gray-300"></div>
+												</div>
+												<span>Referral</span>
+											</div>
+											<div>
+												<div className="flex justify-center">
+													<div className="h-3 w-3 rounded-full bg-gray-400"></div>
+												</div>
+												<span>Search</span>
+											</div>
+											<div>
+												<div className="flex justify-center">
+													<div className="h-3 w-3 rounded-full bg-gray-100"></div>
+												</div>
+												<span>Other</span>
+											</div>
 										</div>
 									</div>
 								</div>
+							</CardContent>
+						</Card>
+					</div>
 
-								{/* Featured Review */}
-								<div className="mt-4 pt-4 border-t">
+					{/* Customer Reviews */}
+					<div className="col-span-12 md:col-span-4">
+						<Card>
+							<CardHeader className="flex flex-row items-center justify-between pb-2">
+								<div>
+									<CardTitle className="text-base">User Reviews</CardTitle>
+									<CardDescription className="text-xs">
+										Based on 5,500 verified services
+									</CardDescription>
+								</div>
+								<Button variant="ghost" size="sm" className="h-8 gap-1">
+									<span>View All</span>
+									<ChevronRight className="h-4 w-4" />
+								</Button>
+							</CardHeader>
+							<CardContent>
+								<div className="space-y-4">
+									{/* Rating Distribution */}
 									<div className="space-y-2">
-										<div className="flex items-center">
-											{[1, 2, 3, 4, 5].map((star) => (
-												<Star
-													key={star}
-													className="h-3 w-3 fill-amber-400 text-amber-400"
+										{customerReviews.distribution.map((rating) => (
+											<div
+												key={rating.stars}
+												className="flex items-center gap-2"
+											>
+												<div className="w-10 text-sm text-right">
+													{rating.stars} ★
+												</div>
+												<Progress
+													value={(rating.count / 5000) * 100}
+													className="h-2 flex-1"
 												/>
-											))}
-										</div>
-										<h4 className="font-semibold text-sm">
-											{customerReviews.featured.title}
-										</h4>
-										<p className="text-xs text-muted-foreground line-clamp-2">
-											{customerReviews.featured.comment}
-										</p>
-										<div className="text-xs">
-											<span className="font-medium">
-												{customerReviews.featured.author}
-											</span>
-											{customerReviews.featured.verified && (
-												<span className="ml-2 text-green-600">
-													Verified Purchase
-												</span>
-											)}
-										</div>
+												<div className="w-10 text-xs text-muted-foreground text-right">
+													{rating.count}
+												</div>
+											</div>
+										))}
 									</div>
-								</div>
-							</div>
-						</CardContent>
-					</Card>
-				</div>
 
-				{/* Recent Bookings */}
-				<div className="col-span-12 md:col-span-6">
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between pb-2">
-							<CardTitle className="text-base">Recent Bookings</CardTitle>
-							<Button variant="ghost" size="icon" className="h-8 w-8">
-								<Download className="h-4 w-4" />
-								<span className="sr-only">Export</span>
-							</Button>
-						</CardHeader>
-						<CardContent>
-							<div className="relative">
-								<div className="mb-3">
-									<Input
-										placeholder="Filter bookings..."
-										className="max-w-sm h-8 text-sm"
-									/>
-								</div>
-								<table className="w-full text-sm text-left">
-									<thead className="text-xs text-muted-foreground">
-										<tr>
-											<th className="px-2 py-3">ID</th>
-											<th className="px-4 py-3">Customer</th>
-											<th className="px-4 py-3">Service</th>
-											<th className="px-4 py-3">Amount</th>
-											<th className="px-4 py-3">Status</th>
-											<th className="px-4 py-3"></th>
-										</tr>
-									</thead>
-									<tbody>
-										{recentBookings.slice(0, 6).map((booking) => (
-											<tr key={booking.id} className="border-b border-gray-100">
-												<td className="px-2 py-2 font-medium">{booking.id}</td>
-												<td className="px-4 py-2">
-													<div className="flex items-center gap-3">
-														<Avatar className="h-8 w-8">
-															<div className="flex h-full w-full items-center justify-center rounded-full bg-muted text-muted-foreground">
-																<span className="text-xs font-medium">
-																	{booking.avatar}
-																</span>
-															</div>
-														</Avatar>
-														<span>{booking.customer}</span>
-													</div>
-												</td>
-												<td className="px-4 py-2">{booking.service}</td>
-												<td className="px-4 py-2">{booking.amount}</td>
-												<td className="px-4 py-2">
-													<Badge
-														variant="outline"
-														className={`font-normal ${
-															booking.status === "Processing"
-																? "text-blue-600 bg-blue-50 border-blue-200"
-																: booking.status === "Confirmed"
-																? "text-amber-600 bg-amber-50 border-amber-200"
-																: booking.status === "Completed"
-																? "text-green-600 bg-green-50 border-green-200"
-																: "text-red-600 bg-red-50 border-red-200"
+									<div className="flex items-center justify-center">
+										<div className="text-center">
+											<div className="text-4xl font-bold">4.5</div>
+											<div className="flex items-center justify-center">
+												{[1, 2, 3, 4, 5].map((star) => (
+													<Star
+														key={star}
+														className={`h-4 w-4 ${
+															star <= 4
+																? "fill-primary text-primary"
+																: "fill-muted text-muted-foreground"
+														} ${
+															star === 5
+																? "fill-primary text-primary opacity-50"
+																: ""
 														}`}
-													>
-														{booking.status}
-													</Badge>
-												</td>
-												<td className="px-4 py-2 text-right">
-													<Button
-														variant="ghost"
-														size="icon"
-														className="h-8 w-8"
-													>
-														<MoreHorizontal className="h-4 w-4" />
-														<span className="sr-only">More</span>
-													</Button>
-												</td>
-											</tr>
-										))}
-									</tbody>
-								</table>
-								<div className="flex items-center justify-between pt-3 text-xs text-muted-foreground">
-									<div>Showing 1 to 6 of 10 entries</div>
-									<div className="flex items-center gap-1">
-										<Button variant="ghost" size="icon" className="h-7 w-7">
-											<ChevronLeft className="h-4 w-4" />
-											<span className="sr-only">Previous</span>
-										</Button>
-										<Button variant="ghost" size="icon" className="h-7 w-7">
-											<ChevronRight className="h-4 w-4" />
-											<span className="sr-only">Next</span>
-										</Button>
+													/>
+												))}
+											</div>
+											<div className="text-xs text-muted-foreground">
+												out of 5
+											</div>
+										</div>
 									</div>
-								</div>
-							</div>
-						</CardContent>
-					</Card>
-				</div>
 
-				{/* Top Selling Items */}
-				<div className="col-span-12 md:col-span-6">
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between pb-2">
-							<CardTitle className="text-base">Top Selling Items</CardTitle>
-							<Button variant="ghost" size="icon" className="h-8 w-8">
-								<Download className="h-4 w-4" />
-								<span className="sr-only">Export</span>
-							</Button>
-						</CardHeader>
-						<CardContent>
-							<div className="relative">
-								<div className="mb-3">
-									<Input
-										placeholder="Filter products..."
-										className="max-w-sm h-8 text-sm"
-									/>
-								</div>
-								<table className="w-full text-sm text-left">
-									<thead className="text-xs text-muted-foreground">
-										<tr>
-											<th className="px-4 py-3">Product</th>
-											<th className="px-4 py-3 text-right">Sold</th>
-											<th className="px-4 py-3 text-right">Units</th>
-											<th className="px-4 py-3"></th>
-										</tr>
-									</thead>
-									<tbody>
-										{topSellingItems.slice(0, 6).map((product, i) => (
-											<tr key={i} className="border-b border-gray-100">
-												<td className="px-4 py-2">
-													<div className="flex items-center gap-3">
-														<div className="flex items-center justify-center h-9 w-9 rounded bg-muted">
-															{product.image ? (
-																<span className="text-lg">{product.image}</span>
-															) : (
-																<span className="h-5 w-5 bg-foreground/20 rounded" />
-															)}
-														</div>
-														<span>{product.product}</span>
-													</div>
-												</td>
-												<td className="px-4 py-2 text-right">{product.sold}</td>
-												<td className="px-4 py-2 text-right">
-													{product.sales}
-												</td>
-												<td className="px-4 py-2 text-right">
-													<Button
-														variant="ghost"
-														size="icon"
-														className="h-8 w-8"
-													>
-														<MoreHorizontal className="h-4 w-4" />
-														<span className="sr-only">More</span>
-													</Button>
-												</td>
-											</tr>
-										))}
-									</tbody>
-								</table>
-								<div className="flex items-center justify-between pt-3 text-xs text-muted-foreground">
-									<div>Showing 1 to 6 of 8 entries</div>
-									<div className="flex items-center gap-1">
-										<Button variant="ghost" size="icon" className="h-7 w-7">
-											<ChevronLeft className="h-4 w-4" />
-											<span className="sr-only">Previous</span>
-										</Button>
-										<Button variant="ghost" size="icon" className="h-7 w-7">
-											<ChevronRight className="h-4 w-4" />
-											<span className="sr-only">Next</span>
-										</Button>
+									{/* Featured Review */}
+									<div className="mt-4 pt-4 border-t">
+										<div className="space-y-2">
+											<div className="flex items-center">
+												{[1, 2, 3, 4, 5].map((star) => (
+													<Star
+														key={star}
+														className="h-3 w-3 fill-amber-400 text-amber-400"
+													/>
+												))}
+											</div>
+											<h4 className="font-semibold text-sm">
+												{customerReviews.featured.title}
+											</h4>
+											<p className="text-xs text-muted-foreground line-clamp-2">
+												{customerReviews.featured.comment}
+											</p>
+											<div className="text-xs">
+												<span className="font-medium">
+													{customerReviews.featured.author}
+												</span>
+												{customerReviews.featured.verified && (
+													<span className="ml-2 text-green-600">
+														Verified Purchase
+													</span>
+												)}
+											</div>
+										</div>
 									</div>
 								</div>
-							</div>
-						</CardContent>
-					</Card>
+							</CardContent>
+						</Card>
+					</div>
+
+					{/* Recent Bookings */}
+					<div className="col-span-12 md:col-span-6">
+						<Card>
+							<CardHeader className="flex flex-row items-center justify-between pb-2">
+								<CardTitle className="text-base">Recent Bookings</CardTitle>
+								<Button variant="ghost" size="icon" className="h-8 w-8">
+									<Download className="h-4 w-4" />
+									<span className="sr-only">Export</span>
+								</Button>
+							</CardHeader>
+							<CardContent>
+								<div className="relative">
+									<div className="mb-3">
+										<Input
+											placeholder="Filter bookings..."
+											className="max-w-sm h-8 text-sm"
+										/>
+									</div>
+									<table className="w-full text-sm text-left">
+										<thead className="text-xs text-muted-foreground">
+											<tr>
+												<th className="px-2 py-3">ID</th>
+												<th className="px-4 py-3">Customer</th>
+												<th className="px-4 py-3">Service</th>
+												<th className="px-4 py-3">Amount</th>
+												<th className="px-4 py-3">Status</th>
+												<th className="px-4 py-3"></th>
+											</tr>
+										</thead>
+										<tbody>
+											{recentBookings.slice(0, 6).map((booking) => (
+												<tr
+													key={booking.id}
+													className="border-b border-gray-100"
+												>
+													<td className="px-2 py-2 font-medium">
+														{booking.id}
+													</td>
+													<td className="px-4 py-2">
+														<div className="flex items-center gap-3">
+															<Avatar className="h-8 w-8">
+																<div className="flex h-full w-full items-center justify-center rounded-full bg-muted text-muted-foreground">
+																	<span className="text-xs font-medium">
+																		{booking.avatar}
+																	</span>
+																</div>
+															</Avatar>
+															<span>{booking.customer}</span>
+														</div>
+													</td>
+													<td className="px-4 py-2">{booking.service}</td>
+													<td className="px-4 py-2">{booking.amount}</td>
+													<td className="px-4 py-2">
+														<Badge
+															variant="outline"
+															className={`font-normal ${
+																booking.status === "Processing"
+																	? "text-blue-600 bg-blue-50 border-blue-200"
+																	: booking.status === "Confirmed"
+																	? "text-amber-600 bg-amber-50 border-amber-200"
+																	: booking.status === "Completed"
+																	? "text-green-600 bg-green-50 border-green-200"
+																	: "text-red-600 bg-red-50 border-red-200"
+															}`}
+														>
+															{booking.status}
+														</Badge>
+													</td>
+													<td className="px-4 py-2 text-right">
+														<Button
+															variant="ghost"
+															size="icon"
+															className="h-8 w-8"
+														>
+															<MoreHorizontal className="h-4 w-4" />
+															<span className="sr-only">More</span>
+														</Button>
+													</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
+									<div className="flex items-center justify-between pt-3 text-xs text-muted-foreground">
+										<div>Showing 1 to 6 of 10 entries</div>
+										<div className="flex items-center gap-1">
+											<Button variant="ghost" size="icon" className="h-7 w-7">
+												<ChevronLeft className="h-4 w-4" />
+												<span className="sr-only">Previous</span>
+											</Button>
+											<Button variant="ghost" size="icon" className="h-7 w-7">
+												<ChevronRight className="h-4 w-4" />
+												<span className="sr-only">Next</span>
+											</Button>
+										</div>
+									</div>
+								</div>
+							</CardContent>
+						</Card>
+					</div>
+
+					{/* Top Selling Items */}
+					<div className="col-span-12 md:col-span-6">
+						<Card>
+							<CardHeader className="flex flex-row items-center justify-between pb-2">
+								<CardTitle className="text-base">Top Selling Items</CardTitle>
+								<Button variant="ghost" size="icon" className="h-8 w-8">
+									<Download className="h-4 w-4" />
+									<span className="sr-only">Export</span>
+								</Button>
+							</CardHeader>
+							<CardContent>
+								<div className="relative">
+									<div className="mb-3">
+										<Input
+											placeholder="Filter products..."
+											className="max-w-sm h-8 text-sm"
+										/>
+									</div>
+									<table className="w-full text-sm text-left">
+										<thead className="text-xs text-muted-foreground">
+											<tr>
+												<th className="px-4 py-3">Product</th>
+												<th className="px-4 py-3 text-right">Sold</th>
+												<th className="px-4 py-3 text-right">Units</th>
+												<th className="px-4 py-3"></th>
+											</tr>
+										</thead>
+										<tbody>
+											{topSellingItems.slice(0, 6).map((product, i) => (
+												<tr key={i} className="border-b border-gray-100">
+													<td className="px-4 py-2">
+														<div className="flex items-center gap-3">
+															<div className="flex items-center justify-center h-9 w-9 rounded bg-muted">
+																{product.image ? (
+																	<span className="text-lg">
+																		{product.image}
+																	</span>
+																) : (
+																	<span className="h-5 w-5 bg-foreground/20 rounded" />
+																)}
+															</div>
+															<span>{product.product}</span>
+														</div>
+													</td>
+													<td className="px-4 py-2 text-right">
+														{product.sold}
+													</td>
+													<td className="px-4 py-2 text-right">
+														{product.sales}
+													</td>
+													<td className="px-4 py-2 text-right">
+														<Button
+															variant="ghost"
+															size="icon"
+															className="h-8 w-8"
+														>
+															<MoreHorizontal className="h-4 w-4" />
+															<span className="sr-only">More</span>
+														</Button>
+													</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
+									<div className="flex items-center justify-between pt-3 text-xs text-muted-foreground">
+										<div>Showing 1 to 6 of 8 entries</div>
+										<div className="flex items-center gap-1">
+											<Button variant="ghost" size="icon" className="h-7 w-7">
+												<ChevronLeft className="h-4 w-4" />
+												<span className="sr-only">Previous</span>
+											</Button>
+											<Button variant="ghost" size="icon" className="h-7 w-7">
+												<ChevronRight className="h-4 w-4" />
+												<span className="sr-only">Next</span>
+											</Button>
+										</div>
+									</div>
+								</div>
+							</CardContent>
+						</Card>
+					</div>
 				</div>
 			</div>
-		</div>
+		</AdminRoute>
 	);
 }

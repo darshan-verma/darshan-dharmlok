@@ -16,7 +16,7 @@ export default function RegisterPage() {
 		phone: "",
 		password: "",
 		confirmPassword: "",
-		userType: "User",
+		userType: "admin", // default to admin, lowercase
 	});
 	const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -379,12 +379,12 @@ export default function RegisterPage() {
 							errors.userType ? "border-red-500" : "border-gray-300"
 						} px-3 py-2 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm`}
 					>
-						<option value="User">User</option>
-						<option value="Kathavachak">Kathavachak</option>
-						<option value="Dharmguru">Dharmguru</option>
-						<option value="HotelDharamshala">Hotel/Dharamshala Vendor</option>
-						<option value="Panditji">Pandit Ji</option>
-						<option value="Seller">Seller</option>
+						<option value="admin">Admin</option>
+						<option value="kathavachak">Kathavachak</option>
+						<option value="dharmguru">Dharmguru</option>
+						<option value="hoteldharamshala">Hotel/Dharamshala Vendor</option>
+						<option value="panditji">Pandit Ji</option>
+						<option value="seller">Seller</option>
 					</select>
 					{errors.role && (
 						<p className="mt-1 text-sm text-red-600">{errors.role}</p>
