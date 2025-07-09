@@ -446,7 +446,7 @@ export default function DharmguruTable({
 															});
 															if (!res.ok)
 																throw new Error("Impersonation failed");
-															window.open("/dashboard/dharmguru", "_blank");
+															window.location.href = "/dashboard/dharmguru";
 														} catch (err) {
 															alert("Impersonation failed. Please try again.");
 														}
