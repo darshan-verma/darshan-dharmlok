@@ -64,13 +64,6 @@ interface SellerTableProps {
 	onLoginAsSeller: (seller: Seller) => void;
 }
 
-
-function getCookie(name: string) {
-	const value = `; ${document.cookie}`;
-	const parts = value.split(`; ${name}=`);
-	if (parts.length === 2) return parts.pop()?.split(";").shift();
-}
-
 export default function SellerTable({
 	sellers,
 	onAddSeller,
@@ -101,11 +94,7 @@ export default function SellerTable({
 			(approvalFilter === "approved" && seller.isApproved) ||
 			(approvalFilter === "notApproved" && !seller.isApproved);
 
-		return (
-			matchesSearch &&
-			matchesStatus &&
-			matchesApproval
-		);
+		return matchesSearch && matchesStatus && matchesApproval;
 	});
 
 	return (
@@ -274,9 +263,7 @@ export default function SellerTable({
 																onUpdateStatus(seller.id, "Inactive")
 															}
 															className={
-															seller.status === "Inactive"
-																	? "bg-blue-50"
-																	: ""
+																seller.status === "Inactive" ? "bg-blue-50" : ""
 															}
 														>
 															<CircleSlash className="h-4 w-4 mr-2 text-gray-500" />
@@ -284,9 +271,7 @@ export default function SellerTable({
 														</DropdownMenuItem>
 													</DropdownMenuSubContent>
 												</DropdownMenuSub>
-												<DropdownMenuItem
-													onClick={() => onEditSeller(seller)}
-												>
+												<DropdownMenuItem onClick={() => onEditSeller(seller)}>
 													<Edit className="h-4 w-4 mr-2" />
 													Edit
 												</DropdownMenuItem>
@@ -301,38 +286,41 @@ export default function SellerTable({
 													Delete
 												</DropdownMenuItem>
 												<DropdownMenuItem
-																									onClick={async () => {
-																										// 1. Save admin session token
-																										const adminToken = getCookie(
-																											"next-auth.session-token"
-																										);
-																										if (adminToken) {
-																											localStorage.setItem(
-																												"adminSessionToken",
-																												adminToken
-																											);
-																										}
-																										// 2. Call impersonation API
-																										try {
-																											const res = await fetch("/api/auth/impersonate", {
-																												method: "POST",
-																												headers: { "Content-Type": "application/json" },
-																												credentials: "include",
-																												body: JSON.stringify({
-																													userId: seller.id,
-																												}),
-																											});
-																											if (!res.ok)
-																												throw new Error("Impersonation failed");
-																											window.location.href = "/dashboard/seller";
-																										} catch (err) {
-																											alert("Impersonation failed. Please try again.");
-																										}
-																									}}
-																								>
-																									<LogIn className="h-4 w-4 mr-2" />
-																									Login as Seller
-																								</DropdownMenuItem>
+													onClick={async () => {
+														try {
+															// 1. Fetch JWT from custom API
+															const jwtRes = await fetch("/api/auth/get-jwt", {
+																credentials: "include",
+															});
+															const { token } = await jwtRes.json();
+															if (token) {
+																localStorage.setItem(
+																	"adminSessionToken",
+																	token
+																);
+															}
+															// 2. Call impersonation API
+															const res = await fetch("/api/auth/impersonate", {
+																method: "POST",
+																headers: { "Content-Type": "application/json" },
+																credentials: "include",
+																body: JSON.stringify({
+																	userId: seller.id,
+																}),
+															});
+															if (!res.ok)
+																throw new Error("Impersonation failed");
+															window.location.href = "/dashboard/seller";
+														} catch (err) {
+															alert(
+																"Impersonation failed. See console for details."
+															);
+														}
+													}}
+												>
+													<LogIn className="h-4 w-4 mr-2" />
+													Login as Seller
+												</DropdownMenuItem>
 											</DropdownMenuContent>
 										</DropdownMenu>
 									</TableCell>
@@ -341,8 +329,7 @@ export default function SellerTable({
 						) : (
 							<TableRow>
 								<TableCell colSpan={9} className="text-center py-6">
-									No sellers found. Try a different search or add a new
-									seller.
+									No sellers found. Try a different search or add a new seller.
 								</TableCell>
 							</TableRow>
 						)}

@@ -112,12 +112,6 @@ export const getCategoryColor = (category: string): string => {
 	}
 };
 
-function getCookie(name: string) {
-	const value = `; ${document.cookie}`;
-	const parts = value.split(`; ${name}=`);
-	if (parts.length === 2) return parts.pop()?.split(";").shift();
-}
-
 export default function DharmguruTable({
 	dharmgurus,
 	onAddDharmguru,
@@ -426,29 +420,42 @@ export default function DharmguruTable({
 												</DropdownMenuItem>
 												<DropdownMenuItem
 													onClick={async () => {
-														// 1. Save admin session token
-														const adminToken = getCookie(
-															"next-auth.session-token"
-														);
-														if (adminToken) {
-															localStorage.setItem(
-																"adminSessionToken",
-																adminToken
-															);
-														}
-														// 2. Call impersonation API
 														try {
-															const res = await fetch("/api/auth/impersonate", {
-																method: "POST",
-																headers: { "Content-Type": "application/json" },
-																credentials: "include",
-																body: JSON.stringify({ userId: dharmguru.id }),
-															});
-															if (!res.ok)
+															// 1. Get the admin's session token
+															const res = await fetch("/api/auth/get-jwt");
+															if (!res.ok) {
+																throw new Error("Failed to get admin token");
+															}
+															const { token } = await res.json();
+
+															// 2. Save the admin token to localStorage
+															localStorage.setItem("adminSessionToken", token);
+
+															// 3. Call the impersonation API
+															const impersonateRes = await fetch(
+																"/api/auth/impersonate",
+																{
+																	method: "POST",
+																	headers: {
+																		"Content-Type": "application/json",
+																	},
+																	body: JSON.stringify({
+																		userId: dharmguru.id,
+																	}),
+																}
+															);
+
+															if (!impersonateRes.ok) {
+																localStorage.removeItem("adminSessionToken"); // Clean up on failure
 																throw new Error("Impersonation failed");
+															}
+
+															// 4. Redirect to the dharmguru's dashboard
 															window.location.href = "/dashboard/dharmguru";
 														} catch (err) {
+															console.error("Impersonation error:", err);
 															alert("Impersonation failed. Please try again.");
+															localStorage.removeItem("adminSessionToken"); // Clean up on failure
 														}
 													}}
 												>

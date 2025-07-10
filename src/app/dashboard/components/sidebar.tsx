@@ -189,6 +189,29 @@ export default function DashboardSidebar({
 	const validUserType = userType && isUserType(userType) ? userType : undefined;
 	const menuItems = validUserType ? menuConfig[validUserType] : [];
 
+	const handleLogout = async () => {
+		const adminToken =
+			typeof window !== "undefined"
+				? localStorage.getItem("adminSessionToken")
+				: null;
+		if (adminToken) {
+			try {
+				await fetch("/api/auth/restore-admin", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ adminToken }),
+					credentials: "include",
+				});
+				localStorage.removeItem("adminSessionToken");
+				window.location.href = "/admin";
+				return;
+			} catch {
+				// fallback to signOut if restore fails
+			}
+		}
+		signOut({ callbackUrl: "/auth/signin" });
+	};
+
 	return (
 		<Sidebar
 			className={cn(
@@ -265,7 +288,7 @@ export default function DashboardSidebar({
 						<span>Settings</span>
 					</SidebarMenuButton>
 					<SidebarMenuButton
-						onClick={() => signOut({ callbackUrl: "/auth/signin" })}
+						onClick={handleLogout}
 						className={cn(
 							"gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all",
 							"hover:text-red-500 focus:text-red-500"

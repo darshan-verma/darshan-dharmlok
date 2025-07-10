@@ -277,9 +277,25 @@ export default function ProductForm({
 									</div>
 								)}
 								{uniqueCategories.map((cat) => (
-									<SelectItem key={cat} value={cat}>
-										{cat}
-									</SelectItem>
+									<div
+										key={cat}
+										className="flex items-center justify-between px-2"
+									>
+										<SelectItem value={cat}>{cat}</SelectItem>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon"
+											onClick={(e) => {
+												e.stopPropagation();
+												handleDeleteCategory(cat);
+											}}
+											title={`Delete category '${cat}'`}
+											className="text-gray-400 hover:text-red-500 ml-2"
+										>
+											🗑️
+										</Button>
+									</div>
 								))}
 							</SelectContent>
 						</Select>
