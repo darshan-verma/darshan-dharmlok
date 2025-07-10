@@ -64,6 +64,13 @@ interface SellerTableProps {
 	onLoginAsSeller: (seller: Seller) => void;
 }
 
+
+function getCookie(name: string) {
+	const value = `; ${document.cookie}`;
+	const parts = value.split(`; ${name}=`);
+	if (parts.length === 2) return parts.pop()?.split(";").shift();
+}
+
 export default function SellerTable({
 	sellers,
 	onAddSeller,
@@ -71,7 +78,6 @@ export default function SellerTable({
 	onDeleteSeller,
 	onUpdateStatus,
 	onToggleApproval,
-	onLoginAsSeller,
 }: SellerTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -295,11 +301,38 @@ export default function SellerTable({
 													Delete
 												</DropdownMenuItem>
 												<DropdownMenuItem
-													onClick={() => onLoginAsSeller(seller)}
-												>
-													<LogIn className="h-4 w-4 mr-2" />
-													Login as Seller
-												</DropdownMenuItem>
+																									onClick={async () => {
+																										// 1. Save admin session token
+																										const adminToken = getCookie(
+																											"next-auth.session-token"
+																										);
+																										if (adminToken) {
+																											localStorage.setItem(
+																												"adminSessionToken",
+																												adminToken
+																											);
+																										}
+																										// 2. Call impersonation API
+																										try {
+																											const res = await fetch("/api/auth/impersonate", {
+																												method: "POST",
+																												headers: { "Content-Type": "application/json" },
+																												credentials: "include",
+																												body: JSON.stringify({
+																													userId: seller.id,
+																												}),
+																											});
+																											if (!res.ok)
+																												throw new Error("Impersonation failed");
+																											window.location.href = "/dashboard/seller";
+																										} catch (err) {
+																											alert("Impersonation failed. Please try again.");
+																										}
+																									}}
+																								>
+																									<LogIn className="h-4 w-4 mr-2" />
+																									Login as Seller
+																								</DropdownMenuItem>
 											</DropdownMenuContent>
 										</DropdownMenu>
 									</TableCell>
