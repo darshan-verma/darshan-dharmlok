@@ -82,7 +82,7 @@ export default function ProductTable({
 
 	const filteredProducts = products.filter((product) => {
 		const matchesSearch =
-			product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			(product.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
 			product.category
 				.join(", ")
 				.toLowerCase()
@@ -178,14 +178,16 @@ export default function ProductTable({
 					<TableBody>
 						{filteredProducts.length > 0 ? (
 							filteredProducts.map((product) => (
-								<TableRow key={product.id}>
-									<TableCell className="font-medium">{product.name}</TableCell>
-									<TableCell>{formatDate(product.date)}</TableCell>
-									<TableCell>{product.category.join(", ")}</TableCell>
-									<TableCell>
-										₹{product.pricePerUnit.toLocaleString("en-IN")}
+								<TableRow key={product.id || Math.random()}>
+									<TableCell className="font-medium">
+										{product.name || ""}
 									</TableCell>
-									<TableCell>{product.availableQty}</TableCell>
+									<TableCell>{formatDate(product.date || "")}</TableCell>
+									<TableCell>{(product.category || []).join(", ")}</TableCell>
+									<TableCell>
+										₹{(product.pricePerUnit ?? 0).toLocaleString("en-IN")}
+									</TableCell>
+									<TableCell>{product.availableQty ?? 0}</TableCell>
 									<TableCell>
 										<Button
 											variant="ghost"
@@ -199,10 +201,10 @@ export default function ProductTable({
 									<TableCell>
 										<span
 											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(
-												product.status
+												product.status || ""
 											)}`}
 										>
-											{product.status}
+											{product.status || ""}
 										</span>
 									</TableCell>
 									<TableCell>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getToken } from "next-auth/jwt";
 
 // Product type for API
 interface ProductApi {
@@ -33,9 +34,21 @@ function parseArrayField(field: unknown): string[] {
 }
 
 // GET /api/e-shop
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
 	try {
+		const url = new URL(req.url);
+		const mine = url.searchParams.get("mine");
+		let where = {};
+		if (mine === "true") {
+			const token = await getToken({ req });
+			const userId = token?.sub;
+			if (!userId) {
+				return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+			}
+			where = { sellerId: userId };
+		}
 		const products = await prisma.product.findMany({
+			where,
 			orderBy: { createdAt: "desc" },
 		});
 		const result: ProductApi[] = products.map((product) => ({
@@ -71,6 +84,11 @@ export async function GET(_req: NextRequest) {
 // POST /api/e-shop
 export async function POST(req: NextRequest) {
 	try {
+		const token = await getToken({ req });
+		const userId = token?.sub;
+		if (!userId) {
+			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
 		const body = await req.json();
 		const {
 			name,
@@ -89,7 +107,7 @@ export async function POST(req: NextRequest) {
 			!date ||
 			!category ||
 			!Array.isArray(category) ||
-			category.length !== 1 || // Changed: must be exactly one category
+			category.length !== 1 || // must be exactly one category
 			pricePerUnit === undefined ||
 			availableQty === undefined ||
 			!status
@@ -111,6 +129,7 @@ export async function POST(req: NextRequest) {
 				images: Array.isArray(images) ? images : [],
 				videos: Array.isArray(videos) ? videos : [],
 				status,
+				sellerId: userId,
 			},
 		});
 		const result: ProductApi = {

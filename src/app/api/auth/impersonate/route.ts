@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
 
 		// Create a JWT token for the impersonated user (compatible with NextAuth)
 		const tokenPayload = {
+			sub: user.id, // Add sub for NextAuth compatibility
 			id: user.id,
 			email: user.email,
 			name: user.name,

@@ -26,23 +26,23 @@ export default function SellerSectionPage() {
 	const [products, setProducts] = useState<Product[]>([]);
 	const [showForm, setShowForm] = useState(false);
 	const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-	const [loading, setLoading] = useState(false);
 
 	// Fetch seller's products on mount
 	useEffect(() => {
 		const fetchProducts = async () => {
-			setLoading(true);
 			try {
-				const res = await fetch("/api/e-shop?mine=true");
+				const res = await fetch("/api/e-shop?mine=true", {
+					credentials: "include",
+				});
 				const data = await res.json();
 				setProducts(data);
 			} catch {
 				setProducts([]);
 			}
-			setLoading(false);
 		};
 		fetchProducts();
-	}, []);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [session]);
 
 	const handleAddProduct = () => {
 		setEditingProduct(null);
@@ -56,7 +56,10 @@ export default function SellerSectionPage() {
 
 	const handleDeleteProduct = async (id: string, name: string) => {
 		if (!confirm(`Delete product '${name}'?`)) return;
-		await fetch(`/api/e-shop/${id}`, { method: "DELETE" });
+		await fetch(`/api/e-shop/${id}`, {
+			method: "DELETE",
+			credentials: "include",
+		});
 		setProducts((prev) => prev.filter((p) => p.id !== id));
 	};
 
@@ -64,6 +67,7 @@ export default function SellerSectionPage() {
 		await fetch(`/api/e-shop/${id}`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
+			credentials: "include",
 			body: JSON.stringify({ status: newStatus }),
 		});
 		setProducts((prev) =>
@@ -81,6 +85,7 @@ export default function SellerSectionPage() {
 			await fetch(`/api/e-shop/${editingProduct.id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
+				credentials: "include",
 				body: JSON.stringify(productData),
 			});
 			setProducts((prev) =>
@@ -93,6 +98,7 @@ export default function SellerSectionPage() {
 			const res = await fetch("/api/e-shop", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
+				credentials: "include",
 				body: JSON.stringify(productData),
 			});
 			const newProduct = await res.json();

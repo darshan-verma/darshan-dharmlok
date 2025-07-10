@@ -39,6 +39,7 @@ model User {
     videos Video[]
     posts Post[]
     comments Comment[]
+    products Product[] @relation("UserProducts")
 }
 
 model Image {
@@ -330,6 +331,8 @@ model Product {
     images          String[]                                      // Array of image URLs/paths
     videos          String[]                                      // Array of video URLs/paths
     status          String                                        // "active", "inactive", etc.
+    seller   User   @relation("UserProducts", fields: [sellerId], references: [id])
+    sellerId        String    @db.ObjectId
     createdAt       DateTime  @default(now())
     updatedAt       DateTime  @updatedAt
 }
