@@ -1,8 +1,13 @@
 "use client";
+
+import { useSession } from "next-auth/react";
+import { useParams } from "next/navigation";
+import RouteProtection from "../../components/route-protection";
+import Sidebar from "../../components/sidebar";
+import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import ProductTable from "../../components/product-table";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import SellerDashboard from "../../components/seller-dashboard";
 
 interface Product {
 	id: string;
@@ -15,48 +20,75 @@ interface Product {
 	status: string;
 }
 
+const LoadingState = ({ message }: { message: string }) => (
+	<div className="flex flex-col justify-center items-center h-[calc(100vh-200px)]">
+		<Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+		<p className="text-lg text-muted-foreground">{message}</p>
+	</div>
+);
+
 export default function SellerSectionPage() {
-	const { data: session } = useSession();
-	const router = useRouter();
+	const { data: session, status: sessionStatus } = useSession();
+	const params = useParams();
+	const section = Array.isArray(params.section)
+		? params.section[0]
+		: params.section;
 	const [products, setProducts] = useState<Product[]>([]);
+	const [loading, setLoading] = useState(true);
 
-	// Redirect to /dashboard/seller/products if accessed /dashboard/seller or /dashboard/seller/
 	useEffect(() => {
-		// If this page is loaded at /dashboard/seller/[section], but [section] is undefined or 'products', redirect to /dashboard/seller/products
-		const path = window.location.pathname;
-		if (path === "/dashboard/seller" || path === "/dashboard/seller/products") {
-			// Already at correct path, do nothing
-			return;
+		if (!session?.user?.id) return;
+		if (section === "products") {
+			const fetchProducts = async () => {
+				setLoading(true);
+				try {
+					const res = await fetch("/api/e-shop?mine=true", {
+						credentials: "include",
+					});
+					const data = await res.json();
+					setProducts(data);
+				} catch {
+					setProducts([]);
+				}
+				setLoading(false);
+			};
+			fetchProducts();
 		}
-		// If this is the default section page, redirect to products
-		if (path === "/dashboard/seller" || path === "/dashboard/seller/") {
-			router.replace("/dashboard/seller/products");
-		}
-	}, [router]);
+	}, [session?.user?.id, section]);
 
-	// Fetch seller's products on mount
-	useEffect(() => {
-		const fetchProducts = async () => {
-			try {
-				const res = await fetch("/api/e-shop?mine=true", {
-					credentials: "include",
-				});
-				const data = await res.json();
-				setProducts(data);
-			} catch {
-				setProducts([]);
-			}
-		};
-		fetchProducts();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [session]);
+	if (sessionStatus === "loading") {
+		return <LoadingState message="Loading session..." />;
+	}
+
+	if (!session?.user?.id) {
+		return <LoadingState message="User not found." />;
+	}
+
+	let content = null;
+	if (section === "dashboard") {
+		content = <SellerDashboard />;
+	} else if (section === "products") {
+		content = <ProductTable products={products} setProducts={setProducts} />;
+	} else {
+		content = (
+			<div className="text-center mt-8">
+				Select a valid section from the sidebar.
+			</div>
+		);
+	}
 
 	return (
-		<main className="min-h-screen w-full overflow-x-auto p-4 sm:p-6 lg:p-8">
-			<div className="mt-8 w-full">
-				<h1 className="text-2xl font-bold mb-6">My Products</h1>
-				<ProductTable products={products} setProducts={setProducts} />
+		<RouteProtection requiredRole="seller">
+			<div className="flex bg-muted/40">
+				<Sidebar userType={session?.user?.role?.toLowerCase() || "seller"} />
+				<main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+					{loading && section === "products" ? (
+						<LoadingState message="Loading products..." />
+					) : (
+						content
+					)}
+				</main>
 			</div>
-		</main>
+		</RouteProtection>
 	);
 }

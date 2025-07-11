@@ -55,7 +55,7 @@ function generateMenuItems(userType: UserType): MenuItem[] {
 	if (userType === "seller") {
 		const prefix = `/dashboard/seller`;
 		return [
-			{ label: "Dashboard", href: `${prefix}`, icon: UserCircle2 },
+			{ label: "Dashboard", href: `${prefix}/dashboard`, icon: UserCircle2 },
 			{ label: "Products", href: `${prefix}/products`, icon: Store },
 			{ label: "My Bookmarks", href: `${prefix}/bookmarks`, icon: BookOpen },
 			{ label: "Orders", href: `${prefix}/orders`, icon: ShoppingBag },
