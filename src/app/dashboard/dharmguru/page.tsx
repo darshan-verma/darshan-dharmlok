@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import ImpersonationRestoreButton from "../components/ImpersonationRestoreButton";
 import { SidebarInset } from "@/components/ui/sidebar";
+import DharmguruDashboard from "../components/dharmguru-dashboard";
 
 interface User {
 	id: string;
@@ -121,9 +122,9 @@ export default function DharmguruPage() {
 					<Sidebar
 						userType={session?.user?.role?.toLowerCase() || "dharmguru"}
 					/>
-					<SidebarInset className="p-4 sm:p-6 lg:p-8">
+					<SidebarInset className="w-full min-h-screen">
 						{effectiveUser ? (
-							<div className="mt-8">{/* User dashboard content here */}</div>
+							<DharmguruDashboard />
 						) : (
 							<LoadingState message="Preparing your dashboard..." />
 						)}

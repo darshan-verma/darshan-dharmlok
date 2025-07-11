@@ -32,7 +32,21 @@ import {
 	Tooltip,
 	Legend,
 } from "recharts";
-import { Plus, Check, X, Download } from "lucide-react";
+import {
+	Plus,
+	Check,
+	X,
+	Download,
+	Calendar,
+	Star,
+	MapPin,
+	TrendingUp,
+	Eye,
+	Edit2,
+	Phone,
+	Bookmark,
+	Clock,
+} from "lucide-react";
 
 // --- Type Definitions ---
 export interface KathavachakProfile {
@@ -126,31 +140,68 @@ function ProfileCard({
 	loading: boolean;
 }) {
 	return (
-		<Card className="flex flex-row items-center gap-4 p-4">
-			{loading ? (
-				<Skeleton className="h-16 w-16 rounded-full" />
-			) : (
-				<Avatar className="h-16 w-16">
-					{profile?.avatarUrl ? (
-						<AvatarImage src={profile.avatarUrl} alt={profile.name} />
+		<Card className="bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200 dark:from-blue-950 dark:to-purple-950 dark:border-blue-800">
+			<CardContent className="p-6">
+				<div className="flex flex-col items-center text-center space-y-4">
+					{loading ? (
+						<Skeleton className="h-20 w-20 rounded-full" />
 					) : (
-						<AvatarFallback>{profile?.name?.[0]}</AvatarFallback>
+						<Avatar className="h-20 w-20 border-4 border-white shadow-lg">
+							{profile?.avatarUrl ? (
+								<AvatarImage src={profile.avatarUrl} alt={profile.name} />
+							) : (
+								<AvatarFallback className="text-xl font-semibold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+									{profile?.name?.[0]}
+								</AvatarFallback>
+							)}
+						</Avatar>
 					)}
-				</Avatar>
-			)}
-			<div className="flex flex-col gap-1">
-				<span className="font-semibold text-lg">
-					{profile?.name || <Skeleton className="h-6 w-32" />}
-				</span>
-				<span className="text-sm text-muted-foreground">
-					{profile?.contact || <Skeleton className="h-4 w-24" />}
-				</span>
-				<div className="flex items-center gap-1 mt-1">
-					<Badge variant="secondary">
-						⭐ {profile?.rating?.toFixed(2) ?? <Skeleton className="h-4 w-8" />}
-					</Badge>
+
+					<div className="space-y-2">
+						<h3 className="font-bold text-xl text-gray-900 dark:text-white">
+							{profile?.name || <Skeleton className="h-6 w-32" />}
+						</h3>
+
+						<div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+							<Phone className="h-4 w-4" />
+							{profile?.contact || <Skeleton className="h-4 w-24" />}
+						</div>
+
+						<div className="flex items-center justify-center gap-2">
+							<Badge
+								variant="secondary"
+								className="bg-yellow-100 text-yellow-800 border-yellow-200"
+							>
+								<Star className="h-4 w-4 mr-1 fill-current" />
+								{profile?.rating?.toFixed(2) ?? (
+									<Skeleton className="h-4 w-8" />
+								)}
+							</Badge>
+						</div>
+
+						{profile?.bio && (
+							<p className="text-sm text-gray-600 dark:text-gray-400 mt-2 max-w-xs">
+								{profile.bio}
+							</p>
+						)}
+					</div>
+
+					<div className="flex gap-2 pt-2">
+						<Button size="sm" className="flex items-center gap-1">
+							<Edit2 className="h-4 w-4" />
+							Edit Profile
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							className="flex items-center gap-1"
+						>
+							<Eye className="h-4 w-4" />
+							View Public
+						</Button>
+					</div>
 				</div>
-			</div>
+			</CardContent>
 		</Card>
 	);
 }
@@ -163,22 +214,41 @@ function SummaryCards({
 	summaries: Summary[];
 	loading: boolean;
 }) {
+	const iconMap: Record<string, React.ReactNode> = {
+		"Total Events": <Calendar className="h-5 w-5 text-blue-600" />,
+		"Dharamshala Bookings": <MapPin className="h-5 w-5 text-green-600" />,
+		"Temple Bookings": <MapPin className="h-5 w-5 text-purple-600" />,
+		"Pooja Services": <Star className="h-5 w-5 text-yellow-600" />,
+		Bookmarks: <Bookmark className="h-5 w-5 text-red-600" />,
+		"Active Requests": <Clock className="h-5 w-5 text-orange-600" />,
+	};
+
 	return (
 		<div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full">
 			{loading
 				? Array.from({ length: 6 }).map((_, i) => (
-						<Skeleton key={i} className="h-24 w-full rounded" />
+						<Skeleton key={i} className="h-28 w-full rounded" />
 				  ))
 				: summaries.map((s, i) => (
-						<Card key={i} className="flex-1 min-w-[120px]">
-							<CardHeader className="pb-2 flex flex-row items-center justify-between">
-								<CardTitle className="text-sm font-medium">{s.label}</CardTitle>
-								{s.icon}
+						<Card
+							key={i}
+							className="hover:shadow-md transition-shadow duration-200 border-l-4"
+							style={{ borderLeftColor: s.color }}
+						>
+							<CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+								<CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+									{s.label}
+								</CardTitle>
+								{iconMap[s.label] || s.icon}
 							</CardHeader>
-							<CardContent>
-								<span className="text-2xl font-bold" style={{ color: s.color }}>
+							<CardContent className="space-y-1">
+								<div className="text-2xl font-bold" style={{ color: s.color }}>
 									{s.value}
-								</span>
+								</div>
+								<div className="flex items-center text-xs text-gray-500">
+									<TrendingUp className="h-3 w-3 mr-1" />
+									<span>+5.2% from last month</span>
+								</div>
 							</CardContent>
 						</Card>
 				  ))}
@@ -195,19 +265,22 @@ function EventsTable({
 	loading: boolean;
 }) {
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Upcoming Events</CardTitle>
-				<CardDescription>Recent or upcoming events</CardDescription>
+		<Card className="hover:shadow-lg transition-shadow duration-200">
+			<CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
+				<div className="flex items-center gap-2">
+					<Calendar className="h-5 w-5 text-blue-600" />
+					<CardTitle>Upcoming Events</CardTitle>
+				</div>
+				<CardDescription>Recent and upcoming spiritual events</CardDescription>
 			</CardHeader>
-			<CardContent className="overflow-x-auto">
+			<CardContent className="overflow-x-auto p-0">
 				<Table>
 					<TableHeader>
-						<TableRow>
-							<TableHead>Name</TableHead>
-							<TableHead>Date</TableHead>
-							<TableHead>Location</TableHead>
-							<TableHead>Status</TableHead>
+						<TableRow className="border-b">
+							<TableHead className="font-semibold">Event Name</TableHead>
+							<TableHead className="font-semibold">Date</TableHead>
+							<TableHead className="font-semibold">Location</TableHead>
+							<TableHead className="font-semibold">Status</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -220,10 +293,19 @@ function EventsTable({
 									</TableRow>
 							  ))
 							: events.map((event) => (
-									<TableRow key={event.id}>
-										<TableCell>{event.name}</TableCell>
-										<TableCell>{event.date}</TableCell>
-										<TableCell>{event.location}</TableCell>
+									<TableRow
+										key={event.id}
+										className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+									>
+										<TableCell className="font-medium">{event.name}</TableCell>
+										<TableCell className="flex items-center gap-1">
+											<Calendar className="h-4 w-4 text-gray-500" />
+											{event.date}
+										</TableCell>
+										<TableCell className="flex items-center gap-1">
+											<MapPin className="h-4 w-4 text-gray-500" />
+											{event.location}
+										</TableCell>
 										<TableCell>
 											<Badge
 												variant={
@@ -233,6 +315,13 @@ function EventsTable({
 														? "secondary"
 														: "destructive"
 												}
+												className={
+													event.status === "Upcoming"
+														? "bg-blue-100 text-blue-800 hover:bg-blue-200"
+														: event.status === "Completed"
+														? "bg-green-100 text-green-800 hover:bg-green-200"
+														: "bg-red-100 text-red-800 hover:bg-red-200"
+												}
 											>
 												{event.status}
 											</Badge>
@@ -241,14 +330,23 @@ function EventsTable({
 							  ))}
 					</TableBody>
 				</Table>
-				<div className="flex justify-end mt-2 gap-2">
-					<Button size="sm" variant="outline">
-						<Plus className="h-4 w-4 mr-1" />
-						Add Event
-					</Button>
-					<Button size="sm" variant="ghost">
-						View All
-					</Button>
+				<div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-800">
+					<span className="text-sm text-gray-600 dark:text-gray-400">
+						{events.length} events total
+					</span>
+					<div className="flex gap-2">
+						<Button
+							size="sm"
+							variant="outline"
+							className="flex items-center gap-1"
+						>
+							<Plus className="h-4 w-4" />
+							Add Event
+						</Button>
+						<Button size="sm" variant="ghost">
+							View All
+						</Button>
+					</div>
 				</div>
 			</CardContent>
 		</Card>
@@ -374,7 +472,7 @@ function PoojaServicesList({
 										₹{s.price}
 									</span>
 									<Button size="icon" variant="ghost">
-										<EditIcon />
+										<Edit2 className="h-4 w-4" />
 									</Button>
 									<Button size="icon" variant="ghost">
 										<X />
@@ -501,46 +599,95 @@ function AnalyticsCharts({
 	loading: boolean;
 }) {
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Bookings & Events Analytics</CardTitle>
-				<CardDescription>Distribution of booking types</CardDescription>
+		<Card className="hover:shadow-lg transition-shadow duration-200">
+			<CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950 dark:to-blue-950">
+				<div className="flex items-center gap-2">
+					<TrendingUp className="h-5 w-5 text-indigo-600" />
+					<CardTitle>Analytics Overview</CardTitle>
+				</div>
+				<CardDescription>
+					Distribution of bookings and events data
+				</CardDescription>
 			</CardHeader>
-			<CardContent className="h-64 flex flex-col md:flex-row gap-4 items-center justify-center">
+			<CardContent className="p-6">
 				{loading ? (
-					<Skeleton className="w-full h-56 rounded" />
+					<Skeleton className="w-full h-64 rounded" />
 				) : (
-					<>
-						<ResponsiveContainer width="50%" height={220}>
-							<PieChart>
-								<Pie
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+						<div className="space-y-4">
+							<h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+								Distribution
+							</h4>
+							<ResponsiveContainer width="100%" height={220}>
+								<PieChart>
+									<Pie
+										data={data}
+										dataKey="value"
+										nameKey="type"
+										cx="50%"
+										cy="50%"
+										outerRadius={80}
+										innerRadius={40}
+										strokeWidth={2}
+										stroke="#fff"
+									>
+										{data.map((_, idx) => (
+											<Cell
+												key={`cell-${idx}`}
+												fill={PIE_COLORS[idx % PIE_COLORS.length]}
+											/>
+										))}
+									</Pie>
+									<Tooltip
+										contentStyle={{
+											backgroundColor: "#fff",
+											border: "1px solid #e5e7eb",
+											borderRadius: "8px",
+											boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+										}}
+									/>
+									<Legend />
+								</PieChart>
+							</ResponsiveContainer>
+						</div>
+
+						<div className="space-y-4">
+							<h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+								Comparison
+							</h4>
+							<ResponsiveContainer width="100%" height={220}>
+								<BarChart
 									data={data}
-									dataKey="value"
-									nameKey="type"
-									cx="50%"
-									cy="50%"
-									outerRadius={70}
-									label
+									margin={{ left: 20, right: 20, top: 20, bottom: 5 }}
 								>
-									{data.map((_, idx) => (
-										<Cell
-											key={`cell-${idx}`}
-											fill={PIE_COLORS[idx % PIE_COLORS.length]}
-										/>
-									))}
-								</Pie>
-								<Legend />
-							</PieChart>
-						</ResponsiveContainer>
-						<ResponsiveContainer width="50%" height={220}>
-							<BarChart data={data} margin={{ left: 20 }}>
-								<XAxis dataKey="type" />
-								<YAxis />
-								<Tooltip />
-								<Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
-							</BarChart>
-						</ResponsiveContainer>
-					</>
+									<XAxis
+										dataKey="type"
+										tick={{ fontSize: 12 }}
+										tickLine={{ stroke: "#e5e7eb" }}
+									/>
+									<YAxis
+										tick={{ fontSize: 12 }}
+										tickLine={{ stroke: "#e5e7eb" }}
+										axisLine={{ stroke: "#e5e7eb" }}
+									/>
+									<Tooltip
+										contentStyle={{
+											backgroundColor: "#fff",
+											border: "1px solid #e5e7eb",
+											borderRadius: "8px",
+											boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+										}}
+									/>
+									<Bar
+										dataKey="value"
+										fill="#6366f1"
+										radius={[4, 4, 0, 0]}
+										className="hover:opacity-80 transition-opacity"
+									/>
+								</BarChart>
+							</ResponsiveContainer>
+						</div>
+					</div>
 				)}
 			</CardContent>
 		</Card>
@@ -719,10 +866,10 @@ export default function KathavachakDashboard() {
 
 	// --- Layout ---
 	return (
-		<div className="flex flex-col gap-6 w-full">
+		<div className="flex flex-col gap-8 w-full p-6">
 			{/* Top: Profile + Summary */}
-			<div className="flex flex-col md:flex-row gap-4 w-full">
-				<div className="md:w-1/4 w-full">
+			<div className="flex flex-col xl:flex-row gap-6 w-full">
+				<div className="xl:w-1/4 w-full">
 					<ProfileCard profile={profile} loading={profileLoading} />
 				</div>
 				<div className="flex-1">
@@ -737,40 +884,67 @@ export default function KathavachakDashboard() {
 			<AnalyticsCharts data={analytics || []} loading={analyticsLoading} />
 
 			{/* Main Grid: Events, Bookings, Services, Bookmarks, Requests */}
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-				<EventsTable
-					events={
-						Array.isArray(events)
-							? events.map(
-									(e) =>
-										({
-											...e,
-											status: e.status as
-												| "Upcoming"
-												| "Completed"
-												| "Cancelled",
-										} as Event)
-							  )
-							: []
-					}
-					loading={eventsLoading}
-				/>
-				<BookingsTable
-					bookings={
-						Array.isArray(dharamshalaBookings)
-							? dharamshalaBookings.map(
-									(b) =>
-										({
-											...b,
-											status: b.status as "Pending" | "Confirmed" | "Completed",
-											type: b.type as "Dharamshala" | "Temple",
-										} as Booking)
-							  )
-							: []
-					}
-					loading={dharamshalaLoading}
-					type="Dharamshala"
-				/>
+			<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+				<div className="lg:col-span-2 xl:col-span-2">
+					<EventsTable
+						events={
+							Array.isArray(events)
+								? events.map(
+										(e) =>
+											({
+												...e,
+												status: e.status as
+													| "Upcoming"
+													| "Completed"
+													| "Cancelled",
+											} as Event)
+								  )
+								: []
+						}
+						loading={eventsLoading}
+					/>
+				</div>
+
+				<div className="space-y-6">
+					<BookingsTable
+						bookings={
+							Array.isArray(dharamshalaBookings)
+								? dharamshalaBookings.map(
+										(b) =>
+											({
+												...b,
+												status: b.status as
+													| "Pending"
+													| "Confirmed"
+													| "Completed",
+												type: b.type as "Dharamshala" | "Temple",
+											} as Booking)
+								  )
+								: []
+						}
+						loading={dharamshalaLoading}
+						type="Dharamshala"
+					/>
+
+					<PoojaServicesList
+						services={
+							Array.isArray(poojaServices)
+								? poojaServices.map(
+										(s) =>
+											({
+												...s,
+												status: s.status as "Active" | "Inactive",
+											} as PoojaService)
+								  )
+								: []
+						}
+						loading={poojaLoading}
+					/>
+				</div>
+			</div>
+
+			{/* Bottom Row */}
+			<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
 				<BookingsTable
 					bookings={
 						Array.isArray(templeBookings)
@@ -787,20 +961,7 @@ export default function KathavachakDashboard() {
 					loading={templeLoading}
 					type="Temple"
 				/>
-				<PoojaServicesList
-					services={
-						Array.isArray(poojaServices)
-							? poojaServices.map(
-									(s) =>
-										({
-											...s,
-											status: s.status as "Active" | "Inactive",
-										} as PoojaService)
-							  )
-							: []
-					}
-					loading={poojaLoading}
-				/>
+
 				<BookmarksList
 					bookmarks={
 						Array.isArray(bookmarks)
@@ -819,6 +980,7 @@ export default function KathavachakDashboard() {
 					}
 					loading={bookmarksLoading}
 				/>
+
 				<EventRequestsTable
 					requests={
 						Array.isArray(eventRequests)
@@ -835,27 +997,6 @@ export default function KathavachakDashboard() {
 				/>
 			</div>
 		</div>
-	);
-}
-
-// --- Icon for Edit (inline, shadcn style) ---
-function EditIcon() {
-	return (
-		<svg
-			width="16"
-			height="16"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			strokeWidth="2"
-			className="h-4 w-4 text-muted-foreground"
-		>
-			<path
-				strokeLinecap="round"
-				strokeLinejoin="round"
-				d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a4 4 0 01-1.414.94l-4.243 1.415 1.415-4.243a4 4 0 01.94-1.414z"
-			/>
-		</svg>
 	);
 }
 

@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import ImpersonationRestoreButton from "../components/ImpersonationRestoreButton";
 import { SidebarInset } from "@/components/ui/sidebar";
+import KathavachakDashboard from "../components/kathavachak-dashboard";
 
 interface User {
 	id: string;
@@ -120,11 +121,9 @@ export default function KathavachakPage() {
 					<Sidebar
 						userType={session?.user?.role?.toLowerCase() || "kathavachak"}
 					/>
-					<SidebarInset className="p-4 sm:p-6 lg:p-8">
+					<SidebarInset className="w-full min-h-screen">
 						{effectiveUser ? (
-							<div className="mt-8">
-								{/* Posts component removed. Now handled in [section]/page.tsx as 'posts' section. */}
-							</div>
+							<KathavachakDashboard />
 						) : (
 							<LoadingState message="Preparing your dashboard..." />
 						)}

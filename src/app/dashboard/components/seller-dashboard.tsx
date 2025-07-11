@@ -18,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
 	XAxis,
 	YAxis,
@@ -32,6 +33,18 @@ import {
 	Cell,
 	Legend,
 } from "recharts";
+import {
+	Star,
+	TrendingUp,
+	TrendingDown,
+	DollarSign,
+	Package,
+	ShoppingCart,
+	Users,
+	Eye,
+	Edit2,
+	BarChart3,
+} from "lucide-react";
 
 // --- Type Definitions ---
 export interface Seller {
@@ -93,43 +106,94 @@ function useMockFetch<T>(fetcher: () => Promise<T>, deps: any[] = []) {
 // Seller Info Card
 function SellerInfo({ seller }: { seller: Seller }) {
 	return (
-		<Card className="flex flex-row items-center gap-4 p-4">
-			<Avatar className="h-16 w-16">
-				{seller.avatarUrl ? (
-					<AvatarImage src={seller.avatarUrl} alt={seller.name} />
-				) : (
-					<AvatarFallback>{seller.name[0]}</AvatarFallback>
-				)}
-			</Avatar>
-			<div className="flex flex-col gap-1">
-				<span className="font-semibold text-lg">{seller.name}</span>
-				<span className="text-sm text-muted-foreground">Seller</span>
-				<div className="flex items-center gap-1 mt-1">
-					<Badge variant="secondary">⭐ {seller.rating.toFixed(2)}</Badge>
+		<Card className="bg-gradient-to-br from-green-50 to-blue-50 border-green-200 dark:from-green-950 dark:to-blue-950 dark:border-green-800">
+			<CardContent className="p-6">
+				<div className="flex flex-col items-center text-center space-y-4">
+					<Avatar className="h-20 w-20 border-4 border-white shadow-lg">
+						{seller.avatarUrl ? (
+							<AvatarImage src={seller.avatarUrl} alt={seller.name} />
+						) : (
+							<AvatarFallback className="text-xl font-semibold bg-gradient-to-br from-green-500 to-blue-600 text-white">
+								{seller.name[0]}
+							</AvatarFallback>
+						)}
+					</Avatar>
+
+					<div className="space-y-2">
+						<h3 className="font-bold text-xl text-gray-900 dark:text-white">
+							{seller.name}
+						</h3>
+
+						<div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+							<ShoppingCart className="h-4 w-4" />
+							<span>E-commerce Seller</span>
+						</div>
+
+						<div className="flex items-center justify-center gap-2">
+							<Badge
+								variant="secondary"
+								className="bg-yellow-100 text-yellow-800 border-yellow-200"
+							>
+								<Star className="h-4 w-4 mr-1 fill-current" />
+								{seller.rating.toFixed(2)}
+							</Badge>
+						</div>
+					</div>
+
+					<div className="flex gap-2 pt-2">
+						<Button size="sm" className="flex items-center gap-1">
+							<Edit2 className="h-4 w-4" />
+							Edit Profile
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							className="flex items-center gap-1"
+						>
+							<Eye className="h-4 w-4" />
+							View Store
+						</Button>
+					</div>
 				</div>
-			</div>
+			</CardContent>
 		</Card>
 	);
 }
 
 // KPI Card
 function StatsCard({ kpi }: { kpi: KPI }) {
+	const iconMap: Record<string, React.ReactNode> = {
+		"Total Sales": <ShoppingCart className="h-5 w-5 text-blue-600" />,
+		"Active Listings": <Package className="h-5 w-5 text-green-600" />,
+		"Pending Orders": <Users className="h-5 w-5 text-orange-600" />,
+		Revenue: <DollarSign className="h-5 w-5 text-purple-600" />,
+	};
+
 	return (
-		<Card className="flex-1 min-w-[140px]">
-			<CardHeader className="pb-2 flex flex-row items-center justify-between">
-				<CardTitle className="text-sm font-medium">{kpi.label}</CardTitle>
-				{kpi.icon}
+		<Card className="hover:shadow-md transition-shadow duration-200 border-l-4 border-l-blue-500">
+			<CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+				<CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-400">
+					{kpi.label}
+				</CardTitle>
+				{iconMap[kpi.label] || kpi.icon}
 			</CardHeader>
-			<CardContent className="flex flex-col gap-1">
-				<span className="text-2xl font-bold">{kpi.value}</span>
+			<CardContent className="space-y-2">
+				<div className="text-2xl font-bold text-gray-900 dark:text-white">
+					{kpi.value}
+				</div>
 				{kpi.trend && (
-					<span
-						className={`text-xs ${
+					<div
+						className={`flex items-center text-xs ${
 							kpi.trend === "up" ? "text-green-600" : "text-red-600"
 						}`}
 					>
-						{kpi.trend === "up" ? "▲" : "▼"} {kpi.trendValue}%
-					</span>
+						{kpi.trend === "up" ? (
+							<TrendingUp className="h-3 w-3 mr-1" />
+						) : (
+							<TrendingDown className="h-3 w-3 mr-1" />
+						)}
+						<span>{kpi.trendValue}% from last month</span>
+					</div>
 				)}
 			</CardContent>
 		</Card>
@@ -145,16 +209,19 @@ function SalesChart({
 	loading: boolean;
 }) {
 	return (
-		<Card className="col-span-2">
-			<CardHeader>
-				<CardTitle>Sales Over Time</CardTitle>
-				<CardDescription>Last 30 days</CardDescription>
+		<Card className="col-span-2 hover:shadow-lg transition-shadow duration-200">
+			<CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
+				<div className="flex items-center gap-2">
+					<BarChart3 className="h-5 w-5 text-blue-600" />
+					<CardTitle>Sales Performance</CardTitle>
+				</div>
+				<CardDescription>Sales trends over the last 30 days</CardDescription>
 			</CardHeader>
-			<CardContent className="h-64">
+			<CardContent className="p-6">
 				{loading ? (
-					<Skeleton className="w-full h-full rounded" />
+					<Skeleton className="w-full h-64 rounded" />
 				) : (
-					<ResponsiveContainer width="100%" height="100%">
+					<ResponsiveContainer width="100%" height={280}>
 						<AreaChart
 							data={data}
 							margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
@@ -162,16 +229,33 @@ function SalesChart({
 							<defs>
 								<linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
 									<stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
-									<stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+									<stop offset="95%" stopColor="#6366f1" stopOpacity={0.1} />
 								</linearGradient>
 							</defs>
-							<XAxis dataKey="date" tick={{ fontSize: 12 }} />
-							<YAxis tick={{ fontSize: 12 }} />
-							<Tooltip />
+							<XAxis
+								dataKey="date"
+								tick={{ fontSize: 12 }}
+								tickLine={{ stroke: "#e5e7eb" }}
+								axisLine={{ stroke: "#e5e7eb" }}
+							/>
+							<YAxis
+								tick={{ fontSize: 12 }}
+								tickLine={{ stroke: "#e5e7eb" }}
+								axisLine={{ stroke: "#e5e7eb" }}
+							/>
+							<Tooltip
+								contentStyle={{
+									backgroundColor: "#fff",
+									border: "1px solid #e5e7eb",
+									borderRadius: "8px",
+									boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+								}}
+							/>
 							<Area
 								type="monotone"
 								dataKey="sales"
 								stroke="#6366f1"
+								strokeWidth={2}
 								fillOpacity={1}
 								fill="url(#colorSales)"
 							/>
@@ -425,29 +509,31 @@ export default function SellerDashboard() {
 
 	// --- Layout ---
 	return (
-		<div className="flex flex-col gap-6 w-full">
+		<div className="flex flex-col gap-8 w-full min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
 			{/* Top Row: Seller Info + KPIs */}
-			<div className="flex flex-col md:flex-row gap-4 w-full">
-				<div className="md:w-1/4 w-full">
+			<div className="flex flex-col xl:flex-row gap-6 w-full">
+				<div className="xl:w-1/4 w-full">
 					{sellerLoading || !seller ? (
-						<Skeleton className="h-32 w-full rounded" />
+						<Skeleton className="h-40 w-full rounded" />
 					) : (
 						<SellerInfo seller={seller} />
 					)}
 				</div>
-				<div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+				<div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-4">
 					{kpiLoading || !kpis
 						? Array.from({ length: 4 }).map((_, i) => (
-								<Skeleton key={i} className="h-24 w-full rounded" />
+								<Skeleton key={i} className="h-32 w-full rounded" />
 						  ))
 						: kpis.map((kpi, i) => <StatsCard key={i} kpi={kpi} />)}
 				</div>
 			</div>
 
 			{/* Charts Row */}
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-				<SalesChart data={salesData || []} loading={salesLoading} />
-				<div className="flex flex-col gap-4">
+			<div className="grid grid-cols-1 xl:grid-cols-3 gap-6 w-full">
+				<div className="xl:col-span-2">
+					<SalesChart data={salesData || []} loading={salesLoading} />
+				</div>
+				<div className="space-y-6">
 					<CategorySalesBar
 						data={categorySales || []}
 						loading={catSalesLoading}
