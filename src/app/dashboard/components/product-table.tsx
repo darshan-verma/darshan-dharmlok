@@ -74,7 +74,6 @@ export default function ProductTable({
 	onEditProduct,
 	onDeleteProduct,
 	onUpdateStatus,
-	onViewProduct,
 }: ProductTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -189,13 +188,11 @@ export default function ProductTable({
 									</TableCell>
 									<TableCell>{product.availableQty ?? 0}</TableCell>
 									<TableCell>
-										<Button
-											variant="ghost"
-											size="sm"
-											onClick={() => onViewProduct(product)}
-										>
-											<Eye className="h-4 w-4 mr-1" />
-											View
+										<Button asChild variant="ghost" size="sm">
+											<a href={`/dashboard/seller/products/${product.id}`}>
+												<Eye className="h-4 w-4 mr-1" />
+												View
+											</a>
 										</Button>
 									</TableCell>
 									<TableCell>
