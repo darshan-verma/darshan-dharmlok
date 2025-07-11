@@ -31,6 +31,13 @@ import {
 	Activity,
 	PlusCircle,
 } from "lucide-react";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import ProductForm from "./product-form";
 
 interface Product {
 	id: string;
@@ -46,17 +53,12 @@ interface Product {
 interface ProductTableProps {
 	products: Product[];
 	setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
-	onAddProduct?: () => void;
-	onEditProduct: (product: Product) => void;
-	onDeleteProduct: (id: string, name: string) => void;
-	onUpdateStatus: (id: string, newStatus: string) => Promise<void>;
-	onViewProduct: (product: Product) => void;
 }
 
 const getStatusColor = (status: string): string =>
 	status === "Active"
 		? "bg-green-100 text-green-800"
-		: "bg-red-100 text-red-800";
+		: "bg-red-100 text-red-red-800";
 
 const formatDate = (dateString: string) => {
 	if (!dateString) return "";
@@ -70,14 +72,13 @@ const formatDate = (dateString: string) => {
 
 export default function ProductTable({
 	products,
-	onAddProduct,
-	onEditProduct,
-	onDeleteProduct,
-	onUpdateStatus,
+	setProducts,
 }: ProductTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
+	const [showForm, setShowForm] = useState(false);
+	const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
 	const filteredProducts = products.filter((product) => {
 		const matchesSearch =
@@ -101,6 +102,66 @@ export default function ProductTable({
 		new Set(products.flatMap((p) => p.category))
 	);
 
+	const handleAddProduct = () => {
+		setEditingProduct(null);
+		setShowForm(true);
+	};
+
+	const handleEditProduct = (product: Product) => {
+		setEditingProduct(product);
+		setShowForm(true);
+	};
+
+	const handleDeleteProduct = async (id: string, name: string) => {
+		if (!confirm(`Delete product '${name}'?`)) return;
+		await fetch(`/api/e-shop/${id}`, {
+			method: "DELETE",
+			credentials: "include",
+		});
+		setProducts((prev) => prev.filter((p) => p.id !== id));
+	};
+
+	const handleUpdateStatus = async (id: string, newStatus: string) => {
+		await fetch(`/api/e-shop/${id}`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			credentials: "include",
+			body: JSON.stringify({ status: newStatus }),
+		});
+		setProducts((prev) =>
+			prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p))
+		);
+	};
+
+	const handleFormSubmit = async (productData: Omit<Product, "id">) => {
+		if (editingProduct) {
+			// Edit
+			await fetch(`/api/e-shop/${editingProduct.id}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				credentials: "include",
+				body: JSON.stringify(productData),
+			});
+			setProducts((prev) =>
+				prev.map((p) =>
+					p.id === editingProduct.id ? { ...p, ...productData } : p
+				)
+			);
+		} else {
+			// Add
+			const res = await fetch("/api/e-shop", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				credentials: "include",
+				body: JSON.stringify(productData),
+			});
+			const newProduct = await res.json();
+			setProducts((prev) => [newProduct, ...prev]);
+		}
+		setShowForm(false);
+		setEditingProduct(null);
+	};
+
 	return (
 		<div className="space-y-4">
 			<div className="flex flex-col space-y-4">
@@ -117,12 +178,10 @@ export default function ProductTable({
 						/>
 					</div>
 					{/* Add Product Button */}
-					{onAddProduct && (
-						<Button onClick={onAddProduct} className="w-full sm:w-auto">
-							<PlusCircle className="h-4 w-4 mr-2" />
-							Add Product
-						</Button>
-					)}
+					<Button onClick={handleAddProduct} className="w-full sm:w-auto">
+						<PlusCircle className="h-4 w-4 mr-2" />
+						Add Product
+					</Button>
 				</div>
 				{/* Filters */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
@@ -222,7 +281,7 @@ export default function ProductTable({
 													<DropdownMenuSubContent>
 														<DropdownMenuItem
 															onClick={() =>
-																onUpdateStatus(product.id, "Active")
+																handleUpdateStatus(product.id, "Active")
 															}
 															className={
 																product.status === "Active" ? "bg-blue-50" : ""
@@ -233,7 +292,7 @@ export default function ProductTable({
 														</DropdownMenuItem>
 														<DropdownMenuItem
 															onClick={() =>
-																onUpdateStatus(product.id, "Inactive")
+																handleUpdateStatus(product.id, "Inactive")
 															}
 															className={
 																product.status === "Inactive"
@@ -247,7 +306,7 @@ export default function ProductTable({
 													</DropdownMenuSubContent>
 												</DropdownMenuSub>
 												<DropdownMenuItem
-													onClick={() => onEditProduct(product)}
+													onClick={() => handleEditProduct(product)}
 												>
 													<Edit className="h-4 w-4 mr-2" />
 													Edit
@@ -256,7 +315,7 @@ export default function ProductTable({
 													className="flex items-center gap-2 text-red-600"
 													onSelect={(e) => {
 														e.preventDefault();
-														onDeleteProduct(product.id, product.name);
+														handleDeleteProduct(product.id, product.name);
 													}}
 												>
 													<Trash2 className="h-4 w-4" />
@@ -278,6 +337,26 @@ export default function ProductTable({
 					</TableBody>
 				</Table>
 			</div>
+			{/* Form Dialog for Add/Edit Product */}
+			{showForm && (
+				<Dialog open={showForm} onOpenChange={setShowForm}>
+					<DialogContent className="sm:max-w-[600px]">
+						<DialogHeader>
+							<DialogTitle>
+								{editingProduct ? "Edit Product" : "Add New Product"}
+							</DialogTitle>
+						</DialogHeader>
+						<ProductForm
+							initialData={editingProduct || undefined}
+							onSubmit={handleFormSubmit}
+							onCancel={() => {
+								setShowForm(false);
+								setEditingProduct(null);
+							}}
+						/>
+					</DialogContent>
+				</Dialog>
+			)}
 		</div>
 	);
 }

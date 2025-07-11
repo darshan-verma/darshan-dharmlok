@@ -34,7 +34,6 @@ interface ProductFormProps {
 	initialData?: Partial<Product>;
 	onSubmit: (productData: Omit<Product, "id">) => Promise<void>;
 	onCancel: () => void;
-	isLoading?: boolean;
 }
 
 const defaultCategories = [
@@ -63,7 +62,6 @@ export default function ProductForm({
 	},
 	onSubmit,
 	onCancel,
-	isLoading = false,
 }: ProductFormProps) {
 	const [productData, setProductData] = useState<Omit<Product, "id">>({
 		name: initialData.name || "",
@@ -81,6 +79,7 @@ export default function ProductForm({
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
 	const selectTriggerRef = useRef<HTMLButtonElement | null>(null);
+	const [isLoading, setIsLoading] = useState(false);
 
 	useEffect(() => {
 		const fetchCategories = async () => {
@@ -129,10 +128,14 @@ export default function ProductForm({
 		const errors = validateForm(productData);
 		setFormErrors(errors);
 		if (Object.keys(errors).length > 0) return;
+		setIsLoading(true);
 		try {
 			await onSubmit(productData);
+			onCancel();
 		} catch (error) {
 			console.error("Error in form submission:", error);
+		} finally {
+			setIsLoading(false);
 		}
 	};
 

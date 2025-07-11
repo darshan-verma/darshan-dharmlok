@@ -1,14 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import ProductForm from "../../components/product-form";
 import ProductTable from "../../components/product-table";
 import { useSession } from "next-auth/react";
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
 
 interface Product {
 	id: string;
@@ -23,9 +17,22 @@ interface Product {
 
 export default function SellerSectionPage() {
 	const { data: session } = useSession();
+	const router = useRouter();
 	const [products, setProducts] = useState<Product[]>([]);
-	const [showForm, setShowForm] = useState(false);
-	const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+	// Redirect to /dashboard/seller/products if accessed /dashboard/seller or /dashboard/seller/
+	useEffect(() => {
+		// If this page is loaded at /dashboard/seller/[section], but [section] is undefined or 'products', redirect to /dashboard/seller/products
+		const path = window.location.pathname;
+		if (path === "/dashboard/seller" || path === "/dashboard/seller/products") {
+			// Already at correct path, do nothing
+			return;
+		}
+		// If this is the default section page, redirect to products
+		if (path === "/dashboard/seller" || path === "/dashboard/seller/") {
+			router.replace("/dashboard/seller/products");
+		}
+	}, [router]);
 
 	// Fetch seller's products on mount
 	useEffect(() => {
@@ -44,103 +51,11 @@ export default function SellerSectionPage() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [session]);
 
-	const handleAddProduct = () => {
-		setEditingProduct(null);
-		setShowForm(true);
-	};
-
-	const handleEditProduct = (product: Product) => {
-		setEditingProduct(product);
-		setShowForm(true);
-	};
-
-	const handleDeleteProduct = async (id: string, name: string) => {
-		if (!confirm(`Delete product '${name}'?`)) return;
-		await fetch(`/api/e-shop/${id}`, {
-			method: "DELETE",
-			credentials: "include",
-		});
-		setProducts((prev) => prev.filter((p) => p.id !== id));
-	};
-
-	const handleUpdateStatus = async (id: string, newStatus: string) => {
-		await fetch(`/api/e-shop/${id}`, {
-			method: "PATCH",
-			headers: { "Content-Type": "application/json" },
-			credentials: "include",
-			body: JSON.stringify({ status: newStatus }),
-		});
-		setProducts((prev) =>
-			prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p))
-		);
-	};
-
-	const handleViewProduct = (product: Product) => {
-		alert(JSON.stringify(product, null, 2));
-	};
-
-	const handleFormSubmit = async (productData: Omit<Product, "id">) => {
-		if (editingProduct) {
-			// Edit
-			await fetch(`/api/e-shop/${editingProduct.id}`, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				credentials: "include",
-				body: JSON.stringify(productData),
-			});
-			setProducts((prev) =>
-				prev.map((p) =>
-					p.id === editingProduct.id ? { ...p, ...productData } : p
-				)
-			);
-		} else {
-			// Add
-			const res = await fetch("/api/e-shop", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				credentials: "include",
-				body: JSON.stringify(productData),
-			});
-			const newProduct = await res.json();
-			setProducts((prev) => [newProduct, ...prev]);
-		}
-		setShowForm(false);
-		setEditingProduct(null);
-	};
-
-	// This page renders the product management UI for sellers in a given section
-	// You can add logic to determine the section if needed, or pass it as a prop
 	return (
 		<main className="min-h-screen w-full overflow-x-auto p-4 sm:p-6 lg:p-8">
 			<div className="mt-8 w-full">
 				<h1 className="text-2xl font-bold mb-6">My Products</h1>
-				<ProductTable
-					products={products}
-					setProducts={setProducts}
-					onAddProduct={handleAddProduct}
-					onEditProduct={handleEditProduct}
-					onDeleteProduct={handleDeleteProduct}
-					onUpdateStatus={handleUpdateStatus}
-					onViewProduct={handleViewProduct}
-				/>
-				{/* Form Dialog for Add/Edit Product */}
-				<Dialog open={showForm} onOpenChange={setShowForm}>
-					<DialogContent className="sm:max-w-[600px]">
-						<DialogHeader>
-							<DialogTitle>
-								{editingProduct ? "Edit Product" : "Add New Product"}
-							</DialogTitle>
-						</DialogHeader>
-						<ProductForm
-							initialData={editingProduct || undefined}
-							onSubmit={handleFormSubmit}
-							onCancel={() => {
-								setShowForm(false);
-								setEditingProduct(null);
-							}}
-						/>
-					</DialogContent>
-				</Dialog>
+				<ProductTable products={products} setProducts={setProducts} />
 			</div>
 		</main>
 	);

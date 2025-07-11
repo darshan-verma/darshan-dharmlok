@@ -52,6 +52,42 @@ type UserType =
 
 // Helper to generate menu items for a user type
 function generateMenuItems(userType: UserType): MenuItem[] {
+	if (userType === "seller") {
+		const prefix = `/dashboard/seller`;
+		return [
+			{ label: "Dashboard", href: `${prefix}`, icon: UserCircle2 },
+			{ label: "Products", href: `${prefix}/products`, icon: Store },
+			{ label: "My Bookmarks", href: `${prefix}/bookmarks`, icon: BookOpen },
+			{ label: "Orders", href: `${prefix}/orders`, icon: ShoppingBag },
+			{
+				label: "Withdrawl History",
+				href: `${prefix}/withdrawl-history`,
+				icon: BadgeDollarSign,
+			},
+			{ label: "Manage Profile", href: `${prefix}/profile`, icon: Settings },
+		];
+	}
+	if (userType === "panditji") {
+		const prefix = `/dashboard/panditji`;
+		return [
+			{ label: "Dashboard", href: `${prefix}`, icon: UserCircle2 },
+			{
+				label: "My Pooja Bookings",
+				href: `${prefix}/pooja-bookings`,
+				icon: HandHeart,
+			},
+			{ label: "My Service", href: `${prefix}/services`, icon: Store },
+			{ label: "My Bookmarks", href: `${prefix}/bookmarks`, icon: BookOpen },
+			{
+				label: "Pooja Bookings",
+				href: `${prefix}/pooja-bookings`,
+				icon: Calendar,
+			},
+			{ label: "Manage Profile", href: `${prefix}/profile`, icon: Settings },
+			{ label: "My Billing", href: `${prefix}/billing`, icon: BadgeDollarSign },
+		];
+	}
+	// Default for Kathavachak, Dharmguru, hotel_dharamshala_vendor
 	const prefix = `/dashboard/${userType}`;
 	return [
 		{ label: "Go Live", href: `${prefix}/go-live`, icon: Cast },
@@ -247,6 +283,45 @@ export default function DashboardSidebar({
 									<item.icon
 										className={cn(
 											"h-5 w-5",
+											validUserType === "seller" &&
+												item.label === "Dashboard" &&
+												"text-blue-600",
+											validUserType === "seller" &&
+												item.label === "Products" &&
+												"text-green-600",
+											validUserType === "seller" &&
+												item.label === "My Bookmarks" &&
+												"text-pink-500",
+											validUserType === "seller" &&
+												item.label === "Orders" &&
+												"text-yellow-600",
+											validUserType === "seller" &&
+												item.label === "Withdrawl History" &&
+												"text-purple-600",
+											validUserType === "seller" &&
+												item.label === "Manage Profile" &&
+												"text-gray-700",
+											validUserType === "panditji" &&
+												item.label === "Dashboard" &&
+												"text-blue-600",
+											validUserType === "panditji" &&
+												item.label === "My Pooja Bookings" &&
+												"text-green-600",
+											validUserType === "panditji" &&
+												item.label === "My Service" &&
+												"text-purple-600",
+											validUserType === "panditji" &&
+												item.label === "My Bookmarks" &&
+												"text-pink-500",
+											validUserType === "panditji" &&
+												item.label === "Pooja Bookings" &&
+												"text-yellow-600",
+											validUserType === "panditji" &&
+												item.label === "Manage Profile" &&
+												"text-gray-700",
+											validUserType === "panditji" &&
+												item.label === "My Billing" &&
+												"text-amber-600",
 											item.label === "Go Live" && "text-teal-500",
 											item.label === "Posts" && "text-green-600",
 											item.label === "Biography" && "text-amber-500",
