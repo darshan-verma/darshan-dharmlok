@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import ProductTable from "../../components/product-table";
 import SellerDashboard from "../../components/seller-dashboard";
+import { SidebarInset } from "@/components/ui/sidebar";
 
 interface Product {
 	id: string;
@@ -79,15 +80,15 @@ export default function SellerSectionPage() {
 
 	return (
 		<RouteProtection requiredRole="seller">
-			<div className="flex bg-muted/40">
+			<div className="flex bg-muted/40 w-full min-h-screen">
 				<Sidebar userType={session?.user?.role?.toLowerCase() || "seller"} />
-				<main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+				<SidebarInset className="p-4 sm:p-6 lg:p-8">
 					{loading && section === "products" ? (
 						<LoadingState message="Loading products..." />
 					) : (
 						content
 					)}
-				</main>
+				</SidebarInset>
 			</div>
 		</RouteProtection>
 	);

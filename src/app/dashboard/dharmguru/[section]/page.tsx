@@ -6,11 +6,11 @@ import Biography from "../../components/biography";
 import Posts from "../../components/posts";
 import RouteProtection from "../../components/route-protection";
 import Sidebar from "../../components/sidebar";
-import MostLikedPosts from "../../components/most-liked-posts";
 import { Loader2 } from "lucide-react";
 import VideoGallery from "../../components/video-gallery";
 import PhotoGallery from "../../components/photo-gallery";
 import { useEffect, useState } from "react";
+import { SidebarInset } from "@/components/ui/sidebar";
 
 const LoadingState = ({ message }: { message: string }) => (
 	<div className="flex flex-col justify-center items-center h-[calc(100vh-200px)]">
@@ -78,16 +78,12 @@ export default function DharmguruSectionPage() {
 
 	return (
 		<RouteProtection requiredRole="dharmguru">
-			<div className="flex bg-muted/40">
+			<div className="flex bg-muted/40 w-full min-h-screen">
 				<Sidebar userType={session?.user?.role?.toLowerCase() || "dharmguru"} />
-				<main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
-					<div className="grid grid-cols-1 lg:grid-cols-3 gap-16 items-start">
-						<div className="lg:col-span-2">{content}</div>
-						<div className="lg:col-span-1 space-y-6 lg:sticky top-6">
-							<MostLikedPosts />
-						</div>
-					</div>
-				</main>
+				<SidebarInset className="p-4 sm:p-6 lg:p-8">
+					{/* All sections now use full width for consistent layout */}
+					<div className="w-full">{content}</div>
+				</SidebarInset>
 			</div>
 		</RouteProtection>
 	);

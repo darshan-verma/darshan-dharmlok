@@ -90,6 +90,7 @@ function generateMenuItems(userType: UserType): MenuItem[] {
 	// Default for Kathavachak, Dharmguru, hotel_dharamshala_vendor
 	const prefix = `/dashboard/${userType}`;
 	return [
+		{ label: "Dashboard", href: `${prefix}/dashboard`, icon: UserCircle2 },
 		{ label: "Go Live", href: `${prefix}/go-live`, icon: Cast },
 		{ label: "Posts", href: `${prefix}/posts`, icon: BookOpen },
 		{

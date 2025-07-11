@@ -374,7 +374,7 @@ const CreatePostForm = ({
 	]);
 
 	return (
-		<Card>
+		<Card className="w-full max-w-none">
 			<CardHeader>
 				<CardTitle className="flex items-center gap-2 text-xl">
 					<PlusCircle className="h-6 w-6" />
@@ -386,9 +386,9 @@ const CreatePostForm = ({
 			</CardHeader>
 
 			<CardContent className="space-y-4">
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+				<div className="flex flex-col lg:flex-row gap-6 items-start w-full">
 					{/* Left side: Media upload and preview */}
-					<div className="space-y-4">
+					<div className="flex-1 space-y-4 w-full lg:w-auto">
 						<Tabs defaultValue="image" className="w-full">
 							<TabsList className="grid w-full grid-cols-2">
 								<TabsTrigger value="image">
@@ -473,7 +473,7 @@ const CreatePostForm = ({
 					</div>
 
 					{/* Right side: Caption and post actions */}
-					<div className="space-y-4">
+					<div className="flex-1 space-y-4 w-full lg:w-auto">
 						<div className="flex items-center gap-3">
 							<Avatar className="h-11 w-11 border">
 								<AvatarImage src={profileImageUrl} alt={userName} />
@@ -699,7 +699,7 @@ const PostItem = ({
 	};
 
 	return (
-		<Card className="rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 bg-background">
+		<Card className="w-full max-w-none rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 bg-background">
 			<CardHeader className="p-0">
 				<div className="flex items-center p-4">
 					<Avatar className="h-9 w-9 mr-3">
@@ -986,8 +986,8 @@ export default function Posts({
 	}, [userId, userType]);
 
 	return (
-		<>
-			<div className="space-y-10">
+		<div className="w-full max-w-none">
+			<div className="space-y-10 w-full max-w-none">
 				<CreatePostForm
 					userId={userId}
 					userName={userName}
@@ -1053,6 +1053,6 @@ export default function Posts({
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-		</>
+		</div>
 	);
 }

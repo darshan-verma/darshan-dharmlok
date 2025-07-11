@@ -8,6 +8,7 @@ import Sidebar from "../components/sidebar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import ImpersonationRestoreButton from "../components/ImpersonationRestoreButton";
+import { SidebarInset } from "@/components/ui/sidebar";
 
 interface User {
 	id: string;
@@ -116,17 +117,17 @@ export default function DharmguruPage() {
 					</div>
 				</div>
 			) : (
-				<div className="flex bg-muted/40">
+				<div className="flex bg-muted/40 w-full min-h-screen">
 					<Sidebar
 						userType={session?.user?.role?.toLowerCase() || "dharmguru"}
 					/>
-					<main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+					<SidebarInset className="p-4 sm:p-6 lg:p-8">
 						{effectiveUser ? (
 							<div className="mt-8">{/* User dashboard content here */}</div>
 						) : (
 							<LoadingState message="Preparing your dashboard..." />
 						)}
-					</main>
+					</SidebarInset>
 				</div>
 			)}
 		</RouteProtection>

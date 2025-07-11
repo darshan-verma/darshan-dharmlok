@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import ImpersonationRestoreButton from "../components/ImpersonationRestoreButton";
 import ProductTable from "../components/product-table";
 import Sidebar from "../components/sidebar";
+import { SidebarInset } from "@/components/ui/sidebar";
 
 interface Product {
 	id: string;
@@ -108,14 +109,14 @@ export default function SellerDashboardPage() {
 					</div>
 				</div>
 			) : (
-				<div className="flex bg-muted/40 min-h-screen">
+				<div className="flex bg-muted/40 min-h-screen w-full">
 					<Sidebar userType={session?.user?.role?.toLowerCase() || "seller"} />
-					<main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+					<SidebarInset className="p-4 sm:p-6 lg:p-8">
 						<div className="mt-8">
 							<h1 className="text-2xl font-bold mb-6">My Products</h1>
 							<ProductTable products={products} setProducts={setProducts} />
 						</div>
-					</main>
+					</SidebarInset>
 				</div>
 			)}
 		</RouteProtection>

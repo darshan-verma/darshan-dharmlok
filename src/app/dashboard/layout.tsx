@@ -11,11 +11,5 @@ export default async function DashboardLayout({ children }: PropsWithChildren) {
 	// Log the role to help with debugging
 	console.log("Dashboard Layout - User Role:", userRole);
 
-	return (
-		<SidebarProviderWrapper>
-			<div style={{ display: "flex" }}>
-				<main style={{ flex: 1 }}>{children}</main>
-			</div>
-		</SidebarProviderWrapper>
-	);
+	return <SidebarProviderWrapper>{children}</SidebarProviderWrapper>;
 }
