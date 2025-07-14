@@ -1,4 +1,5 @@
 "use client";
+import KathavachakProfileForm from "./kathavachak-profile-form";
 import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { userService } from "@/services/userService";
@@ -18,7 +19,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,9 +44,7 @@ import {
 	Star,
 	MapPin,
 	TrendingUp,
-	Eye,
 	Edit2,
-	Phone,
 	Bookmark,
 	Clock,
 } from "lucide-react";
@@ -135,79 +133,6 @@ function formatDate(dateStr: string) {
 // --- Subcomponents ---
 
 // Profile Card
-function ProfileCard({
-	profile,
-	loading,
-}: {
-	profile: KathavachakProfile | null;
-	loading: boolean;
-}) {
-	return (
-		<Card className="bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200 dark:from-blue-950 dark:to-purple-950 dark:border-blue-800">
-			<CardContent className="p-6">
-				<div className="flex flex-col items-center text-center space-y-4">
-					{loading ? (
-						<Skeleton className="h-20 w-20 rounded-full" />
-					) : (
-						<Avatar className="h-20 w-20 border-4 border-white shadow-lg">
-							{profile?.avatarUrl ? (
-								<AvatarImage src={profile.avatarUrl} alt={profile.name} />
-							) : (
-								<AvatarFallback className="text-xl font-semibold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-									{profile?.name?.[0]}
-								</AvatarFallback>
-							)}
-						</Avatar>
-					)}
-
-					<div className="space-y-2">
-						<h3 className="font-bold text-xl text-gray-900 dark:text-white">
-							{profile?.name || <Skeleton className="h-6 w-32" />}
-						</h3>
-
-						<div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-							<Phone className="h-4 w-4" />
-							{profile?.contact || <Skeleton className="h-4 w-24" />}
-						</div>
-
-						<div className="flex items-center justify-center gap-2">
-							<Badge
-								variant="secondary"
-								className="bg-yellow-100 text-yellow-800 border-yellow-200"
-							>
-								<Star className="h-4 w-4 mr-1 fill-current" />
-								{profile?.rating?.toFixed(2) ?? (
-									<Skeleton className="h-4 w-8" />
-								)}
-							</Badge>
-						</div>
-
-						{profile?.bio && (
-							<p className="text-sm text-gray-600 dark:text-gray-400 mt-2 max-w-xs">
-								{profile.bio}
-							</p>
-						)}
-					</div>
-
-					<div className="flex gap-2 pt-2">
-						<Button size="sm" className="flex items-center gap-1">
-							<Edit2 className="h-4 w-4" />
-							Edit Profile
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							className="flex items-center gap-1"
-						>
-							<Eye className="h-4 w-4" />
-							View Public
-						</Button>
-					</div>
-				</div>
-			</CardContent>
-		</Card>
-	);
-}
 
 // Summary Cards
 function SummaryCards({
@@ -227,7 +152,7 @@ function SummaryCards({
 	};
 
 	return (
-		<div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full">
+		<div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-4 w-full">
 			{loading
 				? Array.from({ length: 6 }).map((_, i) => (
 						<Skeleton key={i} className="h-28 w-full rounded" />
@@ -702,6 +627,19 @@ export default function KathavachakDashboard() {
 	const { data: session } = useSession();
 	const [profile, setProfile] = useState<KathavachakProfile | null>(null);
 	const [profileLoading, setProfileLoading] = useState(true);
+
+	// Handler to save profile edits
+	function handleProfileSave(data: {
+		name: string;
+		email: string;
+		phone: string;
+		addresses: any[];
+	}) {
+		// TODO: Connect to backend or update state as needed
+		setProfile((prev) => (prev ? { ...prev, ...data } : prev));
+		// Optionally, show a toast or notification
+	}
+
 	useEffect(() => {
 		async function fetchProfile() {
 			if (session?.user?.id) {
@@ -900,15 +838,28 @@ export default function KathavachakDashboard() {
 			];
 		}, []);
 
-	// --- Layout ---
+	// --- Render ---
 	return (
-		<div className="flex flex-col gap-8 w-full p-6">
-			{/* Top: Profile + Summary */}
-			<div className="flex flex-col xl:flex-row gap-6 w-full">
-				<div className="xl:w-1/4 w-full">
-					<ProfileCard profile={profile} loading={profileLoading} />
+		<div className="flex flex-col gap-6">
+			<div className="flex flex-col xl:flex-row gap-6">
+				<div className="xl:w-2/5 w-full">
+					<KathavachakProfileForm
+						profile={
+							profile
+								? {
+										id: profile.id,
+										name: profile.name ?? "",
+										email: (profile as any).email ?? "",
+										phone: (profile as any).phone ?? "",
+										addresses: (profile as any).addresses ?? [],
+								  }
+								: null
+						}
+						loading={profileLoading}
+						onSave={handleProfileSave}
+					/>
 				</div>
-				<div className="flex-1">
+				<div className="xl:w-3/5 w-full">
 					<SummaryCards
 						summaries={summaries || []}
 						loading={summariesLoading}
