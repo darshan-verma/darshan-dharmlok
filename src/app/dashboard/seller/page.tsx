@@ -7,19 +7,19 @@ import RouteProtection from "../components/route-protection";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import ImpersonationRestoreButton from "../components/ImpersonationRestoreButton";
-import ProductTable from "../components/product-table";
 import Sidebar from "../components/sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
+import SellerDashboard from "../components/seller-dashboard";
 
-interface Product {
+interface User {
 	id: string;
 	name: string;
-	date: string;
-	category: string[];
-	pricePerUnit: number;
-	availableQty: number;
-	detail?: string;
-	status: string;
+	email: string;
+	phone: string;
+	userType: string;
+	profileImageUrl: string;
+	bio: string;
+	// ...other fields
 }
 
 const LoadingState = ({ message }: { message: string }) => (
@@ -31,7 +31,7 @@ const LoadingState = ({ message }: { message: string }) => (
 
 export default function SellerDashboardPage() {
 	const { data: session, status: sessionStatus } = useSession();
-	const [products, setProducts] = useState<Product[]>([]);
+	const [user, setUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
@@ -42,32 +42,34 @@ export default function SellerDashboardPage() {
 			}
 			return;
 		}
-		const fetchProducts = async () => {
-			setLoading(true);
+
+		const fetchUser = async () => {
 			try {
-				const res = await fetch("/api/e-shop?mine=true");
-				if (!res.ok) throw new Error("Failed to fetch products");
-				const data = await res.json();
-				setProducts(data);
+				const userId = session.user.id;
+				const response = await fetch(`/api/users/${userId}`);
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || "Failed to fetch user data");
+				}
+				const userData = await response.json();
+				setUser(userData);
 			} catch (err) {
 				setError(
-					err instanceof Error ? err.message : "Error fetching products"
+					err instanceof Error ? err.message : "Error fetching user data"
 				);
-				setProducts([]);
+			} finally {
+				setLoading(false);
 			}
-			setLoading(false);
 		};
-		fetchProducts();
+		fetchUser();
 	}, [session, sessionStatus]);
-
-	const isAdmin = session?.user?.role?.toLowerCase() === "admin";
 
 	if (sessionStatus === "loading") {
 		return <LoadingState message="Loading session..." />;
 	}
 
 	if (sessionStatus === "authenticated" && loading) {
-		return <LoadingState message="Loading products..." />;
+		return <LoadingState message="Loading user data..." />;
 	}
 
 	if (error && session?.user) {
@@ -88,6 +90,9 @@ export default function SellerDashboardPage() {
 			</div>
 		);
 	}
+
+	const effectiveUser = user || session?.user;
+	const isAdmin = session?.user?.role?.toLowerCase() === "admin";
 
 	return (
 		<RouteProtection requiredRole="seller">
@@ -111,11 +116,12 @@ export default function SellerDashboardPage() {
 			) : (
 				<div className="flex bg-muted/40 min-h-screen w-full">
 					<Sidebar userType={session?.user?.role?.toLowerCase() || "seller"} />
-					<SidebarInset className="p-4 sm:p-6 lg:p-8">
-						<div className="mt-8">
-							<h1 className="text-2xl font-bold mb-6">My Products</h1>
-							<ProductTable products={products} setProducts={setProducts} />
-						</div>
+					<SidebarInset className="w-full min-h-screen">
+						{effectiveUser ? (
+							<SellerDashboard />
+						) : (
+							<LoadingState message="Preparing your dashboard..." />
+						)}
 					</SidebarInset>
 				</div>
 			)}

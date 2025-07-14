@@ -6,21 +6,23 @@ export async function GET(req: NextRequest) {
 	const { searchParams } = new URL(req.url);
 	const targetType = searchParams.get("targetType");
 	const targetId = searchParams.get("targetId");
-	const providerId = searchParams.get("providerId"); // optional, for filtering by Panditji
+	const providerId = searchParams.get("providerId");
 
-	if (!targetType || !targetId) {
+	// Require at least targetType for listing
+	if (!targetType) {
 		return Response.json(
-			{ message: "targetType and targetId are required" },
+			{ message: "targetType is required" },
 			{ status: 400 }
 		);
 	}
 
-	const where: Record<string, unknown> = { targetType, targetId };
+	const where: Record<string, unknown> = { targetType };
 	if (providerId) where.providerId = providerId;
+	if (targetId) where.targetId = targetId;
 
 	const offerings = await prisma.serviceOffering.findMany({
 		where,
-		include: { provider: true }, // join user for Panditji info
+		include: { provider: true },
 		orderBy: { createdAt: "desc" },
 	});
 
@@ -31,7 +33,6 @@ export async function GET(req: NextRequest) {
 			provider: {
 				id: o.provider.id,
 				name: o.provider.name,
-				// add more user fields if needed
 			},
 			serviceType: o.serviceType,
 			targetType: o.targetType,
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
 			price: o.price,
 			details: o.details,
 			metadata: o.metadata,
-			status: o.status || "Active", // <-- ensure status is present
+			status: o.status || "Active",
 			createdAt: o.createdAt,
 			updatedAt: o.updatedAt,
 		})),

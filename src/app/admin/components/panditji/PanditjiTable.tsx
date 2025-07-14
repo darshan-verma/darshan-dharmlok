@@ -67,12 +67,7 @@ interface PanditjiTableProps {
 }
 
 // Categories for Panditji
-export const panditjiCategories = [
-	"Sanatan",
-	"Jain",
-	"Sikh",
-	"Buddhism",
-];
+export const panditjiCategories = ["Sanatan", "Jain", "Sikh", "Buddhism"];
 
 // Ranks for Panditji
 export const panditjiRanks = ["Junior", "Senior", "Expert", "Master"];
@@ -124,7 +119,6 @@ export default function PanditjiTable({
 	onDeletePanditji,
 	onUpdateStatus,
 	onToggleApproval,
-	onLoginAsPanditji,
 }: PanditjiTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -415,7 +409,46 @@ export default function PanditjiTable({
 													Delete
 												</DropdownMenuItem>
 												<DropdownMenuItem
-													onClick={() => onLoginAsPanditji(panditji)}
+													onClick={async () => {
+														try {
+															// 1. Get the admin's session token
+															const res = await fetch("/api/auth/get-jwt");
+															if (!res.ok) {
+																throw new Error("Failed to get admin token");
+															}
+															const { token } = await res.json();
+
+															// 2. Save the admin token to localStorage
+															localStorage.setItem("adminSessionToken", token);
+
+															// 3. Call the impersonation API
+															const impersonateRes = await fetch(
+																"/api/auth/impersonate",
+																{
+																	method: "POST",
+																	headers: {
+																		"Content-Type": "application/json",
+																	},
+																	body: JSON.stringify({
+																		userId: panditji.id,
+																	}),
+																}
+															);
+
+															if (!impersonateRes.ok) {
+																localStorage.removeItem("adminSessionToken"); // Clean up on failure
+																throw new Error("Impersonation failed");
+															}
+
+															// 4. Redirect to the panditji's dashboard
+															window.location.href =
+																"/dashboard/panditji/dashboard";
+														} catch (err) {
+															console.error("Impersonation error:", err);
+															alert("Impersonation failed. Please try again.");
+															localStorage.removeItem("adminSessionToken"); // Clean up on failure
+														}
+													}}
 												>
 													<LogIn className="h-4 w-4 mr-2" />
 													Login as Panditji

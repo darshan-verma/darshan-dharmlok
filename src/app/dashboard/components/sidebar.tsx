@@ -70,21 +70,20 @@ function generateMenuItems(userType: UserType): MenuItem[] {
 	if (userType === "panditji") {
 		const prefix = `/dashboard/panditji`;
 		return [
-			{ label: "Dashboard", href: `${prefix}`, icon: UserCircle2 },
+			{ label: "Dashboard", href: `${prefix}/dashboard`, icon: UserCircle2 },
 			{
 				label: "My Pooja Bookings",
 				href: `${prefix}/pooja-bookings`,
 				icon: HandHeart,
 			},
-			{ label: "My Service", href: `${prefix}/services`, icon: Store },
-			{ label: "My Bookmarks", href: `${prefix}/bookmarks`, icon: BookOpen },
 			{
-				label: "Pooja Bookings",
-				href: `${prefix}/pooja-bookings`,
-				icon: Calendar,
+				label: "My Pooja Services",
+				href: `${prefix}/pooja-services`,
+				icon: HandHeart,
 			},
+			{ label: "Bookmarks", href: `${prefix}/bookmarks`, icon: BookOpen },
 			{ label: "Manage Profile", href: `${prefix}/profile`, icon: Settings },
-			{ label: "My Billing", href: `${prefix}/billing`, icon: BadgeDollarSign },
+			{ label: "Billings", href: `${prefix}/billing`, icon: BadgeDollarSign },
 		];
 	}
 	// Default for Kathavachak, Dharmguru, hotel_dharamshala_vendor

@@ -448,7 +448,7 @@ export default function KathavachakTable({
 															}
 
 															// 4. Redirect to the kathavachak's dashboard
-															window.location.href = "/dashboard/kathavachak";
+															window.location.href = "/dashboard/kathavachak/dashboard";
 														} catch (err) {
 															console.error("Impersonation error:", err);
 															alert("Impersonation failed. Please try again.");
