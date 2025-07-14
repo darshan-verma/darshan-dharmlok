@@ -330,16 +330,14 @@ export default function DashboardSidebar({
 											item.label === "My Events" && "text-red-500",
 											item.label === "My Advertisement" && "text-yellow-500",
 											item.label === "My Temple Booking" && "text-cyan-500",
-											item.label === "My Dharamshala Booking" &&
-												"text-cyan-500",
+											item.label === "My Dharamshala Booking" && "text-cyan-500",
 											item.label === "My Eshop Orders" && "text-pink-500",
 											item.label === "My Events Orders" && "text-red-500",
 											item.label === "My Pooja Services" && "text-green-500",
 											item.label === "Services" && "text-green-500",
 											item.label === "Add Your Events" && "text-red-500",
 											item.label === "Events Request List" && "text-purple-500",
-											item.label === "Apply for Paid Promotions" &&
-												"text-yellow-500",
+											item.label === "Apply for Paid Promotions" && "text-yellow-500",
 											item.label === "Bookmarks - Temple" && "text-green-600",
 											item.label === "Bookmarks - Vendors" && "text-blue-500",
 											item.label === "Bookmarks - Eshop" && "text-pink-500",

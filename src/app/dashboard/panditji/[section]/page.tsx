@@ -7,6 +7,7 @@ import Sidebar from "../../components/sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { Loader2 } from "lucide-react";
 import PoojaServicesSection from "../../components/pooja-services-section";
+import PanditjiDashboard from "../../components/panditji-dashboard";
 
 const LoadingState = ({ message }: { message: string }) => (
 	<div className="flex flex-col justify-center items-center h-[calc(100vh-200px)]">
@@ -31,7 +32,9 @@ export default function PanditjiSectionPage() {
 	}
 
 	let content = null;
-	if (section === "pooja-services") {
+	if (section === "dashboard") {
+		content = <PanditjiDashboard />;
+	} else if (section === "pooja-services") {
 		content = <PoojaServicesSection />;
 	} else {
 		content = (
