@@ -110,6 +110,9 @@ export interface StudyRequest {
 	status: "Pending" | "Approved" | "Rejected";
 }
 
+import { useSession } from "next-auth/react";
+import { userService } from "@/services/userService";
+import type { FullUser } from "@/types/user";
 // --- Mock API Utilities ---
 function useMockFetch<T>(fetcher: () => Promise<T>, deps: any[] = []) {
 	const [data, setData] = useState<T | null>(null);
@@ -612,20 +615,58 @@ function RecentContentTable({
 
 // --- Main DharmguruDashboard Component ---
 export default function DharmguruDashboard() {
-	// Simulate async fetches
-	const { data: profile, loading: profileLoading } = useMockFetch(async () => {
-		await new Promise((r) => setTimeout(r, 500));
-		return {
-			id: "dharmguru-1",
-			name: "Swami Ramdev",
-			avatarUrl: undefined,
-			contact: "+91-9876543210",
-			rating: 4.95,
-			bio: "Spiritual teacher and meditation master",
-			specialization: "Vedantic Philosophy",
-			experience: 25,
-		};
-	}, []);
+	// Get session for real user profile image
+	const { data: session } = useSession();
+	const [profile, setProfile] = useState<DharmguruProfile | null>(null);
+	const [profileLoading, setProfileLoading] = useState(true);
+	useEffect(() => {
+		async function fetchProfile() {
+			if (session?.user?.id) {
+				setProfileLoading(true);
+				try {
+					const user = (await userService.getUserById(
+						session.user.id
+					)) as FullUser;
+					setProfile({
+						id: user.id,
+						name: user.name || "Dharmguru",
+						avatarUrl: user.profileImageUrl || undefined,
+						contact: "", // Not available on FullUser, fallback to empty string
+						rating: 4.95, // Not available on FullUser, fallback to default
+						bio: "", // Not available on FullUser, fallback to empty string
+						specialization: user.category || "Dharmguru",
+						experience: 0, // Not available on FullUser, fallback to 0
+					});
+				} catch {
+					setProfile({
+						id: session.user.id,
+						name: session.user.name || "Dharmguru",
+						avatarUrl: session.user.image || undefined,
+						contact: "",
+						rating: 4.95,
+						bio: "",
+						specialization: "Dharmguru",
+						experience: 0,
+					});
+				} finally {
+					setProfileLoading(false);
+				}
+			} else {
+				setProfile({
+					id: "dharmguru-1",
+					name: "Swami Ramdev",
+					avatarUrl: undefined,
+					contact: "+91-9876543210",
+					rating: 4.95,
+					bio: "Spiritual teacher and meditation master",
+					specialization: "Vedantic Philosophy",
+					experience: 25,
+				});
+				setProfileLoading(false);
+			}
+		}
+		fetchProfile();
+	}, [session]);
 
 	const { data: summaries, loading: summariesLoading } =
 		useMockFetch(async () => {

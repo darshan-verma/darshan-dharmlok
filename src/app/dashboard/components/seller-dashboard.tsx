@@ -1,5 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { userService } from "@/services/userService";
+import type { FullUser } from "@/types/user";
 import {
 	Card,
 	CardContent,
@@ -52,6 +55,7 @@ export interface Seller {
 	name: string;
 	avatarUrl?: string;
 	rating: number;
+	category?: string;
 }
 
 export interface KPI {
@@ -104,29 +108,37 @@ function useMockFetch<T>(fetcher: () => Promise<T>, deps: any[] = []) {
 // --- Subcomponents ---
 
 // Seller Info Card
-function SellerInfo({ seller }: { seller: Seller }) {
+function SellerInfo({
+	seller,
+	loading,
+}: {
+	seller: Seller | null;
+	loading: boolean;
+}) {
 	return (
 		<Card className="bg-gradient-to-br from-green-50 to-blue-50 border-green-200 dark:from-green-950 dark:to-blue-950 dark:border-green-800">
 			<CardContent className="p-6">
 				<div className="flex flex-col items-center text-center space-y-4">
 					<Avatar className="h-20 w-20 border-4 border-white shadow-lg">
-						{seller.avatarUrl ? (
+						{loading ? (
+							<Skeleton className="h-20 w-20 rounded-full" />
+						) : seller?.avatarUrl ? (
 							<AvatarImage src={seller.avatarUrl} alt={seller.name} />
 						) : (
 							<AvatarFallback className="text-xl font-semibold bg-gradient-to-br from-green-500 to-blue-600 text-white">
-								{seller.name[0]}
+								{seller?.name ? seller.name[0] : "S"}
 							</AvatarFallback>
 						)}
 					</Avatar>
 
 					<div className="space-y-2">
 						<h3 className="font-bold text-xl text-gray-900 dark:text-white">
-							{seller.name}
+							{loading ? <Skeleton className="h-6 w-32" /> : seller?.name}
 						</h3>
 
 						<div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
 							<ShoppingCart className="h-4 w-4" />
-							<span>E-commerce Seller</span>
+							<span>{seller?.category || "E-commerce Seller"}</span>
 						</div>
 
 						<div className="flex items-center justify-center gap-2">
@@ -135,7 +147,7 @@ function SellerInfo({ seller }: { seller: Seller }) {
 								className="bg-yellow-100 text-yellow-800 border-yellow-200"
 							>
 								<Star className="h-4 w-4 mr-1 fill-current" />
-								{seller.rating.toFixed(2)}
+								{seller?.rating !== undefined ? seller.rating.toFixed(2) : "-"}
 							</Badge>
 						</div>
 					</div>
@@ -420,16 +432,49 @@ function OrdersTable({
 
 // --- Main SellerDashboard Component ---
 export default function SellerDashboard() {
-	// Simulate async fetches
-	const { data: seller, loading: sellerLoading } = useMockFetch(async () => {
-		await new Promise((r) => setTimeout(r, 600));
-		return {
-			id: "seller-1",
-			name: "Amit Sharma",
-			avatarUrl: undefined,
-			rating: 4.82,
-		};
-	}, []);
+	// Get session for real user profile image
+	const { data: session } = useSession();
+	const [seller, setSeller] = useState<Seller | null>(null);
+	const [sellerLoading, setSellerLoading] = useState(true);
+	useEffect(() => {
+		async function fetchSellerProfile() {
+			if (session?.user?.id) {
+				setSellerLoading(true);
+				try {
+					const user = (await userService.getUserById(
+						session.user.id
+					)) as FullUser;
+					setSeller({
+						id: user.id,
+						name: user.name || "Seller",
+						avatarUrl: user.profileImageUrl || undefined,
+						rating: 4.82, // TODO: Replace with real rating if available
+						category: user.category || "E-commerce Seller",
+					});
+				} catch {
+					setSeller({
+						id: session.user.id,
+						name: session.user.name || "Seller",
+						avatarUrl: session.user.image || undefined,
+						rating: 4.82,
+						category: "E-commerce Seller",
+					});
+				} finally {
+					setSellerLoading(false);
+				}
+			} else {
+				setSeller({
+					id: "seller-1",
+					name: "Amit Sharma",
+					avatarUrl: undefined,
+					rating: 4.82,
+					category: "E-commerce Seller",
+				});
+				setSellerLoading(false);
+			}
+		}
+		fetchSellerProfile();
+	}, [session]);
 
 	const { data: kpis, loading: kpiLoading } = useMockFetch(async () => {
 		await new Promise((r) => setTimeout(r, 700));
@@ -513,11 +558,7 @@ export default function SellerDashboard() {
 			{/* Top Row: Seller Info + KPIs */}
 			<div className="flex flex-col xl:flex-row gap-6 w-full">
 				<div className="xl:w-1/4 w-full">
-					{sellerLoading || !seller ? (
-						<Skeleton className="h-40 w-full rounded" />
-					) : (
-						<SellerInfo seller={seller} />
-					)}
+					<SellerInfo seller={seller} loading={sellerLoading} />
 				</div>
 				<div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-4">
 					{kpiLoading || !kpis

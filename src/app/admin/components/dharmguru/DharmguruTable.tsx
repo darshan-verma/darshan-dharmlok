@@ -451,7 +451,7 @@ export default function DharmguruTable({
 															}
 
 															// 4. Redirect to the dharmguru's dashboard
-															window.location.href = "/dashboard/dharmguru/dashboard";
+															window.location.href = "/dashboard/dharmguru";
 														} catch (err) {
 															console.error("Impersonation error:", err);
 															alert("Impersonation failed. Please try again.");

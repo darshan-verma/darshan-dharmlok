@@ -1,5 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { userService } from "@/services/userService";
+import type { FullUser } from "@/types/user";
 import {
 	Card,
 	CardContent,
@@ -106,7 +109,7 @@ export interface EventRequest {
 // --- Mock API Utilities ---
 function useMockFetch<T>(fetcher: () => Promise<T>, deps: any[] = []) {
 	const [data, setData] = useState<T | null>(null);
-	const [loading, setLoading] = useState(true);
+	const [loading, setLoading] = useState(false);
 	useEffect(() => {
 		setLoading(true);
 		fetcher().then((d) => {
@@ -696,18 +699,51 @@ function AnalyticsCharts({
 
 // --- Main KathavachakDashboard Component ---
 export default function KathavachakDashboard() {
-	// Simulate async fetches
-	const { data: profile, loading: profileLoading } = useMockFetch(async () => {
-		await new Promise((r) => setTimeout(r, 500));
-		return {
-			id: "kathavachak-1",
-			name: "Swami Vivekananda",
-			avatarUrl: undefined,
-			contact: "+91-9876543210",
-			rating: 4.92,
-			bio: "Spiritual orator and kathavachak.",
-		};
-	}, []);
+	const { data: session } = useSession();
+	const [profile, setProfile] = useState<KathavachakProfile | null>(null);
+	const [profileLoading, setProfileLoading] = useState(true);
+	useEffect(() => {
+		async function fetchProfile() {
+			if (session?.user?.id) {
+				setProfileLoading(true);
+				try {
+					const user = (await userService.getUserById(
+						session.user.id
+					)) as FullUser;
+					setProfile({
+						id: user.id,
+						name: user.name || "Kathavachak",
+						avatarUrl: user.profileImageUrl || undefined,
+						contact: "+91-9876543210", // fallback, not on FullUser
+						rating: 4.88, // fallback, not on FullUser
+						bio: "Spiritual orator and kathavachak.", // fallback, not on FullUser
+					});
+				} catch {
+					setProfile({
+						id: session.user.id,
+						name: session.user.name || "Kathavachak",
+						avatarUrl: session.user.image || undefined,
+						contact: "+91-9876543210",
+						rating: 4.88,
+						bio: "Spiritual orator and kathavachak.",
+					});
+				} finally {
+					setProfileLoading(false);
+				}
+			} else {
+				setProfile({
+					id: "kathavachak-1",
+					name: "Pt. Suresh Joshi",
+					avatarUrl: undefined,
+					contact: "+91-9876543210",
+					rating: 4.88,
+					bio: "Spiritual orator and kathavachak.",
+				});
+				setProfileLoading(false);
+			}
+		}
+		fetchProfile();
+	}, [session]);
 
 	const { data: summaries, loading: summariesLoading } =
 		useMockFetch(async () => {
