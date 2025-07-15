@@ -444,8 +444,6 @@ export default function PanditjiTable({
 															window.location.href =
 																"/dashboard/panditji/dashboard";
 														} catch (err) {
-															console.error("Impersonation error:", err);
-															alert("Impersonation failed. Please try again.");
 															localStorage.removeItem("adminSessionToken"); // Clean up on failure
 														}
 													}}

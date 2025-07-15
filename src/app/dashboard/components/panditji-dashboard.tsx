@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { userService } from "@/services/userService";
 import type { FullUser } from "@/types/user";
+import PanditjiProfileForm from "./panditji-profile-form";
 import {
 	Card,
 	CardContent,
@@ -96,47 +97,6 @@ function formatDate(dateStr: string) {
 }
 
 // --- Subcomponents ---
-function ProfileCard({
-	profile,
-	loading,
-}: {
-	profile: PanditjiProfile | null;
-	loading: boolean;
-}) {
-	return (
-		<Card className="bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200 dark:from-yellow-950 dark:to-orange-950 dark:border-yellow-800">
-			<CardContent className="p-6">
-				<div className="flex flex-col items-center text-center space-y-4">
-					{loading ? (
-						<Skeleton className="h-20 w-20 rounded-full" />
-					) : (
-						<img
-							src={
-								profile?.profileImageUrl || "/uploads/placeholder-avatar.svg"
-							}
-							alt={profile?.name || "Panditji"}
-							className="h-20 w-20 rounded-full border-4 border-white shadow-lg object-cover"
-						/>
-					)}
-					<div className="space-y-2">
-						<h3 className="font-bold text-xl text-gray-900 dark:text-white">
-							{profile?.name || <Skeleton className="h-6 w-32" />}
-						</h3>
-						<div className="flex items-center justify-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-							<Badge
-								variant="secondary"
-								className="bg-yellow-100 text-yellow-800 border-yellow-200"
-							>
-								{profile?.category || "Panditji"}
-							</Badge>
-						</div>
-					</div>
-				</div>
-			</CardContent>
-		</Card>
-	);
-}
-
 function SummaryCards({
 	summaries,
 	loading,
@@ -487,13 +447,48 @@ export default function PanditjiDashboard() {
 			];
 		}, []);
 
+	// Handle profile save to refresh data
+	const handleProfileSave = async (_data?: any) => {
+		// Ignore passed data and refetch the profile to get the updated data including new image
+		if (session?.user?.id) {
+			try {
+				const user = (await userService.getUserById(
+					session.user.id
+				)) as FullUser;
+				setProfile({
+					id: user.id,
+					name: user.name || "Panditji",
+					profileImageUrl: user.profileImageUrl || undefined,
+					category: user.category || "Panditji",
+				});
+			} catch (error) {
+				console.error("Failed to refresh profile:", error);
+			}
+		}
+	};
+
 	// --- Layout ---
 	return (
 		<div className="flex flex-col gap-8 w-full p-6">
 			{/* Top: Profile + Summary */}
 			<div className="flex flex-col xl:flex-row gap-6 w-full">
-				<div className="xl:w-1/4 w-full">
-					<ProfileCard profile={profile} loading={profileLoading} />
+				<div className="xl:w-2/5 w-full">
+					<PanditjiProfileForm
+						profile={
+							profile
+								? {
+										id: profile.id,
+										name: profile.name,
+										email: "",
+										phone: "",
+										addresses: [],
+										profileImageUrl: profile.profileImageUrl,
+								  }
+								: null
+						}
+						loading={profileLoading}
+						onSave={handleProfileSave}
+					/>
 				</div>
 				<div className="flex-1">
 					<SummaryCards

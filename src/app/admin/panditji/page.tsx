@@ -57,33 +57,23 @@ export default function PanditjiPage() {
 				}
 
 				const data = await response.json();
-				console.log("API Response for Panditji:", data); // Debug log to see what's being returned
 
 				// Check if users array exists and has items
 				if (!data.users || data.users.length === 0) {
-					console.log(
-						"No Panditji users found with 'Panditji' userType, checking for 'Pandit Ji'"
-					);
-
 					// Try to fetch with the alternative "Pandit Ji" format as a fallback
 					const altResponse = await fetch(
 						`/api/users?userType=Pandit Ji&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
 					);
 
 					if (!altResponse.ok) {
-						console.log("No users found with 'Pandit Ji' userType either");
 						setPanditjis([]);
 						setLoading(false);
 						return;
 					}
 
 					const altData = await altResponse.json();
-					console.log("API Response for 'Pandit Ji':", altData);
 
 					if (!altData.users || altData.users.length === 0) {
-						console.log(
-							"No Panditji users found in the database with either format"
-						);
 						setPanditjis([]);
 						setLoading(false);
 						return;

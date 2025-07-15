@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { userService } from "@/services/userService";
 import type { FullUser } from "@/types/user";
+import SellerProfileForm from "./seller-profile-form";
 import {
 	Card,
 	CardContent,
@@ -19,9 +20,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import {
 	XAxis,
 	YAxis,
@@ -37,15 +36,12 @@ import {
 	Legend,
 } from "recharts";
 import {
-	Star,
 	TrendingUp,
 	TrendingDown,
 	DollarSign,
 	Package,
 	ShoppingCart,
 	Users,
-	Eye,
-	Edit2,
 	BarChart3,
 } from "lucide-react";
 
@@ -106,71 +102,6 @@ function useMockFetch<T>(fetcher: () => Promise<T>, deps: any[] = []) {
 }
 
 // --- Subcomponents ---
-
-// Seller Info Card
-function SellerInfo({
-	seller,
-	loading,
-}: {
-	seller: Seller | null;
-	loading: boolean;
-}) {
-	return (
-		<Card className="bg-gradient-to-br from-green-50 to-blue-50 border-green-200 dark:from-green-950 dark:to-blue-950 dark:border-green-800">
-			<CardContent className="p-6">
-				<div className="flex flex-col items-center text-center space-y-4">
-					<Avatar className="h-20 w-20 border-4 border-white shadow-lg">
-						{loading ? (
-							<Skeleton className="h-20 w-20 rounded-full" />
-						) : seller?.avatarUrl ? (
-							<AvatarImage src={seller.avatarUrl} alt={seller.name} />
-						) : (
-							<AvatarFallback className="text-xl font-semibold bg-gradient-to-br from-green-500 to-blue-600 text-white">
-								{seller?.name ? seller.name[0] : "S"}
-							</AvatarFallback>
-						)}
-					</Avatar>
-
-					<div className="space-y-2">
-						<h3 className="font-bold text-xl text-gray-900 dark:text-white">
-							{loading ? <Skeleton className="h-6 w-32" /> : seller?.name}
-						</h3>
-
-						<div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-							<ShoppingCart className="h-4 w-4" />
-							<span>{seller?.category || "E-commerce Seller"}</span>
-						</div>
-
-						<div className="flex items-center justify-center gap-2">
-							<Badge
-								variant="secondary"
-								className="bg-yellow-100 text-yellow-800 border-yellow-200"
-							>
-								<Star className="h-4 w-4 mr-1 fill-current" />
-								{seller?.rating !== undefined ? seller.rating.toFixed(2) : "-"}
-							</Badge>
-						</div>
-					</div>
-
-					<div className="flex gap-2 pt-2">
-						<Button size="sm" className="flex items-center gap-1">
-							<Edit2 className="h-4 w-4" />
-							Edit Profile
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							className="flex items-center gap-1"
-						>
-							<Eye className="h-4 w-4" />
-							View Store
-						</Button>
-					</div>
-				</div>
-			</CardContent>
-		</Card>
-	);
-}
 
 // KPI Card
 function StatsCard({ kpi }: { kpi: KPI }) {
@@ -552,20 +483,58 @@ export default function SellerDashboard() {
 		}));
 	}, []);
 
+	// Handle profile save to refresh data
+	const handleProfileSave = async (_data?: any) => {
+		// Ignore passed data and refetch the profile to get the updated data including new image
+		if (session?.user?.id) {
+			try {
+				const user = (await userService.getUserById(
+					session.user.id
+				)) as FullUser;
+				setSeller({
+					id: user.id,
+					name: user.name || "Seller",
+					avatarUrl: user.profileImageUrl || undefined,
+					rating: 4.82, // TODO: Replace with real rating if available
+					category: user.category || "E-commerce Seller",
+				});
+			} catch (error) {
+				console.error("Failed to refresh profile:", error);
+			}
+		}
+	};
+
 	// --- Layout ---
 	return (
 		<div className="flex flex-col gap-8 w-full min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-			{/* Top Row: Seller Info + KPIs */}
+			{/* Top Row: Seller Profile + KPIs */}
 			<div className="flex flex-col xl:flex-row gap-6 w-full">
-				<div className="xl:w-1/4 w-full">
-					<SellerInfo seller={seller} loading={sellerLoading} />
+				<div className="xl:w-2/5 w-full">
+					<SellerProfileForm
+						profile={
+							seller
+								? {
+										id: seller.id,
+										name: seller.name,
+										email: "",
+										phone: "",
+										addresses: [],
+										profileImageUrl: seller.avatarUrl,
+								  }
+								: null
+						}
+						loading={sellerLoading}
+						onSave={handleProfileSave}
+					/>
 				</div>
-				<div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-4">
-					{kpiLoading || !kpis
-						? Array.from({ length: 4 }).map((_, i) => (
-								<Skeleton key={i} className="h-32 w-full rounded" />
-						  ))
-						: kpis.map((kpi, i) => <StatsCard key={i} kpi={kpi} />)}
+				<div className="flex-1">
+					<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+						{kpiLoading || !kpis
+							? Array.from({ length: 4 }).map((_, i) => (
+									<Skeleton key={i} className="h-32 w-full rounded" />
+							  ))
+							: kpis.map((kpi, i) => <StatsCard key={i} kpi={kpi} />)}
+					</div>
 				</div>
 			</div>
 
