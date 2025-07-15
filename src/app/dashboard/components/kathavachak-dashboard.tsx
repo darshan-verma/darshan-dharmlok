@@ -219,7 +219,7 @@ function EventsTable({
 											<Skeleton className="h-6 w-full" />
 										</TableCell>
 									</TableRow>
-							  ))
+							))
 							: events.map((event) => (
 									<TableRow
 										key={event.id}

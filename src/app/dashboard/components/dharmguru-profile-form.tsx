@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
 	Card,
 	CardHeader,
@@ -19,7 +19,6 @@ import {
 	SelectContent,
 	SelectItem,
 } from "@/components/ui/select";
-import { useEffect } from "react";
 import { toast } from "@/lib/toast";
 import Image from "next/image";
 
@@ -35,45 +34,45 @@ export interface Address {
 	id?: string;
 }
 
-export interface KathavachakProfileFormProfile {
+export interface DharmguruProfileFormProfile {
 	id: string;
 	name: string;
 	email: string;
 	phone: string;
 	addresses?: Address[];
-	avatarUrl?: string;
+	profileImageUrl?: string;
 }
 
-export interface KathavachakProfileFormProps {
-	profile: KathavachakProfileFormProfile | null;
+export interface DharmguruProfileFormProps {
+	profile: DharmguruProfileFormProfile | null;
 	loading: boolean;
 	onSave?: (data: {
 		name: string;
 		email: string;
 		phone: string;
 		addresses: Address[];
+		profileImageUrl: string;
 	}) => Promise<void> | void;
 }
 
-export default function KathavachakProfileForm({
+export default function DharmguruProfileForm({
 	profile,
 	loading,
 	onSave,
-}: KathavachakProfileFormProps) {
+}: DharmguruProfileFormProps) {
 	const [form, setForm] = useState({
 		name: "",
 		email: "",
 		phone: "",
 		addresses: [] as Address[],
-		avatarUrl: "",
+		profileImageUrl: "",
 	});
 	const [saving, setSaving] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
-	// Fetch profile from API on mount and after save
 	useEffect(() => {
 		async function fetchProfile() {
 			try {
-				// Replace with your actual API endpoint
+				// Match Kathavachak: fetch from /api/users/{id}
 				const res = await fetch(`/api/users/${profile?.id}`);
 				if (res.ok) {
 					const data = await res.json();
@@ -82,11 +81,10 @@ export default function KathavachakProfileForm({
 						email: data.email || "",
 						phone: data.phone || "",
 						addresses: data.addresses || [],
-						avatarUrl: data.avatarUrl || data.profileImageUrl || "",
+						profileImageUrl: data.profileImageUrl || data.avatarUrl || "",
 					});
 				}
 			} finally {
-				// No fetching state to set
 			}
 		}
 		if (profile?.id) fetchProfile();
@@ -123,41 +121,53 @@ export default function KathavachakProfileForm({
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-
 		if (!isEditing) {
 			setIsEditing(true);
 			return;
 		}
-
 		setSaving(true);
 		try {
 			// Always send profileImageUrl, but make it null if empty
 			const formToSend = {
 				...form,
-				profileImageUrl: form.avatarUrl || null,
+				profileImageUrl: form.profileImageUrl || null,
 			};
 
-			await fetch(`/api/users/${profile?.id}`, {
+			const response = await fetch(`/api/users/${profile?.id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(formToSend),
 			});
-			// Optionally, refetch profile to sync with admin
+
+			if (!response.ok) {
+				throw new Error(`Failed to update profile: ${response.status}`);
+			}
 			if (profile?.id) {
 				const res = await fetch(`/api/users/${profile.id}`);
 				if (res.ok) {
 					const data = await res.json();
-					setForm({
+					const updatedForm = {
 						name: data.name || "",
 						email: data.email || "",
 						phone: data.phone || "",
 						addresses: data.addresses || [],
-						avatarUrl: data.profileImageUrl || data.avatarUrl || "",
-					});
+						// Preserve current profileImageUrl if backend doesn't return one
+						profileImageUrl:
+							data.profileImageUrl ||
+							data.avatarUrl ||
+							form.profileImageUrl ||
+							"",
+					};
+					setForm(updatedForm);
+					// Call onSave with the updated data
+					if (onSave) await onSave(updatedForm);
+				} else {
+					console.error("Failed to fetch updated profile:", res.status);
 				}
+			} else {
+				// If no profile ID, still call onSave with current form
+				if (onSave) await onSave(form);
 			}
-			if (onSave) await onSave(form);
-			// Show toast on success
 			toast.success("Profile updated successfully!");
 			setIsEditing(false);
 		} finally {
@@ -165,7 +175,7 @@ export default function KathavachakProfileForm({
 		}
 	};
 
-	// Handle profile image upload (same as dharmguru-profile-form)
+	// Handle profile image upload
 	async function uploadProfileImage(file: File): Promise<string> {
 		const formData = new FormData();
 		formData.append("file", file);
@@ -204,7 +214,7 @@ export default function KathavachakProfileForm({
 			// Upload and get URL
 			const uploadedUrl = await uploadProfileImage(file);
 			setForm((prev) => {
-				const newForm = { ...prev, avatarUrl: uploadedUrl };
+				const newForm = { ...prev, profileImageUrl: uploadedUrl };
 				return newForm;
 			});
 
@@ -223,18 +233,19 @@ export default function KathavachakProfileForm({
 	return (
 		<form onSubmit={handleSubmit} className="space-y-6">
 			<Card>
-				{/* Profile Image/Avatar and Header */}
 				<CardHeader>
 					<div className="flex items-center gap-4">
 						<div className="flex-shrink-0 relative group">
-							{form.avatarUrl ? (
-								<Image
-									src={form.avatarUrl}
-									alt={form.name}
-									width={80}
-									height={80}
-									className="h-20 w-20 rounded-full border-4 border-white shadow-lg object-cover"
-								/>
+							{form.profileImageUrl ? (
+								<>
+									<Image
+										src={form.profileImageUrl}
+										alt={form.name}
+										width={80}
+										height={80}
+										className="h-20 w-20 rounded-full border-4 border-white shadow-lg object-cover"
+									/>
+								</>
 							) : (
 								<div className="h-20 w-20 rounded-full border-4 border-white shadow-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-semibold">
 									{form.name?.[0] ?? "?"}
@@ -302,7 +313,6 @@ export default function KathavachakProfileForm({
 							/>
 						</div>
 					</div>
-
 					<div className="space-y-6 border p-4 rounded-lg">
 						<div className="flex justify-between items-center">
 							<h3 className="text-base font-medium">Addresses</h3>
@@ -317,9 +327,7 @@ export default function KathavachakProfileForm({
 								</Button>
 							)}
 						</div>
-
 						{!isEditing ? (
-							// Collapsed address list view
 							<div className="space-y-2">
 								{form.addresses.length === 0 ? (
 									<div className="text-center py-4 text-muted-foreground">
@@ -357,7 +365,6 @@ export default function KathavachakProfileForm({
 								)}
 							</div>
 						) : (
-							// Editable address form view
 							<>
 								{form.addresses.length === 0 && (
 									<div className="text-center py-4 text-muted-foreground">

@@ -7,6 +7,7 @@ import {
 	CardTitle,
 	CardDescription,
 } from "@/components/ui/card";
+import DharmguruProfileForm from "./dharmguru-profile-form";
 import {
 	Table,
 	TableBody,
@@ -15,7 +16,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,12 +38,12 @@ import {
 	TrendingUp,
 	Eye,
 	Edit2,
-	Phone,
+	// Phone,
 	Book,
 	Video,
 	Heart,
 	MessageSquare,
-	Award,
+	// Award,
 	Zap,
 } from "lucide-react";
 
@@ -50,8 +51,10 @@ import {
 export interface DharmguruProfile {
 	id: string;
 	name: string;
-	avatarUrl?: string;
+	profileImageUrl?: string;
 	contact: string;
+	email?: string;
+	addresses?: any[];
 	rating: number;
 	bio?: string;
 	specialization: string;
@@ -141,92 +144,6 @@ function formatDate(dateStr: string) {
 
 // --- Subcomponents ---
 
-// Profile Card
-function ProfileCard({
-	profile,
-	loading,
-}: {
-	profile: DharmguruProfile | null;
-	loading: boolean;
-}) {
-	return (
-		<Card className="bg-gradient-to-br from-orange-50 to-red-50 border-orange-200 dark:from-orange-950 dark:to-red-950 dark:border-orange-800">
-			<CardContent className="p-6">
-				<div className="flex flex-col items-center text-center space-y-4">
-					{loading ? (
-						<Skeleton className="h-20 w-20 rounded-full" />
-					) : (
-						<Avatar className="h-20 w-20 border-4 border-white shadow-lg">
-							{profile?.avatarUrl ? (
-								<AvatarImage src={profile.avatarUrl} alt={profile.name} />
-							) : (
-								<AvatarFallback className="text-xl font-semibold bg-gradient-to-br from-orange-500 to-red-600 text-white">
-									{profile?.name?.[0]}
-								</AvatarFallback>
-							)}
-						</Avatar>
-					)}
-
-					<div className="space-y-2">
-						<h3 className="font-bold text-xl text-gray-900 dark:text-white">
-							{profile?.name || <Skeleton className="h-6 w-32" />}
-						</h3>
-
-						<div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-							<Award className="h-4 w-4" />
-							{profile?.specialization || <Skeleton className="h-4 w-24" />}
-						</div>
-
-						<div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-							<Phone className="h-4 w-4" />
-							{profile?.contact || <Skeleton className="h-4 w-24" />}
-						</div>
-
-						<div className="flex items-center justify-center gap-2">
-							<Badge
-								variant="secondary"
-								className="bg-yellow-100 text-yellow-800 border-yellow-200"
-							>
-								<Star className="h-4 w-4 mr-1 fill-current" />
-								{profile?.rating?.toFixed(2) ?? (
-									<Skeleton className="h-4 w-8" />
-								)}
-							</Badge>
-							<Badge
-								variant="outline"
-								className="bg-orange-50 text-orange-800 border-orange-200"
-							>
-								{profile?.experience || 0} years
-							</Badge>
-						</div>
-
-						{profile?.bio && (
-							<p className="text-sm text-gray-600 dark:text-gray-400 mt-2 max-w-xs">
-								{profile.bio}
-							</p>
-						)}
-					</div>
-
-					<div className="flex gap-2 pt-2">
-						<Button size="sm" className="flex items-center gap-1">
-							<Edit2 className="h-4 w-4" />
-							Edit Profile
-						</Button>
-						<Button
-							size="sm"
-							variant="outline"
-							className="flex items-center gap-1"
-						>
-							<Eye className="h-4 w-4" />
-							View Public
-						</Button>
-					</div>
-				</div>
-			</CardContent>
-		</Card>
-	);
-}
-
 // Summary Cards
 function SummaryCards({
 	summaries,
@@ -245,7 +162,7 @@ function SummaryCards({
 	};
 
 	return (
-		<div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full">
+		<div className="grid grid-cols-2 md:grid-cols-2 gap-4 w-full">
 			{loading
 				? Array.from({ length: 6 }).map((_, i) => (
 						<Skeleton key={i} className="h-28 w-full rounded" />
@@ -630,8 +547,10 @@ export default function DharmguruDashboard() {
 					setProfile({
 						id: user.id,
 						name: user.name || "Dharmguru",
-						avatarUrl: user.profileImageUrl || undefined,
-						contact: "", // Not available on FullUser, fallback to empty string
+						profileImageUrl: user.profileImageUrl || undefined,
+						contact: user.phone || "", // Use phone if available
+						email: user.email || "",
+						addresses: user.addresses || [],
 						rating: 4.95, // Not available on FullUser, fallback to default
 						bio: "", // Not available on FullUser, fallback to empty string
 						specialization: user.category || "Dharmguru",
@@ -641,8 +560,10 @@ export default function DharmguruDashboard() {
 					setProfile({
 						id: session.user.id,
 						name: session.user.name || "Dharmguru",
-						avatarUrl: session.user.image || undefined,
+						profileImageUrl: session.user.image || undefined,
 						contact: "",
+						email: session.user.email || "",
+						addresses: [],
 						rating: 4.95,
 						bio: "",
 						specialization: "Dharmguru",
@@ -655,8 +576,10 @@ export default function DharmguruDashboard() {
 				setProfile({
 					id: "dharmguru-1",
 					name: "Swami Ramdev",
-					avatarUrl: undefined,
+					profileImageUrl: undefined,
 					contact: "+91-9876543210",
+					email: "swami.ramdev@example.com",
+					addresses: [],
 					rating: 4.95,
 					bio: "Spiritual teacher and meditation master",
 					specialization: "Vedantic Philosophy",
@@ -790,13 +713,54 @@ export default function DharmguruDashboard() {
 			];
 		}, []);
 
+	// Handle profile save to refresh data
+	const handleProfileSave = async (_data?: any) => {
+		// Ignore passed data and refetch the profile to get the updated data including new image
+		if (session?.user?.id) {
+			try {
+				const user = (await userService.getUserById(
+					session.user.id
+				)) as FullUser;
+				setProfile({
+					id: user.id,
+					name: user.name || "Dharmguru",
+					profileImageUrl: user.profileImageUrl || undefined,
+					contact: user.phone || "",
+					email: user.email || "",
+					addresses: user.addresses || [],
+					rating: 4.95,
+					bio: "",
+					specialization: user.category || "Dharmguru",
+					experience: 0,
+				});
+			} catch (error) {
+				console.error("Failed to refresh profile:", error);
+			}
+		}
+	};
+
 	// --- Layout ---
 	return (
 		<div className="flex flex-col gap-8 w-full min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
 			{/* Top: Profile + Summary */}
 			<div className="flex flex-col xl:flex-row gap-6 w-full">
-				<div className="xl:w-1/4 w-full">
-					<ProfileCard profile={profile} loading={profileLoading} />
+				<div className="xl:w-2/5 w-full">
+					<DharmguruProfileForm
+						profile={
+							profile
+								? {
+										id: profile.id,
+										name: profile.name,
+										email: profile.email || "",
+										phone: profile.contact,
+										addresses: profile.addresses || [],
+										profileImageUrl: profile.profileImageUrl,
+								  }
+								: null
+						}
+						loading={profileLoading}
+						onSave={handleProfileSave}
+					/>
 				</div>
 				<div className="flex-1">
 					<SummaryCards
