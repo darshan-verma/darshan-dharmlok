@@ -73,39 +73,27 @@ export async function PATCH(req: Request) {
 
 // GET: Get a single post by id (including likes array)
 export async function GET(
-	_: NextRequest,
-	context: { params: { id: string } }
+	_request: NextRequest,
+	context: { params: Promise<{ id: string }> }
 ) {
 	const { id: postId } = await context.params;
 	try {
 		const post = await prisma.post.findUnique({
 			where: { id: postId },
-			select: {
-				id: true,
-				caption: true,
-				createdAt: true,
-				updatedAt: true,
-				likes: true,
-				userId: true,
+			include: {
+				user: true,
 				media: true,
-				user: {
-					select: {
-						id: true,
-						name: true,
-						profileImageUrl: true,
-					},
-				},
+				comments: true,
 			},
 		});
-		if (!post)
-			return NextResponse.json({ error: "Post not found" }, { status: 404 });
+		if (!post) {
+			return NextResponse.json({ message: "Post not found" }, { status: 404 });
+		}
 		return NextResponse.json(post);
 	} catch (error) {
+		console.error("Error fetching post:", error);
 		return NextResponse.json(
-			{
-				error: "Failed to fetch post",
-				details: error instanceof Error ? error.message : error,
-			},
+			{ message: "Failed to fetch post" },
 			{ status: 500 }
 		);
 	}

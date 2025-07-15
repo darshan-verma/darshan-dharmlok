@@ -3,11 +3,11 @@ import prisma from "@/lib/prisma";
 
 // GET: Fetch comments for a video
 export async function GET(
-	_: NextRequest,
-	{ params }: { params: { id: string } }
+	_request: NextRequest,
+	context: { params: Promise<{ id: string }> }
 ) {
+	const { id: videoId } = await context.params;
 	try {
-		const videoId = params.id;
 		const comments = await prisma.comment.findMany({
 			where: { videoId },
 			include: {
@@ -30,10 +30,10 @@ export async function GET(
 // POST: Add a comment to a video
 export async function POST(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	context: { params: Promise<{ id: string }> }
 ) {
+	const { id: videoId } = await context.params;
 	try {
-		const videoId = params.id;
 		const { userId, text } = await request.json();
 		if (!userId || !text)
 			return NextResponse.json(

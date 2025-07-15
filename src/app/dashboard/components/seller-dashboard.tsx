@@ -87,7 +87,10 @@ export interface Order {
 }
 
 // --- Mock API Utilities ---
-function useMockFetch<T>(fetcher: () => Promise<T>, deps: any[] = []) {
+function useMockFetch<T>(
+	fetcher: () => Promise<T>,
+	deps: React.DependencyList = []
+) {
 	const [data, setData] = useState<T | null>(null);
 	const [loading, setLoading] = useState(true);
 	useEffect(() => {
@@ -484,7 +487,7 @@ export default function SellerDashboard() {
 	}, []);
 
 	// Handle profile save to refresh data
-	const handleProfileSave = async (_data?: any) => {
+	const handleProfileSave = async (_data?: unknown) => {
 		// Ignore passed data and refetch the profile to get the updated data including new image
 		if (session?.user?.id) {
 			try {

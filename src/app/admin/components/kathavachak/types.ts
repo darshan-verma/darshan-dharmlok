@@ -64,6 +64,7 @@ export interface FormErrors {
 }
 
 export interface ImageObject {
+	id?: string;
 	url: string;
 	title?: string;
 	description?: string;

@@ -311,7 +311,7 @@ export default function SellerTable({
 															if (!res.ok)
 																throw new Error("Impersonation failed");
 															window.location.href = "/dashboard/seller/dashboard";
-														} catch (err) {
+														} catch {
 															alert(
 																"Impersonation failed. See console for details."
 															);

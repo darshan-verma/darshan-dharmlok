@@ -523,8 +523,10 @@ export default function PanditjiDetailPage() {
 
 					// Find video IDs that match the URLs we want to delete
 					const videoIdsToDelete = videos
-						.filter((v: any) => videosToDelete.includes(v.videoUrl))
-						.map((v: any) => v.id);
+						.filter((v: { videoUrl: string; id: string }) =>
+							videosToDelete.includes(v.videoUrl)
+						)
+						.map((v: { id: string }) => v.id);
 
 					console.log("Video IDs to delete:", videoIdsToDelete);
 

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/lib/toast";
 import { Loader2 } from "lucide-react";
+import Image from "next/image";
 
 export default function PoojaServicesSection() {
 	const { data: session } = useSession();
@@ -27,7 +28,12 @@ export default function PoojaServicesSection() {
 	const [formOpen, setFormOpen] = useState(false);
 	const [editing, setEditing] = useState<PoojaServiceRow | null>(null);
 	const [formLoading, setFormLoading] = useState(false);
-	const [userProfile, setUserProfile] = useState<any>(null);
+	interface UserProfile {
+		profileImageUrl?: string;
+		name?: string;
+		category?: string;
+	}
+	const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
 	useEffect(() => {
 		if (!session?.user?.id) return;
@@ -43,22 +49,31 @@ export default function PoojaServicesSection() {
 			.then(([user, catData, servData]) => {
 				setUserProfile(user);
 				setCategories(
-					(catData.categories || []).map((c: any) => ({
+					(catData.categories || []).map((c: { id: string; name: string }) => ({
 						id: c.id,
 						name: c.name,
 					}))
 				);
 				setServices(
-					(servData.offerings || []).map((o: any) => ({
-						id: o.id,
-						categoryId: o.targetId,
-						categoryName:
-							(catData.categories || []).find((c: any) => c.id === o.targetId)
-								?.name || o.targetId,
-						price: o.price,
-						details: o.details,
-						status: o.status || "Active",
-					}))
+					(servData.offerings || []).map(
+						(o: {
+							id: string;
+							targetId: string;
+							price: number;
+							details: string;
+							status?: string;
+						}) => ({
+							id: o.id,
+							categoryId: o.targetId,
+							categoryName:
+								(catData.categories || []).find(
+									(c: { id: string }) => c.id === o.targetId
+								)?.name || o.targetId,
+							price: o.price,
+							details: o.details,
+							status: o.status || "Active",
+						})
+					)
 				);
 			})
 			.catch(() => toast.error("Failed to load pooja services or categories"))
@@ -160,8 +175,9 @@ export default function PoojaServicesSection() {
 						id: newService.id,
 						categoryId: newService.targetId,
 						categoryName:
-							categories.find((c) => c.id === newService.targetId)?.name ||
-							newService.targetId,
+							categories.find(
+								(c: { id: string }) => c.id === newService.targetId
+							)?.name || newService.targetId,
 						price: newService.price,
 						details: newService.details,
 						status: newService.status || "Active",
@@ -194,13 +210,16 @@ export default function PoojaServicesSection() {
 			<div className="mb-6">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-4">
-						<img
+						<Image
 							src={
 								userProfile?.profileImageUrl ||
 								"/uploads/placeholder-avatar.svg"
 							}
 							alt={userProfile?.name || "User"}
+							width={48}
+							height={48}
 							className="w-12 h-12 rounded-full object-cover border"
+							loading="lazy"
 						/>
 						<div>
 							<div className="text-lg font-semibold leading-tight">

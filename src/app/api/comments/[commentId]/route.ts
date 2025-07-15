@@ -3,11 +3,11 @@ import prisma from "@/lib/prisma";
 
 // DELETE: Delete a comment by id
 export async function DELETE(
-	_: NextRequest,
-	{ params }: { params: { commentId: string } }
+	_request: NextRequest,
+	context: { params: Promise<{ commentId: string }> }
 ) {
 	try {
-		const commentId = params.commentId;
+		const { commentId } = await context.params;
 		await prisma.comment.delete({ where: { id: commentId } });
 		return NextResponse.json({ message: "Comment deleted" });
 	} catch (error) {

@@ -4,10 +4,10 @@ import prisma from "@/lib/prisma";
 // POST: Like a video
 export async function POST(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	context: { params: Promise<{ id: string }> }
 ) {
+	const { id: videoId } = await context.params;
 	try {
-		const videoId = params.id;
 		const { userId } = await request.json();
 		if (!userId)
 			return NextResponse.json({ error: "Missing userId" }, { status: 400 });
@@ -34,10 +34,10 @@ export async function POST(
 // DELETE: Unlike a video
 export async function DELETE(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	context: { params: Promise<{ id: string }> }
 ) {
+	const { id: videoId } = await context.params;
 	try {
-		const videoId = params.id;
 		const { userId } = await request.json();
 		if (!userId)
 			return NextResponse.json({ error: "Missing userId" }, { status: 400 });

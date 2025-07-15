@@ -105,7 +105,10 @@ export interface EventRequest {
 }
 
 // --- Mock API Utilities ---
-function useMockFetch<T>(fetcher: () => Promise<T>, deps: any[] = []) {
+function useMockFetch<T>(
+	fetcher: () => Promise<T>,
+	deps: React.DependencyList = []
+) {
 	const [data, setData] = useState<T | null>(null);
 	const [loading, setLoading] = useState(false);
 	useEffect(() => {
@@ -219,7 +222,7 @@ function EventsTable({
 											<Skeleton className="h-6 w-full" />
 										</TableCell>
 									</TableRow>
-							))
+							  ))
 							: events.map((event) => (
 									<TableRow
 										key={event.id}
@@ -633,7 +636,7 @@ export default function KathavachakDashboard() {
 		name: string;
 		email: string;
 		phone: string;
-		addresses: any[];
+		addresses: import("@/types/user").Address[];
 	}) {
 		// TODO: Connect to backend or update state as needed
 		setProfile((prev) => (prev ? { ...prev, ...data } : prev));
@@ -849,9 +852,9 @@ export default function KathavachakDashboard() {
 								? {
 										id: profile.id,
 										name: profile.name ?? "",
-										email: (profile as any).email ?? "",
-										phone: (profile as any).phone ?? "",
-										addresses: (profile as any).addresses ?? [],
+										email: (profile as unknown as FullUser).email ?? "",
+										phone: (profile as unknown as FullUser).phone ?? "",
+										addresses: (profile as unknown as FullUser).addresses ?? [],
 								  }
 								: null
 						}

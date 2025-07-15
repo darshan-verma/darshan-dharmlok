@@ -72,7 +72,10 @@ interface Billing {
 }
 
 // --- Mock API Utilities ---
-function useMockFetch<T>(fetcher: () => Promise<T>, deps: any[] = []) {
+function useMockFetch<T>(
+	fetcher: () => Promise<T>,
+	deps: React.DependencyList = []
+) {
 	const [data, setData] = useState<T | null>(null);
 	const [loading, setLoading] = useState(true);
 	useEffect(() => {
@@ -371,24 +374,24 @@ export default function PanditjiDashboard() {
 					id: "b1",
 					guest: "Amit",
 					date: "2025-07-12",
-					status: "Pending" as "Pending",
-					type: "Pooja" as "Pooja",
+					status: "Pending" as const,
+					type: "Pooja" as const,
 					poojaName: "Satyanarayan Katha",
 				},
 				{
 					id: "b2",
 					guest: "Priya",
 					date: "2025-07-13",
-					status: "Confirmed" as "Confirmed",
-					type: "Pooja" as "Pooja",
+					status: "Confirmed" as const,
+					type: "Pooja" as const,
 					poojaName: "Rudrabhishek",
 				},
 				{
 					id: "b3",
 					guest: "Suresh",
 					date: "2025-07-10",
-					status: "Completed" as "Completed",
-					type: "Pooja" as "Pooja",
+					status: "Completed" as const,
+					type: "Pooja" as const,
 					poojaName: "Navgrah Shanti",
 				},
 			];
@@ -402,19 +405,19 @@ export default function PanditjiDashboard() {
 					id: "p1",
 					name: "Rudrabhishek",
 					price: 2100,
-					status: "Active" as "Active",
+					status: "Active" as const,
 				},
 				{
 					id: "p2",
 					name: "Satyanarayan Katha",
 					price: 1500,
-					status: "Active" as "Active",
+					status: "Active" as const,
 				},
 				{
 					id: "p3",
 					name: "Navgrah Shanti",
 					price: 2500,
-					status: "Inactive" as "Inactive",
+					status: "Inactive" as const,
 				},
 			];
 		}, []);
@@ -427,28 +430,28 @@ export default function PanditjiDashboard() {
 					id: "bl1",
 					date: "2025-07-10",
 					amount: 2500,
-					status: "Paid" as "Paid",
+					status: "Paid" as const,
 					description: "Navgrah Shanti",
 				},
 				{
 					id: "bl2",
 					date: "2025-07-12",
 					amount: 1500,
-					status: "Pending" as "Pending",
+					status: "Pending" as const,
 					description: "Satyanarayan Katha",
 				},
 				{
 					id: "bl3",
 					date: "2025-07-13",
 					amount: 2100,
-					status: "Paid" as "Paid",
+					status: "Paid" as const,
 					description: "Rudrabhishek",
 				},
 			];
 		}, []);
 
 	// Handle profile save to refresh data
-	const handleProfileSave = async (_data?: any) => {
+	const handleProfileSave = async (_data?: unknown) => {
 		// Ignore passed data and refetch the profile to get the updated data including new image
 		if (session?.user?.id) {
 			try {

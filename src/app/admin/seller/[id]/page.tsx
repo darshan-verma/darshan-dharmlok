@@ -432,7 +432,7 @@ export default function SellerDetailPage() {
 				if (!res.ok) return;
 				const data = await res.json();
 				// Set videos from the video API
-				setPostVideos(data.videos.map((v: any) => v.videoUrl));
+				setPostVideos(data.videos.map((v: { videoUrl: string }) => v.videoUrl));
 			} catch (error) {
 				console.error("Error fetching videos:", error);
 			}
@@ -558,7 +558,7 @@ export default function SellerDetailPage() {
 				// Find and delete videos that match URLs in videosToDelete
 				const deletePromises = videosToDelete.map(async (urlToDelete) => {
 					const videoToDelete = videosData.videos.find(
-						(v: any) => v.videoUrl === urlToDelete
+						(v: { videoUrl: string }) => v.videoUrl === urlToDelete
 					);
 					if (videoToDelete) {
 						const deleteRes = await fetch(`/api/videos/${videoToDelete.id}`, {

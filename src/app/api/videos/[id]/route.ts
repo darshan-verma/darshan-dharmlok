@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
 export async function GET(
-	_: NextRequest,
-	{ params }: { params: { id: string } }
+	_request: NextRequest,
+	context: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await context.params;
 	try {
-		const id = params.id;
-
 		const video = await prisma.video.findUnique({
 			where: { id },
 		});
@@ -30,10 +29,10 @@ export async function GET(
 
 export async function PATCH(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	context: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await context.params;
 	try {
-		const id = params.id;
 		const data = await request.json();
 
 		// Validate if video exists
@@ -73,12 +72,11 @@ export async function PATCH(
 }
 
 export async function DELETE(
-	_: NextRequest,
-	{ params }: { params: { id: string } }
+	_request: NextRequest,
+	context: { params: Promise<{ id: string }> }
 ) {
+	const { id } = await context.params;
 	try {
-		const id = params.id;
-
 		// Validate if video exists
 		const videoExists = await prisma.video.findUnique({
 			where: { id },

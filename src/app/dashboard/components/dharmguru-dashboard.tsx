@@ -48,13 +48,14 @@ import {
 } from "lucide-react";
 
 // --- Type Definitions ---
+import type { Address } from "@/types/user";
 export interface DharmguruProfile {
 	id: string;
 	name: string;
 	profileImageUrl?: string;
 	contact: string;
 	email?: string;
-	addresses?: any[];
+	addresses?: Address[];
 	rating: number;
 	bio?: string;
 	specialization: string;
@@ -117,7 +118,10 @@ import { useSession } from "next-auth/react";
 import { userService } from "@/services/userService";
 import type { FullUser } from "@/types/user";
 // --- Mock API Utilities ---
-function useMockFetch<T>(fetcher: () => Promise<T>, deps: any[] = []) {
+function useMockFetch<T>(
+	fetcher: () => Promise<T>,
+	deps: React.DependencyList = []
+) {
 	const [data, setData] = useState<T | null>(null);
 	const [loading, setLoading] = useState(true);
 	useEffect(() => {
@@ -714,7 +718,7 @@ export default function DharmguruDashboard() {
 		}, []);
 
 	// Handle profile save to refresh data
-	const handleProfileSave = async (_data?: any) => {
+	const handleProfileSave = async (_data?: unknown) => {
 		// Ignore passed data and refetch the profile to get the updated data including new image
 		if (session?.user?.id) {
 			try {

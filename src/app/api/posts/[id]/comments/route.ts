@@ -7,7 +7,10 @@ function isValidObjectId(id: string) {
 }
 
 // GET: Get all comments for a post
-export async function GET(_: NextRequest, context: { params: { id: string } }) {
+export async function GET(
+	_request: NextRequest,
+	context: { params: Promise<{ id: string }> }
+) {
 	const { id: postId } = await context.params;
 	try {
 		const comments = await prisma.comment.findMany({
@@ -35,7 +38,7 @@ export async function GET(_: NextRequest, context: { params: { id: string } }) {
 // POST: Add a comment to a post
 export async function POST(
 	request: NextRequest,
-	context: { params: { id: string } }
+	context: { params: Promise<{ id: string }> }
 ) {
 	const { id: postId } = await context.params;
 	try {

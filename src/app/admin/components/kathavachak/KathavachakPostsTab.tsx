@@ -96,52 +96,53 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 
 	// ----------- Add image: POST to /api/images after S3 upload -----------
 	// Update: Accept title and description in upload handler
-	const handlePostImageUploadInternal = async (
-		e: React.ChangeEvent<HTMLInputElement>,
-		title?: string,
-		description?: string
-	) => {
-		const files = e.target.files;
-		if (!files || files.length === 0) return [];
-		setIsUploadingPostImage(true);
-		const uploaded: ImageObject[] = [];
-		for (let i = 0; i < files.length; i++) {
-			const file = files[i];
-			const formData = new FormData();
-			formData.append("file", file);
-			formData.append("userId", userId);
-			const uploadRes = await fetch("/api/upload/profile-image", {
-				method: "POST",
-				body: formData,
-			});
-			if (!uploadRes.ok) continue;
-			const { imageUrl } = await uploadRes.json();
-			// Send title/description in the initial POST
-			const createRes = await fetch("/api/images", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ url: imageUrl, userId, title, description }),
-			});
-			if (!createRes.ok) continue;
-			const image = await createRes.json();
-			uploaded.push(image);
-			setPostImages((prev) => [...prev, image]);
-		}
-		setIsUploadingPostImage(false);
-		return uploaded;
-	};
+	const handlePostImageUploadInternal = useCallback(
+		async (
+			e: React.ChangeEvent<HTMLInputElement>,
+			title?: string,
+			description?: string
+		) => {
+			const files = e.target.files;
+			if (!files || files.length === 0) return [];
+			setIsUploadingPostImage(true);
+			const uploaded: ImageObject[] = [];
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
+				const formData = new FormData();
+				formData.append("file", file);
+				formData.append("userId", userId);
+				const uploadRes = await fetch("/api/upload/profile-image", {
+					method: "POST",
+					body: formData,
+				});
+				if (!uploadRes.ok) continue;
+				const { imageUrl } = await uploadRes.json();
+				// Send title/description in the initial POST
+				const createRes = await fetch("/api/images", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ url: imageUrl, userId, title, description }),
+				});
+				if (!createRes.ok) continue;
+				const image = await createRes.json();
+				uploaded.push(image);
+				setPostImages((prev) => [...prev, image]);
+			}
+			setIsUploadingPostImage(false);
+			return uploaded;
+		},
+		[userId]
+	);
 
 	// ----------- Remove image: DELETE /api/images/:id -----------
 	const handleRemovePostImage = async (img: ImageObject) => {
-		if (!(img as any).id) return;
+		if (!img.id) return;
 		try {
-			const res = await fetch(`/api/images/${(img as any).id}`, {
+			const res = await fetch(`/api/images/${img.id}`, {
 				method: "DELETE",
 			});
 			if (res.ok) {
-				setPostImages((prev) =>
-					prev.filter((p) => (p as any).id !== (img as any).id)
-				);
+				setPostImages((prev) => prev.filter((p) => p.id !== img.id));
 			}
 		} catch (e) {
 			console.error("Failed to delete image", e);
@@ -153,8 +154,8 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 		img: ImageObject,
 		title: string
 	) => {
-		if (!(img as any).id) return;
-		const res = await fetch(`/api/images/${(img as any).id}`, {
+		if (!img.id) return;
+		const res = await fetch(`/api/images/${img.id}`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ title }),
@@ -162,7 +163,7 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 		if (res.ok) {
 			const updated = await res.json();
 			setPostImages((prev) =>
-				prev.map((p) => ((p as any).id === updated.id ? updated : p))
+				prev.map((p) => (p.id === updated.id ? updated : p))
 			);
 		}
 	};
@@ -172,8 +173,8 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 		img: ImageObject,
 		description: string
 	) => {
-		if (!(img as any).id) return;
-		const res = await fetch(`/api/images/${(img as any).id}`, {
+		if (!img.id) return;
+		const res = await fetch(`/api/images/${img.id}`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ description }),
@@ -181,7 +182,7 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 		if (res.ok) {
 			const updated = await res.json();
 			setPostImages((prev) =>
-				prev.map((p) => ((p as any).id === updated.id ? updated : p))
+				prev.map((p) => (p.id === updated.id ? updated : p))
 			);
 		}
 	};
@@ -247,7 +248,6 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 	// ----------- Image Upload Flow: Initial selection -----------
 	const handleInitialImageSelection = useCallback(
 		(event: React.ChangeEvent<HTMLInputElement>): void => {
-			console.log("CallBack 3");
 			const files = event.target.files;
 			if (!files || files.length === 0) return;
 
@@ -270,7 +270,7 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 				handlePostImageUploadInternal(uploadEvent);
 			}
 		},
-		[]
+		[handlePostImageUploadInternal]
 	);
 
 	// ----------- Image Upload Flow: Dialog confirm -----------
@@ -307,7 +307,12 @@ const KathavachakPostsTab = memo(function KathavachakPostsTab({
 				}
 			}
 		},
-		[pendingFile, tempUploadedImageUrl, postImages]
+		[
+			pendingFile,
+			tempUploadedImageUrl,
+			postImages,
+			handlePostImageUploadInternal,
+		]
 	);
 
 	// ----------- Video Upload Flow: Initial selection -----------

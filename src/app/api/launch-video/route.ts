@@ -75,7 +75,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
 	try {
 		const body = await req.json();
-		const { title, date, description, category, type, status, videoUrl } = body;
+		const {
+			title,
+			date,
+			description,
+			category,
+			type,
+			status,
+			videoUrl,
+			userId,
+		} = body;
 
 		if (
 			!title ||
@@ -84,10 +93,11 @@ export async function POST(req: NextRequest) {
 			!category ||
 			!type ||
 			!status ||
-			!videoUrl
+			!videoUrl ||
+			!userId
 		) {
 			return NextResponse.json(
-				{ error: "All required fields must be provided" },
+				{ error: "All required fields must be provided, including userId" },
 				{ status: 400 }
 			);
 		}
@@ -95,18 +105,23 @@ export async function POST(req: NextRequest) {
 		const newVideo = await prisma.video.create({
 			data: {
 				title,
-				date,
+				date: new Date(date),
 				description,
 				category,
 				type,
 				status,
 				videoUrl,
+				user: { connect: { id: userId } },
+				userId,
 			},
 		});
 		return NextResponse.json(newVideo);
-	} catch {
+	} catch (error) {
 		return NextResponse.json(
-			{ error: "Failed to create video" },
+			{
+				error: "Failed to create video",
+				details: error instanceof Error ? error.message : error,
+			},
 			{ status: 500 }
 		);
 	}

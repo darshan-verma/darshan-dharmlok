@@ -175,7 +175,7 @@ const DharmguruPostsTab = memo(function DharmguruPostsTab({
 				if (typeof onImageAdded === "function") {
 					onImageAdded(image);
 				}
-			} catch (err) {
+			} catch {
 				// Optionally show error toast
 			}
 			setPendingFile(null);
@@ -233,7 +233,7 @@ const DharmguruPostsTab = memo(function DharmguruPostsTab({
 				if (typeof onVideoAdded === "function") {
 					onVideoAdded(video);
 				}
-			} catch (err) {
+			} catch {
 				// Optionally show error toast
 			}
 			setPendingVideoFile(null);

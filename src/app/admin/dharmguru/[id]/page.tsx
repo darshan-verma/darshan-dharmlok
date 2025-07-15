@@ -489,7 +489,7 @@ export default function DharmguruDetailPage() {
 			if (res.ok) {
 				setPostImages((prev) => prev.filter((p) => p.id !== img.id));
 			}
-		} catch (e) {
+		} catch {
 			toast.error("Failed to remove image");
 		}
 	};
@@ -576,7 +576,7 @@ export default function DharmguruDetailPage() {
 			if (res.ok) {
 				setPostVideos((prev) => prev.filter((v) => v.id !== vid.id));
 			}
-		} catch (e) {
+		} catch {
 			toast.error("Failed to remove video");
 		}
 	};

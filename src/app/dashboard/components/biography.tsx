@@ -84,8 +84,12 @@ export default function Biography({ userId, editable = true }: BiographyProps) {
 			const updated: UserData = await res.json();
 			setUser((prev) => (prev ? { ...prev, bio: updated.bio } : prev));
 			setIsEditing(false);
-		} catch (e: any) {
-			setError(e.message);
+		} catch (e: unknown) {
+			if (e instanceof Error) {
+				setError(e.message);
+			} else {
+				setError("An unknown error occurred");
+			}
 		} finally {
 			setIsSaving(false);
 		}

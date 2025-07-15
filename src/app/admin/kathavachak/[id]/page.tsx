@@ -1,23 +1,26 @@
 "use client";
-
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/lib/toast";
 import {
-	getRankColor,
-	getCategoryColor,
-} from "@/app/admin/components/kathavachak/KathavachakTable";
-import { Kathavachak, FormErrors } from "../../components/kathavachak/types";
+	Kathavachak,
+	FormErrors,
+	ImageObject,
+	VideoObject,
+} from "../../components/kathavachak/types";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import KathavachakProfileCard from "@/app/admin/components/kathavachak/KathavachakProfileCard";
 import KathavachakDetailsTab from "@/app/admin/components/kathavachak/KathavachakDetailsTab";
 import KathavachakBiographyTab from "@/app/admin/components/kathavachak/KathavachakBiographyTab";
 import KathavachakPostsTab from "@/app/admin/components/kathavachak/KathavachakPostsTab";
 import KathavachakPreferencesTab from "@/app/admin/components/kathavachak/KathavachakPreferencesTab";
 import KathavachakActivityTab from "@/app/admin/components/kathavachak/KathavachakActivityTab";
-import { ImageObject, VideoObject } from "../../components/kathavachak/types";
+import {
+	getRankColor,
+	getCategoryColor,
+} from "@/app/admin/components/kathavachak/KathavachakTable";
 
 export default function KathavachakDetailPage() {
 	const params = useParams();
@@ -27,7 +30,6 @@ export default function KathavachakDetailPage() {
 	// State management for the component
 	const [kathavachak, setKathavachak] = useState<Kathavachak | null>(null); // Original kathavachak data from server
 	const [isEditing, setIsEditing] = useState(false); // Controls whether form is in edit mode
-	const [isSaving, setIsSaving] = useState(false); // Loading state for save operation
 	const [editedKathavachak, setEditedKathavachak] =
 		useState<Partial<Kathavachak> | null>(null); // Draft data being edited
 	const [imageError, setImageError] = useState(false); // Handles profile image loading errors
@@ -45,12 +47,12 @@ export default function KathavachakDetailPage() {
 
 	// Directly manage existing/new arrays and derive post arrays from them
 	// This prevents unnecessary state updates and re-renders
-	const [existingImages, setExistingImages] = useState<ImageObject[]>([]);
 	const [newImages, setNewImages] = useState<ImageObject[]>([]);
 	const [deletedImages, setDeletedImages] = useState<string[]>([]);
 	const [existingVideos, setExistingVideos] = useState<VideoObject[]>([]);
 	const [newVideos, setNewVideos] = useState<VideoObject[]>([]);
 	const [videosToDelete, setVideosToDelete] = useState<string[]>([]);
+	const [isSaving, setIsSaving] = useState(false); // Loading state for save operation
 
 	// Reset videos to delete when edit mode changes
 	useEffect(() => {
@@ -68,29 +70,7 @@ export default function KathavachakDetailPage() {
 			try {
 				const res = await fetch(`/api/users/${kathavachakId}`);
 				if (res.ok) {
-					const data = await res.json();
-
-					// Handle images from the user data
-					let processedImages: ImageObject[] = [];
-
-					if (Array.isArray(data.images)) {
-						processedImages = data.images.map((img: string | ImageObject) => {
-							// Convert string images to ImageObject format
-							if (typeof img === "string") {
-								return { url: img };
-							}
-							return img;
-						});
-					} else if (data.images) {
-						// Single image case
-						if (typeof data.images === "string") {
-							processedImages = [{ url: data.images }];
-						} else {
-							processedImages = [data.images];
-						}
-					}
-
-					setExistingImages(processedImages);
+					// No action needed for user data here
 				}
 
 				// Fetch videos from the Video table
@@ -99,12 +79,19 @@ export default function KathavachakDetailPage() {
 					const videoData = await videoRes.json();
 					// Convert Video records to VideoObject format
 					const processedVideos: VideoObject[] = Array.isArray(videoData.videos)
-						? videoData.videos.map((v: any) => ({
-								url: v.videoUrl,
-								title: v.title,
-								description: v.description,
-								id: v.id,
-						  }))
+						? videoData.videos.map(
+								(v: {
+									videoUrl: string;
+									title: string;
+									description: string;
+									id: string;
+								}) => ({
+									url: v.videoUrl,
+									title: v.title,
+									description: v.description,
+									id: v.id,
+								})
+						  )
 						: [];
 
 					setExistingVideos(processedVideos);
@@ -423,10 +410,6 @@ export default function KathavachakDetailPage() {
 	};
 
 	// Derived post images and videos with useMemo for stability
-	const postImages = useMemo(
-		() => [...existingImages, ...newImages],
-		[existingImages, newImages]
-	);
 
 	const postVideos = useMemo(
 		() => [...existingVideos, ...newVideos],
@@ -434,41 +417,42 @@ export default function KathavachakDetailPage() {
 	);
 
 	// --- Video Upload Handler ---
-	const handlePostVideoUpload = async (
-		event: React.ChangeEvent<HTMLInputElement>
-	) => {
-		const files = event.target.files;
-		if (!files || files.length === 0) return;
-		setIsUploadingPostVideo(true);
-		const uploaded: VideoObject[] = [];
-		try {
-			for (let i = 0; i < files.length; i++) {
-				const file = files[i];
-				const formData = new FormData();
-				formData.append("file", file);
-				formData.append("userId", KathavachakId);
-				const response = await fetch("/api/upload/video", {
-					method: "POST",
-					body: formData,
-				});
-				if (!response.ok) throw new Error("Failed to upload video");
-				const { videoUrl, video } = await response.json();
-				const videoObj: VideoObject = {
-					url: videoUrl,
-					title: file.name.split(".")[0] || "",
-					description: "",
-					id: video?.id,
-				};
-				uploaded.push(videoObj);
+	const handlePostVideoUpload = useCallback(
+		async (event: React.ChangeEvent<HTMLInputElement>) => {
+			const files = event.target.files;
+			if (!files || files.length === 0) return;
+			setIsUploadingPostVideo(true);
+			const uploaded: VideoObject[] = [];
+			try {
+				for (let i = 0; i < files.length; i++) {
+					const file = files[i];
+					const formData = new FormData();
+					formData.append("file", file);
+					formData.append("userId", KathavachakId);
+					const response = await fetch("/api/upload/video", {
+						method: "POST",
+						body: formData,
+					});
+					if (!response.ok) throw new Error("Failed to upload video");
+					const { videoUrl, video } = await response.json();
+					const videoObj: VideoObject = {
+						url: videoUrl,
+						title: file.name.split(".")[0] || "",
+						description: "",
+						id: video?.id,
+					};
+					uploaded.push(videoObj);
+				}
+				setNewVideos((prev) => [...prev, ...uploaded]);
+				toast.success("Video(s) uploaded successfully!");
+			} catch {
+				toast.error("Failed to upload video(s)");
+			} finally {
+				setIsUploadingPostVideo(false);
 			}
-			setNewVideos((prev) => [...prev, ...uploaded]);
-			toast.success("Video(s) uploaded successfully!");
-		} catch {
-			toast.error("Failed to upload video(s)");
-		} finally {
-			setIsUploadingPostVideo(false);
-		}
-	};
+		},
+		[KathavachakId]
+	);
 
 	const handleRemovePostVideo = (video: VideoObject) => {
 		const videoUrl = typeof video === "string" ? video : video.url;
@@ -533,7 +517,7 @@ export default function KathavachakDetailPage() {
 		setEditedKathavachak((prev) => (prev ? { ...prev, [field]: val } : prev));
 	}
 
-	async function handleSavePosts(): Promise<void> {
+	const handleSavePosts = useCallback(async (): Promise<void> => {
 		if (!kathavachakId) {
 			toast.error("Invalid Kathavachak ID");
 			return;
@@ -577,8 +561,6 @@ export default function KathavachakDetailPage() {
 
 						if (!videoResponse.ok) {
 							console.error(`Failed to update video ${video.id}`);
-						} else {
-							console.log(`Successfully updated video ${video.id}`);
 						}
 					} catch (error) {
 						console.error(`Error updating video ${video.id}:`, error);
@@ -588,8 +570,6 @@ export default function KathavachakDetailPage() {
 
 			// Delete videos that were removed from UI
 			if (videosToDelete.length > 0) {
-				console.log("Videos to delete:", videosToDelete);
-
 				// Find videos by URLs or IDs
 				const videosRes = await fetch(`/api/videos?userId=${kathavachakId}`);
 				if (videosRes.ok) {
@@ -603,20 +583,16 @@ export default function KathavachakDetailPage() {
 
 					const { videos } = videoData;
 
-					console.log("All videos from DB:", videos);
-
 					// Find video IDs that match the URLs or IDs we want to delete
 					const videoIdsToDelete = videos
-						.filter((v: any) => {
+						.filter((v: { videoUrl: string; id: string }) => {
 							// Check if the URL is in our delete list
 							if (videosToDelete.includes(v.videoUrl)) return true;
 							// Check if the ID is in our delete list
 							if (videosToDelete.includes(v.id)) return true;
 							return false;
 						})
-						.map((v: any) => v.id);
-
-					console.log("Video IDs to delete:", videoIdsToDelete);
+						.map((v: { id: string }) => v.id);
 
 					// If no matching videos found, log a warning
 					if (videoIdsToDelete.length === 0 && videosToDelete.length > 0) {
@@ -643,7 +619,6 @@ export default function KathavachakDetailPage() {
 									error: errorText,
 								});
 							} else {
-								console.log(`Successfully deleted video ${videoId}`);
 								deleteResults.push({ id: videoId, success: true });
 							}
 						} catch (error) {
@@ -655,8 +630,6 @@ export default function KathavachakDetailPage() {
 							});
 						}
 					}
-
-					console.log("Video deletion results:", deleteResults);
 				}
 			}
 
@@ -674,7 +647,17 @@ export default function KathavachakDetailPage() {
 			);
 			setIsSavingPosts(false);
 		}
-	}
+	}, [
+		kathavachakId,
+		newImages,
+		deletedImages,
+		postVideos,
+		videosToDelete,
+		setIsEditing,
+		setIsSavingPosts,
+		setDeletedImages,
+		setVideosToDelete,
+	]);
 	async function handleSaveBiography(): Promise<void> {
 		if (!editedKathavachak) return;
 		setIsSavingBiography(true);
@@ -863,14 +846,16 @@ export default function KathavachakDetailPage() {
 								),
 								[
 									isEditing,
-									postImages,
 									postVideos,
 									isUploadingPostVideo,
 									isSavingPosts,
 									showImageUpload,
 									showVideoUpload,
-									// Exclude function handlers from the dependency array
-									// since they're memoized in the parent
+									handlePostVideoUpload,
+									handleSavePosts,
+									handleVideoTitleChange,
+									handleVideoDescriptionChange,
+									kathavachakId,
 								]
 							)}
 						</TabsContent>

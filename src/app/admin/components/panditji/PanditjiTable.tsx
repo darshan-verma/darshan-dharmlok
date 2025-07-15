@@ -443,7 +443,7 @@ export default function PanditjiTable({
 															// 4. Redirect to the panditji's dashboard
 															window.location.href =
 																"/dashboard/panditji/dashboard";
-														} catch (err) {
+														} catch {
 															localStorage.removeItem("adminSessionToken"); // Clean up on failure
 														}
 													}}

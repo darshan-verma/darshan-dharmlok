@@ -571,7 +571,7 @@ export async function PATCH(
 		let data;
 		try {
 			data = await request.json();
-		} catch (parseError) {
+		} catch (_parseError) {
 			return NextResponse.json(
 				{ error: "Invalid request body" },
 				{ status: 400 }

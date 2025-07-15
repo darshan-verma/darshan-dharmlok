@@ -368,7 +368,8 @@ export default function DharmguruProfileForm({
 							<>
 								{form.addresses.length === 0 && (
 									<div className="text-center py-4 text-muted-foreground">
-										No addresses added. Click "Add Address" to add one.
+										No addresses added. Click &quot;Add Address&quot; to add
+										one.
 									</div>
 								)}
 								{form.addresses.map((address, index) => (

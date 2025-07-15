@@ -1,4 +1,4 @@
-//TODO : Profile image in comment section is streaching with comment 
+//TODO : Profile image in comment section is streaching with comment
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -586,7 +586,7 @@ const PostItem = ({
 					setIsLiked(data.likes?.includes(CURRENT_USER_ID));
 				}
 			});
-	}, [post.id]);
+	}, [post.id, CURRENT_USER_ID]);
 
 	const handleLike = async () => {
 		setLikeLoading(true);

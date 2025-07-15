@@ -28,7 +28,7 @@ export default function ImpersonationRestoreButton() {
 			}
 			localStorage.removeItem("adminSessionToken");
 			window.location.href = "/admin";
-		} catch (err) {
+		} catch {
 			setError("Unexpected error. Please try again.");
 			setLoading(false);
 		}

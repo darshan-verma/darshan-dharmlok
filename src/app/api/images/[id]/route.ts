@@ -4,13 +4,14 @@ import prisma from "@/lib/prisma";
 // PATCH /api/images/[id]
 export async function PATCH(
 	request: Request,
-	{ params }: { params: { id: string } }
+	context: { params: Promise<{ id: string }> }
 ) {
 	try {
+		const { id } = await context.params;
 		const data = await request.json();
 		const { title, description, url } = data;
 		const image = await prisma.image.update({
-			where: { id: params.id },
+			where: { id },
 			data: {
 				...(title !== undefined && { title }),
 				...(description !== undefined && { description }),
@@ -31,11 +32,12 @@ export async function PATCH(
 
 // DELETE /api/images/[id]
 export async function DELETE(
-	_: Request,
-	{ params }: { params: { id: string } }
+	_request: Request,
+	context: { params: Promise<{ id: string }> }
 ) {
 	try {
-		await prisma.image.delete({ where: { id: params.id } });
+		const { id } = await context.params;
+		await prisma.image.delete({ where: { id } });
 		return NextResponse.json({ success: true });
 	} catch (error) {
 		return NextResponse.json(
