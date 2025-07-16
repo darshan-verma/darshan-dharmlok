@@ -51,7 +51,7 @@ export async function PATCH(
 			data: {
 				title: data.title,
 				description: data.description,
-				videoUrl: data.videoUrl || undefined,
+				videoFile: data.videoFile || undefined,
 				thumbnailUrl: data.thumbnailUrl || undefined,
 				category: data.category || undefined,
 				type: data.type || undefined,

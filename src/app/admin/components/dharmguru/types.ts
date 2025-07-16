@@ -75,6 +75,7 @@ export interface ImageObject {
 export interface VideoObject {
 	url: string;
 	videoUrl?: string; // for compatibility with other APIs/components
+	videoFile?: string;
 	title?: string;
 	description?: string;
 	id?: string;

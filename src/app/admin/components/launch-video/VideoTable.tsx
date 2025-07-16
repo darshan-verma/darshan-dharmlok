@@ -42,7 +42,6 @@ export interface Video {
 	category: string;
 	type: string;
 	status: string;
-	detail: string;
 }
 
 interface VideoTableProps {
@@ -191,7 +190,7 @@ export default function VideoTable({
 							<TableHead>Category</TableHead>
 							<TableHead>Type</TableHead>
 							<TableHead>Status</TableHead>
-							<TableHead>Detail</TableHead>
+							//
 							<TableHead>Actions</TableHead>
 						</TableRow>
 					</TableHeader>
@@ -215,7 +214,6 @@ export default function VideoTable({
 									</TableCell>
 									<TableCell>
 										<div className="flex items-center gap-2">
-											<span>{video.detail}</span>
 											<Button
 												variant="ghost"
 												size="sm"

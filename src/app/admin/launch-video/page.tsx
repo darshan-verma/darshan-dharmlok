@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { toast } from "@/lib/toast";
 import {
 	Dialog,
@@ -11,11 +12,6 @@ import {
 import VideoTable, { Video } from "../components/launch-video/VideoTable";
 import VideoForm, { VideoFormData } from "../components/launch-video/VideoForm";
 import { Button } from "@/components/ui/button";
-
-interface ApiErrorResponse {
-	details?: Record<string, unknown> | string[];
-	message?: string;
-}
 
 export default function VideoPage() {
 	const [videos, setVideos] = useState<Video[]>([]);
@@ -28,6 +24,7 @@ export default function VideoPage() {
 		id: string;
 		title: string;
 	} | null>(null);
+	const { data: session } = useSession();
 
 	useEffect(() => {
 		const fetchVideos = async () => {
@@ -110,10 +107,25 @@ export default function VideoPage() {
 				: "/api/launch-video";
 			const method = currentVideo?.id ? "PUT" : "POST";
 
+			let requestBody;
+
+			if (method === "POST") {
+				if (!session?.user?.id) {
+					throw new Error("You must be logged in to create a video.");
+				}
+				requestBody = {
+					...videoFormData,
+					userId: session.user.id,
+					source: "launch-video",
+				};
+			} else {
+				requestBody = { ...videoFormData, source: "launch-video" };
+			}
+
 			const response = await fetch(url, {
 				method,
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(videoFormData),
+				body: JSON.stringify(requestBody),
 			});
 
 			if (!response.ok) {
@@ -142,16 +154,7 @@ export default function VideoPage() {
 			setCurrentVideo(null);
 		} catch (error: unknown) {
 			toast.dismiss(loadingToastId);
-			if (typeof error === "object" && error !== null && "details" in error) {
-				const err = error as ApiErrorResponse;
-				if (Array.isArray(err.details)) {
-					err.details.forEach((message) => toast.error(String(message)));
-				} else if (err.details && typeof err.details === "object") {
-					Object.values(err.details).forEach((message) =>
-						toast.error(String(message))
-					);
-				}
-			} else if (error instanceof Error) {
+			if (error instanceof Error) {
 				toast.error(error.message || "Failed to save video");
 			} else {
 				toast.error("Failed to save video");

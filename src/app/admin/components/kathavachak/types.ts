@@ -75,4 +75,5 @@ export interface VideoObject {
 	title?: string;
 	description?: string;
 	id?: string;
+	videoFile?: string;
 }

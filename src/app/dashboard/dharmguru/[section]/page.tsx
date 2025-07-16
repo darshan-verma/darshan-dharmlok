@@ -65,7 +65,13 @@ export default function DharmguruSectionPage() {
 			/>
 		);
 	} else if (section === "videos") {
-		content = <VideoGallery userId={session.user.id} editable={true} />;
+		content = (
+			<VideoGallery
+				userId={session.user.id}
+				editable={true}
+				source="dharmguru-dashboard,dharmguru-post"
+			/>
+		);
 	} else if (section === "photos") {
 		content = <PhotoGallery userId={session.user.id} editable={true} />;
 	} else {

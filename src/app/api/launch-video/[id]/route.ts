@@ -11,7 +11,7 @@ export async function GET(
 		if (!video)
 			return NextResponse.json({ error: "Not found" }, { status: 404 });
 		return NextResponse.json(video);
-	} catch  {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to fetch video" },
 			{ status: 500 }
@@ -33,19 +33,11 @@ export async function PUT(
 			category,
 			type,
 			status,
-			videoUrl,
 			thumbnailUrl,
+			videoFile,
 		} = body;
 
-		if (
-			!title ||
-			!date ||
-			!description ||
-			!category ||
-			!type ||
-			!status ||
-			!videoUrl
-		) {
+		if (!title || !date || !description || !category || !type || !status) {
 			return NextResponse.json(
 				{ error: "All required fields must be provided" },
 				{ status: 400 }
@@ -61,12 +53,12 @@ export async function PUT(
 				category,
 				type,
 				status,
-				videoUrl,
 				thumbnailUrl: typeof thumbnailUrl === "undefined" ? null : thumbnailUrl,
+				videoFile: typeof videoFile === "undefined" ? null : videoFile,
 			},
 		});
 		return NextResponse.json(updated);
-	} catch  {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to update video" },
 			{ status: 500 }
@@ -82,7 +74,7 @@ export async function DELETE(
 	try {
 		await prisma.video.delete({ where: { id } });
 		return NextResponse.json({ success: true });
-	} catch  {
+	} catch {
 		return NextResponse.json(
 			{ error: "Failed to delete video" },
 			{ status: 500 }

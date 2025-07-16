@@ -48,7 +48,7 @@ export default function DharmguruDetailPage() {
 			try {
 				const [imgRes, vidRes] = await Promise.all([
 					fetch(`/api/images?userId=${dharmguruId}`),
-					fetch(`/api/videos?userId=${dharmguruId}`),
+					fetch(`/api/videos?userId=${dharmguruId}&source=dharmguru-post`),
 				]);
 				if (imgRes.ok) {
 					const data = await imgRes.json();
@@ -540,29 +540,25 @@ export default function DharmguruDetailPage() {
 				const formData = new FormData();
 				formData.append("file", file);
 				formData.append("userId", dharmguruId);
+				formData.append("source", "dharmguru-post"); // Add source
 				const uploadRes = await fetch("/api/upload/video", {
 					method: "POST",
 					body: formData,
 				});
-				if (!uploadRes.ok) continue;
-				const { videoUrl } = await uploadRes.json();
-				// Create video object with empty title/description
-				const createRes = await fetch("/api/videos", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						url: videoUrl,
-						userId: dharmguruId,
-						title: "",
-						description: "",
-					}),
-				});
-				if (!createRes.ok) continue;
-				const video = await createRes.json();
-				setPostVideos((prev) => [...prev, video]);
+
+				if (!uploadRes.ok) {
+					console.error("Upload failed:", await uploadRes.text());
+					continue;
+				}
+
+				const { video } = await uploadRes.json();
+				if (video) {
+					setPostVideos((prev) => [...prev, video]);
+				}
 			}
 			toast.success("Video(s) uploaded successfully!");
-		} catch {
+		} catch (e) {
+			console.error("Error uploading videos:", e);
 			toast.error("Failed to upload video(s)");
 		} finally {
 			setIsUploadingPostVideo(false);
@@ -714,7 +710,7 @@ export default function DharmguruDetailPage() {
 								handleVideoTitleChange={handleVideoTitleChange}
 								handleVideoDescriptionChange={handleVideoDescriptionChange}
 								onImageAdded={(img) => setPostImages((prev) => [...prev, img])}
-								onVideoAdded={vid => setPostVideos(prev => [...prev, vid])}
+								onVideoAdded={(vid) => setPostVideos((prev) => [...prev, vid])}
 							/>
 						</TabsContent>
 

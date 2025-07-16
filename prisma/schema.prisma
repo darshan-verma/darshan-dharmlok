@@ -193,9 +193,9 @@ model Video {
     userId      String   @db.ObjectId
     category    String
     type        String   // e.g. "image", "video", "promo", etc.
-    videoUrl    String?  // URL/path to the banner file (image, video, etc.)
     thumbnailUrl String?  // URL/path to the thumbnail image
     videoFile     String?  // optional file path if type == "video"
+    source      String? // To track the origin of the video, e.g., "launch-video"
     status      String   // e.g. "active", "inactive", "draft"
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt

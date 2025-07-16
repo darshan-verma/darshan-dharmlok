@@ -74,29 +74,35 @@ export default function KathavachakDetailPage() {
 				}
 
 				// Fetch videos from the Video table
-				const videoRes = await fetch(`/api/videos?userId=${kathavachakId}`);
+				const videoRes = await fetch(
+					`/api/videos?userId=${kathavachakId}&source=kathavachak-post`
+				);
 				if (videoRes.ok) {
 					const videoData = await videoRes.json();
 					// Convert Video records to VideoObject format
 					const processedVideos: VideoObject[] = Array.isArray(videoData.videos)
 						? videoData.videos.map(
 								(v: {
-									videoUrl: string;
+									videoFile: string;
 									title: string;
 									description: string;
 									id: string;
 								}) => ({
-									url: v.videoUrl,
+									url: v.videoFile,
 									title: v.title,
 									description: v.description,
 									id: v.id,
+									videoFile: v.videoFile,
 								})
 						  )
 						: [];
 
 					setExistingVideos(processedVideos);
 				}
-			} catch {}
+			} catch (error) {
+				console.error("Failed to fetch posts:", error);
+				toast.error("Failed to load posts.");
+			}
 		};
 		fetchPosts();
 	}, [kathavachakId]);
@@ -429,17 +435,20 @@ export default function KathavachakDetailPage() {
 					const formData = new FormData();
 					formData.append("file", file);
 					formData.append("userId", KathavachakId);
+					formData.append("source", "kathavachak-post"); // Add source here
+
 					const response = await fetch("/api/upload/video", {
 						method: "POST",
 						body: formData,
 					});
 					if (!response.ok) throw new Error("Failed to upload video");
-					const { videoUrl, video } = await response.json();
+					const { video } = await response.json();
 					const videoObj: VideoObject = {
-						url: videoUrl,
+						url: video.videoFile,
 						title: file.name.split(".")[0] || "",
 						description: "",
 						id: video?.id,
+						videoFile: video.videoFile,
 					};
 					uploaded.push(videoObj);
 				}

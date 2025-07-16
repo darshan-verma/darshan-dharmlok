@@ -1,6 +1,10 @@
+// NOTE: If you use <DialogContent> in this file, add aria-describedby={undefined} to it to resolve the warning.
+// Example:
+// <DialogContent aria-describedby={undefined}>...</DialogContent>
 "use client";
 
 import { useState } from "react";
+import Pagination from "../Pagination/Pagination";
 import {
 	Eye,
 	Edit,
@@ -34,6 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Image from "next/image";
 import Link from "next/link";
+import React from "react";
 
 // Banner interface
 export interface Banner {
@@ -69,12 +74,14 @@ export default function BannerTable({
 	onEditBanner,
 	onDeleteBanner,
 	onUpdateStatus,
-	// onViewBanner,
-}: BannerTableProps) {
+}: // onViewBanner,
+BannerTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
 	const [typeFilter, setTypeFilter] = useState<string>("all");
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 10;
 
 	const filteredBanners = banners.filter((banner) => {
 		const matchesSearch =
@@ -94,9 +101,22 @@ export default function BannerTable({
 		return matchesSearch && matchesStatus && matchesCategory && matchesType;
 	});
 
+	// Pagination logic
+	const totalItems = filteredBanners.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+	const paginatedBanners = filteredBanners.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage
+	);
+
 	// Unique categories/types for filters
 	const uniqueCategories = Array.from(new Set(banners.map((b) => b.category)));
 	const uniqueTypes = Array.from(new Set(banners.map((b) => b.type)));
+
+	// Reset to first page if filters/search change
+	React.useEffect(() => {
+		setCurrentPage(1);
+	}, [searchTerm, statusFilter, categoryFilter, typeFilter]);
 
 	return (
 		<div className="space-y-4">
@@ -190,9 +210,11 @@ export default function BannerTable({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{filteredBanners.length > 0 ? (
-							filteredBanners.map((banner) => (
+						{paginatedBanners.length > 0 ? (
+							paginatedBanners.map((banner) => (
+								// ...existing code for TableRow...
 								<TableRow key={banner.id}>
+									{/* ...existing code for TableCell... */}
 									<TableCell>
 										{banner.imageUrl ? (
 											<Image
@@ -201,6 +223,7 @@ export default function BannerTable({
 												width={60}
 												height={40}
 												className="rounded object-cover"
+												style={{ width: "auto", height: "auto" }}
 											/>
 										) : (
 											<ImageIcon className="h-8 w-8 text-gray-400" />
@@ -307,6 +330,14 @@ export default function BannerTable({
 					</TableBody>
 				</Table>
 			</div>
+			{/* Pagination */}
+			<Pagination
+				currentPage={currentPage}
+				totalPages={totalPages}
+				totalItems={totalItems}
+				itemsPerPage={itemsPerPage}
+				onPageChange={setCurrentPage}
+			/>
 		</div>
 	);
 }

@@ -10,9 +10,8 @@ export interface Video {
 	category: string;
 	type: string;
 	status: string;
-	videoUrl: string;
+	videoFile?: string | null;
 	thumbnailUrl?: string | null;
-	detail?: string;
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -26,9 +25,8 @@ function toVideoApi(video: PrismaVideo): Video {
 		category: video.category,
 		type: video.type,
 		status: video.status,
-		videoUrl: video.videoUrl ?? "",
+		videoFile: video.videoFile ?? "",
 		thumbnailUrl: video.thumbnailUrl,
-		// detail: video.detail ?? "",
 		createdAt: video.createdAt?.toISOString?.(),
 		updatedAt: video.updatedAt?.toISOString?.(),
 	};
@@ -42,14 +40,29 @@ export async function GET(req: NextRequest) {
 		const limit = parseInt(searchParams.get("limit") || "50", 10);
 		const skip = (page - 1) * limit;
 
+		console.log(
+			"[GET /api/launch-video] page:",
+			page,
+			"limit:",
+			limit,
+			"skip:",
+			skip
+		);
+
+		const whereClause = { source: "launch-video" };
+
 		const [total, videos] = await Promise.all([
-			prisma.video.count(),
+			prisma.video.count({ where: whereClause }),
 			prisma.video.findMany({
+				where: whereClause,
 				orderBy: { createdAt: "desc" },
 				skip,
 				take: limit,
 			}),
 		]);
+
+		console.log("[GET /api/launch-video] total videos:", total);
+		console.log("[GET /api/launch-video] videos:", videos);
 
 		const content: Video[] = videos.map(toVideoApi);
 
@@ -63,9 +76,12 @@ export async function GET(req: NextRequest) {
 			},
 		});
 	} catch (error) {
-		console.error("Error fetching videos:", error);
+		console.error("[GET /api/launch-video] Error fetching videos:", error);
 		return NextResponse.json(
-			{ error: "Failed to fetch videos" },
+			{
+				error: "Failed to fetch videos",
+				message: error instanceof Error ? error.message : String(error),
+			},
 			{ status: 500 }
 		);
 	}
@@ -75,6 +91,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
 	try {
 		const body = await req.json();
+		console.log("[POST /api/launch-video] body:", body);
 		const {
 			title,
 			date,
@@ -82,7 +99,7 @@ export async function POST(req: NextRequest) {
 			category,
 			type,
 			status,
-			videoUrl,
+			videoFile,
 			userId,
 		} = body;
 
@@ -93,14 +110,31 @@ export async function POST(req: NextRequest) {
 			!category ||
 			!type ||
 			!status ||
-			!videoUrl ||
-			!userId
+			!videoFile ||
+			!userId ||
+			!body.source // Check for source
 		) {
+			console.warn("[POST /api/launch-video] Missing required fields", body);
 			return NextResponse.json(
-				{ error: "All required fields must be provided, including userId" },
+				{
+					error:
+						"All required fields must be provided, including userId and videoFile (S3 URL)",
+				},
 				{ status: 400 }
 			);
 		}
+
+		console.log("[POST /api/launch-video] Creating video with data:", {
+			title,
+			date,
+			description,
+			category,
+			type,
+			status,
+			videoFile,
+			userId,
+			source: body.source, // Use source from body
+		});
 
 		const newVideo = await prisma.video.create({
 			data: {
@@ -110,17 +144,19 @@ export async function POST(req: NextRequest) {
 				category,
 				type,
 				status,
-				videoUrl,
+				videoFile,
+				source: body.source, // Save the source
 				user: { connect: { id: userId } },
-				userId,
 			},
 		});
+		console.log("[POST /api/launch-video] Created video:", newVideo);
 		return NextResponse.json(newVideo);
 	} catch (error) {
+		console.error("[POST /api/launch-video] Error creating video:", error);
 		return NextResponse.json(
 			{
 				error: "Failed to create video",
-				details: error instanceof Error ? error.message : error,
+				message: error instanceof Error ? error.message : String(error),
 			},
 			{ status: 500 }
 		);

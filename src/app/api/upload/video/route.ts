@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
 			formData.get("templeId") ||
 			formData.get("dharamshalaId") ||
 			"unknown";
+		const source = formData.get("source") as string | null;
 
 		if (!file || !(file instanceof File)) {
 			return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -33,12 +34,13 @@ export async function POST(req: NextRequest) {
 				videoRecord = await prisma.video.create({
 					data: {
 						title: file.name,
-						videoUrl,
+						videoFile: videoUrl,
 						description: "",
 						userId: userId as string,
 						status: "active",
 						category: "general",
 						type: "video",
+						...(source && { source }),
 					},
 				});
 			} catch (dbError) {

@@ -73,12 +73,13 @@ const DharmguruPostsTab = memo(function DharmguruPostsTab({
 		Record<string, boolean>
 	>({});
 	const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
-	const [pendingFile, setPendingFile] = useState<File | null>(null);
-	const [tempUploadedImageUrl, setTempUploadedImageUrl] = useState("");
 	const [isVideoDetailsDialogOpen, setIsVideoDetailsDialogOpen] =
 		useState(false);
+	const [pendingFile, setPendingFile] = useState<File | null>(null);
 	const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
+	const [tempUploadedImageUrl, setTempUploadedImageUrl] = useState("");
 	const [tempUploadedVideoUrl, setTempUploadedVideoUrl] = useState("");
+	const [isUploading, setIsUploading] = useState(false);
 
 	const prevImageUrls = useRef<string[]>(postImages.map((img) => img.url));
 	const prevVideoUrls = useRef<string[]>(postVideos.map((vid) => vid.url));
@@ -194,23 +195,29 @@ const DharmguruPostsTab = memo(function DharmguruPostsTab({
 	);
 
 	const handleInitialVideoSelection = useCallback(
-		(e: React.ChangeEvent<HTMLInputElement>) => {
-			const files = e.target.files;
+		(event: React.ChangeEvent<HTMLInputElement>): void => {
+			const files = event.target.files;
 			if (!files || files.length === 0) return;
-			const file = files[0];
-			const tempUrl = URL.createObjectURL(file);
-			setPendingVideoFile(file);
-			setTempUploadedVideoUrl(tempUrl);
-			setIsVideoDetailsDialogOpen(true);
+
+			if (files.length === 1) {
+				const file = files[0];
+				const tempUrl = URL.createObjectURL(file);
+				setPendingVideoFile(file);
+				setTempUploadedVideoUrl(tempUrl);
+				setIsVideoDetailsDialogOpen(true);
+			} else if (handlePostVideoUpload) {
+				handlePostVideoUpload(event);
+			}
 		},
-		[]
+		[handlePostVideoUpload]
 	);
 
 	const handleVideoDetailsConfirm = useCallback(
 		async (title: string, description: string) => {
 			setIsVideoDetailsDialogOpen(false);
-			if (!pendingVideoFile || !handlePostVideoUpload) return;
+			if (!pendingVideoFile) return;
 			let videoUrl = "";
+			setIsUploading(true);
 			try {
 				const formData = new FormData();
 				formData.append("file", pendingVideoFile);
@@ -225,21 +232,40 @@ const DharmguruPostsTab = memo(function DharmguruPostsTab({
 				const createRes = await fetch("/api/videos", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ url: videoUrl, userId, title, description }),
+					body: JSON.stringify({
+						videoFile: videoUrl,
+						userId,
+						title,
+						description,
+						source: "dharmguru-post",
+						category: "General",
+						type: "post", // Add default type
+					}),
 				});
-				if (!createRes.ok) throw new Error("Failed to save video metadata");
+				if (!createRes.ok) {
+					const errorBody = await createRes.json();
+					console.error("API Error:", errorBody);
+					throw new Error(
+						`Failed to save video metadata: ${
+							errorBody.details || createRes.statusText
+						}`
+					);
+				}
 				const video = await createRes.json();
 				// Notify parent to update state immediately
 				if (typeof onVideoAdded === "function") {
 					onVideoAdded(video);
 				}
-			} catch {
+			} catch (error) {
+				console.error("Upload failed", error);
 				// Optionally show error toast
-			}
-			setPendingVideoFile(null);
-			if (tempUploadedVideoUrl) {
-				URL.revokeObjectURL(tempUploadedVideoUrl);
-				setTempUploadedVideoUrl("");
+			} finally {
+				setIsUploading(false);
+				setPendingVideoFile(null);
+				if (tempUploadedVideoUrl) {
+					URL.revokeObjectURL(tempUploadedVideoUrl);
+					setTempUploadedVideoUrl("");
+				}
 			}
 		},
 		[
@@ -570,11 +596,11 @@ const DharmguruPostsTab = memo(function DharmguruPostsTab({
 											onChange={
 												isEditing ? handleInitialVideoSelection : undefined
 											}
-											disabled={isUploadingPostVideo}
+											disabled={isUploadingPostVideo || isUploading}
 										/>
 									</label>
 								</div>
-								{isUploadingPostVideo && (
+								{(isUploadingPostVideo || isUploading) && (
 									<div className="flex items-center space-x-2 bg-blue-50 text-blue-700 p-2 rounded">
 										<svg
 											className="animate-spin h-4 w-4"
@@ -611,7 +637,7 @@ const DharmguruPostsTab = memo(function DharmguruPostsTab({
 									>
 										<div className="relative aspect-video w-full">
 											<video
-												src={vid.url || vid.videoUrl}
+												src={vid.videoFile || vid.url || vid.videoUrl}
 												controls
 												className="w-full h-full rounded-t-lg"
 											/>
@@ -623,7 +649,7 @@ const DharmguruPostsTab = memo(function DharmguruPostsTab({
 													onClick={() => handleRemovePostVideo(vid)}
 													className="absolute top-2 right-2"
 												>
-													<Trash2 className="h-2 w-2" />
+													<Trash2 className="h-4 w-4" />
 												</Button>
 											)}
 										</div>

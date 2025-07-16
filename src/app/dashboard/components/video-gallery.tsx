@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 interface Video {
 	id: string;
 	title: string;
-	videoUrl: string;
+	videoFile: string;
 	description?: string;
 }
 
@@ -39,11 +39,13 @@ interface UserProfile {
 interface VideoGalleryProps {
 	userId: string;
 	editable?: boolean;
+	source: string;
 }
 
 export default function VideoGallery({
 	userId,
 	editable = true,
+	source,
 }: VideoGalleryProps) {
 	const [user, setUser] = useState<UserProfile | null>(null);
 	const [videos, setVideos] = useState<Video[]>([]);
@@ -80,18 +82,22 @@ export default function VideoGallery({
 				setUser(userData);
 
 				// Then fetch videos from the video API
-				return fetch(`/api/videos?userId=${userId}`);
+				return fetch(`/api/videos?userId=${userId}&source=${source}`);
 			})
 			.then((res) => {
 				if (!res.ok) throw new Error("Failed to fetch videos");
 				return res.json();
 			})
 			.then((data) => {
-				setVideos(data.videos || []);
+				const videosWithUrl = data.videos.map((v: any) => ({
+					...v,
+					videoFile: v.videoFile || v.videoUrl,
+				}));
+				setVideos(videosWithUrl || []);
 			})
 			.catch((e) => setError(e.message))
 			.finally(() => setLoading(false));
-	}, [userId]);
+	}, [userId, source]);
 
 	const handleAddVideo = async () => {
 		if (!newVideo.title || !newVideo.file) return;
@@ -101,12 +107,13 @@ export default function VideoGallery({
 			const formData = new FormData();
 			formData.append("file", newVideo.file);
 			formData.append("userId", userId);
+			formData.append("source", source);
 			const uploadRes = await fetch("/api/upload/video", {
 				method: "POST",
 				body: formData,
 			});
 			if (!uploadRes.ok) throw new Error("Failed to upload video file");
-			const { videoUrl, video } = await uploadRes.json();
+			const { video } = await uploadRes.json();
 
 			// If the video record was already created during upload, use it
 			if (video) {
@@ -133,24 +140,6 @@ export default function VideoGallery({
 				} else {
 					setVideos((prev) => [video, ...prev]);
 				}
-			} else {
-				// Create a new video record if not already created
-				const createRes = await fetch(`/api/videos`, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						title: newVideo.title,
-						description: newVideo.description,
-						videoUrl,
-						userId,
-						status: "active",
-						category: "general",
-						type: "video",
-					}),
-				});
-				if (!createRes.ok) throw new Error("Failed to create video record");
-				const newVideoRecord = await createRes.json();
-				setVideos((prev) => [newVideoRecord, ...prev]);
 			}
 
 			// Reset form
@@ -172,6 +161,7 @@ export default function VideoGallery({
 				const formData = new FormData();
 				formData.append("file", editState.file);
 				formData.append("userId", userId);
+				formData.append("source", source);
 				const uploadRes = await fetch("/api/upload/video", {
 					method: "POST",
 					body: formData,
@@ -188,7 +178,7 @@ export default function VideoGallery({
 				body: JSON.stringify({
 					title: editState.title,
 					description: editState.description,
-					...(videoUrl && { videoUrl }), // Use videoUrl property name
+					...(videoUrl && { videoFile: videoUrl }), // Use videoFile property name
 				}),
 			});
 			if (!res.ok) throw new Error("Failed to update video");
@@ -391,9 +381,9 @@ export default function VideoGallery({
 									<>
 										<div className="aspect-video bg-black">
 											<video
-												src={video.videoUrl}
+												src={video.videoFile}
 												controls
-												className="w-full h-full rounded-t-lg"												
+												className="w-full h-full rounded-t-lg"
 											>
 												Your browser does not support the video tag.
 											</video>
