@@ -6,11 +6,16 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/lib/toast";
-import { Seller, FormErrors } from "@/app/admin/components/seller/types";
+import {
+	Seller,
+	FormErrors,
+	ImageObject,
+	VideoObject,
+} from "@/app/admin/components/seller/types";
 import ProfileCard from "@/app/admin/components/seller/ProfileCard";
 import DetailsTab from "@/app/admin/components/seller/DetailsTab";
 import BiographyTab from "@/app/admin/components/seller/BiographyTab";
-import PostsTab from "@/app/admin/components/seller/PostsTab";
+import SellerPostsTab from "@/app/admin/components/seller/SellerPostsTab";
 import PreferencesTab from "@/app/admin/components/seller/PreferencesTab";
 import ActivityTab from "@/app/admin/components/seller/ActivityTab";
 
@@ -31,16 +36,15 @@ export default function SellerDetailPage() {
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
 	const [isSavingBiography, setIsSavingBiography] = useState(false);
 	// --- Posts Tab: Images & Videos State ---
-	const [postImages, setPostImages] = useState<string[]>([]);
-	const [postVideos, setPostVideos] = useState<string[]>([]);
+	const [postImages, setPostImages] = useState<ImageObject[]>([]);
+	const [postVideos, setPostVideos] = useState<VideoObject[]>([]);
 	const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
 	const [isUploadingPostVideo, setIsUploadingPostVideo] = useState(false);
 	const [isSavingPosts, setIsSavingPosts] = useState(false);
 
-	const [existingImages, setExistingImages] = useState<string[]>([]);
-	const [newImages, setNewImages] = useState<string[]>([]);
-	const [deletedImages, setDeletedImages] = useState<string[]>([]);
-	const [videosToDelete, setVideosToDelete] = useState<string[]>([]);
+	const [existingImages, setExistingImages] = useState<ImageObject[]>([]);
+	const [deletedImages, setDeletedImages] = useState<ImageObject[]>([]);
+	const [videosToDelete, setVideosToDelete] = useState<VideoObject[]>([]);
 
 	// Fetch seller data from API
 	const fetchSellerData = useCallback(async () => {
@@ -103,6 +107,29 @@ export default function SellerDetailPage() {
 
 				setSeller(completeSeller);
 				setEditedSeller({ ...completeSeller });
+
+				// Fetch images and videos
+				try {
+					const [imagesRes, videosRes] = await Promise.all([
+						fetch(`/api/images?userId=${sellerId}&source=seller-post`),
+						fetch(`/api/videos?userId=${sellerId}&source=seller-post`),
+					]);
+
+					if (imagesRes.ok) {
+						const imagesData = await imagesRes.json();
+						setPostImages(imagesData.images);
+						setExistingImages(imagesData.images);
+					}
+
+					if (videosRes.ok) {
+						const videosData = await videosRes.json();
+						setPostVideos(videosData.videos);
+					}
+				} catch (error) {
+					console.error("Failed to fetch media:", error);
+					toast.error("Failed to load media gallery.");
+				}
+
 				toast.dismiss(loadingToast);
 			} catch (error) {
 				clearTimeout(timeoutId);
@@ -160,7 +187,6 @@ export default function SellerDetailPage() {
 			// Reset video deletion tracking when exiting edit mode
 			setVideosToDelete([]);
 			// Also reset other temporary states
-			setNewImages([]);
 			setDeletedImages([]);
 		}
 	}, [isEditing]);
@@ -307,34 +333,40 @@ export default function SellerDetailPage() {
 		}
 	};
 
-	const formatDate = (dateString: string | Date) => {
-		if (!dateString) return "N/A";
-		const date =
-			typeof dateString === "string" ? new Date(dateString) : dateString;
-		return new Intl.DateTimeFormat("en-IN", {
-			day: "2-digit",
-			month: "short",
-			year: "numeric",
-			hour: "2-digit",
-			minute: "2-digit",
-			hour12: true,
-		}).format(date);
-	};
+	const handleSavePreferences = async () => {
+		if (!editedSeller?.preferences) return;
 
-	const formatPhoneNumber = (value: string): string => {
-		// Remove all non-digit characters
-		const cleaned = value.replace(/\D/g, "");
+		setIsSaving(true);
+		const loadingToast = toast.loading("Saving preferences...");
 
-		// If it starts with 91, add +91
-		if (cleaned.startsWith("91") && cleaned.length >= 10) {
-			return `+91 ${cleaned.substring(2, 12)}`;
+		try {
+			const response = await fetch(`/api/users/${sellerId}`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					preferences: editedSeller.preferences,
+				}),
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to save preferences");
+			}
+
+			const updatedSeller = await response.json();
+			setSeller(updatedSeller);
+			setEditedSeller(updatedSeller);
+			toast.dismiss(loadingToast);
+			toast.success("Preferences updated successfully!");
+			setIsEditing(false);
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to save preferences"
+			);
+		} finally {
+			setIsSaving(false);
 		}
-		// If it's 10 digits, format as is
-		else if (cleaned.length <= 10) {
-			return cleaned;
-		}
-		// Default return the cleaned value
-		return cleaned;
 	};
 
 	const handleImageUpload = async (
@@ -406,48 +438,87 @@ export default function SellerDetailPage() {
 		setEditedSeller((prev) => (prev ? { ...prev, [field]: val } : prev));
 	}
 
-	type BlockNoteBlock = {
-		content?: { text: string }[];
-		[key: string]: unknown;
-	};
-
-	function safeBlockNoteHtml(jsonString?: string) {
-		try {
-			if (!jsonString) return "";
-			const blocks: BlockNoteBlock[] = JSON.parse(jsonString);
-			if (!Array.isArray(blocks)) return "";
-			return blocks
-				.map((block) => block.content?.map?.((c) => c.text).join(" ") || "")
-				.join("<br/>");
-		} catch {
-			return "";
-		}
-	}
 	// Add this near your other useEffect hooks
 	useEffect(() => {
-		const fetchVideos = async () => {
+		const fetchMedia = async () => {
 			if (!sellerId) return;
 			try {
-				const res = await fetch(`/api/videos?userId=${sellerId}`);
-				if (!res.ok) return;
-				const data = await res.json();
-				// Set videos from the video API
-				setPostVideos(data.videos.map((v: { videoUrl: string }) => v.videoUrl));
+				const [imagesRes, videosRes] = await Promise.all([
+					fetch(`/api/images?userId=${sellerId}&source=seller-post`),
+					fetch(`/api/videos?userId=${sellerId}&source=seller-post`),
+				]);
+
+				if (imagesRes.ok) {
+					const imagesData = await imagesRes.json();
+					setPostImages(imagesData.images || []);
+					setExistingImages(imagesData.images || []);
+				} else {
+					setPostImages([]);
+					setExistingImages([]);
+				}
+
+				if (videosRes.ok) {
+					const videosData = await videosRes.json();
+					setPostVideos(videosData.videos || []);
+				} else {
+					setPostVideos([]);
+				}
 			} catch (error) {
-				console.error("Error fetching videos:", error);
+				console.error("Error fetching media:", error);
+				setPostImages([]);
+				setPostVideos([]);
 			}
 		};
-		fetchVideos();
+		fetchMedia();
 	}, [sellerId]);
+
+	const handleImageAdded = (image: ImageObject) => {
+		setPostImages((prev) => [...prev, image]);
+	};
+
+	const handleVideoAdded = (video: VideoObject) => {
+		setPostVideos((prev) => [...prev, video]);
+	};
+
+	const handleImageTitleChange = (img: ImageObject, title: string) => {
+		setPostImages((prev) =>
+			prev.map((i) => (i.id === img.id ? { ...i, title } : i))
+		);
+	};
+
+	const handleImageDescriptionChange = (
+		img: ImageObject,
+		description: string
+	) => {
+		setPostImages((prev) =>
+			prev.map((i) => (i.id === img.id ? { ...i, description } : i))
+		);
+	};
+
+	const handleVideoTitleChange = (vid: VideoObject, title: string) => {
+		setPostVideos((prev) =>
+			prev.map((v) => (v.id === vid.id ? { ...v, title } : v))
+		);
+	};
+
+	const handleVideoDescriptionChange = (
+		vid: VideoObject,
+		description: string
+	) => {
+		setPostVideos((prev) =>
+			prev.map((v) => (v.id === vid.id ? { ...v, description } : v))
+		);
+	};
 
 	// --- Image Upload Handler ---
 	const handlePostImageUpload = async (
-		event: React.ChangeEvent<HTMLInputElement>
+		event: React.ChangeEvent<HTMLInputElement>,
+		source: "gallery" | "post"
 	) => {
 		const files = event.target.files;
 		if (!files || files.length === 0) return;
 		setIsUploadingPostImage(true);
-		const uploaded: string[] = [];
+		const uploaded: ImageObject[] = [];
 		try {
 			for (let i = 0; i < files.length; i++) {
 				const file = files[i];
@@ -460,9 +531,14 @@ export default function SellerDetailPage() {
 				});
 				if (!response.ok) throw new Error("Failed to upload image");
 				const { imageUrl } = await response.json();
-				uploaded.push(imageUrl);
+				// Create an image object, assuming no title/desc for multi-upload
+				const newImage: ImageObject = {
+					url: imageUrl,
+					userId: sellerId,
+					source,
+				};
+				uploaded.push(newImage);
 			}
-			setNewImages((prev) => [...prev, ...uploaded]);
 			setPostImages((prev) => [...prev, ...uploaded]);
 			toast.success("Image(s) uploaded successfully!");
 		} catch {
@@ -472,15 +548,15 @@ export default function SellerDetailPage() {
 		}
 	};
 
-	const handleRemovePostImage = (url: string) => {
-		if (existingImages.includes(url)) {
-			setDeletedImages((prev) => [...prev, url]);
-			setExistingImages((prev) => prev.filter((img) => img !== url));
+	const handleRemovePostImage = (imageToRemove: ImageObject) => {
+		// If the image has an ID, it's an existing one that needs to be marked for deletion
+		if (imageToRemove.id) {
+			setDeletedImages((prev) => [...prev, imageToRemove]);
 		}
-		if (newImages.includes(url)) {
-			setNewImages((prev) => prev.filter((img) => img !== url));
-		}
-		setPostImages((prev) => prev.filter((img) => img !== url));
+		// Filter out from the main display list
+		setPostImages((prev) =>
+			prev.filter((img) => img.url !== imageToRemove.url)
+		);
 	};
 
 	// --- Video Upload Handler ---
@@ -490,7 +566,7 @@ export default function SellerDetailPage() {
 		const files = event.target.files;
 		if (!files || files.length === 0) return;
 		setIsUploadingPostVideo(true);
-		const uploaded: string[] = [];
+		const uploaded: VideoObject[] = [];
 		try {
 			for (let i = 0; i < files.length; i++) {
 				const file = files[i];
@@ -503,90 +579,149 @@ export default function SellerDetailPage() {
 				});
 				if (!response.ok) throw new Error("Failed to upload video");
 				const { videoUrl } = await response.json();
-				uploaded.push(videoUrl);
+
+				// Create a video object and save it to the database
+				const createRes = await fetch("/api/videos", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						videoFile: videoUrl,
+						userId: sellerId,
+						title: file.name, // Default title
+						description: "",
+						source: "seller-post",
+						category: "General",
+						type: "post",
+					}),
+				});
+
+				if (!createRes.ok) {
+					throw new Error("Failed to save video metadata");
+				}
+				const newVideo = await createRes.json();
+				uploaded.push(newVideo);
 			}
 			setPostVideos((prev) => [...prev, ...uploaded]);
 			toast.success("Video(s) uploaded successfully!");
-		} catch {
-			toast.error("Failed to upload video(s)");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to upload video(s)"
+			);
 		} finally {
 			setIsUploadingPostVideo(false);
 		}
 	};
 
-	const handleRemovePostVideo = (url: string) => {
-		setVideosToDelete((prev) => [...prev, url]);
-		setPostVideos((prev) => prev.filter((vid) => vid !== url));
+	const handleRemovePostVideo = async (videoToRemove: VideoObject) => {
+		if (!videoToRemove.id) return;
+		setVideosToDelete((prev) => [...prev, videoToRemove]);
+		setPostVideos((prev) => prev.filter((vid) => vid.id !== videoToRemove.id));
 	};
 
-	async function handleSavePosts(
-		event: React.MouseEvent<HTMLButtonElement, MouseEvent>
-	): Promise<void> {
-		event.preventDefault();
-		if (!sellerId) {
-			toast.error("Invalid Seller ID");
-			return;
-		}
+	// --- Save Posts Handler ---
+	const handleSavePosts = async () => {
 		setIsSavingPosts(true);
-		const loadingToast = toast.loading("Saving posts...");
+		const loadingToast = toast.loading("Saving media changes...");
+
 		try {
-			// First handle image updates
-			const response = await fetch(`/api/users/${sellerId}`, {
-				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					newImages,
-					deletedImages,
-				}),
-			});
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.error || "Failed to save posts");
+			// 1. Delete images marked for deletion
+			if (deletedImages.length > 0) {
+				const imageIds = deletedImages.map((img) => img.id).filter(Boolean);
+				if (imageIds.length > 0) {
+					await fetch("/api/images", {
+						method: "DELETE",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ ids: imageIds }),
+					});
+				}
 			}
 
-			// Then handle video deletions
+			// 2. Delete videos marked for deletion
 			if (videosToDelete.length > 0) {
-				// Fetch all videos for this user
-				const videosRes = await fetch(`/api/videos?userId=${sellerId}`);
-				if (!videosRes.ok) {
-					throw new Error("Failed to fetch videos for deletion");
+				const videoIds = videosToDelete.map((vid) => vid.id).filter(Boolean);
+				if (videoIds.length > 0) {
+					await fetch("/api/videos", {
+						method: "DELETE",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ ids: videoIds }),
+					});
 				}
-				const videosData = await videosRes.json();
+			}
 
-				// Find and delete videos that match URLs in videosToDelete
-				const deletePromises = videosToDelete.map(async (urlToDelete) => {
-					const videoToDelete = videosData.videos.find(
-						(v: { videoUrl: string }) => v.videoUrl === urlToDelete
-					);
-					if (videoToDelete) {
-						const deleteRes = await fetch(`/api/videos/${videoToDelete.id}`, {
-							method: "DELETE",
-						});
-						if (!deleteRes.ok) {
-							console.error(`Failed to delete video: ${videoToDelete.id}`);
-						}
-					}
-				});
+			// 3. Update existing images with new titles/descriptions
+			const imagesToUpdate = postImages.filter(
+				(img) =>
+					img.id && // It's an existing image
+					(img.title !== existingImages.find((i) => i.id === img.id)?.title ||
+						img.description !==
+							existingImages.find((i) => i.id === img.id)?.description)
+			);
 
-				await Promise.all(deletePromises);
+			if (imagesToUpdate.length > 0) {
+				await Promise.all(
+					imagesToUpdate.map((img) =>
+						fetch(`/api/images/${img.id}`, {
+							method: "PUT",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								title: img.title,
+								description: img.description,
+							}),
+						})
+					)
+				);
+			}
+
+			// 4. Update videos with new titles/descriptions
+			const videosToUpdate = postVideos.filter((vid) => vid.id); // All videos have IDs now
+			if (videosToUpdate.length > 0) {
+				await Promise.all(
+					videosToUpdate.map((vid) =>
+						fetch(`/api/videos/${vid.id}`, {
+							method: "PUT",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								title: vid.title,
+								description: vid.description,
+							}),
+						})
+					)
+				);
 			}
 
 			toast.dismiss(loadingToast);
-			toast.success("Posts saved successfully!");
+			toast.success("Media gallery updated successfully!");
 			setIsEditing(false);
-			setIsSavingPosts(false);
-			setNewImages([]);
-			setDeletedImages([]);
-			setVideosToDelete([]);
+			// Refetch all data to ensure consistency
+			fetchSellerData();
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(
-				error instanceof Error ? error.message : "Failed to save posts"
+				error instanceof Error ? error.message : "Failed to save media changes."
 			);
+		} finally {
 			setIsSavingPosts(false);
+			setDeletedImages([]);
+			setVideosToDelete([]);
 		}
+	};
+
+	if (!seller) {
+		return (
+			<div className="p-6 space-y-6">
+				<div className="flex items-center gap-4">
+					<Button
+						variant="outline"
+						size="icon"
+						onClick={() => router.push("/admin/seller")}
+					>
+						<ArrowLeft className="h-4 w-4" />
+					</Button>
+					<h1 className="text-2xl font-bold">Loading Seller Details...</h1>
+				</div>
+				{/* You can add a skeleton loader here */}
+			</div>
+		);
 	}
 
 	return (
@@ -602,84 +737,82 @@ export default function SellerDetailPage() {
 				<h1 className="text-2xl font-bold">Seller Details</h1>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-				<ProfileCard
-					seller={seller}
-					editedSeller={editedSeller}
-					isEditing={isEditing}
-					setIsEditing={setIsEditing}
-					handleImageUpload={handleImageUpload}
-					handleRemoveImage={handleRemoveImage}
-					isUploadingImage={isUploadingImage}
-					imageError={imageError}
-					setImageError={setImageError}
-				/>
+			<div className="flex flex-col lg:flex-row gap-6">
+				<div className="lg:w-1/3">
+					<ProfileCard
+						seller={seller}
+						editedSeller={editedSeller}
+						isEditing={isEditing}
+						setIsEditing={setIsEditing}
+						handleImageUpload={handleImageUpload}
+						handleRemoveImage={handleRemoveImage}
+						isUploadingImage={isUploadingImage}
+						imageError={imageError}
+						setImageError={setImageError}
+					/>
+				</div>
 
-				{/* Tabs Section */}
-				<div className="md:col-span-2">
-					<Tabs defaultValue="details">
-						<TabsList className="grid grid-cols-5 mb-4">
-							<TabsTrigger value="details">Seller Details</TabsTrigger>
+				<div className="flex-1 lg:max-w-4xl xl:max-w-6xl">
+					<Tabs defaultValue="details" className="w-full">
+						<TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+							<TabsTrigger value="details">Details</TabsTrigger>
 							<TabsTrigger value="biography">Biography</TabsTrigger>
 							<TabsTrigger value="posts">Posts</TabsTrigger>
 							<TabsTrigger value="preferences">Preferences</TabsTrigger>
-							<TabsTrigger value="activity">Activity Log</TabsTrigger>
+							<TabsTrigger value="activity">Activity</TabsTrigger>
 						</TabsList>
-
-						<TabsContent value="details" className="space-y-4">
+						<TabsContent value="details">
 							<DetailsTab
-								seller={seller}
-								editedSeller={editedSeller}
-								setEditedSeller={setEditedSeller}
 								isEditing={isEditing}
-								isSaving={isSaving}
+								editedSeller={editedSeller}
 								errors={errors}
-								setErrors={setErrors}
-								handleSaveChanges={handleSaveChanges}
-								formatDate={formatDate}
-								formatPhoneNumber={formatPhoneNumber}
+								setEditedSeller={setEditedSeller}
 								setAddressesToDelete={setAddressesToDelete}
+								handleSaveChanges={handleSaveChanges}
+								isSaving={isSaving}
 							/>
 						</TabsContent>
-
-						<TabsContent value="biography" className="space-y-4">
+						<TabsContent value="biography">
 							<BiographyTab
-								editedSeller={editedSeller}
 								isEditing={isEditing}
+								editedSeller={editedSeller}
 								handleBlockNoteChange={handleBlockNoteChange}
-								safeBlockNoteHtml={safeBlockNoteHtml}
 								onSave={handleSaveBiography}
 								isSaving={isSavingBiography}
 							/>
 						</TabsContent>
-
-						<TabsContent value="posts" className="space-y-4">
-							<PostsTab
+						<TabsContent value="posts">
+							<SellerPostsTab
 								isEditing={isEditing}
 								postImages={postImages}
 								postVideos={postVideos}
-								handlePostImageUpload={handlePostImageUpload}
-								handleRemovePostImage={handleRemovePostImage}
 								isUploadingPostImage={isUploadingPostImage}
+								handlePostImageUpload={(e) => handlePostImageUpload(e, "post")}
+								handleRemovePostImage={handleRemovePostImage}
+								isUploadingPostVideo={isUploadingPostVideo}
 								handlePostVideoUpload={handlePostVideoUpload}
 								handleRemovePostVideo={handleRemovePostVideo}
-								isUploadingPostVideo={isUploadingPostVideo}
-								handleSavePosts={handleSavePosts}
 								isSavingPosts={isSavingPosts}
+								handleSavePosts={handleSavePosts}
+								userId={sellerId}
+								onImageAdded={handleImageAdded}
+								onVideoAdded={handleVideoAdded}
+								handleImageTitleChange={handleImageTitleChange}
+								handleImageDescriptionChange={handleImageDescriptionChange}
+								handleVideoTitleChange={handleVideoTitleChange}
+								handleVideoDescriptionChange={handleVideoDescriptionChange}
 							/>
 						</TabsContent>
-
-						<TabsContent value="preferences" className="space-y-4">
+						<TabsContent value="preferences">
 							<PreferencesTab
 								seller={seller}
+								isEditing={isEditing}
 								editedSeller={editedSeller}
 								setEditedSeller={setEditedSeller}
-								isEditing={isEditing}
-								handleSaveChanges={handleSaveChanges}
+								handleSaveChanges={handleSavePreferences}
 							/>
 						</TabsContent>
-
-						<TabsContent value="activity" className="space-y-4">
+						<TabsContent value="activity">
 							<ActivityTab />
 						</TabsContent>
 					</Tabs>

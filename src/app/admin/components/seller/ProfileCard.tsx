@@ -202,10 +202,9 @@ export default function ProfileCard({
 												<p className="truncate">{address.line2}</p>
 											)}
 											<p className="truncate">
-												{address.city}
-												{address.state && `, ${address.state}`}
-												{address.pincode && ` - ${address.pincode}`}
+												{address.city}, {address.state} {address.pincode}
 											</p>
+											<p className="truncate">{address.country}</p>
 										</div>
 									</div>
 								))}
@@ -215,13 +214,13 @@ export default function ProfileCard({
 				)}
 			</CardContent>
 
-			<CardFooter className="p-4 pt-0">
+			<CardFooter className="p-4">
 				<Button
-					className="w-full text-sm h-8"
-					variant={isEditing ? "outline" : "default"}
 					onClick={() => setIsEditing(!isEditing)}
+					variant={isEditing ? "secondary" : "default"}
+					className="w-full"
 				>
-					{isEditing ? "Cancel" : "Edit Seller"}
+					{isEditing ? "Cancel" : "Edit Profile"}
 				</Button>
 			</CardFooter>
 		</Card>
