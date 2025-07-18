@@ -63,3 +63,21 @@ export interface FormErrors {
 		};
 	};
 }
+
+export interface ImageObject {
+	id?: string;
+	url: string;
+	title?: string;
+	description?: string;
+	_isFromDialog?: boolean; // Flag to track if uploaded via dialog
+}
+
+export interface VideoObject {
+	id?: string;
+	url: string;
+	title?: string;
+	description?: string;
+	source?: string;
+	videoFile?: string;
+	_isFromDialog?: boolean; // Flag to track if uploaded via dialog
+}

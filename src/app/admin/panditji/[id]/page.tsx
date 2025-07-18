@@ -6,11 +6,16 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/lib/toast";
-import { Panditji, FormErrors } from "@/app/admin/components/panditji/types";
+import {
+	Panditji,
+	FormErrors,
+	ImageObject,
+	VideoObject,
+} from "@/app/admin/components/panditji/types";
 import ProfileCard from "@/app/admin/components/panditji/ProfileCard";
 import DetailsTab from "@/app/admin/components/panditji/DetailsTab";
 import BiographyTab from "@/app/admin/components/panditji/BiographyTab";
-import PostsTab from "@/app/admin/components/panditji/PostsTab";
+import PanditjiPostsTab from "@/app/admin/components/panditji/PanditjiPostsTab";
 import PreferencesTab from "@/app/admin/components/panditji/PreferencesTab";
 import ActivityTab from "@/app/admin/components/panditji/ActivityTab";
 
@@ -30,59 +35,10 @@ export default function PanditjiDetailPage() {
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
 	const [isSavingBiography, setIsSavingBiography] = useState(false);
 
-	const [postImages, setPostImages] = useState<string[]>([]);
-	const [postVideos, setPostVideos] = useState<string[]>([]);
-	const [isUploadingPostImage, setIsUploadingPostImage] = useState(false);
-	const [isUploadingPostVideo, setIsUploadingPostVideo] = useState(false);
-	const [isSavingPosts, setIsSavingPosts] = useState(false);
-	const [videosToDelete, setVideosToDelete] = useState<string[]>([]);
-
-	const [existingImages, setExistingImages] = useState<string[]>([]);
-	const [newImages, setNewImages] = useState<string[]>([]);
+	const [postImages, setPostImages] = useState<ImageObject[]>([]);
+	const [postVideos, setPostVideos] = useState<VideoObject[]>([]);
 	const [deletedImages, setDeletedImages] = useState<string[]>([]);
-
-	// Fetch posts (images/videos) on mount or panditjiId change
-	useEffect(() => {
-		const fetchPosts = async () => {
-			if (!panditjiId) return;
-			try {
-				// Fetch user data for images
-				const res = await fetch(`/api/users/${panditjiId}`);
-				if (!res.ok) return;
-				const data = await res.json();
-				setExistingImages(
-					Array.isArray(data.images)
-						? data.images
-						: data.images
-						? [data.images]
-						: []
-				);
-				setPostImages(
-					Array.isArray(data.images)
-						? data.images
-						: data.images
-						? [data.images]
-						: []
-				);
-
-				// Fetch videos from Video model
-				const videoRes = await fetch(`/api/videos?userId=${panditjiId}`);
-				if (videoRes.ok) {
-					const videoData = await videoRes.json();
-					setPostVideos(
-						Array.isArray(videoData.videos)
-							? videoData.videos.map((v: { videoUrl: string }) => v.videoUrl)
-							: []
-					);
-				}
-			} catch (error) {
-				console.error("Error fetching posts:", error);
-			}
-		};
-		fetchPosts();
-	}, [panditjiId]);
-
-	// Fetch Panditji data from API
+	const [deletedVideos, setDeletedVideos] = useState<string[]>([]);
 	const fetchPanditjiData = useCallback(async () => {
 		try {
 			if (panditjiId && !/^[0-9a-fA-F]{24}$/.test(panditjiId)) {
@@ -112,27 +68,44 @@ export default function PanditjiDetailPage() {
 				}
 
 				const PanditjiData = await response.json();
-				const completePanditji: Panditji = {
-					...PanditjiData,
-					id: PanditjiData.id,
-					name: PanditjiData.name || "",
-					email: PanditjiData.email || "",
-					phone: PanditjiData.phone || "",
-					addresses: PanditjiData.addresses || [],
-					PanditjiType: PanditjiData.PanditjiType || "Regular",
-					status: PanditjiData.status || "Active",
-					isLoggedIn: PanditjiData.isLoggedIn || false,
-					bio: PanditjiData.bio || "",
-					createdAt: PanditjiData.createdAt || new Date().toISOString(),
-					preferences: {
-						notifications: true,
-						newsletter: false,
-						language: "English",
-					},
-					activities: [],
-				};
-				setPanditji(completePanditji);
-				setEditedPanditji({ ...completePanditji });
+				setPanditji(PanditjiData);
+				setEditedPanditji(PanditjiData);
+
+				// Preserve videos/images uploaded via dialog to avoid duplicates
+				setPostImages((prevImages) => {
+					const dialogImages = prevImages.filter((img) => img._isFromDialog);
+					const serverImages = PanditjiData.images || [];
+					// Merge server images with dialog images, avoiding duplicates by URL
+					const mergedImages = [...serverImages];
+					dialogImages.forEach((dialogImg) => {
+						if (
+							!serverImages.some(
+								(serverImg: ImageObject) => serverImg.url === dialogImg.url
+							)
+						) {
+							mergedImages.push(dialogImg);
+						}
+					});
+					return mergedImages;
+				});
+
+				setPostVideos((prevVideos) => {
+					const dialogVideos = prevVideos.filter((vid) => vid._isFromDialog);
+					const serverVideos = PanditjiData.videos || [];
+					// Merge server videos with dialog videos, avoiding duplicates by URL
+					const mergedVideos = [...serverVideos];
+					dialogVideos.forEach((dialogVid) => {
+						if (
+							!serverVideos.some(
+								(serverVid: VideoObject) => serverVid.url === dialogVid.url
+							)
+						) {
+							mergedVideos.push(dialogVid);
+						}
+					});
+					return mergedVideos;
+				});
+
 				toast.dismiss(loadingToast);
 			} catch (error) {
 				clearTimeout(timeoutId);
@@ -188,19 +161,14 @@ export default function PanditjiDetailPage() {
 		}
 	}, [panditjiId, fetchPanditjiData]);
 
-	// Reset videosToDelete when edit mode changes
-	useEffect(() => {
-		if (!isEditing) {
-			setVideosToDelete([]);
-		}
-	}, [isEditing]);
-
-	// Effect to clean up videosToDelete when component unmounts
+	// Effect to clean up when component unmounts
 	useEffect(() => {
 		return () => {
-			setVideosToDelete([]);
+			// cleanup logic if needed
 		};
 	}, []);
+
+
 
 	const validateForm = (PanditjiData: Partial<Panditji>): boolean => {
 		const newErrors: FormErrors = {};
@@ -262,25 +230,23 @@ export default function PanditjiDetailPage() {
 		const loadingToast = toast.loading("Saving changes...");
 
 		try {
-			// Prepare data for API
+			// --- Save Details Tab Data ---
+			// Filter out images/videos that were uploaded via dialog (already saved)
+			const imagesToSave = postImages.filter((img) => !img._isFromDialog);
+			const videosToSave = postVideos.filter((vid) => !vid._isFromDialog);
+
 			const dataToSave = {
-				name: editedPanditji.name,
-				email: editedPanditji.email,
-				phone: editedPanditji.phone,
-				addresses: editedPanditji.addresses,
+				...editedPanditji,
+				images: imagesToSave,
+				videos: videosToSave,
+				deletedImages,
+				deletedVideos,
 				addressesToDelete,
-				bio: editedPanditji.bio || null,
-				profileImageUrl:
-					editedPanditji.profileImageUrl === undefined
-						? null // <-- send null if removed
-						: editedPanditji.profileImageUrl,
 			};
 
 			const response = await fetch(`/api/users/${panditjiId}`, {
 				method: "PUT",
-				headers: {
-					"Content-Type": "application/json",
-				},
+				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(dataToSave),
 			});
 
@@ -289,20 +255,20 @@ export default function PanditjiDetailPage() {
 				throw new Error(errorData.error || "Failed to update Panditji");
 			}
 
-			const updatedPanditji = await response.json();
+			// After saving, refetch Panditji data to ensure images/videos are up-to-date
+			await fetchPanditjiData();
 
-			setPanditji(updatedPanditji);
-			setEditedPanditji(updatedPanditji);
+			setDeletedImages([]);
+			setDeletedVideos([]);
+			setAddressesToDelete([]);
+
 			setIsEditing(false);
 			toast.dismiss(loadingToast);
-			toast.success("Panditji details updated successfully!");
-			setAddressesToDelete([]);
+			toast.success("All changes saved successfully!");
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(
-				error instanceof Error
-					? error.message
-					: "Failed to update Panditji details"
+				error instanceof Error ? error.message : "Failed to save changes"
 			);
 		} finally {
 			setIsSaving(false);
@@ -315,14 +281,12 @@ export default function PanditjiDetailPage() {
 		const file = event.target.files?.[0];
 		if (!file) return;
 
-		// Validate file type
 		const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 		if (!validTypes.includes(file.type)) {
 			toast.error("Please select a valid image file (JPEG, PNG, or WebP)");
 			return;
 		}
 
-		// Validate file size (5MB limit)
 		const maxSize = 5 * 1024 * 1024;
 		if (file.size > maxSize) {
 			toast.error("Image size must be less than 5MB");
@@ -395,199 +359,6 @@ export default function PanditjiDetailPage() {
 		}
 	}
 
-	const handlePostImageUpload = async (
-		event: React.ChangeEvent<HTMLInputElement>
-	) => {
-		const files = event.target.files;
-		if (!files || files.length === 0) return;
-		setIsUploadingPostImage(true);
-		const uploaded: string[] = [];
-		try {
-			for (let i = 0; i < files.length; i++) {
-				const file = files[i];
-				const formData = new FormData();
-				formData.append("file", file);
-				formData.append("userId", panditjiId);
-				const response = await fetch("/api/upload/panditji-image", {
-					method: "POST",
-					body: formData,
-				});
-				if (!response.ok) throw new Error("Failed to upload image");
-				const { imageUrl } = await response.json();
-				uploaded.push(imageUrl);
-			}
-			setNewImages((prev) => [...prev, ...uploaded]);
-			setPostImages((prev) => [...prev, ...uploaded]);
-			toast.success("Image(s) uploaded successfully!");
-		} catch {
-			toast.error("Failed to upload image(s)");
-		} finally {
-			setIsUploadingPostImage(false);
-		}
-	};
-
-	const handleRemovePostImage = (url: string) => {
-		if (existingImages.includes(url)) {
-			setDeletedImages((prev) => [...prev, url]);
-			setExistingImages((prev) => prev.filter((img) => img !== url));
-		}
-		if (newImages.includes(url)) {
-			setNewImages((prev) => prev.filter((img) => img !== url));
-		}
-		setPostImages((prev) => prev.filter((img) => img !== url));
-	};
-
-	const handlePostVideoUpload = async (
-		event: React.ChangeEvent<HTMLInputElement>
-	) => {
-		const files = event.target.files;
-		if (!files || files.length === 0) return;
-		setIsUploadingPostVideo(true);
-		const uploaded: string[] = [];
-		try {
-			for (let i = 0; i < files.length; i++) {
-				const file = files[i];
-				const formData = new FormData();
-				formData.append("file", file);
-				formData.append("userId", panditjiId);
-				// Use the correct video upload endpoint
-				const response = await fetch("/api/upload/video", {
-					method: "POST",
-					body: formData,
-				});
-				if (!response.ok) throw new Error("Failed to upload video");
-				const { videoUrl } = await response.json();
-				uploaded.push(videoUrl);
-			}
-			setPostVideos((prev) => [...prev, ...uploaded]);
-			toast.success("Video(s) uploaded successfully!");
-		} catch {
-			toast.error("Failed to upload video(s)");
-		} finally {
-			setIsUploadingPostVideo(false);
-		}
-	};
-
-	const handleRemovePostVideo = (url: string) => {
-		// Add to videos to delete list so we can delete from database on save
-		console.log("Marking video for deletion:", url);
-		setVideosToDelete((prev) => [...prev, url]);
-		// Remove from UI
-		setPostVideos((prev) => prev.filter((vid) => vid !== url));
-	};
-
-	async function handleSavePosts(
-		event: React.MouseEvent<HTMLButtonElement, MouseEvent>
-	): Promise<void> {
-		event.preventDefault();
-		if (!panditjiId) {
-			toast.error("Invalid Panditji ID");
-			return;
-		}
-		setIsSavingPosts(true);
-		const loadingToast = toast.loading("Saving posts...");
-		try {
-			// First save image changes to the user model
-			const response = await fetch(`/api/users/${panditjiId}`, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					newImages,
-					deletedImages,
-				}),
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.error || "Failed to save posts");
-			}
-
-			// Delete videos that were removed from UI
-			if (videosToDelete.length > 0) {
-				// Find videos by URLs
-				const videosRes = await fetch(`/api/videos?userId=${panditjiId}`);
-				if (videosRes.ok) {
-					const videoData = await videosRes.json();
-
-					// Make sure we have the expected structure
-					if (!videoData.videos || !Array.isArray(videoData.videos)) {
-						console.error("Unexpected video response format:", videoData);
-						throw new Error("Failed to get videos from server");
-					}
-
-					const { videos } = videoData;
-
-					// Debug log
-					console.log("Videos to delete:", videosToDelete);
-					console.log("All videos from DB:", videos);
-
-					// Find video IDs that match the URLs we want to delete
-					const videoIdsToDelete = videos
-						.filter((v: { videoUrl: string; id: string }) =>
-							videosToDelete.includes(v.videoUrl)
-						)
-						.map((v: { id: string }) => v.id);
-
-					console.log("Video IDs to delete:", videoIdsToDelete);
-
-					// If no matching videos found, log a warning
-					if (videoIdsToDelete.length === 0 && videosToDelete.length > 0) {
-						console.warn(
-							"No matching videos found in database for URLs:",
-							videosToDelete
-						);
-					}
-
-					// Delete each video by ID
-					const deleteResults = [];
-					for (const videoId of videoIdsToDelete) {
-						try {
-							const deleteResponse = await fetch(`/api/videos/${videoId}`, {
-								method: "DELETE",
-							});
-
-							if (!deleteResponse.ok) {
-								const errorText = await deleteResponse.text();
-								console.error(`Failed to delete video ${videoId}:`, errorText);
-								deleteResults.push({
-									id: videoId,
-									success: false,
-									error: errorText,
-								});
-							} else {
-								console.log(`Successfully deleted video ${videoId}`);
-								deleteResults.push({ id: videoId, success: true });
-							}
-						} catch (error) {
-							console.error(`Error deleting video ${videoId}:`, error);
-							deleteResults.push({
-								id: videoId,
-								success: false,
-								error: error instanceof Error ? error.message : String(error),
-							});
-						}
-					}
-
-					console.log("Video deletion results:", deleteResults);
-				}
-			}
-
-			toast.dismiss(loadingToast);
-			toast.success("Posts saved successfully!");
-			setIsEditing(false);
-			setIsSavingPosts(false);
-			setNewImages([]);
-			setDeletedImages([]);
-			setVideosToDelete([]);
-		} catch (error) {
-			toast.dismiss(loadingToast);
-			toast.error(
-				error instanceof Error ? error.message : "Failed to save posts"
-			);
-			setIsSavingPosts(false);
-		}
-	}
-
 	const handleSaveBiography = async () => {
 		setIsSavingBiography(true);
 		try {
@@ -640,40 +411,47 @@ export default function PanditjiDetailPage() {
 		return cleaned;
 	};
 
-	return (
-		<div className="p-6 space-y-6">
-			<div className="flex items-center gap-4">
-				<Button
-					variant="outline"
-					size="icon"
-					onClick={() => router.push("/admin/panditji")}
-				>
-					<ArrowLeft className="h-4 w-4" />
-				</Button>
-				<h1 className="text-2xl font-bold">Panditji Details</h1>
+	if (!panditji || !editedPanditji) {
+		return (
+			<div className="flex h-full items-center justify-center">
+				<div className="text-lg font-semibold">Loading Panditji details...</div>
 			</div>
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-				<ProfileCard
-					panditji={panditji}
-					editedPanditji={editedPanditji}
-					isEditing={isEditing}
-					setIsEditing={setIsEditing}
-					handleImageUpload={handleImageUpload}
-					handleRemoveImage={handleRemoveImage}
-					isUploadingImage={isUploadingImage}
-					imageError={imageError}
-					setImageError={setImageError}
-				/>
-				<div className="md:col-span-2">
+		);
+	}
+
+	return (
+		<div className="container mx-auto p-4">
+			<div className="mb-4 flex items-center justify-between">
+				<Button variant="ghost" onClick={() => router.back()}>
+					<ArrowLeft className="mr-2 h-4 w-4" />
+					Back to Panditjis
+				</Button>
+			</div>
+
+			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+				<div className="lg:col-span-1">
+					<ProfileCard
+						panditji={panditji}
+						editedPanditji={editedPanditji}
+						handleImageUpload={handleImageUpload}
+						handleRemoveImage={handleRemoveImage}
+						isUploadingImage={isUploadingImage}
+						imageError={imageError}
+						isEditing={isEditing}
+						setIsEditing={setIsEditing}
+						setImageError={setImageError}
+					/>
+				</div>
+				<div className="lg:col-span-2">
 					<Tabs defaultValue="details">
-						<TabsList className="grid grid-cols-5 mb-4">
-							<TabsTrigger value="details">Panditji Details</TabsTrigger>
+						<TabsList>
+							<TabsTrigger value="details">Details</TabsTrigger>
 							<TabsTrigger value="biography">Biography</TabsTrigger>
 							<TabsTrigger value="posts">Posts</TabsTrigger>
 							<TabsTrigger value="preferences">Preferences</TabsTrigger>
-							<TabsTrigger value="activity">Activity Log</TabsTrigger>
+							<TabsTrigger value="activity">Activity</TabsTrigger>
 						</TabsList>
-						<TabsContent value="details" className="space-y-4">
+						<TabsContent value="details">
 							<DetailsTab
 								panditji={panditji}
 								editedPanditji={editedPanditji}
@@ -688,7 +466,7 @@ export default function PanditjiDetailPage() {
 								setAddressesToDelete={setAddressesToDelete}
 							/>
 						</TabsContent>
-						<TabsContent value="biography" className="space-y-4">
+						<TabsContent value="biography">
 							<BiographyTab
 								editedPanditji={editedPanditji}
 								isEditing={isEditing}
@@ -698,22 +476,16 @@ export default function PanditjiDetailPage() {
 								isSaving={isSavingBiography}
 							/>
 						</TabsContent>
-						<TabsContent value="posts" className="space-y-4">
-							<PostsTab
+						<TabsContent value="posts">
+							<PanditjiPostsTab
+								userId={panditjiId}
 								isEditing={isEditing}
-								postImages={postImages}
-								postVideos={postVideos}
-								handlePostImageUpload={handlePostImageUpload}
-								handleRemovePostImage={handleRemovePostImage}
-								isUploadingPostImage={isUploadingPostImage}
-								handlePostVideoUpload={handlePostVideoUpload}
-								handleRemovePostVideo={handleRemovePostVideo}
-								isUploadingPostVideo={isUploadingPostVideo}
-								handleSavePosts={handleSavePosts}
-								isSavingPosts={isSavingPosts}
+								isSavingPosts={isSaving}
+								onSavePosts={fetchPanditjiData}
+								onEditDone={() => setIsEditing(false)}
 							/>
 						</TabsContent>
-						<TabsContent value="preferences" className="space-y-4">
+						<TabsContent value="preferences">
 							<PreferencesTab
 								panditji={panditji}
 								editedPanditji={editedPanditji}
@@ -722,7 +494,7 @@ export default function PanditjiDetailPage() {
 								handleSaveChanges={handleSaveChanges}
 							/>
 						</TabsContent>
-						<TabsContent value="activity" className="space-y-4">
+						<TabsContent value="activity">
 							<ActivityTab />
 						</TabsContent>
 					</Tabs>
