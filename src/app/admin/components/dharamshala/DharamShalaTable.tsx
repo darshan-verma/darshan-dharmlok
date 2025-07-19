@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Pagination from "../Pagination/Pagination";
 import {
 	Search,
 	Eye,
@@ -82,6 +83,8 @@ export default function DharamshalaTable({
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [stateFilter, setStateFilter] = useState<string>("all");
 	const [cityFilter, setCityFilter] = useState<string>("all");
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 10;
 
 	const filteredDharamshalas = dharamshalas.filter((dharamshala) => {
 		const matchesSearch =
@@ -100,6 +103,15 @@ export default function DharamshalaTable({
 		return matchesSearch && matchesStatus && matchesState && matchesCity;
 	});
 
+	const totalItems = filteredDharamshalas.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+	const paginatedDharamshalas = filteredDharamshalas.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage
+	);
+
+	if (currentPage > totalPages) setCurrentPage(1);
+
 	const uniqueStates = Array.from(new Set(dharamshalas.map((t) => t.state)));
 	const uniqueCities = Array.from(new Set(dharamshalas.map((t) => t.city)));
 
@@ -115,7 +127,10 @@ export default function DharamshalaTable({
 							placeholder="Search dharamshalas..."
 							className="pl-8"
 							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
+							onChange={(e) => {
+								setSearchTerm(e.target.value);
+								setCurrentPage(1);
+							}}
 						/>
 					</div>
 					{/* Add Dharamshala Button */}
@@ -133,7 +148,10 @@ export default function DharamshalaTable({
 						<select
 							className="h-8 border rounded px-2 w-full"
 							value={stateFilter}
-							onChange={(e) => setStateFilter(e.target.value)}
+							onChange={(e) => {
+								setStateFilter(e.target.value);
+								setCurrentPage(1);
+							}}
 						>
 							<option value="all">All States</option>
 							{uniqueStates.map((state) => (
@@ -148,7 +166,10 @@ export default function DharamshalaTable({
 						<select
 							className="h-8 border rounded px-2 w-full"
 							value={cityFilter}
-							onChange={(e) => setCityFilter(e.target.value)}
+							onChange={(e) => {
+								setCityFilter(e.target.value);
+								setCurrentPage(1);
+							}}
 						>
 							<option value="all">All Cities</option>
 							{uniqueCities.map((city) => (
@@ -163,7 +184,10 @@ export default function DharamshalaTable({
 						<select
 							className="h-8 border rounded px-2 w-full"
 							value={statusFilter}
-							onChange={(e) => setStatusFilter(e.target.value)}
+							onChange={(e) => {
+								setStatusFilter(e.target.value);
+								setCurrentPage(1);
+							}}
 						>
 							<option value="all">All Status</option>
 							<option value="Active">Active</option>
@@ -173,8 +197,8 @@ export default function DharamshalaTable({
 				</div>
 				{/* Results Count */}
 				<div className="text-sm text-gray-500">
-					{filteredDharamshalas.length} dharamshala
-					{filteredDharamshalas.length !== 1 ? "s" : ""} found
+					{totalItems} dharamshala
+					{totalItems !== 1 ? "s" : ""} found
 				</div>
 			</div>
 			<div className="rounded-md border">
@@ -191,8 +215,8 @@ export default function DharamshalaTable({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{filteredDharamshalas.length > 0 ? (
-							filteredDharamshalas.map((dharamshala) => (
+						{paginatedDharamshalas.length > 0 ? (
+							paginatedDharamshalas.map((dharamshala) => (
 								<TableRow key={dharamshala.id}>
 									<TableCell className="font-medium">
 										{dharamshala.name}
@@ -300,6 +324,14 @@ export default function DharamshalaTable({
 					</TableBody>
 				</Table>
 			</div>
+			{/* Pagination */}
+			<Pagination
+				currentPage={currentPage}
+				totalPages={totalPages}
+				totalItems={totalItems}
+				itemsPerPage={itemsPerPage}
+				onPageChange={setCurrentPage}
+			/>
 		</div>
 	);
 }

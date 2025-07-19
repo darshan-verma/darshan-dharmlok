@@ -76,6 +76,8 @@ const formatDate = (dateString: string) => {
 	});
 };
 
+import Pagination from "../Pagination/Pagination";
+
 export default function EshopTable({
 	products,
 	onAddProduct,
@@ -87,6 +89,8 @@ export default function EshopTable({
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 10;
 
 	const filteredProducts = products.filter((product) => {
 		const matchesSearch =
@@ -105,6 +109,13 @@ export default function EshopTable({
 
 		return matchesSearch && matchesStatus && matchesCategory;
 	});
+
+	const totalItems = filteredProducts.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+	const paginatedProducts = filteredProducts.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage
+	);
 
 	const uniqueCategories = Array.from(
 		new Set(products.flatMap((p) => p.category))
@@ -165,8 +176,8 @@ export default function EshopTable({
 				</div>
 				{/* Results Count */}
 				<div className="text-sm text-gray-500">
-					{filteredProducts.length} product
-					{filteredProducts.length !== 1 ? "s" : ""} found
+					{totalItems} product
+					{totalItems !== 1 ? "s" : ""} found
 				</div>
 			</div>
 			<div className="rounded-md border">
@@ -184,8 +195,8 @@ export default function EshopTable({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{filteredProducts.length > 0 ? (
-							filteredProducts.map((product) => (
+						{paginatedProducts.length > 0 ? (
+							paginatedProducts.map((product) => (
 								<TableRow key={product.id}>
 									<TableCell className="font-medium">{product.name}</TableCell>
 									<TableCell>{formatDate(product.date)}</TableCell>
@@ -287,6 +298,13 @@ export default function EshopTable({
 					</TableBody>
 				</Table>
 			</div>
+			<Pagination
+				currentPage={currentPage}
+				totalPages={totalPages}
+				totalItems={totalItems}
+				itemsPerPage={itemsPerPage}
+				onPageChange={setCurrentPage}
+			/>
 		</div>
 	);
 }

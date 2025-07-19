@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Table,
@@ -28,6 +29,7 @@ import {
 	ImageIcon,
 } from "lucide-react";
 import { Song, formatDate, getStatusColor } from "./types";
+import Pagination from "../Pagination/Pagination";
 
 interface SongTableProps {
 	songs: Song[];
@@ -36,12 +38,16 @@ interface SongTableProps {
 	onUpdateStatus: (id: string, status: string) => void;
 }
 
-export function SongTable({
-	songs,
-	onEdit,
-	onDelete,
-	onUpdateStatus,
-}: SongTableProps) {
+export function SongTable(props: SongTableProps) {
+	const { songs, onEdit, onDelete, onUpdateStatus } = props;
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 10;
+	const totalItems = songs.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+	const paginatedSongs = songs.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage
+	);
 	return (
 		<div className="rounded-md border">
 			<Table>
@@ -57,8 +63,8 @@ export function SongTable({
 					</TableRow>
 				</TableHeader>
 				<TableBody>
-					{songs.length > 0 ? (
-						songs.map((song) => (
+					{paginatedSongs.length > 0 ? (
+						paginatedSongs.map((song) => (
 							<TableRow key={song.id}>
 								<TableCell>{song.name}</TableCell>
 								<TableCell>{formatDate(song.date)}</TableCell>
@@ -172,6 +178,13 @@ export function SongTable({
 					)}
 				</TableBody>
 			</Table>
+			<Pagination
+				currentPage={currentPage}
+				totalPages={totalPages}
+				totalItems={totalItems}
+				itemsPerPage={itemsPerPage}
+				onPageChange={setCurrentPage}
+			/>
 		</div>
 	);
 }

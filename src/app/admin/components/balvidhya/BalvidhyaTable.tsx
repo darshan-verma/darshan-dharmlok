@@ -131,20 +131,23 @@ type BalvidhyaTableProps = {
 	onViewBalvidhya: (balvidhya: Balvidhya) => void; // Added onViewBalvidhya
 };
 
-export default function BalvidhyaTable({
-	balvidhyas,
-	onAddBalvidhya,
-	onEditBalvidhya,
-	onDeleteBalvidhya,
-	onUpdateStatus,
-	onToggleTrending,
-	onViewBalvidhya, // Added onViewBalvidhya
-}: BalvidhyaTableProps) {
+export default function BalvidhyaTable(props: BalvidhyaTableProps) {
+	const {
+		balvidhyas,
+		onAddBalvidhya,
+		onEditBalvidhya,
+		onDeleteBalvidhya,
+		onUpdateStatus,
+		onToggleTrending,
+		onViewBalvidhya,
+	} = props;
 	const [searchTerm, setSearchTerm] = useState("");
 	const [typeFilter, setTypeFilter] = useState<string>("all");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [trendingFilter, setTrendingFilter] = useState<string>("all");
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 10;
 
 	const displayBalvidhyas = balvidhyas;
 
@@ -181,6 +184,15 @@ export default function BalvidhyaTable({
 		);
 	});
 
+	const totalItems = filteredBalvidhyas.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+	const paginatedBalvidhyas = filteredBalvidhyas.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage
+	);
+
+	if (currentPage > totalPages) setCurrentPage(1);
+
 	return (
 		<div className="space-y-4">
 			<div className="flex flex-col space-y-4">
@@ -191,7 +203,10 @@ export default function BalvidhyaTable({
 							placeholder="Search content..."
 							className="pl-8"
 							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
+							onChange={(e) => {
+								setSearchTerm(e.target.value);
+								setCurrentPage(1);
+							}}
 						/>
 					</div>
 					{onAddBalvidhya && (
@@ -203,7 +218,13 @@ export default function BalvidhyaTable({
 				</div>
 				<div className="flex flex-wrap items-center gap-3 mb-4">
 					<div className="w-32">
-						<Select value={typeFilter} onValueChange={setTypeFilter}>
+						<Select
+							value={typeFilter}
+							onValueChange={(val) => {
+								setTypeFilter(val);
+								setCurrentPage(1);
+							}}
+						>
 							<SelectTrigger className="h-8">
 								<SelectValue placeholder="Select type" />
 							</SelectTrigger>
@@ -218,7 +239,13 @@ export default function BalvidhyaTable({
 						</Select>
 					</div>
 					<div className="w-44">
-						<Select value={categoryFilter} onValueChange={setCategoryFilter}>
+						<Select
+							value={categoryFilter}
+							onValueChange={(val) => {
+								setCategoryFilter(val);
+								setCurrentPage(1);
+							}}
+						>
 							<SelectTrigger className="h-8">
 								<SelectValue placeholder="Select category" />
 							</SelectTrigger>
@@ -233,7 +260,13 @@ export default function BalvidhyaTable({
 						</Select>
 					</div>
 					<div className="w-32">
-						<Select value={statusFilter} onValueChange={setStatusFilter}>
+						<Select
+							value={statusFilter}
+							onValueChange={(val) => {
+								setStatusFilter(val);
+								setCurrentPage(1);
+							}}
+						>
 							<SelectTrigger className="h-8">
 								<SelectValue placeholder="Status" />
 							</SelectTrigger>
@@ -248,7 +281,13 @@ export default function BalvidhyaTable({
 						</Select>
 					</div>
 					<div className="w-32">
-						<Select value={trendingFilter} onValueChange={setTrendingFilter}>
+						<Select
+							value={trendingFilter}
+							onValueChange={(val) => {
+								setTrendingFilter(val);
+								setCurrentPage(1);
+							}}
+						>
 							<SelectTrigger className="h-8">
 								<SelectValue placeholder="Trending" />
 							</SelectTrigger>
@@ -261,8 +300,8 @@ export default function BalvidhyaTable({
 					</div>
 				</div>
 				<div className="text-sm text-gray-500">
-					{filteredBalvidhyas.length} item
-					{filteredBalvidhyas.length !== 1 ? "s" : ""} found
+					{totalItems} item
+					{totalItems !== 1 ? "s" : ""} found
 				</div>
 			</div>
 			<div className="rounded-md border">
@@ -282,8 +321,8 @@ export default function BalvidhyaTable({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{filteredBalvidhyas.length > 0 ? (
-							filteredBalvidhyas.map((balvidhya) => (
+						{paginatedBalvidhyas.length > 0 ? (
+							paginatedBalvidhyas.map((balvidhya) => (
 								<TableRow key={balvidhya.id}>
 									<TableCell>
 										{balvidhya.thumbnailUrl ? (

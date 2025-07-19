@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Pagination from "../Pagination/Pagination";
 import {
 	Search,
 	Eye,
@@ -83,6 +84,8 @@ export default function AudioLibraryTable({
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 10;
 
 	const filteredAudioLibraries = audioLibraries.filter((audioLibrary) => {
 		const matchesSearch =
@@ -97,6 +100,13 @@ export default function AudioLibraryTable({
 
 		return matchesSearch && matchesStatus && matchesCategory;
 	});
+
+	const totalItems = filteredAudioLibraries.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+	const paginatedAudioLibraries = filteredAudioLibraries.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage
+	);
 
 	const uniqueCategories = Array.from(
 		new Set(audioLibraries.map((t) => t.category))
@@ -157,8 +167,8 @@ export default function AudioLibraryTable({
 				</div>
 				{/* Results Count */}
 				<div className="text-sm text-gray-500">
-					{filteredAudioLibraries.length} audio librar
-					{filteredAudioLibraries.length !== 1 ? "ies" : "y"} found
+					{totalItems} audio librar
+					{totalItems !== 1 ? "ies" : "y"} found
 				</div>
 			</div>
 			<div className="rounded-md border">
@@ -174,8 +184,8 @@ export default function AudioLibraryTable({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{filteredAudioLibraries.length > 0 ? (
-							filteredAudioLibraries.map((audioLibrary) => (
+						{paginatedAudioLibraries.length > 0 ? (
+							paginatedAudioLibraries.map((audioLibrary) => (
 								<TableRow key={audioLibrary.id}>
 									<TableCell className="font-medium">
 										{audioLibrary.name}
@@ -288,6 +298,13 @@ export default function AudioLibraryTable({
 					</TableBody>
 				</Table>
 			</div>
+			<Pagination
+				currentPage={currentPage}
+				totalPages={totalPages}
+				totalItems={totalItems}
+				itemsPerPage={itemsPerPage}
+				onPageChange={setCurrentPage}
+			/>
 		</div>
 	);
 }

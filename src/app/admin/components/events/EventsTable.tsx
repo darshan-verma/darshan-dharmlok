@@ -33,6 +33,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
+import Pagination from "../Pagination/Pagination";
 
 export interface Event {
 	id: string;
@@ -86,6 +87,8 @@ export default function EventsTable({
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
 	const [typeFilter, setTypeFilter] = useState<string>("all");
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 10;
 	const router = useRouter();
 
 	const filteredEvents = events.filter((event) => {
@@ -104,6 +107,13 @@ export default function EventsTable({
 
 		return matchesSearch && matchesStatus && matchesCategory && matchesType;
 	});
+
+	const totalItems = filteredEvents.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+	const paginatedEvents = filteredEvents.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage
+	);
 
 	const uniqueCategories = Array.from(new Set(events.map((e) => e.category)));
 	const uniqueTypes = Array.from(new Set(events.map((e) => e.type)));
@@ -178,8 +188,8 @@ export default function EventsTable({
 				</div>
 				{/* Results Count */}
 				<div className="text-sm text-gray-500">
-					{filteredEvents.length} event
-					{filteredEvents.length !== 1 ? "s" : ""} found
+					{totalItems} event
+					{totalItems !== 1 ? "s" : ""} found
 				</div>
 			</div>
 			<div className="rounded-md border">
@@ -198,8 +208,8 @@ export default function EventsTable({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{filteredEvents.length > 0 ? (
-							filteredEvents.map((event) => (
+						{paginatedEvents.length > 0 ? (
+							paginatedEvents.map((event) => (
 								<TableRow key={event.id}>
 									<TableCell className="font-medium">{event.title}</TableCell>
 									<TableCell>{formatDate(event.createdAt ?? "")}</TableCell>
@@ -293,6 +303,13 @@ export default function EventsTable({
 					</TableBody>
 				</Table>
 			</div>
+			<Pagination
+				currentPage={currentPage}
+				totalPages={totalPages}
+				totalItems={totalItems}
+				itemsPerPage={itemsPerPage}
+				onPageChange={setCurrentPage}
+			/>
 		</div>
 	);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Pagination from "../Pagination/Pagination";
 import {
 	Eye,
 	Edit,
@@ -69,6 +70,8 @@ export default function QuotesTable({
 }: QuotesTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 10;
 
 	const filteredQuotes = quotes.filter((quote) => {
 		const matchesSearch = quote.quote
@@ -79,6 +82,15 @@ export default function QuotesTable({
 			quote.status.toLowerCase() === statusFilter.toLowerCase();
 		return matchesSearch && matchesStatus;
 	});
+
+	const totalItems = filteredQuotes.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+	const paginatedQuotes = filteredQuotes.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage
+	);
+
+	if (currentPage > totalPages) setCurrentPage(1);
 
 	return (
 		<div className="space-y-4">
@@ -92,7 +104,10 @@ export default function QuotesTable({
 							placeholder="Search quotes..."
 							className="pl-8"
 							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
+							onChange={(e) => {
+								setSearchTerm(e.target.value);
+								setCurrentPage(1);
+							}}
 						/>
 					</div>
 					{/* Add Quote Button */}
@@ -110,7 +125,10 @@ export default function QuotesTable({
 						<select
 							className="h-8 border rounded px-2 w-full"
 							value={statusFilter}
-							onChange={(e) => setStatusFilter(e.target.value)}
+							onChange={(e) => {
+								setStatusFilter(e.target.value);
+								setCurrentPage(1);
+							}}
 						>
 							<option value="all">All Status</option>
 							<option value="active">Active</option>
@@ -120,8 +138,8 @@ export default function QuotesTable({
 				</div>
 				{/* Results Count */}
 				<div className="text-sm text-gray-500">
-					{filteredQuotes.length} quote
-					{filteredQuotes.length !== 1 ? "s" : ""} found
+					{totalItems} quote
+					{totalItems !== 1 ? "s" : ""} found
 				</div>
 			</div>
 			<div className="rounded-md border">
@@ -136,8 +154,8 @@ export default function QuotesTable({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{filteredQuotes.length > 0 ? (
-							filteredQuotes.map((quote) => (
+						{paginatedQuotes.length > 0 ? (
+							paginatedQuotes.map((quote) => (
 								<TableRow key={quote.id}>
 									<TableCell className="font-medium max-w-xs truncate">
 										{quote.quote}
@@ -242,6 +260,14 @@ export default function QuotesTable({
 					</TableBody>
 				</Table>
 			</div>
+			{/* Pagination */}
+			<Pagination
+				currentPage={currentPage}
+				totalPages={totalPages}
+				totalItems={totalItems}
+				itemsPerPage={itemsPerPage}
+				onPageChange={setCurrentPage}
+			/>
 		</div>
 	);
 }

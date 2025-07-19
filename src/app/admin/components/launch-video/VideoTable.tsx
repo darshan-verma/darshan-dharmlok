@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Pagination from "../Pagination/Pagination";
 import {
 	Search,
 	Eye,
@@ -83,6 +84,8 @@ export default function VideoTable({
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
 	const [typeFilter, setTypeFilter] = useState<string>("all");
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 10;
 
 	const filteredVideos = videos.filter((video) => {
 		const matchesSearch =
@@ -102,6 +105,18 @@ export default function VideoTable({
 		return matchesSearch && matchesStatus && matchesCategory && matchesType;
 	});
 
+	// Pagination logic
+	const totalItems = filteredVideos.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+	const paginatedVideos = filteredVideos.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage
+	);
+
+	// Reset to page 1 if filters/search change
+	// (useEffect is not used to avoid client/server mismatch warning in Next.js app dir)
+	if (currentPage > totalPages) setCurrentPage(1);
+
 	// Unique categories/types for filters
 	const uniqueCategories = Array.from(new Set(videos.map((v) => v.category)));
 	const uniqueTypes = Array.from(new Set(videos.map((v) => v.type)));
@@ -118,7 +133,10 @@ export default function VideoTable({
 							placeholder="Search videos..."
 							className="pl-8"
 							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
+							onChange={(e) => {
+								setSearchTerm(e.target.value);
+								setCurrentPage(1);
+							}}
 						/>
 					</div>
 					{/* Add Video Button */}
@@ -136,7 +154,10 @@ export default function VideoTable({
 						<select
 							className="h-8 border rounded px-2 w-full"
 							value={categoryFilter}
-							onChange={(e) => setCategoryFilter(e.target.value)}
+							onChange={(e) => {
+								setCategoryFilter(e.target.value);
+								setCurrentPage(1);
+							}}
 						>
 							<option value="all">All Categories</option>
 							{uniqueCategories.map((cat) => (
@@ -151,7 +172,10 @@ export default function VideoTable({
 						<select
 							className="h-8 border rounded px-2 w-full"
 							value={typeFilter}
-							onChange={(e) => setTypeFilter(e.target.value)}
+							onChange={(e) => {
+								setTypeFilter(e.target.value);
+								setCurrentPage(1);
+							}}
 						>
 							<option value="all">All Types</option>
 							{uniqueTypes.map((type) => (
@@ -166,7 +190,10 @@ export default function VideoTable({
 						<select
 							className="h-8 border rounded px-2 w-full"
 							value={statusFilter}
-							onChange={(e) => setStatusFilter(e.target.value)}
+							onChange={(e) => {
+								setStatusFilter(e.target.value);
+								setCurrentPage(1);
+							}}
 						>
 							<option value="all">All Status</option>
 							<option value="Active">Active</option>
@@ -176,8 +203,8 @@ export default function VideoTable({
 				</div>
 				{/* Results Count */}
 				<div className="text-sm text-gray-500">
-					{filteredVideos.length} video
-					{filteredVideos.length !== 1 ? "s" : ""} found
+					{totalItems} video
+					{totalItems !== 1 ? "s" : ""} found
 				</div>
 			</div>
 			<div className="rounded-md border">
@@ -190,13 +217,13 @@ export default function VideoTable({
 							<TableHead>Category</TableHead>
 							<TableHead>Type</TableHead>
 							<TableHead>Status</TableHead>
-							//
+							<TableHead>Details</TableHead>
 							<TableHead>Actions</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{filteredVideos.length > 0 ? (
-							filteredVideos.map((video) => (
+						{paginatedVideos.length > 0 ? (
+							paginatedVideos.map((video) => (
 								<TableRow key={video.id}>
 									<TableCell className="font-medium">{video.title}</TableCell>
 									<TableCell>{formatDate(video.date)}</TableCell>
@@ -291,6 +318,14 @@ export default function VideoTable({
 					</TableBody>
 				</Table>
 			</div>
+			{/* Pagination */}
+			<Pagination
+				currentPage={currentPage}
+				totalPages={totalPages}
+				totalItems={totalItems}
+				itemsPerPage={itemsPerPage}
+				onPageChange={setCurrentPage}
+			/>
 		</div>
 	);
 }

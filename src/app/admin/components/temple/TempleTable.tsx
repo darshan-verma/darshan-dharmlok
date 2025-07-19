@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Pagination from "../Pagination/Pagination";
 import {
 	Search,
 	Eye,
@@ -9,7 +10,7 @@ import {
 	CheckCircle2,
 	CircleSlash,
 	Activity,
-    PlusCircle,
+	PlusCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,8 @@ export default function TempleTable({
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [stateFilter, setStateFilter] = useState<string>("all");
 	const [cityFilter, setCityFilter] = useState<string>("all");
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 10;
 
 	const filteredTemples = temples.filter((temple) => {
 		const matchesSearch =
@@ -99,6 +102,15 @@ export default function TempleTable({
 		return matchesSearch && matchesStatus && matchesState && matchesCity;
 	});
 
+	const totalItems = filteredTemples.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+	const paginatedTemples = filteredTemples.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage
+	);
+
+	if (currentPage > totalPages) setCurrentPage(1);
+
 	const uniqueStates = Array.from(new Set(temples.map((t) => t.state)));
 	const uniqueCities = Array.from(new Set(temples.map((t) => t.city)));
 
@@ -114,13 +126,16 @@ export default function TempleTable({
 							placeholder="Search temples..."
 							className="pl-8"
 							value={searchTerm}
-							onChange={(e) => setSearchTerm(e.target.value)}
+							onChange={(e) => {
+								setSearchTerm(e.target.value);
+								setCurrentPage(1);
+							}}
 						/>
 					</div>
 					{/* Add Temple Button */}
 					{onAddTemple && (
 						<Button onClick={onAddTemple} className="w-full sm:w-auto">
-                            <PlusCircle className="h-4 w-4 mr-2" />
+							<PlusCircle className="h-4 w-4 mr-2" />
 							Add Temple
 						</Button>
 					)}
@@ -132,7 +147,10 @@ export default function TempleTable({
 						<select
 							className="h-8 border rounded px-2 w-full"
 							value={stateFilter}
-							onChange={(e) => setStateFilter(e.target.value)}
+							onChange={(e) => {
+								setStateFilter(e.target.value);
+								setCurrentPage(1);
+							}}
 						>
 							<option value="all">All States</option>
 							{uniqueStates.map((state) => (
@@ -147,7 +165,10 @@ export default function TempleTable({
 						<select
 							className="h-8 border rounded px-2 w-full"
 							value={cityFilter}
-							onChange={(e) => setCityFilter(e.target.value)}
+							onChange={(e) => {
+								setCityFilter(e.target.value);
+								setCurrentPage(1);
+							}}
 						>
 							<option value="all">All Cities</option>
 							{uniqueCities.map((city) => (
@@ -162,7 +183,10 @@ export default function TempleTable({
 						<select
 							className="h-8 border rounded px-2 w-full"
 							value={statusFilter}
-							onChange={(e) => setStatusFilter(e.target.value)}
+							onChange={(e) => {
+								setStatusFilter(e.target.value);
+								setCurrentPage(1);
+							}}
 						>
 							<option value="all">All Status</option>
 							<option value="Active">Active</option>
@@ -172,8 +196,8 @@ export default function TempleTable({
 				</div>
 				{/* Results Count */}
 				<div className="text-sm text-gray-500">
-					{filteredTemples.length} temple
-					{filteredTemples.length !== 1 ? "s" : ""} found
+					{totalItems} temple
+					{totalItems !== 1 ? "s" : ""} found
 				</div>
 			</div>
 			<div className="rounded-md border">
@@ -190,8 +214,8 @@ export default function TempleTable({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{filteredTemples.length > 0 ? (
-							filteredTemples.map((temple) => (
+						{paginatedTemples.length > 0 ? (
+							paginatedTemples.map((temple) => (
 								<TableRow key={temple.id}>
 									<TableCell className="font-medium">{temple.name}</TableCell>
 									<TableCell>{formatDate(temple.date)}</TableCell>
@@ -285,6 +309,14 @@ export default function TempleTable({
 					</TableBody>
 				</Table>
 			</div>
+			{/* Pagination */}
+			<Pagination
+				currentPage={currentPage}
+				totalPages={totalPages}
+				totalItems={totalItems}
+				itemsPerPage={itemsPerPage}
+				onPageChange={setCurrentPage}
+			/>
 		</div>
 	);
 }

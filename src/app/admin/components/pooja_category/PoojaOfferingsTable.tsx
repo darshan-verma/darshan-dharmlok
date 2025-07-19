@@ -29,6 +29,7 @@ import {
 	DialogFooter,
 } from "@/components/ui/dialog";
 import { Offering } from "./types";
+import Pagination from "../Pagination/Pagination";
 
 interface Props {
 	offerings: Offering[];
@@ -38,16 +39,20 @@ interface Props {
 	onChangeStatus: (offering: Offering) => void;
 }
 
-export function PoojaOfferingsTable({
-	offerings,
-	loading,
-	onEdit,
-	onDelete,
-	onChangeStatus,
-}: Props) {
+export function PoojaOfferingsTable(props: Props) {
+	const { offerings, loading, onEdit, onDelete, onChangeStatus } = props;
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [offeringToDelete, setOfferingToDelete] = useState<Offering | null>(
 		null
+	);
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 10;
+
+	const totalItems = offerings.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+	const paginatedOfferings = offerings.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage
 	);
 
 	const handleDeleteWithConfirm = (offering: Offering) => {
@@ -74,102 +79,115 @@ export function PoojaOfferingsTable({
 					) : offerings.length === 0 ? (
 						<div className="text-gray-500">No offerings yet.</div>
 					) : (
-						<div className="overflow-x-auto">
-							<table className="min-w-full text-sm border">
-								<thead>
-									<tr className="bg-muted">
-										<th className="px-3 py-2 text-left">Name</th>
-										<th className="px-3 py-2 text-left">Pricing</th>
-										<th className="px-3 py-2 text-left">Details</th>
-										<th className="px-3 py-2 text-left">Status</th>
-										<th className="px-3 py-2 text-center">Actions</th>
-									</tr>
-								</thead>
-								<tbody>
-									{offerings.map((offering) => (
-										<tr key={offering.id} className="border-t">
-											<td className="px-3 py-2">{offering.provider?.name}</td>
-											<td className="px-3 py-2">₹{offering.price}</td>
-											<td className="px-3 py-2">{offering.details || "-"}</td>
-											<td className="px-3 py-2">
-												<span
-													className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-														offering.status === "Active"
-															? "bg-green-100 text-green-800"
-															: "bg-red-100 text-red-800"
-													}`}
-												>
-													{offering.status === "Active" ? "Active" : "Inactive"}
-												</span>
-											</td>
-											<td className="px-3 py-2 text-center">
-												<DropdownMenu>
-													<DropdownMenuTrigger asChild>
-														<Button
-															variant="ghost"
-															size="icon"
-															aria-label="Actions"
-														>
-															<MoreVertical className="h-5 w-5" />
-														</Button>
-													</DropdownMenuTrigger>
-													<DropdownMenuContent align="end">
-														<DropdownMenuLabel>
-															Manage Pooja Category
-														</DropdownMenuLabel>
-														<DropdownMenuSeparator />
-														<DropdownMenuSub>
-															<DropdownMenuSubTrigger>
-																<Activity className="h-4 w-4 mr-2" />
-																Change Status
-															</DropdownMenuSubTrigger>
-															<DropdownMenuSubContent>
-																<DropdownMenuItem
-																	onClick={() => onChangeStatus(offering)}
-																	className={
-																		offering.status === "Active"
-																			? "bg-blue-50"
-																			: ""
-																	}
-																>
-																	<CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
-																	Active
-																</DropdownMenuItem>
-																<DropdownMenuItem
-																	onClick={() => onChangeStatus(offering)}
-																	className={
-																		offering.status === "Inactive"
-																			? "bg-blue-50"
-																			: ""
-																	}
-																>
-																	<CircleSlash className="h-4 w-4 mr-2 text-gray-500" />
-																	Inactive
-																</DropdownMenuItem>
-															</DropdownMenuSubContent>
-														</DropdownMenuSub>
-														<DropdownMenuItem onClick={() => onEdit(offering)}>
-															<Edit className="h-4 w-4 mr-2" />
-															Edit
-														</DropdownMenuItem>
-														<DropdownMenuItem
-															className="flex items-center gap-2 text-red-600"
-															onSelect={(e) => {
-																e.preventDefault();
-																handleDeleteWithConfirm(offering);
-															}}
-														>
-															<Trash2 className="h-4 w-4" />
-															Delete
-														</DropdownMenuItem>
-													</DropdownMenuContent>
-												</DropdownMenu>
-											</td>
+						<>
+							<div className="overflow-x-auto">
+								<table className="min-w-full text-sm border">
+									<thead>
+										<tr className="bg-muted">
+											<th className="px-3 py-2 text-left">Name</th>
+											<th className="px-3 py-2 text-left">Pricing</th>
+											<th className="px-3 py-2 text-left">Details</th>
+											<th className="px-3 py-2 text-left">Status</th>
+											<th className="px-3 py-2 text-center">Actions</th>
 										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
+									</thead>
+									<tbody>
+										{paginatedOfferings.map((offering) => (
+											<tr key={offering.id} className="border-t">
+												<td className="px-3 py-2">{offering.provider?.name}</td>
+												<td className="px-3 py-2">₹{offering.price}</td>
+												<td className="px-3 py-2">{offering.details || "-"}</td>
+												<td className="px-3 py-2">
+													<span
+														className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+															offering.status === "Active"
+																? "bg-green-100 text-green-800"
+																: "bg-red-100 text-red-800"
+														}`}
+													>
+														{offering.status === "Active"
+															? "Active"
+															: "Inactive"}
+													</span>
+												</td>
+												<td className="px-3 py-2 text-center">
+													<DropdownMenu>
+														<DropdownMenuTrigger asChild>
+															<Button
+																variant="ghost"
+																size="icon"
+																aria-label="Actions"
+															>
+																<MoreVertical className="h-5 w-5" />
+															</Button>
+														</DropdownMenuTrigger>
+														<DropdownMenuContent align="end">
+															<DropdownMenuLabel>
+																Manage Pooja Category
+															</DropdownMenuLabel>
+															<DropdownMenuSeparator />
+															<DropdownMenuSub>
+																<DropdownMenuSubTrigger>
+																	<Activity className="h-4 w-4 mr-2" />
+																	Change Status
+																</DropdownMenuSubTrigger>
+																<DropdownMenuSubContent>
+																	<DropdownMenuItem
+																		onClick={() => onChangeStatus(offering)}
+																		className={
+																			offering.status === "Active"
+																				? "bg-blue-50"
+																				: ""
+																		}
+																	>
+																		<CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
+																		Active
+																	</DropdownMenuItem>
+																	<DropdownMenuItem
+																		onClick={() => onChangeStatus(offering)}
+																		className={
+																			offering.status === "Inactive"
+																				? "bg-blue-50"
+																				: ""
+																		}
+																	>
+																		<CircleSlash className="h-4 w-4 mr-2 text-gray-500" />
+																		Inactive
+																	</DropdownMenuItem>
+																</DropdownMenuSubContent>
+															</DropdownMenuSub>
+															<DropdownMenuItem
+																onClick={() => onEdit(offering)}
+															>
+																<Edit className="h-4 w-4 mr-2" />
+																Edit
+															</DropdownMenuItem>
+															<DropdownMenuItem
+																className="flex items-center gap-2 text-red-600"
+																onSelect={(e) => {
+																	e.preventDefault();
+																	handleDeleteWithConfirm(offering);
+																}}
+															>
+																<Trash2 className="h-4 w-4" />
+																Delete
+															</DropdownMenuItem>
+														</DropdownMenuContent>
+													</DropdownMenu>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+							<Pagination
+								currentPage={currentPage}
+								totalPages={totalPages}
+								totalItems={totalItems}
+								itemsPerPage={itemsPerPage}
+								onPageChange={setCurrentPage}
+							/>
+						</>
 					)}
 				</CardContent>
 			</Card>

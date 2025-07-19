@@ -70,6 +70,8 @@ const formatDate = (dateString: string) => {
 	});
 };
 
+import Pagination from "../Pagination/Pagination";
+
 export default function CouponTable({
 	coupons,
 	onAddCoupon,
@@ -79,6 +81,8 @@ export default function CouponTable({
 }: CouponTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 10;
 
 	const filteredCoupons = coupons.filter((coupon) => {
 		const matchesSearch = coupon.name
@@ -90,6 +94,13 @@ export default function CouponTable({
 
 		return matchesSearch && matchesStatus;
 	});
+
+	const totalItems = filteredCoupons.length;
+	const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+	const paginatedCoupons = filteredCoupons.slice(
+		(currentPage - 1) * itemsPerPage,
+		currentPage * itemsPerPage
+	);
 
 	return (
 		<div className="space-y-4">
@@ -131,8 +142,8 @@ export default function CouponTable({
 				</div>
 				{/* Results Count */}
 				<div className="text-sm text-gray-500">
-					{filteredCoupons.length} coupon
-					{filteredCoupons.length !== 1 ? "s" : ""} found
+					{totalItems} coupon
+					{totalItems !== 1 ? "s" : ""} found
 				</div>
 			</div>
 			<div className="rounded-md border">
@@ -150,8 +161,8 @@ export default function CouponTable({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{filteredCoupons.length > 0 ? (
-							filteredCoupons.map((coupon) => (
+						{paginatedCoupons.length > 0 ? (
+							paginatedCoupons.map((coupon) => (
 								<TableRow key={coupon.id}>
 									<TableCell className="font-medium">{coupon.name}</TableCell>
 									<TableCell>{formatDate(coupon.date)}</TableCell>
@@ -241,6 +252,13 @@ export default function CouponTable({
 					</TableBody>
 				</Table>
 			</div>
+			<Pagination
+				currentPage={currentPage}
+				totalPages={totalPages}
+				totalItems={totalItems}
+				itemsPerPage={itemsPerPage}
+				onPageChange={setCurrentPage}
+			/>
 		</div>
 	);
 }
