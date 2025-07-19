@@ -656,7 +656,7 @@ export default function DharmguruDetailPage() {
 				{/* Tabs Section */}
 				<div className="md:col-span-2">
 					<Tabs defaultValue="details">
-						<TabsList className="grid grid-cols-5 mb-4">
+						<TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
 							<TabsTrigger value="details">Dharmguru Details</TabsTrigger>
 							<TabsTrigger value="biography">Biography</TabsTrigger>
 							<TabsTrigger value="posts">Posts</TabsTrigger>

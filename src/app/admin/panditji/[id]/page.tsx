@@ -444,7 +444,7 @@ export default function PanditjiDetailPage() {
 				</div>
 				<div className="lg:col-span-2">
 					<Tabs defaultValue="details">
-						<TabsList>
+						<TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
 							<TabsTrigger value="details">Details</TabsTrigger>
 							<TabsTrigger value="biography">Biography</TabsTrigger>
 							<TabsTrigger value="posts">Posts</TabsTrigger>
