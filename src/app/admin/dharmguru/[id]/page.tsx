@@ -21,6 +21,7 @@ import type {
 export default function DharmguruDetailPage() {
 	const params = useParams();
 	const router = useRouter();
+	
 	const dharmguruId = params?.id as string;
 
 	const [dharmguru, setDharmguru] = useState<Dharmguru | null>(null);

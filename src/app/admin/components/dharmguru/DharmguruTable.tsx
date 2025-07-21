@@ -120,6 +120,15 @@ export default function DharmguruTable({
 	onUpdateStatus,
 	onToggleApproval,
 }: DharmguruTableProps) {
+	// Helper to save the current URL (with query params) for admin return
+	const saveAdminReturnUrl = () => {
+		if (typeof window !== "undefined") {
+			localStorage.setItem(
+				"adminReturnUrl",
+				window.location.pathname + window.location.search
+			);
+		}
+	};
 	const [searchTerm, setSearchTerm] = useState("");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -420,6 +429,7 @@ export default function DharmguruTable({
 												</DropdownMenuItem>
 												<DropdownMenuItem
 													onClick={async () => {
+														saveAdminReturnUrl(); // Save current admin table URL for return
 														try {
 															// 1. Get the admin's session token
 															const res = await fetch("/api/auth/get-jwt");

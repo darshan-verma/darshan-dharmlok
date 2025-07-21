@@ -72,6 +72,15 @@ export default function SellerTable({
 	onUpdateStatus,
 	onToggleApproval,
 }: SellerTableProps) {
+	// Helper to save the current URL (with query params) for admin return
+	const saveAdminReturnUrl = () => {
+		if (typeof window !== "undefined") {
+			localStorage.setItem(
+				"adminReturnUrl",
+				window.location.pathname + window.location.search
+			);
+		}
+	};
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [approvalFilter, setApprovalFilter] = useState<string>("all");
@@ -287,6 +296,7 @@ export default function SellerTable({
 												</DropdownMenuItem>
 												<DropdownMenuItem
 													onClick={async () => {
+														saveAdminReturnUrl(); // Save current admin table URL for return
 														try {
 															// 1. Fetch JWT from custom API
 															const jwtRes = await fetch("/api/auth/get-jwt", {
@@ -310,7 +320,8 @@ export default function SellerTable({
 															});
 															if (!res.ok)
 																throw new Error("Impersonation failed");
-															window.location.href = "/dashboard/seller/dashboard";
+															window.location.href =
+																"/dashboard/seller/dashboard";
 														} catch {
 															alert(
 																"Impersonation failed. See console for details."

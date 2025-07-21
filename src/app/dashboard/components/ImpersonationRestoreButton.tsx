@@ -27,7 +27,14 @@ export default function ImpersonationRestoreButton() {
 				return;
 			}
 			localStorage.removeItem("adminSessionToken");
-			window.location.href = "/admin";
+			// Restore to the saved admin return URL if present, else /admin
+			const adminReturnUrl = localStorage.getItem("adminReturnUrl");
+			if (adminReturnUrl) {
+				localStorage.removeItem("adminReturnUrl");
+				window.location.href = adminReturnUrl;
+			} else {
+				window.location.href = "/admin";
+			}
 		} catch {
 			setError("Unexpected error. Please try again.");
 			setLoading(false);

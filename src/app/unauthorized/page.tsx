@@ -31,8 +31,14 @@ export default function UnauthorizedPage() {
 	const router = useRouter();
 	const { data: session, status } = useSession();
 	const [dashboard, setDashboard] = useState("/");
+	const [adminReturnUrl, setAdminReturnUrl] = useState<string | null>(null);
 
 	useEffect(() => {
+		// Check for a saved admin return URL in localStorage
+		if (typeof window !== "undefined") {
+			const savedUrl = localStorage.getItem("adminReturnUrl");
+			setAdminReturnUrl(savedUrl);
+		}
 		if (status === "authenticated") {
 			const role = session?.user?.role?.toLowerCase() || "";
 			setDashboard(dashboardRoute(role));
@@ -47,14 +53,25 @@ export default function UnauthorizedPage() {
 				restricted to users with specific roles.
 			</p>
 			<div className="flex gap-4">
-				<Button onClick={() => router.push(dashboard)}>
-					Go to Your{" "}
-					{session?.user?.role
-						? session.user.role.charAt(0).toUpperCase() +
-							session.user.role.slice(1)
-						: ""}
-					&nbsp;Dashboard
-				</Button>
+				{adminReturnUrl ? (
+					<Button
+						onClick={() => {
+							localStorage.removeItem("adminReturnUrl");
+							router.push(adminReturnUrl);
+						}}
+					>
+						Return to Admin Page
+					</Button>
+				) : (
+					<Button onClick={() => router.push(dashboard)}>
+						Go to Your{" "}
+						{session?.user?.role
+							? session.user.role.charAt(0).toUpperCase() +
+							  session.user.role.slice(1)
+							: ""}
+						&nbsp;Dashboard
+					</Button>
+				)}
 				<Button variant="outline" onClick={() => router.push("/")}>
 					Go to Home
 				</Button>

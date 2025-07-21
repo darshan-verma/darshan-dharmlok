@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "@/lib/toast";
 import {
 	Dialog,
@@ -31,7 +32,32 @@ interface ApiErrorResponse {
 }
 
 export default function KathavachakPage() {
-	const [pagination, handlePageChange, updatePagination] = usePagination(1, 12);
+	const router = useRouter();
+	const searchParams = useSearchParams();
+
+	// Read page from URL query, default to 1
+	const pageFromUrl = parseInt(searchParams.get("page") || "1", 10);
+	const [pagination, handlePageChangeRaw, updatePagination] = usePagination(
+		pageFromUrl,
+		12
+	);
+
+	// When page changes, update the URL
+	const handlePageChange = (page: number) => {
+		const params = new URLSearchParams(Array.from(searchParams.entries()));
+		params.set("page", String(page));
+		router.replace(`?${params.toString()}`);
+		handlePageChangeRaw(page);
+	};
+
+	// Keep pagination in sync if URL changes (e.g., browser navigation)
+	useEffect(() => {
+		const urlPage = parseInt(searchParams.get("page") || "1", 10);
+		if (urlPage !== pagination.currentPage) {
+			handlePageChangeRaw(urlPage);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [searchParams]);
 	const [kathavachaks, setKathavachaks] = useState<Kathavachak[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [isFormOpen, setIsFormOpen] = useState(false);
@@ -82,7 +108,7 @@ export default function KathavachakPage() {
 
 		fetchKathavachaks();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [pagination.currentPage]);
+	}, [pagination.currentPage, pagination.itemsPerPage]);
 
 	const handleAddKathavachak = () => {
 		setCurrentKathavachak(null);

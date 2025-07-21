@@ -160,7 +160,18 @@ export default function PanditjiTable({
 			matchesRank &&
 			matchesApproval
 		);
+		
 	});
+		// Helper to save the current URL (with query params) for admin return
+	const saveAdminReturnUrl = () => {
+		if (typeof window !== "undefined") {
+			localStorage.setItem(
+				"adminReturnUrl",
+				window.location.pathname + window.location.search
+			);
+		}
+	};
+
 
 	return (
 		<div className="space-y-4">
@@ -410,6 +421,7 @@ export default function PanditjiTable({
 												</DropdownMenuItem>
 												<DropdownMenuItem
 													onClick={async () => {
+														saveAdminReturnUrl();
 														try {
 															// 1. Get the admin's session token
 															const res = await fetch("/api/auth/get-jwt");
@@ -444,6 +456,8 @@ export default function PanditjiTable({
 															window.location.href =
 																"/dashboard/panditji/dashboard";
 														} catch {
+															localStorage.removeItem("adminSessionToken"); // Clean up on failure
+															alert("Impersonation failed. Please try again.");
 															localStorage.removeItem("adminSessionToken"); // Clean up on failure
 														}
 													}}

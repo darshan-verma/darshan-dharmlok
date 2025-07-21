@@ -154,6 +154,16 @@ export default function KathavachakTable({
 		);
 	});
 
+	// Helper to save the current URL (with query params) for admin return
+	const saveAdminReturnUrl = () => {
+		if (typeof window !== "undefined") {
+			localStorage.setItem(
+				"adminReturnUrl",
+				window.location.pathname + window.location.search
+			);
+		}
+	};
+
 	return (
 		<div className="space-y-4">
 			<div className="flex flex-col space-y-4">
@@ -417,6 +427,7 @@ export default function KathavachakTable({
 												</DropdownMenuItem>
 												<DropdownMenuItem
 													onClick={async () => {
+														saveAdminReturnUrl(); // Save current admin table URL for return
 														try {
 															// 1. Get the admin's session token
 															const res = await fetch("/api/auth/get-jwt");
@@ -448,7 +459,8 @@ export default function KathavachakTable({
 															}
 
 															// 4. Redirect to the kathavachak's dashboard
-															window.location.href = "/dashboard/kathavachak/dashboard";
+															window.location.href =
+																"/dashboard/kathavachak/dashboard";
 														} catch (err) {
 															console.error("Impersonation error:", err);
 															alert("Impersonation failed. Please try again.");
