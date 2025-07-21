@@ -269,6 +269,7 @@ const PanditjiPostsTab = memo(function PanditjiPostsTab({
 		async (title: string, description: string) => {
 			setIsDetailsDialogOpen(false);
 			if (!pendingFile) return;
+			setIsUploading(true);
 			let imageUrl = "";
 			try {
 				const formData = new FormData();
@@ -292,11 +293,13 @@ const PanditjiPostsTab = memo(function PanditjiPostsTab({
 				setPostImages((prev) => [...prev, { ...image }]);
 			} catch {
 				// Optionally show error toast
-			}
-			setPendingFile(null);
-			if (tempUploadedImageUrl) {
-				URL.revokeObjectURL(tempUploadedImageUrl);
-				setTempUploadedImageUrl("");
+			} finally {
+				setIsUploading(false);
+				setPendingFile(null);
+				if (tempUploadedImageUrl) {
+					URL.revokeObjectURL(tempUploadedImageUrl);
+					setTempUploadedImageUrl("");
+				}
 			}
 		},
 		[pendingFile, tempUploadedImageUrl, userId]
@@ -324,52 +327,35 @@ const PanditjiPostsTab = memo(function PanditjiPostsTab({
 		async (title: string, description: string) => {
 			setIsVideoDetailsDialogOpen(false);
 			if (!pendingVideoFile) return;
-			let videoUrl = "";
 			setIsUploading(true);
 			try {
 				const formData = new FormData();
 				formData.append("file", pendingVideoFile);
 				formData.append("userId", userId);
+				formData.append("title", title);
+				formData.append("description", description);
+				formData.append("source", "panditji-posts");
 				const uploadRes = await fetch("/api/upload/video", {
 					method: "POST",
 					body: formData,
 				});
 				if (!uploadRes.ok) throw new Error("Failed to upload video");
-				const uploadData = await uploadRes.json();
-				videoUrl = uploadData.videoUrl;
-				const createRes = await fetch("/api/videos", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						videoFile: videoUrl,
-						userId,
-						title,
-						description,
-						source: "panditji-post",
-						category: "General",
-						type: "post", // Add default type
-					}),
-				});
-				if (!createRes.ok) {
-					const errorBody = await createRes.json();
-					console.error("API Error:", errorBody);
-					throw new Error(
-						`Failed to save video metadata: ${
-							errorBody.details || createRes.statusText
-						}`
-					);
-				}
-				const video = await createRes.json();
-				// Add _isFromDialog flag and update local dialogVideos state
-				setPostVideos((prev) => [...prev, { ...video }]);
+				const video = await uploadRes.json();
+				setPostVideos((prev) => [
+					...prev,
+					{
+						...video,
+						videoFile: video.videoFile || tempUploadedVideoUrl,
+						url: video.url || tempUploadedVideoUrl,
+					},
+				]);
 			} catch (error) {
 				console.error("Upload failed", error);
-				// Optionally show error toast
 			} finally {
 				setIsUploading(false);
 				setPendingVideoFile(null);
 				if (tempUploadedVideoUrl) {
-					URL.revokeObjectURL(tempUploadedVideoUrl);
+					// URL.revokeObjectURL(tempUploadedVideoUrl);
 					setTempUploadedVideoUrl("");
 				}
 			}
@@ -923,7 +909,7 @@ const PanditjiPostsTab = memo(function PanditjiPostsTab({
 					setIsVideoDetailsDialogOpen(false);
 					setPendingVideoFile(null);
 					if (tempUploadedVideoUrl) {
-						URL.revokeObjectURL(tempUploadedVideoUrl);
+						// URL.revokeObjectURL(tempUploadedVideoUrl);
 						setTempUploadedVideoUrl("");
 					}
 				}}
