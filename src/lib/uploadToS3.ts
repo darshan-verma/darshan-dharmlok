@@ -6,7 +6,7 @@ export async function uploadToS3(
 	fileName: string,
 	mimeType: string
 ): Promise<string> {
-	const bucket = process.env.S3_BUCKET!;
+	const bucket = process.env.MY_S3_BUCKET!;
 	await s3.send(
 		new PutObjectCommand({
 			Bucket: bucket,
@@ -15,5 +15,5 @@ export async function uploadToS3(
 			ContentType: mimeType,
 		})
 	);
-	return `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
+	return `https://${bucket}.s3.${process.env.MY_AWS_REGION}.amazonaws.com/${fileName}`;
 }
