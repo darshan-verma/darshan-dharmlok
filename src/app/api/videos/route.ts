@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 		}
 
 		// Build the where clause for filtering
-		const whereClause: { userId: string; source?: any } = {
+		const whereClause: { userId: string; source?: string | { in: string[] } } = {
 			userId: userId as string,
 		};
 

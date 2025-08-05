@@ -25,6 +25,7 @@ interface Video {
 	id: string;
 	title: string;
 	videoFile: string;
+	videoUrl?: string;
 	description?: string;
 }
 
@@ -89,9 +90,9 @@ export default function VideoGallery({
 				return res.json();
 			})
 			.then((data) => {
-				const videosWithUrl = data.videos.map((v: any) => ({
+				const videosWithUrl = data.videos.map((v: Video) => ({
 					...v,
-					videoFile: v.videoFile || v.videoUrl,
+					videoFile: v.videoFile || v.videoUrl || "",
 				}));
 				setVideos(videosWithUrl || []);
 			})

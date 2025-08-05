@@ -186,7 +186,7 @@ export default function VideoForm({
 				videoFile: videoUrl, // S3 URL string
 			}));
 			setIsUploading(false);
-		} catch (err) {
+		} catch {
 			setFormErrors((prev) => ({
 				...prev,
 				videoFile: "Failed to upload video file.",

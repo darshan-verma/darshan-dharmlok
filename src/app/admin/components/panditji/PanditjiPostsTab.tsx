@@ -128,74 +128,76 @@ const PanditjiPostsTab = memo(function PanditjiPostsTab({
 		);
 	};
 
-	const handlePostImageUpload = async (
-		event: React.ChangeEvent<HTMLInputElement>
-	) => {
-		const files = event.target.files;
-		if (!files || files.length === 0) return;
-		setIsUploadingPostImage(true);
-		const uploadPromises = Array.from(files).map((file) => {
-			const formData = new FormData();
-			formData.append("file", file);
-			formData.append("userId", userId);
-			return fetch("/api/upload/image", {
-				method: "POST",
-				body: formData,
-			})
-				.then((res) => (res.ok ? res.json() : Promise.reject()))
-				.then((data) => ({
-					id: data.id || `new_${Date.now()}_${Math.random()}`,
-					url: data.imageUrl,
-					title: file.name.split(".").slice(0, -1).join("."),
-					description: "",
-				}));
-		});
-		try {
-			const newImages = await Promise.all(uploadPromises);
-			setPostImages((prev) => [...prev, ...newImages]);
-		} catch {}
-		setIsUploadingPostImage(false);
-	};
-
-	const handlePostVideoUpload = async (
-		event: React.ChangeEvent<HTMLInputElement>
-	) => {
-		const files = event.target.files;
-		if (!files || files.length === 0) return;
-		setIsUploadingPostVideo(true);
-		const uploadPromises = Array.from(files).map((file) => {
-			const formData = new FormData();
-			formData.append("file", file);
-			formData.append("userId", userId);
-			return fetch("/api/upload/video", {
-				method: "POST",
-				body: formData,
-			})
-				.then((res) => (res.ok ? res.json() : Promise.reject()))
-				.then((data) => {
-					let videoUrl = data.videoUrl;
-					if (
-						videoUrl &&
-						!videoUrl.startsWith("http") &&
-						!videoUrl.startsWith("/")
-					) {
-						videoUrl = `/uploads/${videoUrl}`;
-					}
-					return {
+	const handlePostImageUpload = useCallback(
+		async (event: React.ChangeEvent<HTMLInputElement>) => {
+			const files = event.target.files;
+			if (!files || files.length === 0) return;
+			setIsUploadingPostImage(true);
+			const uploadPromises = Array.from(files).map((file) => {
+				const formData = new FormData();
+				formData.append("file", file);
+				formData.append("userId", userId);
+				return fetch("/api/upload/image", {
+					method: "POST",
+					body: formData,
+				})
+					.then((res) => (res.ok ? res.json() : Promise.reject()))
+					.then((data) => ({
 						id: data.id || `new_${Date.now()}_${Math.random()}`,
-						url: videoUrl,
+						url: data.imageUrl,
 						title: file.name.split(".").slice(0, -1).join("."),
 						description: "",
-						source: "",
-					};
-				});
-		});
-		try {
-			const newVideos = await Promise.all(uploadPromises);
-			setPostVideos((prev) => [...prev, ...newVideos]);
-		} catch {}
-		setIsUploadingPostVideo(false);
-	};
+					}));
+			});
+			try {
+				const newImages = await Promise.all(uploadPromises);
+				setPostImages((prev) => [...prev, ...newImages]);
+			} catch {}
+			setIsUploadingPostImage(false);
+		},
+		[userId]
+	);
+
+	const handlePostVideoUpload = useCallback(
+		async (event: React.ChangeEvent<HTMLInputElement>) => {
+			const files = event.target.files;
+			if (!files || files.length === 0) return;
+			setIsUploadingPostVideo(true);
+			const uploadPromises = Array.from(files).map((file) => {
+				const formData = new FormData();
+				formData.append("file", file);
+				formData.append("userId", userId);
+				return fetch("/api/upload/video", {
+					method: "POST",
+					body: formData,
+				})
+					.then((res) => (res.ok ? res.json() : Promise.reject()))
+					.then((data) => {
+						let videoUrl = data.videoUrl;
+						if (
+							videoUrl &&
+							!videoUrl.startsWith("http") &&
+							!videoUrl.startsWith("/")
+						) {
+							videoUrl = `/uploads/${videoUrl}`;
+						}
+						return {
+							id: data.id || `new_${Date.now()}_${Math.random()}`,
+							url: videoUrl,
+							title: file.name.split(".").slice(0, -1).join("."),
+							description: "",
+							source: "",
+						};
+					});
+			});
+			try {
+				const newVideos = await Promise.all(uploadPromises);
+				setPostVideos((prev) => [...prev, ...newVideos]);
+			} catch {}
+			setIsUploadingPostVideo(false);
+		},
+		[userId]
+	);
 
 	const prevImageUrls = useRef<string[]>(mergedImages.map((img) => img.url));
 	const prevVideoUrls = useRef<string[]>(mergedVideos.map((vid) => vid.url));

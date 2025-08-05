@@ -272,7 +272,7 @@ const DharmguruPostsTab = memo(function DharmguruPostsTab({
 			pendingVideoFile,
 			tempUploadedVideoUrl,
 			userId,
-			handlePostVideoUpload,
+			// handlePostVideoUpload,
 			onVideoAdded,
 		]
 	);

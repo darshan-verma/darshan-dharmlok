@@ -272,7 +272,6 @@ const SellerPostsTab = memo(function SellerPostsTab({
 			pendingVideoFile,
 			tempUploadedVideoUrl,
 			userId,
-			handlePostVideoUpload,
 			onVideoAdded,
 		]
 	);

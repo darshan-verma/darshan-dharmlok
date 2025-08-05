@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageObject } from "./types";
+import Image from "next/image";
 
 interface ImageDetailsDialogProps {
 	image: ImageObject;
@@ -42,7 +43,7 @@ export default function ImageDetailsDialog({
 				</DialogHeader>
 				<div className="grid gap-4 py-4">
 					<div className="relative w-full aspect-video">
-						<img
+						<Image
 							src={image.url}
 							alt={image.title || "Image"}
 							className="w-full h-full object-contain rounded-md"
