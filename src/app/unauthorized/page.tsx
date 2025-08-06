@@ -72,8 +72,8 @@ export default function UnauthorizedPage() {
 						&nbsp;Dashboard
 					</Button>
 				)}
-				<Button variant="outline" onClick={() => router.push("/")}>
-					Go to Home
+				<Button variant="outline" onClick={() => router.push("/auth/signin")}>
+					Go to Sign In
 				</Button>
 			</div>
 		</div>

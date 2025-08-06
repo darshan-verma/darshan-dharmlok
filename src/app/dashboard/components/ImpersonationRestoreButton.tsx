@@ -9,24 +9,15 @@ export default function ImpersonationRestoreButton() {
 	const handleRestore = async () => {
 		setLoading(true);
 		setError("");
-		const adminToken = localStorage.getItem("adminSessionToken");
-		if (!adminToken) {
-			setError("No admin session found. Please log in again.");
-			setLoading(false);
-			return;
-		}
 		try {
 			const res = await fetch("/api/auth/restore-admin", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ adminToken }),
 			});
 			if (!res.ok) {
 				setError("Failed to restore admin session. Please log in again.");
 				setLoading(false);
 				return;
 			}
-			localStorage.removeItem("adminSessionToken");
 			// Restore to the saved admin return URL if present, else /admin
 			const adminReturnUrl = localStorage.getItem("adminReturnUrl");
 			if (adminReturnUrl) {
