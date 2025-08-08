@@ -467,7 +467,7 @@ export default function KathavachakTable({
 																			: 0,
 																},
 															});
-														} catch (err) {
+														} catch {
 															toastError("Failed to check media info.");
 														}
 													}}
@@ -613,7 +613,7 @@ export default function KathavachakTable({
 										});
 										setIsDeleteLoading(false);
 										toastSuccess("User deleted");
-									} catch (err) {
+									} catch {
 										setIsDeleteLoading(false);
 										toastError("Delete failed");
 									}
