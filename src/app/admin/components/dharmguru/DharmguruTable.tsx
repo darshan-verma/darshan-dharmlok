@@ -25,6 +25,12 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -42,6 +48,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { toastSuccess, toastError } from "@/lib/toast";
 
 // Define the Dharmguru interface
 export interface Dharmguru {
@@ -66,10 +73,10 @@ interface DharmguruTableProps {
 	onLoginAsDharmguru: (dharmguru: Dharmguru) => void;
 }
 
-// Categories for Kathavachaks
+// Categories for dharmgurus
 export const DharmguruCategories = ["Sanatan", "Jain", "Sikh", "Buddhism"];
 
-// Ranks for Kathavachaks
+// Ranks for dharmgurus
 export const DharmguruRanks = ["Junior", "Senior", "Expert", "Master"];
 
 // Function to get color based on rank
@@ -99,14 +106,6 @@ export const getCategoryColor = (category: string): string => {
 			return "bg-indigo-100 text-indigo-800";
 		case "Buddhism":
 			return "bg-emerald-100 text-emerald-800";
-		// case "Puranas":
-		// 	return "bg-cyan-100 text-cyan-800";
-		// case "Upanishads":
-		// 	return "bg-violet-100 text-violet-800";
-		// case "Bhakti Yoga":
-		// 	return "bg-fuchsia-100 text-fuchsia-800";
-		// case "Other":
-		// 	return "bg-slate-100 text-slate-800";
 		default:
 			return "bg-gray-100 text-gray-800";
 	}
@@ -117,6 +116,7 @@ export default function DharmguruTable({
 	onAddDharmguru,
 	onEditDharmguru,
 	onDeleteDharmguru,
+	setDharmgurus,
 	onUpdateStatus,
 	onToggleApproval,
 }: DharmguruTableProps) {
@@ -134,6 +134,18 @@ export default function DharmguruTable({
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [rankFilter, setRankFilter] = useState<string>("all");
 	const [approvalFilter, setApprovalFilter] = useState<string>("all");
+
+	const [deleteDialog, setDeleteDialog] = useState<{
+			open: boolean;
+			dharmguru?: Dharmguru;
+			mediaInfo?: {
+				hasMedia: boolean;
+				imageCount: number;
+				videoCount: number;
+				videoThumbnailCount: number;
+			};
+		}>({ open: false });
+		const [isDeleteLoading, setIsDeleteLoading] = useState(false);
 
 	// Filter dharmgurus based on search and filter criteria
 	const filteredDharmgurus = dharmgurus.filter((dharmguru) => {
@@ -180,7 +192,7 @@ export default function DharmguruTable({
 						<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
 						<Input
 							type="search"
-							placeholder="Search kathavachaks..."
+							placeholder="Search dharmgurus..."
 							className="pl-8"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
@@ -418,57 +430,90 @@ export default function DharmguruTable({
 													Edit
 												</DropdownMenuItem>
 												<DropdownMenuItem
-													className="flex items-center gap-2 text-red-600"
-													onSelect={(e) => {
-														e.preventDefault();
-														onDeleteDharmguru(dharmguru.id, dharmguru.name);
-													}}
-												>
-													<Trash2 className="h-4 w-4" />
-													Delete
-												</DropdownMenuItem>
-												<DropdownMenuItem
-													onClick={async () => {
-														saveAdminReturnUrl(); // Save current admin table URL for return
-														try {
-															// 1. Get the admin's session token
-															const res = await fetch("/api/auth/get-jwt");
-															if (!res.ok) {
-																throw new Error("Failed to get admin token");
-															}
-															const { token } = await res.json();
-
-															// 2. Save the admin token to localStorage
-															localStorage.setItem("adminSessionToken", token);
-
-															// 3. Call the impersonation API
-															const impersonateRes = await fetch(
-																"/api/auth/impersonate",
-																{
-																	method: "POST",
-																	headers: {
-																		"Content-Type": "application/json",
-																	},
-																	body: JSON.stringify({
-																		userId: dharmguru.id,
-																	}),
-																}
-															);
-
-															if (!impersonateRes.ok) {
-																localStorage.removeItem("adminSessionToken"); // Clean up on failure
-																throw new Error("Impersonation failed");
-															}
-
-															// 4. Redirect to the dharmguru's dashboard
-															window.location.href = "/dashboard/dharmguru";
-														} catch (err) {
-															console.error("Impersonation error:", err);
-															alert("Impersonation failed. Please try again.");
-															localStorage.removeItem("adminSessionToken"); // Clean up on failure
-														}
-													}}
-												>
+																									className="flex items-center gap-2 text-red-600"
+																									onSelect={async (e) => {
+																										e.preventDefault();
+																										// Prevent opening dialog if already open for this user
+																										if (
+																											deleteDialog.open &&
+																											deleteDialog.dharmguru?.id === dharmguru.id
+																										)
+																											return;
+																										try {
+																											const res = await fetch(
+																												`/api/users?id=${dharmguru.id}&mediaInfo=true`
+																											);
+																											const data = await res.json();
+																											setDeleteDialog({
+																												open: true,
+																												dharmguru,
+																												mediaInfo: {
+																													hasMedia: !!data.hasMedia,
+																													imageCount:
+																														typeof data.imageCount === "number"
+																															? data.imageCount
+																															: 0,
+																													videoCount:
+																														typeof data.videoCount === "number"
+																															? data.videoCount
+																															: 0,
+																													videoThumbnailCount:
+																														typeof data.videoThumbnailCount === "number"
+																															? data.videoThumbnailCount
+																															: 0,
+																												},
+																											});
+																										} catch (err) {
+																											toastError("Failed to check media info.");
+																										}
+																									}}
+																								>
+																									<Trash2 className="h-4 w-4" />
+																									Delete
+																								</DropdownMenuItem>
+																								<DropdownMenuItem
+																									onClick={async () => {
+																										saveAdminReturnUrl(); // Save current admin table URL for return
+																										try {
+																											// 1. Get the admin's session token
+																											const res = await fetch("/api/auth/get-jwt");
+																											if (!res.ok) {
+																												throw new Error("Failed to get admin token");
+																											}
+																											const { token } = await res.json();
+												
+																											// 2. Save the admin token to localStorage
+																											localStorage.setItem("adminSessionToken", token);
+												
+																											// 3. Call the impersonation API
+																											const impersonateRes = await fetch(
+																												"/api/auth/impersonate",
+																												{
+																													method: "POST",
+																													headers: {
+																														"Content-Type": "application/json",
+																													},
+																													body: JSON.stringify({
+																														userId: dharmguru.id,
+																													}),
+																												}
+																											);
+												
+																											if (!impersonateRes.ok) {
+																												localStorage.removeItem("adminSessionToken"); // Clean up on failure
+																												throw new Error("Impersonation failed");
+																											}
+												
+																											// 4. Redirect to the dharmguru's dashboard
+																											window.location.href =
+																												"/dashboard/dharmguru/dashboard";
+																										} catch (err) {
+																											console.error("Impersonation error:", err);
+																											alert("Impersonation failed. Please try again.");
+																											localStorage.removeItem("adminSessionToken"); // Clean up on failure
+																										}
+																									}}
+																								>
 													<LogIn className="h-4 w-4 mr-2" />
 													Login as Dharmguru
 												</DropdownMenuItem>
@@ -480,14 +525,102 @@ export default function DharmguruTable({
 						) : (
 							<TableRow>
 								<TableCell colSpan={9} className="text-center py-6">
-									No kathavachaks found. Try a different search or add a new
-									kathavachak.
+									No dharmgurus found. Try a different search or add a new
+									dharmguru.
 								</TableCell>
 							</TableRow>
 						)}
 					</TableBody>
 				</Table>
 			</div>
+			{/* Delete Confirmation Dialog (shadcn) */}
+			<Dialog
+				open={deleteDialog.open}
+				onOpenChange={(open) => {
+					if (!open) setDeleteDialog({ open: false });
+				}}
+			>
+				<DialogContent className="sm:max-w-[425px]">
+					<DialogHeader>
+						<DialogTitle>Delete dharmguru</DialogTitle>
+					</DialogHeader>
+					<div className="py-4">
+						{(() => {
+							const hasMedia =
+								!!deleteDialog.mediaInfo &&
+								((deleteDialog.mediaInfo.imageCount ?? 0) > 0 ||
+									(deleteDialog.mediaInfo.videoCount ?? 0) > 0 ||
+									(deleteDialog.mediaInfo.videoThumbnailCount ?? 0) > 0);
+							return hasMedia ? (
+								<p>
+									This user has {deleteDialog.mediaInfo?.imageCount ?? 0}{" "}
+									images, {deleteDialog.mediaInfo?.videoCount ?? 0} videos, and{" "}
+									{deleteDialog.mediaInfo?.videoThumbnailCount ?? 0} video
+									thumbnails. Are you sure you want to delete this user and all
+									associated media?
+								</p>
+							) : (
+								<p>
+									Are you sure you want to delete{" "}
+									{deleteDialog.dharmguru?.name}? This action cannot be
+									undone.
+								</p>
+							);
+						})()}
+					</div>
+					<div className="flex justify-end gap-2">
+						<Button
+							variant="outline"
+							onClick={() => setDeleteDialog({ open: false })}
+							disabled={isDeleteLoading}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							disabled={isDeleteLoading}
+							onClick={async () => {
+								if (deleteDialog.dharmguru) {
+									setIsDeleteLoading(true);
+									// toastLoading("Deleting user...");
+									try {
+										const res = await fetch(
+											`/api/users?id=${deleteDialog.dharmguru.id}`,
+											{ method: "DELETE" }
+										);
+										if (!res.ok) throw new Error("Delete failed");
+										// Remove deleted user from local state immediately
+										if (deleteDialog.dharmguru?.id) {
+											setDharmgurus((prev: Dharmguru[]) =>
+												prev.filter(
+													(k: Dharmguru) =>
+														k.id !== deleteDialog.dharmguru!.id
+												)
+											);
+										}
+										onDeleteDharmguru(
+											deleteDialog.dharmguru.id,
+											deleteDialog.dharmguru.name
+										);
+										setDeleteDialog({
+											open: false,
+											dharmguru: undefined,
+											mediaInfo: undefined,
+										});
+										setIsDeleteLoading(false);
+										toastSuccess("User deleted");
+									} catch (err) {
+										setIsDeleteLoading(false);
+										toastError("Delete failed");
+									}
+								}
+							}}
+						>
+							{isDeleteLoading ? "Deleting..." : "Confirm Delete"}
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

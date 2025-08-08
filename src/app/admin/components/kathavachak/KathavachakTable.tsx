@@ -15,6 +15,12 @@ import {
 	PlusCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
 	Table,
@@ -44,6 +50,7 @@ import {
 } from "@/components/ui/select";
 
 // Define the Kathavachak interface
+import { toastSuccess, toastError } from "@/lib/toast";
 export interface Kathavachak {
 	id: string;
 	name: string;
@@ -106,6 +113,7 @@ export const getCategoryColor = (category: string): string => {
 
 export default function KathavachakTable({
 	kathavachaks,
+	setKathavachaks,
 	onAddKathavachak,
 	onEditKathavachak,
 	onDeleteKathavachak,
@@ -117,6 +125,19 @@ export default function KathavachakTable({
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [rankFilter, setRankFilter] = useState<string>("all");
 	const [approvalFilter, setApprovalFilter] = useState<string>("all");
+
+	// State for delete confirmation dialog and loading
+	const [deleteDialog, setDeleteDialog] = useState<{
+		open: boolean;
+		kathavachak?: Kathavachak;
+		mediaInfo?: {
+			hasMedia: boolean;
+			imageCount: number;
+			videoCount: number;
+			videoThumbnailCount: number;
+		};
+	}>({ open: false });
+	const [isDeleteLoading, setIsDeleteLoading] = useState(false);
 
 	// Filter kathavachaks based on search and filter criteria
 	const filteredKathavachaks = kathavachaks.filter((kathavachak) => {
@@ -414,12 +435,41 @@ export default function KathavachakTable({
 												</DropdownMenuItem>
 												<DropdownMenuItem
 													className="flex items-center gap-2 text-red-600"
-													onSelect={(e) => {
+													onSelect={async (e) => {
 														e.preventDefault();
-														onDeleteKathavachak(
-															kathavachak.id,
-															kathavachak.name
-														);
+														// Prevent opening dialog if already open for this user
+														if (
+															deleteDialog.open &&
+															deleteDialog.kathavachak?.id === kathavachak.id
+														)
+															return;
+														try {
+															const res = await fetch(
+																`/api/users?id=${kathavachak.id}&mediaInfo=true`
+															);
+															const data = await res.json();
+															setDeleteDialog({
+																open: true,
+																kathavachak,
+																mediaInfo: {
+																	hasMedia: !!data.hasMedia,
+																	imageCount:
+																		typeof data.imageCount === "number"
+																			? data.imageCount
+																			: 0,
+																	videoCount:
+																		typeof data.videoCount === "number"
+																			? data.videoCount
+																			: 0,
+																	videoThumbnailCount:
+																		typeof data.videoThumbnailCount === "number"
+																			? data.videoThumbnailCount
+																			: 0,
+																},
+															});
+														} catch (err) {
+															toastError("Failed to check media info.");
+														}
 													}}
 												>
 													<Trash2 className="h-4 w-4" />
@@ -487,6 +537,94 @@ export default function KathavachakTable({
 					</TableBody>
 				</Table>
 			</div>
+			{/* Delete Confirmation Dialog (shadcn) */}
+			<Dialog
+				open={deleteDialog.open}
+				onOpenChange={(open) => {
+					if (!open) setDeleteDialog({ open: false });
+				}}
+			>
+				<DialogContent className="sm:max-w-[425px]">
+					<DialogHeader>
+						<DialogTitle>Delete Kathavachak</DialogTitle>
+					</DialogHeader>
+					<div className="py-4">
+						{(() => {
+							const hasMedia =
+								!!deleteDialog.mediaInfo &&
+								((deleteDialog.mediaInfo.imageCount ?? 0) > 0 ||
+									(deleteDialog.mediaInfo.videoCount ?? 0) > 0 ||
+									(deleteDialog.mediaInfo.videoThumbnailCount ?? 0) > 0);
+							return hasMedia ? (
+								<p>
+									This user has {deleteDialog.mediaInfo?.imageCount ?? 0}{" "}
+									images, {deleteDialog.mediaInfo?.videoCount ?? 0} videos, and{" "}
+									{deleteDialog.mediaInfo?.videoThumbnailCount ?? 0} video
+									thumbnails. Are you sure you want to delete this user and all
+									associated media?
+								</p>
+							) : (
+								<p>
+									Are you sure you want to delete{" "}
+									{deleteDialog.kathavachak?.name}? This action cannot be
+									undone.
+								</p>
+							);
+						})()}
+					</div>
+					<div className="flex justify-end gap-2">
+						<Button
+							variant="outline"
+							onClick={() => setDeleteDialog({ open: false })}
+							disabled={isDeleteLoading}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							disabled={isDeleteLoading}
+							onClick={async () => {
+								if (deleteDialog.kathavachak) {
+									setIsDeleteLoading(true);
+									// toastLoading("Deleting user...");
+									try {
+										const res = await fetch(
+											`/api/users?id=${deleteDialog.kathavachak.id}`,
+											{ method: "DELETE" }
+										);
+										if (!res.ok) throw new Error("Delete failed");
+										// Remove deleted user from local state immediately
+										if (deleteDialog.kathavachak?.id) {
+											setKathavachaks((prev: Kathavachak[]) =>
+												prev.filter(
+													(k: Kathavachak) =>
+														k.id !== deleteDialog.kathavachak!.id
+												)
+											);
+										}
+										onDeleteKathavachak(
+											deleteDialog.kathavachak.id,
+											deleteDialog.kathavachak.name
+										);
+										setDeleteDialog({
+											open: false,
+											kathavachak: undefined,
+											mediaInfo: undefined,
+										});
+										setIsDeleteLoading(false);
+										toastSuccess("User deleted");
+									} catch (err) {
+										setIsDeleteLoading(false);
+										toastError("Delete failed");
+									}
+								}
+							}}
+						>
+							{isDeleteLoading ? "Deleting..." : "Confirm Delete"}
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

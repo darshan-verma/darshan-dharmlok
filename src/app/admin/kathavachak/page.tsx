@@ -64,11 +64,6 @@ export default function KathavachakPage() {
 	const [currentKathavachak, setCurrentKathavachak] =
 		useState<Partial<Kathavachak> | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-	const [kathavachakToDelete, setKathavachakToDelete] = useState<{
-		id: string;
-		name: string;
-	} | null>(null);
 
 	// Fetch kathavachaks on component mount
 	useEffect(() => {
@@ -123,37 +118,6 @@ export default function KathavachakPage() {
 		};
 		setCurrentKathavachak(kathavachakWithStringRank);
 		setIsFormOpen(true);
-	};
-
-	const handleDeleteKathavachak = (id: string, name: string) => {
-		setKathavachakToDelete({ id, name });
-		setIsDeleteDialogOpen(true);
-	};
-
-	const confirmDelete = async () => {
-		if (!kathavachakToDelete) return;
-
-		try {
-			// Call the API to delete the kathavachak
-			const response = await fetch(`/api/users/${kathavachakToDelete.id}`, {
-				method: "DELETE",
-			});
-
-			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
-			}
-
-			// Update local state
-			setKathavachaks(
-				kathavachaks.filter((k) => k.id !== kathavachakToDelete.id)
-			);
-			toast.success(`${kathavachakToDelete.name} has been deleted`);
-		} catch {
-			toast.error("Failed to delete kathavachak");
-		} finally {
-			setIsDeleteDialogOpen(false);
-			setKathavachakToDelete(null);
-		}
 	};
 
 	const handleUpdateStatus = async (id: string, newStatus: string) => {
@@ -320,7 +284,7 @@ export default function KathavachakPage() {
 				setKathavachaks={setKathavachaks}
 				onAddKathavachak={handleAddKathavachak}
 				onEditKathavachak={handleEditKathavachak}
-				onDeleteKathavachak={handleDeleteKathavachak}
+				onDeleteKathavachak={() => {}}
 				onUpdateStatus={handleUpdateStatus}
 				onToggleApproval={handleToggleApproval}
 				onLoginAsKathavachak={handleLoginAsKathavachak}
@@ -350,35 +314,6 @@ export default function KathavachakPage() {
 						onCancel={() => setIsFormOpen(false)}
 						isLoading={isSubmitting}
 					/>
-				</DialogContent>
-			</Dialog>
-
-			{/* Delete Confirmation Dialog */}
-			<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-				<DialogContent className="sm:max-w-[425px]">
-					<DialogHeader>
-						<DialogTitle>Confirm Deletion</DialogTitle>
-					</DialogHeader>
-					<div className="py-4">
-						<p>
-							Are you sure you want to delete {kathavachakToDelete?.name}? This
-							action cannot be undone.
-						</p>
-					</div>
-					<div className="flex justify-end gap-2">
-						<button
-							className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-							onClick={() => setIsDeleteDialogOpen(false)}
-						>
-							Cancel
-						</button>
-						<button
-							className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-							onClick={confirmDelete}
-						>
-							Delete
-						</button>
-					</div>
 				</DialogContent>
 			</Dialog>
 		</div>

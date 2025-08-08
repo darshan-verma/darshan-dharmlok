@@ -1,6 +1,100 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import s3Client from "@/lib/s3Client";
+// Helper to delete S3 objects
+async function deleteS3Media(mediaUrls: string[]) {
+	if (!mediaUrls.length) return;
+	const bucket = process.env.AWS_S3_BUCKET;
+	if (!bucket) return;
+	await Promise.all(
+		mediaUrls.map(async (url) => {
+			// Extract key from URL
+			const key = url.split(`${bucket}/`)[1] || url.split("/").pop();
+			if (!key) return;
+			try {
+				await s3Client.send(
+					new DeleteObjectCommand({ Bucket: bucket, Key: key })
+				);
+			} catch (err) {
+				// Log error, but don't block
+				console.error("S3 delete error:", err);
+			}
+		})
+	);
+}
+export async function DELETE(request: Request) {
+	try {
+		const url = new URL(request.url);
+		const id = url.searchParams.get("id");
+		if (!id) {
+			return NextResponse.json(
+				{ error: "User ID is required" },
+				{ status: 400 }
+			);
+		}
+
+		// Find user and related media
+		const user = await prisma.user.findUnique({
+			where: { id },
+			include: {
+				images: true,
+				videos: true,
+			},
+		});
+		if (!user) {
+			return NextResponse.json({ error: "User not found" }, { status: 404 });
+		}
+
+		// Gather media URLs
+		const imageUrls = (user.images || []).map((img) => img.url).filter(Boolean);
+		// For videos, collect both videoFile and thumbnailUrl
+		const videoFileUrls = (user.videos || [])
+			.map((vid) => vid.videoFile)
+			.filter(Boolean);
+		const videoThumbUrls = (user.videos || [])
+			.map((vid) => vid.thumbnailUrl)
+			.filter(Boolean);
+		const videoUrls = [...videoFileUrls, ...videoThumbUrls];
+		const hasMedia = imageUrls.length > 0 || videoUrls.length > 0;
+
+		// Delete media records from DB
+		await prisma.image.deleteMany({ where: { userId: id } });
+		await prisma.video.deleteMany({ where: { userId: id } });
+
+		// Delete all addresses related to the user
+		await prisma.address.deleteMany({ where: { userId: id } });
+
+		// Delete user
+		await prisma.user.delete({ where: { id } });
+
+		// Async S3 deletion (fire and forget)
+		setTimeout(() => {
+			// Ensure only strings are passed (filter out nulls)
+			const allMediaUrls = [...imageUrls, ...videoUrls].filter(
+				(url): url is string => typeof url === "string"
+			);
+			deleteS3Media(allMediaUrls);
+		}, 0);
+
+		return NextResponse.json({
+			message: "User and associated media deleted successfully",
+			hasMedia,
+			imageCount: imageUrls.length,
+			videoCount: videoFileUrls.length,
+			videoThumbnailCount: videoThumbUrls.length,
+		});
+	} catch (error) {
+		return NextResponse.json(
+			{
+				error: "Failed to delete user",
+				details: error instanceof Error ? error.message : "Unknown error",
+			},
+			{ status: 500 }
+		);
+	}
+}
 
 // Helper function to validate user data
 const validateUserData = (
@@ -40,8 +134,41 @@ const validateUserData = (
 
 export async function GET(request: Request) {
 	try {
-		// Get query parameters for filtering
 		const url = new URL(request.url);
+		const id = url.searchParams.get("id");
+		const mediaInfo = url.searchParams.get("mediaInfo");
+		if (id && mediaInfo === "true") {
+			// Return media info for a single user
+			const user = await prisma.user.findUnique({
+				where: { id },
+				include: {
+					images: true,
+					videos: true,
+				},
+			});
+			if (!user) {
+				return NextResponse.json({ error: "User not found" }, { status: 404 });
+			}
+			const imageUrls = (user.images || [])
+				.map((img) => img.url)
+				.filter(Boolean);
+			const videoFileUrls = (user.videos || [])
+				.map((vid) => vid.videoFile)
+				.filter(Boolean);
+			const videoThumbUrls = (user.videos || [])
+				.map((vid) => vid.thumbnailUrl)
+				.filter(Boolean);
+			const videoUrls = [...videoFileUrls, ...videoThumbUrls];
+			const hasMedia = imageUrls.length > 0 || videoUrls.length > 0;
+			return NextResponse.json({
+				hasMedia,
+				imageCount: imageUrls.length,
+				videoCount: videoFileUrls.length,
+				videoThumbnailCount: videoThumbUrls.length,
+			});
+		}
+
+		// ...existing code for user list and pagination...
 		const userType = url.searchParams.get("userType");
 		const status = url.searchParams.get("status");
 		const limit = url.searchParams.get("limit")
@@ -52,26 +179,19 @@ export async function GET(request: Request) {
 			: 1;
 		const skip = (page - 1) * limit;
 
-		// Build filter conditions
 		const whereConditions: Prisma.UserWhereInput = {};
-
 		if (userType) {
 			whereConditions.userType = {
 				equals: userType,
-				mode: "insensitive", // Make the search case-insensitive
+				mode: "insensitive",
 			};
 		}
-
 		if (status) {
 			whereConditions.status = status;
 		}
-
-		// Get total count for pagination
 		const totalCount = await prisma.user.count({
 			where: whereConditions,
 		});
-
-		// Fetch users with filters
 		const users = await prisma.user.findMany({
 			where: whereConditions,
 			select: {
@@ -100,7 +220,6 @@ export async function GET(request: Request) {
 			skip,
 			take: limit,
 		});
-
 		return NextResponse.json({
 			users,
 			pagination: {
