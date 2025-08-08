@@ -46,6 +46,7 @@ export default function PanditjiForm({
 	});
 
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+	const [buttonLoading, setButtonLoading] = useState(false);
 
 	const validateForm = (data: typeof panditjiData) => {
 		const errors: Record<string, string> = {};
@@ -85,6 +86,8 @@ export default function PanditjiForm({
 	};
 
 	const handleSubmit = async () => {
+		if (buttonLoading) return;
+		setButtonLoading(true);
 		console.log("Form submit triggered with data:", panditjiData);
 		const errors = validateForm(panditjiData);
 		setFormErrors(errors);
@@ -92,6 +95,7 @@ export default function PanditjiForm({
 		// If there are errors, don't proceed
 		if (Object.keys(errors).length > 0) {
 			console.log("Form validation errors:", errors);
+			setButtonLoading(false);
 			return;
 		}
 
@@ -99,6 +103,8 @@ export default function PanditjiForm({
 			await onSubmit(panditjiData);
 		} catch (error) {
 			console.error("Error in form submission:", error);
+		} finally {
+			setButtonLoading(false);
 		}
 	};
 
@@ -247,8 +253,12 @@ export default function PanditjiForm({
 				<Button type="button" variant="outline" onClick={onCancel}>
 					Cancel
 				</Button>
-				<Button type="submit" onClick={handleSubmit} disabled={isLoading}>
-					{isLoading ? "Saving..." : "Save Panditji"}
+				<Button
+					type="submit"
+					onClick={handleSubmit}
+					disabled={isLoading || buttonLoading}
+				>
+					{isLoading || buttonLoading ? "Saving..." : "Save Kathavachak"}
 				</Button>
 			</div>
 		</div>

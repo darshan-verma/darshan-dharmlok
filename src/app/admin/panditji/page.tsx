@@ -62,11 +62,7 @@ export default function PanditjiPage() {
 	const [currentPanditji, setCurrentPanditji] =
 		useState<Partial<Panditji> | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-	const [panditjiToDelete, setPanditjiToDelete] = useState<{
-		id: string;
-		name: string;
-	} | null>(null);
+	// Delete dialog logic is now handled in PanditjiTable
 
 	// Fetch panditjis on component mount
 	useEffect(() => {
@@ -160,34 +156,9 @@ export default function PanditjiPage() {
 		setIsFormOpen(true);
 	};
 
-	const handleDeletePanditji = (id: string, name: string) => {
-		setPanditjiToDelete({ id, name });
-		setIsDeleteDialogOpen(true);
-	};
+	// Delete logic is now handled in PanditjiTable
 
-	const confirmDelete = async () => {
-		if (!panditjiToDelete) return;
-
-		try {
-			// Call the API to delete the panditji
-			const response = await fetch(`/api/users/${panditjiToDelete.id}`, {
-				method: "DELETE",
-			});
-
-			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
-			}
-
-			// Update local state
-			setPanditjis(panditjis.filter((d) => d.id !== panditjiToDelete.id));
-			toast.success(`${panditjiToDelete.name} has been deleted`);
-		} catch {
-			toast.error("Failed to delete panditji");
-		} finally {
-			setIsDeleteDialogOpen(false);
-			setPanditjiToDelete(null);
-		}
-	};
+	// confirmDelete and related state removed; handled in PanditjiTable
 
 	const handleUpdateStatus = async (id: string, newStatus: string) => {
 		try {
@@ -354,7 +325,7 @@ export default function PanditjiPage() {
 				setPanditjis={setPanditjis}
 				onAddPanditji={handleAddPanditji}
 				onEditPanditji={handleEditPanditji}
-				onDeletePanditji={handleDeletePanditji}
+				onDeletePanditji={() => {}} // No-op, handled in table
 				onUpdateStatus={handleUpdateStatus}
 				onToggleApproval={handleToggleApproval}
 				onLoginAsPanditji={handleLoginAsPanditji}
@@ -382,35 +353,6 @@ export default function PanditjiPage() {
 						onCancel={() => setIsFormOpen(false)}
 						isLoading={isSubmitting}
 					/>
-				</DialogContent>
-			</Dialog>
-
-			{/* Delete Confirmation Dialog */}
-			<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-				<DialogContent className="sm:max-w-[425px]">
-					<DialogHeader>
-						<DialogTitle>Confirm Deletion</DialogTitle>
-					</DialogHeader>
-					<div className="py-4">
-						<p>
-							Are you sure you want to delete {panditjiToDelete?.name}? This
-							action cannot be undone.
-						</p>
-					</div>
-					<div className="flex justify-end gap-2">
-						<button
-							className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-							onClick={() => setIsDeleteDialogOpen(false)}
-						>
-							Cancel
-						</button>
-						<button
-							className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-							onClick={confirmDelete}
-						>
-							Delete
-						</button>
-					</div>
 				</DialogContent>
 			</Dialog>
 		</div>
