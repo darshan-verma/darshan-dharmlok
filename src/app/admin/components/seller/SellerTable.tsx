@@ -25,6 +25,12 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -42,6 +48,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { toastSuccess, toastError } from "@/lib/toast";
+
 
 // Define the Seller interface
 export interface Seller {
@@ -69,6 +77,7 @@ export default function SellerTable({
 	onAddSeller,
 	onEditSeller,
 	onDeleteSeller,
+	setSellers,
 	onUpdateStatus,
 	onToggleApproval,
 }: SellerTableProps) {
@@ -84,6 +93,18 @@ export default function SellerTable({
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [approvalFilter, setApprovalFilter] = useState<string>("all");
+
+	const [deleteDialog, setDeleteDialog] = useState<{
+			open: boolean;
+			seller?: Seller;
+			mediaInfo?: {
+				hasMedia: boolean;
+				imageCount: number;
+				videoCount: number;
+				videoThumbnailCount: number;
+			};
+		}>({ open: false });
+		const [isDeleteLoading, setIsDeleteLoading] = useState(false);
 
 	// Filter sellers based on search and filter criteria
 	const filteredSellers = sellers.filter((seller) => {
@@ -286,9 +307,41 @@ export default function SellerTable({
 												</DropdownMenuItem>
 												<DropdownMenuItem
 													className="flex items-center gap-2 text-red-600"
-													onSelect={(e) => {
+													onSelect={async (e) => {
 														e.preventDefault();
-														onDeleteSeller(seller.id, seller.name);
+														// Prevent opening dialog if already open for this user
+														if (
+															deleteDialog.open &&
+															deleteDialog.seller?.id === seller.id
+														)
+															return;
+														try {
+															const res = await fetch(
+																`/api/users?id=${seller.id}&mediaInfo=true`
+															);
+															const data = await res.json();
+															setDeleteDialog({
+																open: true,
+																seller,
+																mediaInfo: {
+																	hasMedia: !!data.hasMedia,
+																	imageCount:
+																		typeof data.imageCount === "number"
+																			? data.imageCount
+																			: 0,
+																	videoCount:
+																		typeof data.videoCount === "number"
+																			? data.videoCount
+																			: 0,
+																	videoThumbnailCount:
+																		typeof data.videoThumbnailCount === "number"
+																			? data.videoThumbnailCount
+																			: 0,
+																},
+															});
+														} catch {
+															toastError("Failed to check media info.");
+														}
 													}}
 												>
 													<Trash2 className="h-4 w-4" />
@@ -298,34 +351,42 @@ export default function SellerTable({
 													onClick={async () => {
 														saveAdminReturnUrl(); // Save current admin table URL for return
 														try {
-															// 1. Fetch JWT from custom API
-															const jwtRes = await fetch("/api/auth/get-jwt", {
-																credentials: "include",
-															});
-															const { token } = await jwtRes.json();
-															if (token) {
-																localStorage.setItem(
-																	"adminSessionToken",
-																	token
-																);
+															// 1. Get the admin's session token
+															const res = await fetch("/api/auth/get-jwt");
+															if (!res.ok) {
+																throw new Error("Failed to get admin token");
 															}
-															// 2. Call impersonation API
-															const res = await fetch("/api/auth/impersonate", {
-																method: "POST",
-																headers: { "Content-Type": "application/json" },
-																credentials: "include",
-																body: JSON.stringify({
-																	userId: seller.id,
-																}),
-															});
-															if (!res.ok)
+															const { token } = await res.json();
+
+															// 2. Save the admin token to localStorage
+															localStorage.setItem("adminSessionToken", token);
+
+															// 3. Call the impersonation API
+															const impersonateRes = await fetch(
+																"/api/auth/impersonate",
+																{
+																	method: "POST",
+																	headers: {
+																		"Content-Type": "application/json",
+																	},
+																	body: JSON.stringify({
+																		userId: seller.id,
+																	}),
+																}
+															);
+
+															if (!impersonateRes.ok) {
+																localStorage.removeItem("adminSessionToken"); // Clean up on failure
 																throw new Error("Impersonation failed");
+															}
+
+															// 4. Redirect to the seller's dashboard
 															window.location.href =
 																"/dashboard/seller/dashboard";
-														} catch {
-															alert(
-																"Impersonation failed. See console for details."
-															);
+														} catch (err) {
+															console.error("Impersonation error:", err);
+															alert("Impersonation failed. Please try again.");
+															localStorage.removeItem("adminSessionToken"); // Clean up on failure
 														}
 													}}
 												>
@@ -340,13 +401,100 @@ export default function SellerTable({
 						) : (
 							<TableRow>
 								<TableCell colSpan={9} className="text-center py-6">
-									No sellers found. Try a different search or add a new seller.
+									No sellers found. Try a different search or add a new
+									seller.
 								</TableCell>
 							</TableRow>
 						)}
 					</TableBody>
 				</Table>
 			</div>
+			{/* Delete Confirmation Dialog (shadcn) */}
+			<Dialog
+				open={deleteDialog.open}
+				onOpenChange={(open) => {
+					if (!open) setDeleteDialog({ open: false });
+				}}
+			>
+				<DialogContent className="sm:max-w-[425px]">
+					<DialogHeader>
+						<DialogTitle>Delete seller</DialogTitle>
+					</DialogHeader>
+					<div className="py-4">
+						{(() => {
+							const hasMedia =
+								!!deleteDialog.mediaInfo &&
+								((deleteDialog.mediaInfo.imageCount ?? 0) > 0 ||
+									(deleteDialog.mediaInfo.videoCount ?? 0) > 0 ||
+									(deleteDialog.mediaInfo.videoThumbnailCount ?? 0) > 0);
+							return hasMedia ? (
+								<p>
+									This user has {deleteDialog.mediaInfo?.imageCount ?? 0}{" "}
+									images, {deleteDialog.mediaInfo?.videoCount ?? 0} videos, and{" "}
+									{deleteDialog.mediaInfo?.videoThumbnailCount ?? 0} video
+									thumbnails. Are you sure you want to delete this user and all
+									associated media?
+								</p>
+							) : (
+								<p>
+									Are you sure you want to delete {deleteDialog.seller?.name}
+									? This action cannot be undone.
+								</p>
+							);
+						})()}
+					</div>
+					<div className="flex justify-end gap-2">
+						<Button
+							variant="outline"
+							onClick={() => setDeleteDialog({ open: false })}
+							disabled={isDeleteLoading}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							disabled={isDeleteLoading}
+							onClick={async () => {
+								if (deleteDialog.seller) {
+									setIsDeleteLoading(true);
+									// toastLoading("Deleting user...");
+									try {
+										const res = await fetch(
+											`/api/users?id=${deleteDialog.seller.id}`,
+											{ method: "DELETE" }
+										);
+										if (!res.ok) throw new Error("Delete failed");
+										// Remove deleted user from local state immediately
+										if (deleteDialog.seller?.id) {
+											setSellers((prev: Seller[]) =>
+												prev.filter(
+													(k: Seller) => k.id !== deleteDialog.seller!.id
+												)
+											);
+										}
+										onDeleteSeller(
+											deleteDialog.seller.id,
+											deleteDialog.seller.name
+										);
+										setDeleteDialog({
+											open: false,
+											seller: undefined,
+											mediaInfo: undefined,
+										});
+										setIsDeleteLoading(false);
+										toastSuccess("User deleted");
+									} catch {
+										setIsDeleteLoading(false);
+										toastError("Delete failed");
+									}
+								}
+							}}
+						>
+							{isDeleteLoading ? "Deleting..." : "Confirm Delete"}
+						</Button>
+					</div>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

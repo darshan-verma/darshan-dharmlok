@@ -61,11 +61,7 @@ export default function SellerPage() {
 		null
 	);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-	const [sellerToDelete, setSellerToDelete] = useState<{
-		id: string;
-		name: string;
-	} | null>(null);
+	// Delete dialog logic is now handled in SellerTable
 
 	// Fetch sellers on component mount
 	useEffect(() => {
@@ -116,34 +112,9 @@ export default function SellerPage() {
 		setIsFormOpen(true);
 	};
 
-	const handleDeleteSeller = (id: string, name: string) => {
-		setSellerToDelete({ id, name });
-		setIsDeleteDialogOpen(true);
-	};
+	// Delete logic is now handled in SellerTable
 
-	const confirmDelete = async () => {
-		if (!sellerToDelete) return;
-
-		try {
-			// Call the API to delete the seller
-			const response = await fetch(`/api/users/${sellerToDelete.id}`, {
-				method: "DELETE",
-			});
-
-			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
-			}
-
-			// Update local state
-			setSellers(sellers.filter((d) => d.id !== sellerToDelete.id));
-			toast.success(`${sellerToDelete.name} has been deleted`);
-		} catch {
-			toast.error("Failed to delete seller");
-		} finally {
-			setIsDeleteDialogOpen(false);
-			setSellerToDelete(null);
-		}
-	};
+	// confirmDelete and related state removed; handled in SellerTable
 
 	const handleUpdateStatus = async (id: string, newStatus: string) => {
 		try {
@@ -303,7 +274,7 @@ export default function SellerPage() {
 				setSellers={setSellers}
 				onAddSeller={handleAddSeller}
 				onEditSeller={handleEditSeller}
-				onDeleteSeller={handleDeleteSeller}
+				onDeleteSeller={() => {}} // No-op, handled in table
 				onUpdateStatus={handleUpdateStatus}
 				onToggleApproval={handleToggleApproval}
 				onLoginAsSeller={handleLoginAsSeller}
@@ -331,35 +302,6 @@ export default function SellerPage() {
 						onCancel={() => setIsFormOpen(false)}
 						isLoading={isSubmitting}
 					/>
-				</DialogContent>
-			</Dialog>
-
-			{/* Delete Confirmation Dialog */}
-			<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-				<DialogContent className="sm:max-w-[425px]">
-					<DialogHeader>
-						<DialogTitle>Confirm Deletion</DialogTitle>
-					</DialogHeader>
-					<div className="py-4">
-						<p>
-							Are you sure you want to delete {sellerToDelete?.name}? This
-							action cannot be undone.
-						</p>
-					</div>
-					<div className="flex justify-end gap-2">
-						<button
-							className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-							onClick={() => setIsDeleteDialogOpen(false)}
-						>
-							Cancel
-						</button>
-						<button
-							className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-							onClick={confirmDelete}
-						>
-							Delete
-						</button>
-					</div>
 				</DialogContent>
 			</Dialog>
 		</div>

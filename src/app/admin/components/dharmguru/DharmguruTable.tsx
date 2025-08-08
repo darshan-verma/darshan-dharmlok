@@ -136,16 +136,16 @@ export default function DharmguruTable({
 	const [approvalFilter, setApprovalFilter] = useState<string>("all");
 
 	const [deleteDialog, setDeleteDialog] = useState<{
-			open: boolean;
-			dharmguru?: Dharmguru;
-			mediaInfo?: {
-				hasMedia: boolean;
-				imageCount: number;
-				videoCount: number;
-				videoThumbnailCount: number;
-			};
-		}>({ open: false });
-		const [isDeleteLoading, setIsDeleteLoading] = useState(false);
+		open: boolean;
+		dharmguru?: Dharmguru;
+		mediaInfo?: {
+			hasMedia: boolean;
+			imageCount: number;
+			videoCount: number;
+			videoThumbnailCount: number;
+		};
+	}>({ open: false });
+	const [isDeleteLoading, setIsDeleteLoading] = useState(false);
 
 	// Filter dharmgurus based on search and filter criteria
 	const filteredDharmgurus = dharmgurus.filter((dharmguru) => {
@@ -430,90 +430,90 @@ export default function DharmguruTable({
 													Edit
 												</DropdownMenuItem>
 												<DropdownMenuItem
-																									className="flex items-center gap-2 text-red-600"
-																									onSelect={async (e) => {
-																										e.preventDefault();
-																										// Prevent opening dialog if already open for this user
-																										if (
-																											deleteDialog.open &&
-																											deleteDialog.dharmguru?.id === dharmguru.id
-																										)
-																											return;
-																										try {
-																											const res = await fetch(
-																												`/api/users?id=${dharmguru.id}&mediaInfo=true`
-																											);
-																											const data = await res.json();
-																											setDeleteDialog({
-																												open: true,
-																												dharmguru,
-																												mediaInfo: {
-																													hasMedia: !!data.hasMedia,
-																													imageCount:
-																														typeof data.imageCount === "number"
-																															? data.imageCount
-																															: 0,
-																													videoCount:
-																														typeof data.videoCount === "number"
-																															? data.videoCount
-																															: 0,
-																													videoThumbnailCount:
-																														typeof data.videoThumbnailCount === "number"
-																															? data.videoThumbnailCount
-																															: 0,
-																												},
-																											});
-																										} catch {
-																											toastError("Failed to check media info.");
-																										}
-																									}}
-																								>
-																									<Trash2 className="h-4 w-4" />
-																									Delete
-																								</DropdownMenuItem>
-																								<DropdownMenuItem
-																									onClick={async () => {
-																										saveAdminReturnUrl(); // Save current admin table URL for return
-																										try {
-																											// 1. Get the admin's session token
-																											const res = await fetch("/api/auth/get-jwt");
-																											if (!res.ok) {
-																												throw new Error("Failed to get admin token");
-																											}
-																											const { token } = await res.json();
-												
-																											// 2. Save the admin token to localStorage
-																											localStorage.setItem("adminSessionToken", token);
-												
-																											// 3. Call the impersonation API
-																											const impersonateRes = await fetch(
-																												"/api/auth/impersonate",
-																												{
-																													method: "POST",
-																													headers: {
-																														"Content-Type": "application/json",
-																													},
-																													body: JSON.stringify({
-																														userId: dharmguru.id,
-																													}),
-																												}
-																											);
-												
-																											if (!impersonateRes.ok) {
-																												localStorage.removeItem("adminSessionToken"); // Clean up on failure
-																												throw new Error("Impersonation failed");
-																											}
-												
-																											// 4. Redirect to the dharmguru's dashboard
-																											window.location.href =
-																												"/dashboard/dharmguru/dashboard";
-																										} catch (err) {
-																											console.error("Impersonation error:", err);
-																											alert("Impersonation failed. Please try again.");
-																											localStorage.removeItem("adminSessionToken"); // Clean up on failure
-																										}
-																									}}
-																								>
+													className="flex items-center gap-2 text-red-600"
+													onSelect={async (e) => {
+														e.preventDefault();
+														// Prevent opening dialog if already open for this user
+														if (
+															deleteDialog.open &&
+															deleteDialog.dharmguru?.id === dharmguru.id
+														)
+															return;
+														try {
+															const res = await fetch(
+																`/api/users?id=${dharmguru.id}&mediaInfo=true`
+															);
+															const data = await res.json();
+															setDeleteDialog({
+																open: true,
+																dharmguru,
+																mediaInfo: {
+																	hasMedia: !!data.hasMedia,
+																	imageCount:
+																		typeof data.imageCount === "number"
+																			? data.imageCount
+																			: 0,
+																	videoCount:
+																		typeof data.videoCount === "number"
+																			? data.videoCount
+																			: 0,
+																	videoThumbnailCount:
+																		typeof data.videoThumbnailCount === "number"
+																			? data.videoThumbnailCount
+																			: 0,
+																},
+															});
+														} catch {
+															toastError("Failed to check media info.");
+														}
+													}}
+												>
+													<Trash2 className="h-4 w-4" />
+													Delete
+												</DropdownMenuItem>
+												<DropdownMenuItem
+													onClick={async () => {
+														saveAdminReturnUrl(); // Save current admin table URL for return
+														try {
+															// 1. Get the admin's session token
+															const res = await fetch("/api/auth/get-jwt");
+															if (!res.ok) {
+																throw new Error("Failed to get admin token");
+															}
+															const { token } = await res.json();
+
+															// 2. Save the admin token to localStorage
+															localStorage.setItem("adminSessionToken", token);
+
+															// 3. Call the impersonation API
+															const impersonateRes = await fetch(
+																"/api/auth/impersonate",
+																{
+																	method: "POST",
+																	headers: {
+																		"Content-Type": "application/json",
+																	},
+																	body: JSON.stringify({
+																		userId: dharmguru.id,
+																	}),
+																}
+															);
+
+															if (!impersonateRes.ok) {
+																localStorage.removeItem("adminSessionToken"); // Clean up on failure
+																throw new Error("Impersonation failed");
+															}
+
+															// 4. Redirect to the dharmguru's dashboard
+															window.location.href =
+																"/dashboard/dharmguru";
+														} catch (err) {
+															console.error("Impersonation error:", err);
+															alert("Impersonation failed. Please try again.");
+															localStorage.removeItem("adminSessionToken"); // Clean up on failure
+														}
+													}}
+												>
 													<LogIn className="h-4 w-4 mr-2" />
 													Login as Dharmguru
 												</DropdownMenuItem>
@@ -561,9 +561,8 @@ export default function DharmguruTable({
 								</p>
 							) : (
 								<p>
-									Are you sure you want to delete{" "}
-									{deleteDialog.dharmguru?.name}? This action cannot be
-									undone.
+									Are you sure you want to delete {deleteDialog.dharmguru?.name}
+									? This action cannot be undone.
 								</p>
 							);
 						})()}
@@ -593,8 +592,7 @@ export default function DharmguruTable({
 										if (deleteDialog.dharmguru?.id) {
 											setDharmgurus((prev: Dharmguru[]) =>
 												prev.filter(
-													(k: Dharmguru) =>
-														k.id !== deleteDialog.dharmguru!.id
+													(k: Dharmguru) => k.id !== deleteDialog.dharmguru!.id
 												)
 											);
 										}

@@ -42,6 +42,7 @@ export default function SellerForm({
 	});
 
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+	const [buttonLoading, setButtonLoading] = useState(false);
 
 	const validateForm = (data: typeof sellerData) => {
 		const errors: Record<string, string> = {};
@@ -71,6 +72,8 @@ export default function SellerForm({
 	};
 
 	const handleSubmit = async () => {
+		if (buttonLoading) return;
+		setButtonLoading(true);
 		console.log("Form submit triggered with data:", sellerData);
 		const errors = validateForm(sellerData);
 		setFormErrors(errors);
@@ -78,6 +81,7 @@ export default function SellerForm({
 		// If there are errors, don't proceed
 		if (Object.keys(errors).length > 0) {
 			console.log("Form validation errors:", errors);
+			setButtonLoading(false);
 			return;
 		}
 
@@ -85,9 +89,10 @@ export default function SellerForm({
 			await onSubmit(sellerData);
 		} catch (error) {
 			console.error("Error in form submission:", error);
+		} finally {
+			setButtonLoading(false);
 		}
 	};
-
 	const handleInputChange = (
 		field: keyof typeof sellerData,
 		value: string | boolean
@@ -182,8 +187,12 @@ export default function SellerForm({
 				<Button type="button" variant="outline" onClick={onCancel}>
 					Cancel
 				</Button>
-				<Button type="submit" onClick={handleSubmit} disabled={isLoading}>
-					{isLoading ? "Saving..." : "Save Seller"}
+				<Button
+					type="submit"
+					onClick={handleSubmit}
+					disabled={isLoading || buttonLoading}
+				>
+					{isLoading || buttonLoading ? "Saving..." : "Save Kathavachak"}
 				</Button>
 			</div>
 		</div>
