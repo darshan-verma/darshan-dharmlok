@@ -4,6 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogFooter,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/lib/toast";
 import {
@@ -19,7 +26,36 @@ import SellerPostsTab from "@/app/admin/components/seller/SellerPostsTab";
 import PreferencesTab from "@/app/admin/components/seller/PreferencesTab";
 import ActivityTab from "@/app/admin/components/seller/ActivityTab";
 
+
 export default function SellerDetailPage() {
+	// Delete handler for Kathavachak with shadcn dialog
+	const [isDeleting, setIsDeleting] = useState(false);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const handleDeleteSeller = async () => {
+		if (!sellerId) return;
+		setIsDeleting(true);
+		const loadingToast = toast.loading("Deleting Seller...");
+		try {
+			const response = await fetch(`/api/users/${sellerId}`, {
+				method: "DELETE",
+			});
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to delete Seller");
+			}
+			toast.dismiss(loadingToast);
+			toast.success("Seller deleted successfully!");
+			router.push("/admin/seller");
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to delete Seller"
+			);
+		} finally {
+			setIsDeleting(false);
+			setIsDeleteDialogOpen(false);
+		}
+	};
 	const params = useParams();
 	const router = useRouter();
 	const sellerId = (params?.id ?? "") as string;
@@ -726,7 +762,35 @@ export default function SellerDetailPage() {
 
 	return (
 		<div className="p-6 space-y-6">
-			<div className="flex items-center gap-4">
+			{/* Delete Confirmation Dialog */}
+			<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Delete Seller</DialogTitle>
+					</DialogHeader>
+					<div className="py-2">
+						Are you sure you want to delete this Seller? This action cannot
+						be undone.
+					</div>
+					<DialogFooter className="flex justify-end gap-2">
+						<Button
+							variant="outline"
+							onClick={() => setIsDeleteDialogOpen(false)}
+							disabled={isDeleting}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleDeleteSeller}
+							disabled={isDeleting}
+						>
+							{isDeleting ? "Deleting..." : "Delete"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+			<div className="flex items-center gap-4 mb-4">
 				<Button
 					variant="outline"
 					size="icon"
@@ -735,6 +799,14 @@ export default function SellerDetailPage() {
 					<ArrowLeft className="h-4 w-4" />
 				</Button>
 				<h1 className="text-2xl font-bold">Seller Details</h1>
+				<Button
+					variant="destructive"
+					onClick={() => setIsDeleteDialogOpen(true)}
+					disabled={isDeleting}
+					className="ml-auto"
+				>
+					{isDeleting ? "Deleting..." : "Delete Seller"}
+				</Button>
 			</div>
 
 			<div className="flex flex-col lg:flex-row gap-6">

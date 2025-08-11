@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Save, Plus, Trash2, MapPin } from "lucide-react";
 import { Panditji, FormErrors } from "./types";
+import React, { useEffect, useState } from "react";
 
 interface DetailsTabProps {
 	panditji: Panditji | null;
@@ -49,6 +50,86 @@ export default function DetailsTab({
 	formatPhoneNumber,
 	setAddressesToDelete,
 }: DetailsTabProps) {
+	// Offerings state for view mode
+	const [offerings, setOfferings] = useState<
+		{
+			id: string;
+			serviceType: string;
+			price: number;
+			details?: string;
+			targetType?: string;
+			targetId?: string;
+		}[]
+	>([]);
+	const [loadingOfferings, setLoadingOfferings] = useState(false);
+	const [poojaCategories, setPoojaCategories] = useState<
+		Record<string, string>
+	>({}); // id -> name
+
+	useEffect(() => {
+		if (!isEditing && panditji?.id) {
+			setLoadingOfferings(true);
+			fetch(`/api/service-offerings?providerId=${panditji.id}`)
+				.then((res) => res.json())
+				.then(async (data) => {
+					const offeringsArr = Array.isArray(data.offerings)
+						? data.offerings.map(
+								(o: {
+									id: string;
+									serviceType: string;
+									price: number;
+									details?: string;
+									targetType?: string;
+									targetId?: string;
+								}) => ({
+									id: o.id,
+									serviceType: o.serviceType,
+									price: o.price,
+									details: o.details,
+									targetType: o.targetType,
+									targetId: o.targetId,
+								})
+						  )
+						: [];
+					setOfferings(offeringsArr);
+					// Collect all unique pooja category IDs
+
+					const poojaCategoryIds: string[] = (
+						offeringsArr as Array<{ targetType?: string; targetId?: string }>
+					)
+						.filter(
+							(o: {
+								targetType?: string;
+								targetId?: string;
+							}): o is { targetType: string; targetId: string } =>
+								o.targetType === "PoojaCategory" && !!o.targetId
+						)
+						.map((o: { targetType: string; targetId: string }) => o.targetId);
+					const uniqueIds = Array.from(new Set(poojaCategoryIds));
+					if (uniqueIds.length > 0) {
+						// Fetch all categories in one request (assuming API exists)
+						const res = await fetch(
+							`/api/pooja-categories?ids=${uniqueIds.join(",")}`
+						);
+						const catData = await res.json();
+						// catData should be { categories: [{ id, name }] }
+						const catMap: Record<string, string> = {};
+						if (Array.isArray(catData.categories)) {
+							catData.categories.forEach(
+								(cat: { id: string; name: string }) => {
+									catMap[cat.id] = cat.name;
+								}
+							);
+						}
+						setPoojaCategories(catMap);
+					}
+				})
+				.catch(() => setOfferings([]))
+				.finally(() => setLoadingOfferings(false));
+		}
+	}, [isEditing, panditji?.id]);
+
+	// Offerings state for view mode
 	return (
 		<Card>
 			<CardHeader>
@@ -591,6 +672,35 @@ export default function DetailsTab({
 								</div>
 							</div>
 						)}
+						{/* Offerings Section - show Pooja Category name for each offering */}
+						<div className="space-y-4 pt-2 border-t border-border">
+							<h3 className="text-sm font-medium text-muted-foreground">
+								Offerings
+							</h3>
+							{loadingOfferings ? (
+								<div className="text-muted-foreground">
+									Loading offerings...
+								</div>
+							) : offerings.length > 0 ? (
+								<ul className="list-disc pl-6">
+									{offerings.map((offering) => (
+										<li key={offering.id} className="mb-2">
+											<span className="font-medium">
+												{offering.targetType === "PoojaCategory" &&
+												offering.targetId &&
+												poojaCategories[offering.targetId]
+													? poojaCategories[offering.targetId]
+													: offering.details || offering.serviceType}
+											</span>
+											{" - "}
+											<span>₹{offering.price}</span>
+										</li>
+									))}
+								</ul>
+							) : (
+								<div className="text-muted-foreground">No offerings found.</div>
+							)}
+						</div>
 					</div>
 				)}
 			</CardContent>

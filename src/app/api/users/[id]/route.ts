@@ -654,30 +654,69 @@ export async function DELETE(
 			return NextResponse.json({ error: "User not found" }, { status: 404 });
 		}
 
+		// Delete all images and videos related to the user to avoid relation errors
+		await prisma.image.deleteMany({ where: { userId: id } });
+		await prisma.video.deleteMany({ where: { userId: id } });
+
+		// Delete all service offerings related to the user (Panditji)
+		await prisma.serviceOffering.deleteMany({ where: { providerId: id } });
+
+		// Delete all posts related to the user
+		await prisma.post.deleteMany({ where: { userId: id } });
+
+		// Delete all comments related to the user
+		await prisma.comment.deleteMany({ where: { userId: id } });
+
+		// Delete all products related to the user
+		await prisma.product.deleteMany({ where: { sellerId: id } });
+
 		// Delete user's addresses first to avoid foreign key constraints
-		// This ensures clean deletion without referential integrity issues
-		await prisma.address.deleteMany({
-			where: { userId: id },
-		});
+		await prisma.address.deleteMany({ where: { userId: id } });
 
 		// Delete the user record
-		await prisma.user.delete({
-			where: { id: id },
-		});
+		await prisma.user.delete({ where: { id: id } });
 
 		return NextResponse.json(
 			{ message: "User deleted successfully" },
 			{ status: 200 }
 		);
 	} catch (error) {
+		// Log error and all nested Prisma errors for easier debugging
 		console.error("Error deleting user:", error);
-
+		if (error instanceof Error) {
+			console.error("Error message:", error.message);
+			if (error.stack) {
+				console.error("Stack trace:", error.stack);
+			}
+			// Prisma errors may have a 'code' property
+			if (isPrismaError(error)) {
+				console.error("Prisma error code:", error.code);
+				if (error.meta) {
+					console.error("Prisma error meta:", error.meta);
+				}
+			}
+		}
 		return NextResponse.json(
 			{
 				error: "Failed to delete user",
-				details: error instanceof Error ? error.message : "Unknown error",
+				details: error instanceof Error ? error.message : String(error),
+				stack: error instanceof Error ? error.stack : undefined,
+				prismaCode: isPrismaError(error) ? error.code : undefined,
+				prismaMeta: isPrismaError(error) ? error.meta : undefined,
 			},
 			{ status: 500 }
+		);
+	}
+
+	// Helper type guard for Prisma errors
+	function isPrismaError(
+		error: unknown
+	): error is Prisma.PrismaClientKnownRequestError {
+		return (
+			typeof error === "object" &&
+			error !== null &&
+			"code" in error &&
+			typeof (error as { code?: unknown }).code === "string"
 		);
 	}
 }

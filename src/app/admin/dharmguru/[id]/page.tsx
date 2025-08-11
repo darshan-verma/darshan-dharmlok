@@ -17,8 +17,43 @@ import type {
 	ImageObject,
 	VideoObject,
 } from "@/app/admin/components/dharmguru/types";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogFooter,
+} from "@/components/ui/dialog";
 
 export default function DharmguruDetailPage() {
+	// Delete handler for Kathavachak with shadcn dialog
+	const [isDeleting, setIsDeleting] = useState(false);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const handleDeleteDharmguru = async () => {
+		if (!dharmguruId) return;
+		setIsDeleting(true);
+		const loadingToast = toast.loading("Deleting Dharmguru...");
+		try {
+			const response = await fetch(`/api/users/${dharmguruId}`, {
+				method: "DELETE",
+			});
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to delete Dharmguru");
+			}
+			toast.dismiss(loadingToast);
+			toast.success("Dharmguru deleted successfully!");
+			router.push("/admin/dharmguru");
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to delete Dharmguru"
+			);
+		} finally {
+			setIsDeleting(false);
+			setIsDeleteDialogOpen(false);
+		}
+	};
 	const params = useParams();
 	const router = useRouter();
 	
@@ -630,7 +665,35 @@ export default function DharmguruDetailPage() {
 	}
 	return (
 		<div className="p-6 space-y-6">
-			<div className="flex items-center gap-4">
+			{/* Delete Confirmation Dialog */}
+			<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Delete Dharmguru</DialogTitle>
+					</DialogHeader>
+					<div className="py-2">
+						Are you sure you want to delete this Dharmguru? This action cannot
+						be undone.
+					</div>
+					<DialogFooter className="flex justify-end gap-2">
+						<Button
+							variant="outline"
+							onClick={() => setIsDeleteDialogOpen(false)}
+							disabled={isDeleting}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleDeleteDharmguru}
+							disabled={isDeleting}
+						>
+							{isDeleting ? "Deleting..." : "Delete"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+			<div className="flex items-center gap-4 mb-4">
 				<Button
 					variant="outline"
 					size="icon"
@@ -639,8 +702,15 @@ export default function DharmguruDetailPage() {
 					<ArrowLeft className="h-4 w-4" />
 				</Button>
 				<h1 className="text-2xl font-bold">Dharmguru Details</h1>
+				<Button
+					variant="destructive"
+					onClick={() => setIsDeleteDialogOpen(true)}
+					disabled={isDeleting}
+					className="ml-auto"
+				>
+					{isDeleting ? "Deleting..." : "Delete Dharmguru"}
+				</Button>
 			</div>
-
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<ProfileCard
 					dharmguru={dharmguru}

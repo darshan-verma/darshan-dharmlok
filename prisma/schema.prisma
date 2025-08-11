@@ -130,7 +130,7 @@ model PoojaCategory {
 // Service Offering Model
 model ServiceOffering {
     id           String   @id @default(auto()) @map("_id") @db.ObjectId
-    provider     User     @relation("UserToServiceOffering", fields: [providerId], references: [id])
+    provider     User     @relation("UserToServiceOffering", fields: [providerId], references: [id], onDelete: Cascade)
     providerId   String   @db.ObjectId
 
     serviceType  String   // e.g. "pooja", "consultation", "event", etc.

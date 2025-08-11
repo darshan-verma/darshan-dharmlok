@@ -135,6 +135,7 @@ export default function PanditjiTable({
 			videoCount: number;
 			videoThumbnailCount: number;
 		};
+		offeringCount?: number | null;
 	}>({ open: false });
 	const [isDeleteLoading, setIsDeleteLoading] = useState(false);
 
@@ -430,10 +431,31 @@ export default function PanditjiTable({
 														)
 															return;
 														try {
+															// Fetch media info
 															const res = await fetch(
 																`/api/users?id=${panditji.id}&mediaInfo=true`
 															);
 															const data = await res.json();
+															// Fetch offering count
+															let offeringCount: number | null = null;
+															try {
+																const offeringsRes = await fetch(
+																	`/api/service-offerings?providerId=${panditji.id}`
+																);
+																if (offeringsRes.ok) {
+																	const offeringsData =
+																		await offeringsRes.json();
+																	offeringCount = Array.isArray(
+																		offeringsData.offerings
+																	)
+																		? offeringsData.offerings.length
+																		: 0;
+																} else {
+																	offeringCount = 0;
+																}
+															} catch {
+																offeringCount = 0;
+															}
 															setDeleteDialog({
 																open: true,
 																panditji,
@@ -452,6 +474,7 @@ export default function PanditjiTable({
 																			? data.videoThumbnailCount
 																			: 0,
 																},
+																offeringCount,
 															});
 														} catch {
 															toastError("Failed to check media info.");
@@ -535,27 +558,37 @@ export default function PanditjiTable({
 						<DialogTitle>Delete panditji</DialogTitle>
 					</DialogHeader>
 					<div className="py-4">
-						{(() => {
-							const hasMedia =
-								!!deleteDialog.mediaInfo &&
-								((deleteDialog.mediaInfo.imageCount ?? 0) > 0 ||
-									(deleteDialog.mediaInfo.videoCount ?? 0) > 0 ||
-									(deleteDialog.mediaInfo.videoThumbnailCount ?? 0) > 0);
-							return hasMedia ? (
-								<p>
-									This user has {deleteDialog.mediaInfo?.imageCount ?? 0}{" "}
-									images, {deleteDialog.mediaInfo?.videoCount ?? 0} videos, and{" "}
-									{deleteDialog.mediaInfo?.videoThumbnailCount ?? 0} video
-									thumbnails. Are you sure you want to delete this user and all
-									associated media?
-								</p>
-							) : (
-								<p>
-									Are you sure you want to delete {deleteDialog.panditji?.name}?
-									This action cannot be undone.
-								</p>
-							);
-						})()}
+						{deleteDialog.offeringCount !== undefined &&
+						deleteDialog.offeringCount !== null ? (
+							<p>
+								This Panditji has <b>{deleteDialog.offeringCount}</b> offering
+								{deleteDialog.offeringCount === 1 ? "" : "s"}.
+								<br />
+								Deleting will also remove all related offerings.
+							</p>
+						) : (
+							(() => {
+								const hasMedia =
+									!!deleteDialog.mediaInfo &&
+									((deleteDialog.mediaInfo.imageCount ?? 0) > 0 ||
+										(deleteDialog.mediaInfo.videoCount ?? 0) > 0 ||
+										(deleteDialog.mediaInfo.videoThumbnailCount ?? 0) > 0);
+								return hasMedia ? (
+									<p>
+										This user has {deleteDialog.mediaInfo?.imageCount ?? 0}{" "}
+										images, {deleteDialog.mediaInfo?.videoCount ?? 0} videos,
+										and {deleteDialog.mediaInfo?.videoThumbnailCount ?? 0} video
+										thumbnails. Are you sure you want to delete this user and
+										all associated media?
+									</p>
+								) : (
+									<p>
+										Are you sure you want to delete{" "}
+										{deleteDialog.panditji?.name}? This action cannot be undone.
+									</p>
+								);
+							})()
+						)}
 					</div>
 					<div className="flex justify-end gap-2">
 						<Button
@@ -571,14 +604,12 @@ export default function PanditjiTable({
 							onClick={async () => {
 								if (deleteDialog.panditji) {
 									setIsDeleteLoading(true);
-									// toastLoading("Deleting user...");
 									try {
 										const res = await fetch(
 											`/api/users?id=${deleteDialog.panditji.id}`,
 											{ method: "DELETE" }
 										);
 										if (!res.ok) throw new Error("Delete failed");
-										// Remove deleted panditji from local state immediately
 										if (deleteDialog.panditji?.id) {
 											setPanditjis((prev: Panditji[]) =>
 												prev.filter(
@@ -594,6 +625,7 @@ export default function PanditjiTable({
 											open: false,
 											panditji: undefined,
 											mediaInfo: undefined,
+											offeringCount: undefined,
 										});
 										setIsDeleteLoading(false);
 										toastSuccess("User deleted");

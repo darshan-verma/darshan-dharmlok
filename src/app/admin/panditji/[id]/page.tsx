@@ -1,4 +1,11 @@
 "use client";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogFooter,
+} from "@/components/ui/dialog";
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -20,6 +27,35 @@ import PreferencesTab from "@/app/admin/components/panditji/PreferencesTab";
 import ActivityTab from "@/app/admin/components/panditji/ActivityTab";
 
 export default function PanditjiDetailPage() {
+	// Delete handler for Panditji with shadcn dialog
+	const [isDeleting, setIsDeleting] = useState(false);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const [offeringCount, setOfferingCount] = useState<number | null>(null);
+	const handleDeletePanditji = async () => {
+		if (!panditjiId) return;
+		setIsDeleting(true);
+		const loadingToast = toast.loading("Deleting Panditji...");
+		try {
+			const response = await fetch(`/api/users/${panditjiId}`, {
+				method: "DELETE",
+			});
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to delete Panditji");
+			}
+			toast.dismiss(loadingToast);
+			toast.success("Panditji deleted successfully!");
+			router.push("/admin/panditji");
+		} catch (error) {
+			toast.dismiss(loadingToast);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to delete Panditji"
+			);
+		} finally {
+			setIsDeleting(false);
+			setIsDeleteDialogOpen(false);
+		}
+	};
 	const params = useParams();
 	const router = useRouter();
 	const panditjiId = (params?.id ?? "") as string;
@@ -70,6 +106,27 @@ export default function PanditjiDetailPage() {
 				const PanditjiData = await response.json();
 				setPanditji(PanditjiData);
 				setEditedPanditji(PanditjiData);
+
+				// Fetch offering count for Panditji
+				if (PanditjiData?.id) {
+					try {
+						const offeringsRes = await fetch(
+							`/api/service-offerings?providerId=${PanditjiData.id}`
+						);
+						if (offeringsRes.ok) {
+							const data = await offeringsRes.json();
+							setOfferingCount(
+								Array.isArray(data.offerings) ? data.offerings.length : 0
+							);
+						} else {
+							setOfferingCount(0);
+						}
+					} catch {
+						setOfferingCount(0);
+					}
+				} else {
+					setOfferingCount(null);
+				}
 
 				// Preserve videos/images uploaded via dialog to avoid duplicates
 				setPostImages((prevImages) => {
@@ -148,6 +205,7 @@ export default function PanditjiDetailPage() {
 				};
 				setPanditji(mockPanditji);
 				setEditedPanditji({ ...mockPanditji });
+				setOfferingCount(0);
 				return;
 			}
 			router.push("/admin/panditji");
@@ -167,8 +225,6 @@ export default function PanditjiDetailPage() {
 			// cleanup logic if needed
 		};
 	}, []);
-
-
 
 	const validateForm = (PanditjiData: Partial<Panditji>): boolean => {
 		const newErrors: FormErrors = {};
@@ -421,10 +477,58 @@ export default function PanditjiDetailPage() {
 
 	return (
 		<div className="container mx-auto p-4">
-			<div className="mb-4 flex items-center justify-between">
-				<Button variant="ghost" onClick={() => router.back()}>
-					<ArrowLeft className="mr-2 h-4 w-4" />
-					Back to Panditjis
+			{/* Delete Confirmation Dialog */}
+			<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Delete Panditji</DialogTitle>
+					</DialogHeader>
+					<div className="py-2">
+						{offeringCount !== null ? (
+							<span>
+								This Panditji has <b>{offeringCount}</b> offering
+								{offeringCount === 1 ? "" : "s"}.
+								<br />
+								Deleting will also remove all related offerings.
+							</span>
+						) : (
+							<span>Checking related offerings...</span>
+						)}
+					</div>
+					<DialogFooter className="flex justify-end gap-2">
+						<Button
+							variant="outline"
+							onClick={() => setIsDeleteDialogOpen(false)}
+							disabled={isDeleting}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={handleDeletePanditji}
+							disabled={isDeleting}
+						>
+							{isDeleting ? "Deleting..." : "Delete"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+			<div className="flex items-center gap-4 mb-4">
+				<Button
+					variant="outline"
+					size="icon"
+					onClick={() => router.push("/admin/panditji")}
+				>
+					<ArrowLeft className="h-4 w-4" />
+				</Button>
+				<h1 className="text-2xl font-bold">Panditji Details</h1>
+				<Button
+					variant="destructive"
+					onClick={() => setIsDeleteDialogOpen(true)}
+					disabled={isDeleting}
+					className="ml-auto"
+				>
+					{isDeleting ? "Deleting..." : "Delete Panditji"}
 				</Button>
 			</div>
 

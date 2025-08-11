@@ -8,15 +8,16 @@ export async function GET(req: NextRequest) {
 	const targetId = searchParams.get("targetId");
 	const providerId = searchParams.get("providerId");
 
-	// Require at least targetType for listing
-	if (!targetType) {
+	// Allow listing by providerId alone, or targetType alone, or both
+	if (!targetType && !providerId) {
 		return Response.json(
-			{ message: "targetType is required" },
+			{ message: "Either targetType or providerId is required" },
 			{ status: 400 }
 		);
 	}
 
-	const where: Record<string, unknown> = { targetType };
+	const where: Record<string, unknown> = {};
+	if (targetType) where.targetType = targetType;
 	if (providerId) where.providerId = providerId;
 	if (targetId) where.targetId = targetId;
 
