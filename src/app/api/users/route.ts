@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import s3Client from "@/lib/s3Client";
+import bcrypt from "bcrypt";
 // Helper to delete S3 objects
 async function deleteS3Media(mediaUrls: string[]) {
 	if (!mediaUrls.length) return;
@@ -259,12 +260,18 @@ export async function POST(request: Request) {
 			);
 		}
 
+		// Hash password before saving
+		let hashedPassword = "";
+		if (data.password) {
+			hashedPassword = await bcrypt.hash(data.password, 7);
+		}
+
 		// Create new user
 		const userData = {
 			name: data.name,
 			email: data.email,
 			phone: data.phone,
-			userType: data.userType, // Remove default "Kathavachak" to prevent overriding Panditji
+			userType: data.userType,
 			typeVendor: data.typeVendor,
 			category: data.category,
 			bio: data.bio,
@@ -273,7 +280,7 @@ export async function POST(request: Request) {
 			status: data.status || "Active",
 			active: 1,
 			social: 0,
-			password: "defaultPassword123", // In production, generate a secure default password and send reset email
+			password: hashedPassword,
 		};
 
 		const user = await prisma.user.create({
