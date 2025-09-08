@@ -38,6 +38,7 @@ interface PanditjiProfile {
 	name: string;
 	profileImageUrl?: string;
 	category?: string;
+	bannerImageUrl?: string;
 }
 
 interface Summary {
@@ -332,6 +333,7 @@ export default function PanditjiDashboard() {
 						name: user.name || "Panditji",
 						profileImageUrl: user.profileImageUrl || undefined,
 						category: user.category || "Panditji",
+						bannerImageUrl: user.bannerImageUrl || "",
 					});
 				} catch {
 					setProfile({
@@ -339,6 +341,7 @@ export default function PanditjiDashboard() {
 						name: session.user.name || "Panditji",
 						profileImageUrl: session.user.image || undefined,
 						category: "Panditji",
+						
 					});
 				} finally {
 					setProfileLoading(false);
@@ -463,6 +466,7 @@ export default function PanditjiDashboard() {
 					name: user.name || "Panditji",
 					profileImageUrl: user.profileImageUrl || undefined,
 					category: user.category || "Panditji",
+					bannerImageUrl: user.bannerImageUrl || "",
 				});
 			} catch (error) {
 				console.error("Failed to refresh profile:", error);
@@ -486,6 +490,7 @@ export default function PanditjiDashboard() {
 										phone: "",
 										addresses: [],
 										profileImageUrl: profile.profileImageUrl,
+										bannerImageUrl: profile.bannerImageUrl || "",
 								  }
 								: null
 						}

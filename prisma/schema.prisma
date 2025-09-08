@@ -18,6 +18,7 @@ model User {
     userType String?
     typeVendor String?
     profileImageUrl String?
+    bannerImageUrl String?
     description String?
     coverImageUrl String?
     category String?

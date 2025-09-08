@@ -42,6 +42,7 @@ export interface KathavachakProfileFormProfile {
 	phone: string;
 	addresses?: Address[];
 	avatarUrl?: string;
+	bannerImageUrl?: string;
 }
 
 export interface KathavachakProfileFormProps {
@@ -52,6 +53,7 @@ export interface KathavachakProfileFormProps {
 		email: string;
 		phone: string;
 		addresses: Address[];
+		bannerImageUrl?: string;
 	}) => Promise<void> | void;
 }
 
@@ -66,6 +68,7 @@ export default function KathavachakProfileForm({
 		phone: "",
 		addresses: [] as Address[],
 		avatarUrl: "",
+		bannerImageUrl: "",
 	});
 	const [saving, setSaving] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
@@ -83,6 +86,7 @@ export default function KathavachakProfileForm({
 						phone: data.phone || "",
 						addresses: data.addresses || [],
 						avatarUrl: data.avatarUrl || data.profileImageUrl || "",
+						bannerImageUrl: data.bannerImageUrl || "",
 					});
 				}
 			} finally {
@@ -131,10 +135,11 @@ export default function KathavachakProfileForm({
 
 		setSaving(true);
 		try {
-			// Always send profileImageUrl, but make it null if empty
+			// Always send profileImageUrl and bannerImageUrl, but make them null if empty
 			const formToSend = {
 				...form,
 				profileImageUrl: form.avatarUrl || null,
+				bannerImageUrl: form.bannerImageUrl || null,
 			};
 
 			await fetch(`/api/users/${profile?.id}`, {
@@ -153,6 +158,7 @@ export default function KathavachakProfileForm({
 						phone: data.phone || "",
 						addresses: data.addresses || [],
 						avatarUrl: data.profileImageUrl || data.avatarUrl || "",
+						bannerImageUrl: data.bannerImageUrl || "",
 					});
 				}
 			}
@@ -219,12 +225,60 @@ export default function KathavachakProfileForm({
 			toast.error("Failed to upload image. Please try again.");
 		}
 	};
+	// Banner image upload handler
+		const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+			const file = e.target.files?.[0];
+			if (!file) return;
+	
+			const toastId = toast.loading("Uploading banner image...");
+			try {
+				const uploadedUrl = await uploadProfileImage(file);
+				setForm((prev) => ({ ...prev, bannerImageUrl: uploadedUrl }));
+				toast.dismiss(toastId);
+				toast.success("Banner image uploaded successfully!");
+			} catch (error) {
+				console.error("Banner image upload failed:", error);
+				toast.dismiss(toastId);
+				toast.error("Failed to upload banner image. Please try again.");
+			}
+		};
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-6">
 			<Card>
 				{/* Profile Image/Avatar and Header */}
 				<CardHeader>
+					<div className="flex flex-col gap-4">
+											{/* Banner Image */}
+											<div className="relative group w-full h-40 mb-2">
+												{form.bannerImageUrl ? (
+													<Image
+														src={form.bannerImageUrl}
+														alt="Banner Image"
+														fill
+														className="object-cover rounded-lg border shadow"
+													/>
+												) : (
+													<div className="w-full h-40 bg-gradient-to-br from-blue-200 to-purple-200 rounded-lg flex items-center justify-center text-gray-400 text-lg font-semibold border">
+														No banner image
+													</div>
+												)}
+												{isEditing && (
+													<label
+														className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow cursor-pointer border border-gray-200 group-hover:opacity-100 opacity-90 transition-opacity"
+														title="Change banner image"
+													>
+														<input
+															type="file"
+															accept="image/*"
+															className="hidden"
+															onChange={handleBannerChange}
+														/>
+														<Edit className="h-5 w-5 text-blue-600" />
+													</label>
+												)}
+											</div>
+											</div>
 					<div className="flex items-center gap-4">
 						<div className="flex-shrink-0 relative group">
 							{form.avatarUrl ? (

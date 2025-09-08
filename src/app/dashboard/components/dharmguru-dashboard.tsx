@@ -53,6 +53,7 @@ export interface DharmguruProfile {
 	id: string;
 	name: string;
 	profileImageUrl?: string;
+	bannerImageUrl?: string;
 	contact: string;
 	email?: string;
 	addresses?: Address[];
@@ -552,6 +553,7 @@ export default function DharmguruDashboard() {
 						id: user.id,
 						name: user.name || "Dharmguru",
 						profileImageUrl: user.profileImageUrl || undefined,
+						bannerImageUrl: user.bannerImageUrl || "",
 						contact: user.phone || "", // Use phone if available
 						email: user.email || "",
 						addresses: user.addresses || [],
@@ -729,6 +731,7 @@ export default function DharmguruDashboard() {
 					id: user.id,
 					name: user.name || "Dharmguru",
 					profileImageUrl: user.profileImageUrl || undefined,
+					bannerImageUrl: user.bannerImageUrl || "",
 					contact: user.phone || "",
 					email: user.email || "",
 					addresses: user.addresses || [],
@@ -759,6 +762,7 @@ export default function DharmguruDashboard() {
 										phone: profile.contact,
 										addresses: profile.addresses || [],
 										profileImageUrl: profile.profileImageUrl,
+										bannerImageUrl: profile.bannerImageUrl || "",
 								  }
 								: null
 						}
@@ -839,7 +843,3 @@ export default function DharmguruDashboard() {
 		</div>
 	);
 }
-
-// --- Example Usage ---
-// import DharmguruDashboard from "./dharmguru-dashboard";
-// <DharmguruDashboard />

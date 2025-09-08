@@ -54,6 +54,7 @@ export interface KathavachakProfile {
 	id: string;
 	name: string;
 	avatarUrl?: string;
+	bannerImageUrl?: string;
 	contact: string;
 	rating: number;
 	bio?: string;
@@ -655,6 +656,7 @@ export default function KathavachakDashboard() {
 						id: user.id,
 						name: user.name || "Kathavachak",
 						avatarUrl: user.profileImageUrl || undefined,
+						bannerImageUrl: user.bannerImageUrl || "",
 						contact: "+91-9876543210", // fallback, not on FullUser
 						rating: 4.88, // fallback, not on FullUser
 						bio: "Spiritual orator and kathavachak.", // fallback, not on FullUser
@@ -664,6 +666,7 @@ export default function KathavachakDashboard() {
 						id: session.user.id,
 						name: session.user.name || "Kathavachak",
 						avatarUrl: session.user.image || undefined,
+						bannerImageUrl: "",
 						contact: "+91-9876543210",
 						rating: 4.88,
 						bio: "Spiritual orator and kathavachak.",
@@ -855,6 +858,9 @@ export default function KathavachakDashboard() {
 										email: (profile as unknown as FullUser).email ?? "",
 										phone: (profile as unknown as FullUser).phone ?? "",
 										addresses: (profile as unknown as FullUser).addresses ?? [],
+										avatarUrl: profile.avatarUrl,
+										bannerImageUrl: profile.bannerImageUrl,
+										
 								  }
 								: null
 						}
@@ -989,7 +995,3 @@ export default function KathavachakDashboard() {
 		</div>
 	);
 }
-
-// --- Example Usage ---
-// import KathavachakDashboard from "./kathavachak-dashboard";
-// <KathavachakDashboard />

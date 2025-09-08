@@ -63,6 +63,7 @@ export async function GET(
 					profileImageUrl: true,
 					bio: true,
 					coverImageUrl: true,
+					bannerImageUrl: true,
 
 					// Classification and status
 					category: true,
@@ -123,12 +124,12 @@ export async function GET(
 							phone: true,
 							userType: true,
 							profileImageUrl: true,
+							bannerImageUrl: true,
 							bio: true,
 							status: true,
 							isLoggedIn: true,
 							createdAt: true,
 						};
-
 						const basicUser = await prisma.user.findUnique({
 							where: { id: id },
 							select: selectFields,
@@ -240,6 +241,9 @@ export async function PUT(
 				...(data.category !== undefined && { category: data.category }),
 				...(data.profileImageUrl !== undefined && {
 					profileImageUrl: data.profileImageUrl,
+				}),
+				...(data.bannerImageUrl !== undefined && {
+					bannerImageUrl: data.bannerImageUrl,
 				}),
 				...(data.coverImageUrl !== undefined && {
 					coverImageUrl: data.coverImageUrl,

@@ -61,6 +61,7 @@ export interface FullUser extends User {
 	userType?: string;
 	typeVendor?: string;
 	profileImageUrl?: string;
+	bannerImageUrl?: string;
 	coverImageUrl?: string;
 	category?: string;
 	addresses?: Address[];

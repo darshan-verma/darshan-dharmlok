@@ -41,6 +41,7 @@ export interface DharmguruProfileFormProfile {
 	phone: string;
 	addresses?: Address[];
 	profileImageUrl?: string;
+	bannerImageUrl?: string;
 }
 
 export interface DharmguruProfileFormProps {
@@ -52,6 +53,7 @@ export interface DharmguruProfileFormProps {
 		phone: string;
 		addresses: Address[];
 		profileImageUrl: string;
+		bannerImageUrl: string;
 	}) => Promise<void> | void;
 }
 
@@ -66,6 +68,7 @@ export default function DharmguruProfileForm({
 		phone: "",
 		addresses: [] as Address[],
 		profileImageUrl: "",
+		bannerImageUrl: "",
 	});
 	const [saving, setSaving] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
@@ -82,6 +85,7 @@ export default function DharmguruProfileForm({
 						phone: data.phone || "",
 						addresses: data.addresses || [],
 						profileImageUrl: data.profileImageUrl || data.avatarUrl || "",
+						bannerImageUrl: data.bannerImageUrl || "",
 					});
 				}
 			} finally {
@@ -127,10 +131,11 @@ export default function DharmguruProfileForm({
 		}
 		setSaving(true);
 		try {
-			// Always send profileImageUrl, but make it null if empty
+			// Always send profileImageUrl and bannerImageUrl, but make them null if empty
 			const formToSend = {
 				...form,
 				profileImageUrl: form.profileImageUrl || null,
+				bannerImageUrl: form.bannerImageUrl || null,
 			};
 
 			const response = await fetch(`/api/users/${profile?.id}`, {
@@ -157,6 +162,7 @@ export default function DharmguruProfileForm({
 							data.avatarUrl ||
 							form.profileImageUrl ||
 							"",
+						bannerImageUrl: data.bannerImageUrl || form.bannerImageUrl || "",
 					};
 					setForm(updatedForm);
 					// Call onSave with the updated data
@@ -230,48 +236,100 @@ export default function DharmguruProfileForm({
 		}
 	};
 
+	// Banner image upload handler
+	const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		const toastId = toast.loading("Uploading banner image...");
+		try {
+			const uploadedUrl = await uploadProfileImage(file);
+			setForm((prev) => ({ ...prev, bannerImageUrl: uploadedUrl }));
+			toast.dismiss(toastId);
+			toast.success("Banner image uploaded successfully!");
+		} catch (error) {
+			console.error("Banner image upload failed:", error);
+			toast.dismiss(toastId);
+			toast.error("Failed to upload banner image. Please try again.");
+		}
+	};
+
 	return (
 		<form onSubmit={handleSubmit} className="space-y-6">
 			<Card>
+				{/* Banner Image Section */}
 				<CardHeader>
-					<div className="flex items-center gap-4">
-						<div className="flex-shrink-0 relative group">
-							{form.profileImageUrl ? (
-								<>
-									<Image
-										src={form.profileImageUrl}
-										alt={form.name}
-										width={80}
-										height={80}
-										className="h-20 w-20 rounded-full border-4 border-white shadow-lg object-cover"
-									/>
-								</>
+					<div className="flex flex-col gap-4">
+						{/* Banner Image */}
+						<div className="relative group w-full h-40 mb-2">
+							{form.bannerImageUrl ? (
+								<Image
+									src={form.bannerImageUrl}
+									alt="Banner Image"
+									fill
+									className="object-cover rounded-lg border shadow"
+								/>
 							) : (
-								<div className="h-20 w-20 rounded-full border-4 border-white shadow-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-semibold">
-									{form.name?.[0] ?? "?"}
+								<div className="w-full h-40 bg-gradient-to-br from-blue-200 to-purple-200 rounded-lg flex items-center justify-center text-gray-400 text-lg font-semibold border">
+									No banner image
 								</div>
 							)}
-							{/* Edit button overlay */}
 							{isEditing && (
 								<label
-									className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow cursor-pointer border border-gray-200 group-hover:opacity-100 opacity-90 transition-opacity"
-									title="Change profile image"
+									className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow cursor-pointer border border-gray-200 group-hover:opacity-100 opacity-90 transition-opacity"
+									title="Change banner image"
 								>
 									<input
 										type="file"
 										accept="image/*"
 										className="hidden"
-										onChange={handleAvatarChange}
+										onChange={handleBannerChange}
 									/>
 									<Edit className="h-5 w-5 text-blue-600" />
 								</label>
 							)}
 						</div>
-						<div className="flex-1 min-w-0">
-							<CardTitle>Personal Information</CardTitle>
-							<CardDescription>
-								Update your personal details and contact information.
-							</CardDescription>
+
+						{/* Profile Section */}
+						<div className="flex items-center gap-4">
+							<div className="flex-shrink-0 relative group">
+								{form.profileImageUrl ? (
+									<>
+										<Image
+											src={form.profileImageUrl}
+											alt={form.name}
+											width={80}
+											height={80}
+											className="h-20 w-20 rounded-full border-4 border-white shadow-lg object-cover"
+										/>
+									</>
+								) : (
+									<div className="h-20 w-20 rounded-full border-4 border-white shadow-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-semibold">
+										{form.name?.[0] ?? "?"}
+									</div>
+								)}
+								{/* Edit button overlay */}
+								{isEditing && (
+									<label
+										className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow cursor-pointer border border-gray-200 group-hover:opacity-100 opacity-90 transition-opacity"
+										title="Change profile image"
+									>
+										<input
+											type="file"
+											accept="image/*"
+											className="hidden"
+											onChange={handleAvatarChange}
+										/>
+										<Edit className="h-5 w-5 text-blue-600" />
+									</label>
+								)}
+							</div>
+							<div className="flex-1 min-w-0">
+								<CardTitle>Personal Information</CardTitle>
+								<CardDescription>
+									Update your personal details and contact information.
+								</CardDescription>
+							</div>
 						</div>
 					</div>
 				</CardHeader>
