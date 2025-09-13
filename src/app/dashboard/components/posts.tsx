@@ -65,6 +65,7 @@ interface Post {
 	createdAt: string;
 	likes: number;
 	comments: number;
+	commentCount: number;
 	user: {
 		id: string;
 		name: string;
@@ -569,7 +570,7 @@ const PostItem = ({
 	const [deletingCommentId, setDeletingCommentId] = useState<string | null>(
 		null
 	);
-	const [commentCount, setCommentCount] = useState(post.comments || 0);
+	const [commentCount, setCommentCount] = useState(post.commentCount || 0);
 
 	// Replace with real userId from auth/session
 	const CURRENT_USER_ID = currentUserId;
@@ -642,7 +643,7 @@ const PostItem = ({
 				const data = await res.json();
 				setComments((prev) => [data.comment, ...prev]);
 				setCommentInput("");
-				setCommentCount((prev) => prev + 1);
+				setCommentCount((prev: number) => prev + 1);
 			}
 		} finally {
 			setAddingComment(false);
@@ -657,7 +658,7 @@ const PostItem = ({
 			});
 			if (res.ok) {
 				setComments((prev) => prev.filter((c) => c.id !== commentId));
-				setCommentCount((prev) => Math.max(0, prev - 1));
+				setCommentCount((prev: number) => Math.max(0, prev - 1));
 			}
 		} finally {
 			setDeletingCommentId(null);

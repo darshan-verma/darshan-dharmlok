@@ -40,9 +40,17 @@ export async function GET(request: Request) {
 					},
 				},
 				media: true,
+				_count: {
+					select: { comments: true },
+				},
 			},
 		});
-		return NextResponse.json(posts);
+		// Add commentCount to each post
+		const postsWithCommentCount = posts.map((post) => ({
+			...post,
+			commentCount: post._count?.comments ?? 0,
+		}));
+		return NextResponse.json(postsWithCommentCount);
 	} catch (error) {
 		console.error("Error fetching posts:", error);
 		return NextResponse.json(
