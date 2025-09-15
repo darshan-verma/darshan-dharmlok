@@ -46,7 +46,8 @@ export default function DharmguruPage() {
 		const fetchUser = async () => {
 			try {
 				const userId = session.user.id;
-				const response = await fetch(`/api/users/${userId}`);
+				// Use the new dharmguru-specific API endpoint for optimized queries
+				const response = await fetch(`/api/users/dharmguru/${userId}`);
 
 				if (!response.ok) {
 					const errorData = await response.json().catch(() => ({}));

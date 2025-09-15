@@ -1,8 +1,9 @@
 // Prisma Schema for MongoDB
 datasource db {
     provider = "mongodb"
-    url = env("MONGODB_URI")
+    url      = env("MONGODB_URI")
 }
+
 // Generator for Prisma Client
 generator client {
     provider = "prisma-client-js"
@@ -41,6 +42,24 @@ model User {
     posts Post[]
     comments Comment[]
     products Product[] @relation("UserProducts")
+
+    // Optimized indexes for user-type specific API queries
+    @@index([userType]) // Primary index for user type filtering
+    @@index([userType, status]) // Combined index for type + status queries
+    @@index([userType, kycApproved]) // Combined index for type + KYC approval queries
+    @@index([userType, active]) // Combined index for type + active status queries
+    @@index([userType, availability]) // Combined index for type + availability queries
+    @@index([userType, createdAt]) // Combined index for type + date sorting
+    @@index([userType, name]) // Combined index for type + name search
+    @@index([userType, email]) // Combined index for type + email search
+    @@index([userType, phone]) // Combined index for type + phone search
+    @@index([userType, category]) // Combined index for type + category filtering
+    @@index([userType, rank]) // Combined index for type + rank filtering
+    @@index([name]) // Index for name-based searches across all types
+    @@index([status]) // Index for status filtering across all types
+    @@index([kycApproved]) // Index for KYC approval filtering
+    @@index([active]) // Index for active status filtering
+    @@index([createdAt]) // Index for date-based sorting and filtering
 }
 
 model Image {
@@ -71,7 +90,16 @@ model Address {
     createdAt  DateTime @default(now())
     updatedAt  DateTime @updatedAt
 
-@@index([userId])
+    // Optimized indexes for address queries
+    @@index([userId]) // Primary index for user-based queries
+    @@index([city]) // Index for city-based filtering
+    @@index([state]) // Index for state-based filtering
+    @@index([country]) // Index for country-based filtering
+    @@index([pincode]) // Index for pincode-based filtering
+    @@index([type]) // Index for address type filtering
+    @@index([city, state]) // Combined index for city + state
+    @@index([state, country]) // Combined index for state + country
+    @@index([userId, type]) // Combined index for user + type
 }
 //Bal Vidhya Model
 model BalVidhya {
@@ -145,6 +173,16 @@ model ServiceOffering {
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
     status       String? @default("Active")
+
+    // Optimized indexes for service offering queries
+    @@index([providerId]) // Index for provider-based queries
+    @@index([providerId, status]) // Combined index for provider + status
+    @@index([serviceType]) // Index for service type filtering
+    @@index([serviceType, status]) // Combined index for service type + status
+    @@index([providerId, serviceType]) // Combined index for provider + service type
+    @@index([targetType, targetId]) // Combined index for target-based queries
+    @@index([status]) // Index for status filtering
+    @@index([createdAt]) // Index for date-based sorting
 } 
 // EBook Model
 model EBook {
@@ -336,6 +374,18 @@ model Product {
     sellerId        String    @db.ObjectId
     createdAt       DateTime  @default(now())
     updatedAt       DateTime  @updatedAt
+
+    // Optimized indexes for product queries
+    @@index([sellerId]) // Index for seller-based queries
+    @@index([sellerId, status]) // Combined index for seller + status
+    @@index([status]) // Index for status filtering
+    @@index([category]) // Index for category filtering
+    @@index([sellerId, category]) // Combined index for seller + category
+    @@index([name]) // Index for name-based searches
+    @@index([pricePerUnit]) // Index for price-based sorting/filtering
+    @@index([availableQty]) // Index for stock-based filtering
+    @@index([createdAt]) // Index for date-based sorting
+    @@index([updatedAt]) // Index for update-based sorting
 }
 // Coupon Model
 model Coupon {
@@ -375,6 +425,20 @@ model Event {
     status        String
     createdAt     DateTime @default(now())
     updatedAt     DateTime @updatedAt
+
+    // Optimized indexes for event queries
+    @@index([status]) // Index for status filtering (active/inactive)
+    @@index([category]) // Index for category-based filtering
+    @@index([type]) // Index for event type filtering
+    @@index([fromDate]) // Index for date-based queries
+    @@index([toDate]) // Index for end date queries
+    @@index([location]) // Index for location-based searches
+    @@index([place]) // Index for place-based searches
+    @@index([category, status]) // Combined index for category + status
+    @@index([type, status]) // Combined index for type + status
+    @@index([fromDate, status]) // Combined index for date + status
+    @@index([price]) // Index for price-based filtering/sorting
+    @@index([createdAt]) // Index for creation date sorting
 }
 
 model Post {
@@ -391,7 +455,14 @@ model Post {
 
     media Media[]
 
-    @@index([userId])
+    // Optimized indexes for post queries
+    @@index([userId]) // Primary index for user-based queries
+    @@index([userType]) // Index for user type filtering
+    @@index([createdAt]) // Index for chronological sorting
+    @@index([updatedAt]) // Index for update-based sorting
+    @@index([userId, userType]) // Combined index for user + userType
+    @@index([userType, createdAt]) // Combined index for userType + date
+    @@index([likes]) // Index for like-based queries
 }
 
 model Media {

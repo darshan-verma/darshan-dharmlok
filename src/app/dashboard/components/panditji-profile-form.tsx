@@ -34,6 +34,29 @@ export interface Address {
 	id?: string;
 }
 
+// Interface for the panditji API response
+interface PanditjiApiResponse {
+	id: string;
+	name: string;
+	email: string;
+	phone: string;
+	profileImageUrl?: string;
+	bannerImageUrl?: string;
+	bio?: string;
+	category?: string;
+	rank?: string;
+	status: string;
+	kycApproved?: number;
+	addresses?: Address[];
+}
+
+// Interface for API error responses
+interface ApiErrorResponse {
+	error?: string;
+	message?: string;
+	details?: string | Record<string, unknown>;
+}
+
 export interface PanditjiProfileFormProfile {
 	id: string;
 	name: string;
@@ -75,20 +98,29 @@ export default function PanditjiProfileForm({
 	useEffect(() => {
 		async function fetchProfile() {
 			try {
-				// Match Kathavachak: fetch from /api/users/{id}
-				const res = await fetch(`/api/users/${profile?.id}`);
+				// Use the new panditji-specific API endpoint for optimized queries
+				const res = await fetch(`/api/users/panditji/${profile?.id}`);
 				if (res.ok) {
-					const data = await res.json();
+					const data: PanditjiApiResponse = await res.json();
 					setForm({
 						name: data.name || "",
 						email: data.email || "",
 						phone: data.phone || "",
 						addresses: data.addresses || [],
-						profileImageUrl: data.profileImageUrl || data.avatarUrl || "",
+						profileImageUrl: data.profileImageUrl || "",
 						bannerImageUrl: data.bannerImageUrl || "",
 					});
+				} else {
+					const errorData: ApiErrorResponse = await res.json();
+					console.error(
+						"Failed to fetch profile:",
+						errorData.error || res.status
+					);
+					toast.error(errorData.error || "Failed to load profile");
 				}
-			} finally {
+			} catch (error) {
+				console.error("Error fetching profile:", error);
+				toast.error("Failed to load profile");
 			}
 		}
 		if (profile?.id) fetchProfile();
@@ -138,37 +170,43 @@ export default function PanditjiProfileForm({
 				bannerImageUrl: form.bannerImageUrl || null,
 			};
 
-			const response = await fetch(`/api/users/${profile?.id}`, {
+			// Use the new panditji-specific API endpoint for updates
+			const response = await fetch(`/api/users/panditji/${profile?.id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(formToSend),
 			});
 
 			if (!response.ok) {
-				throw new Error(`Failed to update profile: ${response.status}`);
+				const errorData: ApiErrorResponse = await response.json();
+				throw new Error(
+					errorData.error || `Failed to update profile: ${response.status}`
+				);
 			}
+
 			if (profile?.id) {
-				const res = await fetch(`/api/users/${profile.id}`);
+				// Fetch updated profile using the new panditji-specific endpoint
+				const res = await fetch(`/api/users/panditji/${profile.id}`);
 				if (res.ok) {
-					const data = await res.json();
+					const data: PanditjiApiResponse = await res.json();
 					const updatedForm = {
 						name: data.name || "",
 						email: data.email || "",
 						phone: data.phone || "",
 						addresses: data.addresses || [],
 						// Preserve current profileImageUrl if backend doesn't return one
-						profileImageUrl:
-							data.profileImageUrl ||
-							data.avatarUrl ||
-							form.profileImageUrl ||
-							"",
+						profileImageUrl: data.profileImageUrl || form.profileImageUrl || "",
 						bannerImageUrl: data.bannerImageUrl || form.bannerImageUrl || "",
 					};
 					setForm(updatedForm);
 					// Call onSave with the updated data
 					if (onSave) await onSave(updatedForm);
 				} else {
-					console.error("Failed to fetch updated profile:", res.status);
+					const errorData: ApiErrorResponse = await res.json();
+					console.error(
+						"Failed to fetch updated profile:",
+						errorData.error || res.status
+					);
 				}
 			} else {
 				// If no profile ID, still call onSave with current form

@@ -46,7 +46,8 @@ export default function SellerDashboardPage() {
 		const fetchUser = async () => {
 			try {
 				const userId = session.user.id;
-				const response = await fetch(`/api/users/${userId}`);
+				// Use the new seller-specific API endpoint for optimized queries
+				const response = await fetch(`/api/users/seller/${userId}`);
 				if (!response.ok) {
 					const errorData = await response.json().catch(() => ({}));
 					throw new Error(errorData.error || "Failed to fetch user data");

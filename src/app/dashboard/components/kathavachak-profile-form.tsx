@@ -35,6 +35,29 @@ export interface Address {
 	id?: string;
 }
 
+// Interface for the kathavachak API response
+interface KathavachakApiResponse {
+	id: string;
+	name: string;
+	email: string;
+	phone: string;
+	profileImageUrl?: string;
+	bannerImageUrl?: string;
+	bio?: string;
+	category?: string;
+	rank?: string;
+	status: string;
+	kycApproved?: number;
+	addresses?: Address[];
+}
+
+// Interface for API error responses
+interface ApiErrorResponse {
+	error?: string;
+	message?: string;
+	details?: string | Record<string, unknown>;
+}
+
 export interface KathavachakProfileFormProfile {
 	id: string;
 	name: string;
@@ -76,21 +99,29 @@ export default function KathavachakProfileForm({
 	useEffect(() => {
 		async function fetchProfile() {
 			try {
-				// Replace with your actual API endpoint
-				const res = await fetch(`/api/users/${profile?.id}`);
+				// Use the new kathavachak-specific API endpoint for optimized queries
+				const res = await fetch(`/api/users/kathavachak/${profile?.id}`);
 				if (res.ok) {
-					const data = await res.json();
+					const data: KathavachakApiResponse = await res.json();
 					setForm({
 						name: data.name || "",
 						email: data.email || "",
 						phone: data.phone || "",
 						addresses: data.addresses || [],
-						avatarUrl: data.avatarUrl || data.profileImageUrl || "",
+						avatarUrl: data.profileImageUrl || "",
 						bannerImageUrl: data.bannerImageUrl || "",
 					});
+				} else {
+					const errorData: ApiErrorResponse = await res.json();
+					console.error(
+						"Failed to fetch profile:",
+						errorData.error || res.status
+					);
+					toast.error(errorData.error || "Failed to load profile");
 				}
-			} finally {
-				// No fetching state to set
+			} catch (error) {
+				console.error("Error fetching profile:", error);
+				toast.error("Failed to load profile");
 			}
 		}
 		if (profile?.id) fetchProfile();
@@ -142,24 +173,39 @@ export default function KathavachakProfileForm({
 				bannerImageUrl: form.bannerImageUrl || null,
 			};
 
-			await fetch(`/api/users/${profile?.id}`, {
+			// Use the new kathavachak-specific API endpoint for updates
+			const response = await fetch(`/api/users/kathavachak/${profile?.id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(formToSend),
 			});
-			// Optionally, refetch profile to sync with admin
+
+			if (!response.ok) {
+				const errorData: ApiErrorResponse = await response.json();
+				throw new Error(
+					errorData.error || `Failed to update profile: ${response.status}`
+				);
+			}
+
+			// Optionally, refetch profile to sync with admin using new endpoint
 			if (profile?.id) {
-				const res = await fetch(`/api/users/${profile.id}`);
+				const res = await fetch(`/api/users/kathavachak/${profile.id}`);
 				if (res.ok) {
-					const data = await res.json();
+					const data: KathavachakApiResponse = await res.json();
 					setForm({
 						name: data.name || "",
 						email: data.email || "",
 						phone: data.phone || "",
 						addresses: data.addresses || [],
-						avatarUrl: data.profileImageUrl || data.avatarUrl || "",
+						avatarUrl: data.profileImageUrl || "",
 						bannerImageUrl: data.bannerImageUrl || "",
 					});
+				} else {
+					const errorData: ApiErrorResponse = await res.json();
+					console.error(
+						"Failed to fetch updated profile:",
+						errorData.error || res.status
+					);
 				}
 			}
 			if (onSave) await onSave(form);
@@ -226,22 +272,22 @@ export default function KathavachakProfileForm({
 		}
 	};
 	// Banner image upload handler
-		const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-			const file = e.target.files?.[0];
-			if (!file) return;
-	
-			const toastId = toast.loading("Uploading banner image...");
-			try {
-				const uploadedUrl = await uploadProfileImage(file);
-				setForm((prev) => ({ ...prev, bannerImageUrl: uploadedUrl }));
-				toast.dismiss(toastId);
-				toast.success("Banner image uploaded successfully!");
-			} catch (error) {
-				console.error("Banner image upload failed:", error);
-				toast.dismiss(toastId);
-				toast.error("Failed to upload banner image. Please try again.");
-			}
-		};
+	const handleBannerChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		const toastId = toast.loading("Uploading banner image...");
+		try {
+			const uploadedUrl = await uploadProfileImage(file);
+			setForm((prev) => ({ ...prev, bannerImageUrl: uploadedUrl }));
+			toast.dismiss(toastId);
+			toast.success("Banner image uploaded successfully!");
+		} catch (error) {
+			console.error("Banner image upload failed:", error);
+			toast.dismiss(toastId);
+			toast.error("Failed to upload banner image. Please try again.");
+		}
+	};
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-6">
@@ -249,36 +295,36 @@ export default function KathavachakProfileForm({
 				{/* Profile Image/Avatar and Header */}
 				<CardHeader>
 					<div className="flex flex-col gap-4">
-											{/* Banner Image */}
-											<div className="relative group w-full h-40 mb-2">
-												{form.bannerImageUrl ? (
-													<Image
-														src={form.bannerImageUrl}
-														alt="Banner Image"
-														fill
-														className="object-cover rounded-lg border shadow"
-													/>
-												) : (
-													<div className="w-full h-40 bg-gradient-to-br from-blue-200 to-purple-200 rounded-lg flex items-center justify-center text-gray-400 text-lg font-semibold border">
-														No banner image
-													</div>
-												)}
-												{isEditing && (
-													<label
-														className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow cursor-pointer border border-gray-200 group-hover:opacity-100 opacity-90 transition-opacity"
-														title="Change banner image"
-													>
-														<input
-															type="file"
-															accept="image/*"
-															className="hidden"
-															onChange={handleBannerChange}
-														/>
-														<Edit className="h-5 w-5 text-blue-600" />
-													</label>
-												)}
-											</div>
-											</div>
+						{/* Banner Image */}
+						<div className="relative group w-full h-40 mb-2">
+							{form.bannerImageUrl ? (
+								<Image
+									src={form.bannerImageUrl}
+									alt="Banner Image"
+									fill
+									className="object-cover rounded-lg border shadow"
+								/>
+							) : (
+								<div className="w-full h-40 bg-gradient-to-br from-blue-200 to-purple-200 rounded-lg flex items-center justify-center text-gray-400 text-lg font-semibold border">
+									No banner image
+								</div>
+							)}
+							{isEditing && (
+								<label
+									className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow cursor-pointer border border-gray-200 group-hover:opacity-100 opacity-90 transition-opacity"
+									title="Change banner image"
+								>
+									<input
+										type="file"
+										accept="image/*"
+										className="hidden"
+										onChange={handleBannerChange}
+									/>
+									<Edit className="h-5 w-5 text-blue-600" />
+								</label>
+							)}
+						</div>
+					</div>
 					<div className="flex items-center gap-4">
 						<div className="flex-shrink-0 relative group">
 							{form.avatarUrl ? (

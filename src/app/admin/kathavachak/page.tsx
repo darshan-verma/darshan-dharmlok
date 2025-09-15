@@ -16,19 +16,21 @@ import KathavachakForm from "../components/kathavachak/KathavachakForm";
 import Pagination from "../components/Pagination/Pagination";
 import { usePagination } from "../hooks/usePagination";
 
-interface UserData {
+interface KathavachakApiResponse {
 	id: string;
-	name?: string;
+	name: string;
 	category?: string;
-	phone?: string;
-	email?: string;
-	status?: string;
+	phone: string;
+	email: string;
+	status: string;
 	rank?: string;
-	kycApproved?: boolean | number;
+	kycApproved: number | boolean;
 }
+
 interface ApiErrorResponse {
 	details?: Record<string, unknown> | string[];
 	message?: string;
+	error?: string;
 }
 
 export default function KathavachakPage() {
@@ -70,8 +72,9 @@ export default function KathavachakPage() {
 		const fetchKathavachaks = async () => {
 			setLoading(true);
 			try {
+				// Use the new optimized kathavachak-specific API endpoint
 				const response = await fetch(
-					`/api/users?userType=Kathavachak&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+					`/api/users/kathavachak?page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
 				);
 
 				if (!response.ok) {
@@ -80,21 +83,31 @@ export default function KathavachakPage() {
 
 				const data = await response.json();
 
-				// Map the user data to match Kathavachak structure
-				const mappedKathavachaks = data.users.map((user: UserData) => ({
-					id: user.id,
-					name: user.name || "",
-					category: user.category || "",
-					phone: user.phone || "",
-					email: user.email || "",
-					status: user.status || "Inactive",
-					rank: user.rank || "",
-					isApproved: user.kycApproved || false,
-				}));
+				// Transform the optimized API response to match Kathavachak structure
+				const mappedKathavachaks = data.data.map(
+					(user: KathavachakApiResponse) => ({
+						id: user.id,
+						name: user.name || "",
+						category: user.category || "",
+						phone: user.phone || "",
+						email: user.email || "",
+						status: user.status || "Inactive",
+						rank: user.rank || "",
+						isApproved: user.kycApproved === 1 || user.kycApproved === true,
+					})
+				);
 
 				setKathavachaks(mappedKathavachaks);
-				updatePagination(data.total, data.pagination.totalPages);
-			} catch {
+
+				// Update pagination with the new API response structure
+				if (data.pagination) {
+					updatePagination(
+						data.pagination.totalCount,
+						data.pagination.totalPages
+					);
+				}
+			} catch (error) {
+				console.error("Error fetching kathavachaks:", error);
 				toast.error("Failed to load kathavachaks");
 			} finally {
 				setLoading(false);
@@ -122,15 +135,16 @@ export default function KathavachakPage() {
 
 	const handleUpdateStatus = async (id: string, newStatus: string) => {
 		try {
-			// Call the API to update user status
-			const response = await fetch(`/api/users/status`, {
+			// Use the new kathavachak-specific API endpoint for updates
+			const response = await fetch(`/api/users/kathavachak/${id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: id, status: newStatus }),
+				body: JSON.stringify({ status: newStatus }),
 			});
 
 			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
+				const errorData = await response.json();
+				throw new Error(errorData.error || `API error: ${response.status}`);
 			}
 
 			// Update local state
@@ -138,22 +152,26 @@ export default function KathavachakPage() {
 				kathavachaks.map((k) => (k.id === id ? { ...k, status: newStatus } : k))
 			);
 			toast.success("Status updated successfully");
-		} catch {
-			toast.error("Failed to update status");
+		} catch (error) {
+			console.error("Error updating status:", error);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to update status"
+			);
 		}
 	};
 
 	const handleToggleApproval = async (id: string, currentStatus: boolean) => {
 		try {
-			// Call the API to update user KYC approval status
-			const response = await fetch(`/api/users/${id}`, {
+			// Use the new kathavachak-specific API endpoint for KYC approval updates
+			const response = await fetch(`/api/users/kathavachak/${id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ kycApproved: !currentStatus }),
+				body: JSON.stringify({ kycApproved: !currentStatus ? 1 : 0 }),
 			});
 
 			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
+				const errorData = await response.json();
+				throw new Error(errorData.error || `API error: ${response.status}`);
 			}
 
 			// Update local state
@@ -165,8 +183,13 @@ export default function KathavachakPage() {
 			toast.success(
 				`Kathavachak ${currentStatus ? "disapproved" : "approved"} successfully`
 			);
-		} catch {
-			toast.error("Failed to update approval status");
+		} catch (error) {
+			console.error("Error updating approval status:", error);
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to update approval status"
+			);
 		}
 	};
 
@@ -183,44 +206,57 @@ export default function KathavachakPage() {
 
 	const handleFormSubmit = async (kathavachakData: Omit<Kathavachak, "id">) => {
 		try {
+			setIsSubmitting(true);
+
 			const url = currentKathavachak?.id
-				? `/api/users/${currentKathavachak.id}`
-				: "/api/users";
+				? `/api/users/kathavachak/${currentKathavachak.id}`
+				: "/api/users/kathavachak";
 
 			const method = currentKathavachak?.id ? "PUT" : "POST";
 
-			// Ensure rank is included in the request data
-			const requestData = {
-				...(currentKathavachak?.id && { id: currentKathavachak.id }),
-				...kathavachakData,
-				userType: "Kathavachak",
-				isApproved: kathavachakData.isApproved || false,
-				rank: kathavachakData.rank || "", // Ensure rank is explicitly set
-			};
+			// Prepare form data for multipart/form-data
+			const formData = new FormData();
+			formData.append("name", kathavachakData.name);
+			formData.append("email", kathavachakData.email);
+			formData.append("phone", kathavachakData.phone);
+			formData.append("category", kathavachakData.category || "");
+			formData.append("status", kathavachakData.status || "Inactive");
+			formData.append("rank", kathavachakData.rank || "");
+			formData.append("kycApproved", kathavachakData.isApproved ? "1" : "0");
+
+			// Add password only if it's a new user or if password is being updated
+			if (
+				!currentKathavachak?.id ||
+				(kathavachakData as Record<string, unknown>).password
+			) {
+				formData.append(
+					"password",
+					((kathavachakData as Record<string, unknown>).password as string) ||
+						"tempPassword123"
+				);
+			}
 
 			const response = await fetch(url, {
 				method,
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(requestData),
+				body: formData, // Use FormData instead of JSON
 			});
 
 			if (!response.ok) {
-				throw new Error("Failed to save kathavachak");
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to save kathavachak");
 			}
 
-			// const data = await response.json();
-
-			// Refresh the kathavachaks list
-			const fetchResponse = await fetch("/api/users?userType=Kathavachak");
+			// Refresh the kathavachaks list using the new API
+			const fetchResponse = await fetch(
+				`/api/users/kathavachak?page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+			);
 			if (!fetchResponse.ok) {
 				throw new Error("Failed to fetch updated kathavachaks");
 			}
-			const { users } = await fetchResponse.json();
+			const { data } = await fetchResponse.json();
 
-			// Map the user data to match Kathavachak structure
-			const mappedKathavachaks = users.map((user: UserData) => ({
+			// Transform the optimized API response
+			const mappedKathavachaks = data.map((user: KathavachakApiResponse) => ({
 				id: user.id,
 				name: user.name || "",
 				category: user.category || "",
@@ -228,7 +264,7 @@ export default function KathavachakPage() {
 				email: user.email || "",
 				status: user.status || "Inactive",
 				rank: user.rank || "",
-				isApproved: user.kycApproved || false,
+				isApproved: user.kycApproved === 1 || user.kycApproved === true,
 			}));
 
 			setKathavachaks(mappedKathavachaks);
@@ -240,12 +276,8 @@ export default function KathavachakPage() {
 			);
 
 			setIsFormOpen(false);
-			toast.success(
-				currentKathavachak?.id
-					? "Kathavachak updated successfully"
-					: "Kathavachak created successfully"
-			);
 		} catch (error: unknown) {
+			console.error("Error saving kathavachak:", error);
 			// Type guard for error with 'details'
 			if (typeof error === "object" && error !== null && "details" in error) {
 				const err = error as ApiErrorResponse;
@@ -267,6 +299,7 @@ export default function KathavachakPage() {
 			setIsSubmitting(false);
 		}
 	};
+
 	if (loading) {
 		return (
 			<div className="flex justify-center items-center h-screen">

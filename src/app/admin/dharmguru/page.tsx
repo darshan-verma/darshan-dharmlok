@@ -16,22 +16,34 @@ import DharmguruForm from "../components/dharmguru/DharmguruForm";
 import Pagination from "../components/Pagination/Pagination";
 import { usePagination } from "../hooks/usePagination";
 
-interface UserData {
+// Interface for the dharmguru API response
+interface DharmguruApiResponse {
 	id: string;
-	name?: string;
+	name: string;
+	email: string;
+	phone: string;
+	profileImageUrl?: string;
+	bannerImageUrl?: string;
+	bio?: string;
 	category?: string;
-	phone?: string;
-	email?: string;
-	status?: string;
 	rank?: string;
-	kycApproved?: boolean | number;
+	status: string;
+	kycApproved?: number;
+	isLoggedIn?: boolean;
+	createdAt?: string;
+}
+
+interface ApiErrorResponse {
+	details?: Record<string, unknown> | string[];
+	message?: string;
+	error?: string;
+}
+
+interface DharmguruFormData extends Omit<Dharmguru, "id"> {
+	password?: string;
 }
 
 export default function DharmguruPage() {
-	interface ApiErrorResponse {
-		details?: Record<string, unknown> | string[];
-		message?: string;
-	}
 	const router = useRouter();
 	const searchParams = useSearchParams();
 
@@ -72,8 +84,9 @@ export default function DharmguruPage() {
 		const fetchDharmgurus = async () => {
 			setLoading(true);
 			try {
+				// Use the new optimized dharmguru-specific API endpoint
 				const response = await fetch(
-					`/api/users?userType=Dharmguru&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+					`/api/users/dharmguru?page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
 				);
 
 				if (!response.ok) {
@@ -82,20 +95,29 @@ export default function DharmguruPage() {
 
 				const data = await response.json();
 
-				// Map the user data to match Dharmguru structure
-				const mappedDharmgurus = data.users.map((user: UserData) => ({
-					id: user.id,
-					name: user.name || "",
-					category: user.category || "",
-					phone: user.phone || "",
-					email: user.email || "",
-					status: user.status || "Active",
-					rank: user.rank || "",
-					isApproved: user.kycApproved || false,
-				}));
+				// Transform the optimized API response to match Dharmguru structure
+				const mappedDharmgurus = data.data.map(
+					(user: DharmguruApiResponse) => ({
+						id: user.id,
+						name: user.name || "",
+						category: user.category || "",
+						phone: user.phone || "",
+						email: user.email || "",
+						status: user.status || "Active",
+						rank: user.rank || "",
+						isApproved: user.kycApproved === 1,
+					})
+				);
 
 				setDharmgurus(mappedDharmgurus);
-				updatePagination(data.total, data.pagination.totalPages);
+
+				// Update pagination with the new API response structure
+				if (data.pagination) {
+					updatePagination(
+						data.pagination.totalCount,
+						data.pagination.totalPages
+					);
+				}
 			} catch {
 				toast.error("Failed to load dharmgurus");
 			} finally {
@@ -126,15 +148,16 @@ export default function DharmguruPage() {
 
 	const handleUpdateStatus = async (id: string, newStatus: string) => {
 		try {
-			// Call the API to update user status
-			const response = await fetch(`/api/users/status`, {
+			// Use the new dharmguru-specific API endpoint for updates
+			const response = await fetch(`/api/users/dharmguru/${id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: id, status: newStatus }),
+				body: JSON.stringify({ status: newStatus }),
 			});
 
 			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
+				const errorData = await response.json();
+				throw new Error(errorData.error || `API error: ${response.status}`);
 			}
 
 			// Update local state
@@ -142,22 +165,26 @@ export default function DharmguruPage() {
 				dharmgurus.map((d) => (d.id === id ? { ...d, status: newStatus } : d))
 			);
 			toast.success("Status updated successfully");
-		} catch {
-			toast.error("Failed to update status");
+		} catch (error) {
+			console.error("Error updating status:", error);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to update status"
+			);
 		}
 	};
 
 	const handleToggleApproval = async (id: string, currentStatus: boolean) => {
 		try {
-			// Call the API to update user KYC approval status
-			const response = await fetch(`/api/users/${id}`, {
+			// Use the new dharmguru-specific API endpoint for KYC approval updates
+			const response = await fetch(`/api/users/dharmguru/${id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ kycApproved: !currentStatus }),
+				body: JSON.stringify({ kycApproved: !currentStatus ? 1 : 0 }),
 			});
 
 			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
+				const errorData = await response.json();
+				throw new Error(errorData.error || `API error: ${response.status}`);
 			}
 
 			// Update local state
@@ -169,8 +196,13 @@ export default function DharmguruPage() {
 			toast.success(
 				`Dharmguru ${currentStatus ? "disapproved" : "approved"} successfully`
 			);
-		} catch {
-			toast.error("Failed to update approval status");
+		} catch (error) {
+			console.error("Error updating approval status:", error);
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to update approval status"
+			);
 		}
 	};
 
@@ -185,48 +217,55 @@ export default function DharmguruPage() {
 		// router.push(`/admin/impersonate/${kathavachak.id}`);
 	};
 
-	const handleFormSubmit = async (dharmguruData: Omit<Dharmguru, "id">) => {
+	const handleFormSubmit = async (dharmguruData: DharmguruFormData) => {
 		try {
+			setIsSubmitting(true);
+
 			const url = currentDharmguru?.id
-				? `/api/users/${currentDharmguru.id}`
-				: "/api/users";
+				? `/api/users/dharmguru/${currentDharmguru.id}`
+				: "/api/users/dharmguru";
 
 			const method = currentDharmguru?.id ? "PUT" : "POST";
 
-			// Ensure rank is included in the request data
-			const requestData = {
-				...(currentDharmguru?.id && { id: currentDharmguru.id }),
-				...dharmguruData,
-				userType: "Dharmguru",
-				isApproved: dharmguruData.isApproved || false,
-				rank: dharmguruData.rank || "", // Ensure rank is explicitly set
-			};
+			// Prepare form data for multipart/form-data
+			const formData = new FormData();
+			formData.append("name", dharmguruData.name);
+			formData.append("email", dharmguruData.email);
+			formData.append("phone", dharmguruData.phone);
+			formData.append("category", dharmguruData.category);
+			formData.append("status", dharmguruData.status || "Active");
+			formData.append("rank", dharmguruData.rank || "");
+			formData.append("kycApproved", dharmguruData.isApproved ? "1" : "0");
+
+			// Add password only if it's a new user or if password is being updated
+			if (!currentDharmguru?.id || dharmguruData.password) {
+				formData.append(
+					"password",
+					dharmguruData.password || "tempPassword123"
+				);
+			}
 
 			const response = await fetch(url, {
 				method,
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(requestData),
+				body: formData, // Use FormData instead of JSON
 			});
 
 			if (!response.ok) {
-				throw new Error("Failed to save kathavachak");
+				const errorData = await response.json();
+				throw new Error(errorData.error || "Failed to save dharmguru");
 			}
 
-			// const data = await response.json();
-
-			// Refresh the kathavachaks list
+			// Refresh the dharmgurus list using the new API
 			const fetchResponse = await fetch(
-				`/api/users?userType=Dharmguru&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+				`/api/users/dharmguru?page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
 			);
 			if (!fetchResponse.ok) {
 				throw new Error("Failed to fetch updated dharmgurus");
 			}
-			const { users } = await fetchResponse.json();
+			const { data } = await fetchResponse.json();
 
-			// Map the user data to match Kathavachak structure
-			const mappedDharmgurus = users.map((user: UserData) => ({
+			// Transform the optimized API response
+			const mappedDharmgurus = data.map((user: DharmguruApiResponse) => ({
 				id: user.id,
 				name: user.name || "",
 				category: user.category || "",
@@ -234,7 +273,7 @@ export default function DharmguruPage() {
 				email: user.email || "",
 				status: user.status || "Active",
 				rank: user.rank || "",
-				isApproved: user.kycApproved || false,
+				isApproved: user.kycApproved === 1,
 			}));
 
 			setDharmgurus(mappedDharmgurus);
@@ -246,12 +285,8 @@ export default function DharmguruPage() {
 			);
 
 			setIsFormOpen(false);
-			toast.success(
-				currentDharmguru?.id
-					? "Dharmguru updated successfully"
-					: "Dharmguru created successfully"
-			);
 		} catch (error: unknown) {
+			console.error("Error saving dharmguru:", error);
 			// Type guard for error with 'details'
 			if (typeof error === "object" && error !== null && "details" in error) {
 				const err = error as ApiErrorResponse;
@@ -265,9 +300,9 @@ export default function DharmguruPage() {
 					});
 				}
 			} else if (error instanceof Error) {
-				toast.error(error.message || "Failed to save kathavachak");
+				toast.error(error.message || "Failed to save dharmguru");
 			} else {
-				toast.error("Failed to save kathavachak");
+				toast.error("Failed to save dharmguru");
 			}
 		} finally {
 			setIsSubmitting(false);

@@ -14,19 +14,22 @@ import SellerForm from "../components/seller/SellerForm";
 import Pagination from "../components/Pagination/Pagination";
 import { usePagination } from "../hooks/usePagination";
 
-interface UserData {
+interface SellerApiResponse {
 	id: string;
-	name?: string;
-	phone?: string;
-	email?: string;
-	status?: string;
-	kycApproved?: boolean | number;
+	name: string;
+	phone: string;
+	email: string;
+	status: string;
+	kycApproved: number | boolean;
 }
+
+interface ApiErrorResponse {
+	details?: Record<string, unknown> | string[];
+	message?: string;
+	error?: string;
+}
+
 export default function SellerPage() {
-	interface ApiErrorResponse {
-		details?: Record<string, unknown> | string[];
-		message?: string;
-	}
 	const router = useRouter();
 	const searchParams = useSearchParams();
 
@@ -57,19 +60,17 @@ export default function SellerPage() {
 	const [sellers, setSellers] = useState<Seller[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [isFormOpen, setIsFormOpen] = useState(false);
-	const [currentSeller, setCurrentSeller] = useState<Partial<Seller> | null>(
-		null
-	);
+	const [currentSeller, setCurrentSeller] = useState<Partial<Seller> | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	// Delete dialog logic is now handled in SellerTable
 
 	// Fetch sellers on component mount
 	useEffect(() => {
 		const fetchSellers = async () => {
 			setLoading(true);
 			try {
+				// Use the new optimized seller-specific API endpoint
 				const response = await fetch(
-					`/api/users?userType=Seller&page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+					`/api/users/seller?page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
 				);
 
 				if (!response.ok) {
@@ -78,21 +79,25 @@ export default function SellerPage() {
 
 				const data = await response.json();
 
-				// Map the user data to match Seller structure
-				const mappedSellers = data.users.map((user: UserData) => ({
+				// Transform the optimized API response to match Seller structure
+				const mappedSellers = data.data.map((user: SellerApiResponse) => ({
 					id: user.id,
 					name: user.name || "",
 					phone: user.phone || "",
 					email: user.email || "",
 					status: user.status || "Active",
-					isApproved: user.kycApproved || false,
+					isApproved: user.kycApproved === 1 || user.kycApproved === true,
 				}));
 
 				setSellers(mappedSellers);
-				updatePagination(data.total, data.pagination.totalPages);
+				
+				// Update pagination with the new API response structure
+				if (data.pagination) {
+					updatePagination(data.pagination.totalCount, data.pagination.totalPages);
+				}
 			} catch (error) {
 				console.error("Error fetching sellers:", error);
-				toast.error("Failed to load sellers.");
+				toast.error("Failed to load sellers");
 			} finally {
 				setLoading(false);
 			}
@@ -112,57 +117,57 @@ export default function SellerPage() {
 		setIsFormOpen(true);
 	};
 
-	// Delete logic is now handled in SellerTable
-
-	// confirmDelete and related state removed; handled in SellerTable
-
 	const handleUpdateStatus = async (id: string, newStatus: string) => {
 		try {
-			// Call the API to update user status
-			const response = await fetch(`/api/users/status`, {
+			// Use the new seller-specific API endpoint for updates
+			const response = await fetch(`/api/users/seller/${id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ userId: id, status: newStatus }),
+				body: JSON.stringify({ status: newStatus }),
 			});
 
 			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
+				const errorData = await response.json();
+				throw new Error(errorData.error || `API error: ${response.status}`);
 			}
 
 			// Update local state
 			setSellers(
-				sellers.map((d) => (d.id === id ? { ...d, status: newStatus } : d))
+				sellers.map((s) => (s.id === id ? { ...s, status: newStatus } : s))
 			);
 			toast.success("Status updated successfully");
-		} catch {
-			toast.error("Failed to update status");
+		} catch (error) {
+			console.error("Error updating status:", error);
+			toast.error(error instanceof Error ? error.message : "Failed to update status");
 		}
 	};
 
 	const handleToggleApproval = async (id: string, currentStatus: boolean) => {
 		try {
-			// Call the API to update user KYC approval status
-			const response = await fetch(`/api/users/${id}`, {
+			// Use the new seller-specific API endpoint for KYC approval updates
+			const response = await fetch(`/api/users/seller/${id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ kycApproved: !currentStatus }),
+				body: JSON.stringify({ kycApproved: !currentStatus ? 1 : 0 }),
 			});
 
 			if (!response.ok) {
-				throw new Error(`API error: ${response.status}`);
+				const errorData = await response.json();
+				throw new Error(errorData.error || `API error: ${response.status}`);
 			}
 
 			// Update local state
 			setSellers(
-				sellers.map((d) =>
-					d.id === id ? { ...d, isApproved: !currentStatus } : d
+				sellers.map((s) =>
+					s.id === id ? { ...s, isApproved: !currentStatus } : s
 				)
 			);
 			toast.success(
 				`Seller ${currentStatus ? "disapproved" : "approved"} successfully`
 			);
-		} catch {
-			toast.error("Failed to update approval status");
+		} catch (error) {
+			console.error("Error updating approval status:", error);
+			toast.error(error instanceof Error ? error.message : "Failed to update approval status");
 		}
 	};
 
@@ -172,70 +177,71 @@ export default function SellerPage() {
 		toast.info(
 			`Login as ${seller.name} functionality would be implemented here`
 		);
-
-		// In a real implementation, you might do something like:
-		// router.push(`/admin/impersonate/${seller.id}`);
 	};
 
 	const handleFormSubmit = async (sellerData: Omit<Seller, "id">) => {
-		setIsSubmitting(true);
 		try {
+			setIsSubmitting(true);
+			
 			const url = currentSeller?.id
-				? `/api/users/${currentSeller.id}`
-				: "/api/users";
+				? `/api/users/seller/${currentSeller.id}`
+				: "/api/users/seller";
 
 			const method = currentSeller?.id ? "PUT" : "POST";
 
-			const requestData = {
-				...(currentSeller?.id && { id: currentSeller.id }),
-				...sellerData,
-				userType: "Seller", // Explicitly set userType to "Seller" (no space)
-				isApproved: sellerData.isApproved || false,
-				kycApproved: sellerData.isApproved || false, // Ensure kycApproved is set to match isApproved
-			};
-
-			console.log("Sending request data:", requestData);
+			// Prepare form data for multipart/form-data
+			const formData = new FormData();
+			formData.append("name", sellerData.name);
+			formData.append("email", sellerData.email);
+			formData.append("phone", sellerData.phone);
+			formData.append("status", sellerData.status || "Active");
+			formData.append("kycApproved", sellerData.isApproved ? "1" : "0");
+			
+			// Add password only if it's a new user or if password is being updated
+			if (!currentSeller?.id || (sellerData as Record<string, unknown>).password) {
+				formData.append("password", (sellerData as Record<string, unknown>).password as string || "tempPassword123");
+			}
 
 			const response = await fetch(url, {
 				method,
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(requestData),
+				body: formData, // Use FormData instead of JSON
 			});
 
 			if (!response.ok) {
 				const errorData = await response.json();
-				console.error("API error response:", errorData);
-				throw new Error("Failed to save seller");
+				throw new Error(errorData.error || "Failed to save seller");
 			}
 
-			// Refresh the sellers list
-			const fetchResponse = await fetch("/api/users?userType=Seller");
+			// Refresh the sellers list using the new API
+			const fetchResponse = await fetch(
+				`/api/users/seller?page=${pagination.currentPage}&limit=${pagination.itemsPerPage}`
+			);
 			if (!fetchResponse.ok) {
 				throw new Error("Failed to fetch updated sellers");
 			}
-			const { users } = await fetchResponse.json();
-			console.log("Refreshed users data:", users);
+			const { data } = await fetchResponse.json();
 
-			// Map the user data to match Seller structure
-			const mappedSellers = users.map((user: UserData) => ({
+			// Transform the optimized API response
+			const mappedSellers = data.map((user: SellerApiResponse) => ({
 				id: user.id,
 				name: user.name || "",
 				phone: user.phone || "",
 				email: user.email || "",
-				status: user.status || "Inactive",
-				isApproved: user.kycApproved || false,
+				status: user.status || "Active",
+				isApproved: user.kycApproved === 1 || user.kycApproved === true,
 			}));
 
 			setSellers(mappedSellers);
-			setIsFormOpen(false);
+
 			toast.success(
 				currentSeller?.id
 					? "Seller updated successfully"
 					: "Seller created successfully"
 			);
+
+			setIsFormOpen(false);
 		} catch (error: unknown) {
+			console.error("Error saving seller:", error);
 			// Type guard for error with 'details'
 			if (typeof error === "object" && error !== null && "details" in error) {
 				const err = error as ApiErrorResponse;
@@ -257,6 +263,7 @@ export default function SellerPage() {
 			setIsSubmitting(false);
 		}
 	};
+
 	if (loading) {
 		return (
 			<div className="flex justify-center items-center h-screen">

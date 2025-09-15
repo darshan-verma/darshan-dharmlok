@@ -46,7 +46,8 @@ export default function KathavachakPage() {
 		const fetchUser = async () => {
 			try {
 				const userId = session.user.id;
-				const response = await fetch(`/api/users/${userId}`);
+				// Use the new kathavachak-specific API endpoint for optimized queries
+				const response = await fetch(`/api/users/kathavachak/${userId}`);
 
 				if (!response.ok) {
 					const errorData = await response.json().catch(() => ({}));
