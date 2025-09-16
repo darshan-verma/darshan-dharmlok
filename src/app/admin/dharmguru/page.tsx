@@ -96,7 +96,7 @@ export default function DharmguruPage() {
 				const data = await response.json();
 
 				// Transform the optimized API response to match Dharmguru structure
-				const mappedDharmgurus = data.data.map(
+				const mappedDharmgurus = data.dharmgurus.map(
 					(user: DharmguruApiResponse) => ({
 						id: user.id,
 						name: user.name || "",
@@ -113,10 +113,7 @@ export default function DharmguruPage() {
 
 				// Update pagination with the new API response structure
 				if (data.pagination) {
-					updatePagination(
-						data.pagination.totalCount,
-						data.pagination.totalPages
-					);
+					updatePagination(data.pagination.total, data.pagination.totalPages);
 				}
 			} catch {
 				toast.error("Failed to load dharmgurus");
@@ -227,27 +224,25 @@ export default function DharmguruPage() {
 
 			const method = currentDharmguru?.id ? "PUT" : "POST";
 
-			// Prepare form data for multipart/form-data
-			const formData = new FormData();
-			formData.append("name", dharmguruData.name);
-			formData.append("email", dharmguruData.email);
-			formData.append("phone", dharmguruData.phone);
-			formData.append("category", dharmguruData.category);
-			formData.append("status", dharmguruData.status || "Active");
-			formData.append("rank", dharmguruData.rank || "");
-			formData.append("kycApproved", dharmguruData.isApproved ? "1" : "0");
-
-			// Add password only if it's a new user or if password is being updated
-			if (!currentDharmguru?.id || dharmguruData.password) {
-				formData.append(
-					"password",
-					dharmguruData.password || "tempPassword123"
-				);
-			}
+			// Prepare JSON data for the API
+			const requestData = {
+				name: dharmguruData.name,
+				email: dharmguruData.email,
+				phone: dharmguruData.phone,
+				category: dharmguruData.category,
+				status: dharmguruData.status || "Active",
+				rank: dharmguruData.rank || "",
+				kycApproved: dharmguruData.isApproved ? 1 : 0,
+				// Add password only if it's a new user or if password is being updated
+				...((!currentDharmguru?.id || dharmguruData.password) && {
+					password: dharmguruData.password || "tempPassword123",
+				}),
+			};
 
 			const response = await fetch(url, {
 				method,
-				body: formData, // Use FormData instead of JSON
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(requestData),
 			});
 
 			if (!response.ok) {
@@ -262,19 +257,21 @@ export default function DharmguruPage() {
 			if (!fetchResponse.ok) {
 				throw new Error("Failed to fetch updated dharmgurus");
 			}
-			const { data } = await fetchResponse.json();
+			const fetchData = await fetchResponse.json();
 
 			// Transform the optimized API response
-			const mappedDharmgurus = data.map((user: DharmguruApiResponse) => ({
-				id: user.id,
-				name: user.name || "",
-				category: user.category || "",
-				phone: user.phone || "",
-				email: user.email || "",
-				status: user.status || "Active",
-				rank: user.rank || "",
-				isApproved: user.kycApproved === 1,
-			}));
+			const mappedDharmgurus = fetchData.dharmgurus.map(
+				(user: DharmguruApiResponse) => ({
+					id: user.id,
+					name: user.name || "",
+					category: user.category || "",
+					phone: user.phone || "",
+					email: user.email || "",
+					status: user.status || "Active",
+					rank: user.rank || "",
+					isApproved: user.kycApproved === 1,
+				})
+			);
 
 			setDharmgurus(mappedDharmgurus);
 

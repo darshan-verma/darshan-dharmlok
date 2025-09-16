@@ -38,9 +38,7 @@ export default function DharmguruForm({
 	onCancel,
 	isLoading = false,
 }: DharmguruFormProps) {
-	const [dharmguruData, setDharmguruData] = useState<
-		Omit<Dharmguru, "id">
-	>({
+	const [dharmguruData, setDharmguruData] = useState<Omit<Dharmguru, "id">>({
 		name: initialData.name || "",
 		category: initialData.category || "",
 		phone: initialData.phone || "",
@@ -113,7 +111,6 @@ export default function DharmguruForm({
 			setButtonLoading(false);
 		}
 	};
-
 
 	const handleInputChange = (
 		field: keyof typeof dharmguruData,
@@ -265,7 +262,7 @@ export default function DharmguruForm({
 					onClick={handleSubmit}
 					disabled={isLoading || buttonLoading}
 				>
-					{isLoading || buttonLoading ? "Saving..." : "Save Kathavachak"}
+					{isLoading || buttonLoading ? "Saving..." : "Save Dharmguru"}
 				</Button>
 			</div>
 		</div>

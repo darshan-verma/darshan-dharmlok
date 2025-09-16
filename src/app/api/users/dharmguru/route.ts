@@ -93,7 +93,36 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
 	try {
-		const data = await request.json();
+		// Handle both JSON and FormData for backward compatibility
+		const contentType = request.headers.get("content-type") || "";
+		let data: any;
+
+		if (contentType.includes("application/json")) {
+			data = await request.json();
+		} else if (
+			contentType.includes("multipart/form-data") ||
+			contentType.includes("application/x-www-form-urlencoded")
+		) {
+			// Fallback for FormData (though we prefer JSON)
+			const formData = await request.formData();
+			data = Object.fromEntries(formData.entries());
+			// Convert string values to appropriate types
+			if (data.isApproved) data.isApproved = data.isApproved === "true";
+			if (data.kycApproved) data.kycApproved = data.kycApproved === "true";
+			if (data.active) data.active = parseInt(data.active) || 1;
+		} else {
+			// Default to JSON
+			try {
+				data = await request.json();
+			} catch (error) {
+				return NextResponse.json(
+					{ error: "Invalid request format. Please send JSON data." },
+					{ status: 400 }
+				);
+			}
+		}
+
+		console.log("Received dharmguru data:", data);
 
 		// Validate required fields for dharmguru
 		const requiredFields = ["name", "email", "phone", "category"];

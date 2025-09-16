@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { uploadToS3 } from "@/lib/uploadToS3";
 import bcrypt from "bcrypt";
-import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import s3Client from "@/lib/s3Client";
 import { UserUpdateData } from "@/types/user";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 // Helper function to delete S3 media
 async function deleteS3Media(mediaUrls: string[]) {
@@ -59,6 +59,7 @@ export async function GET(
 				bio: true,
 				description: true,
 				userType: true,
+				category: true,
 				status: true,
 				active: true,
 				kycApproved: true,
@@ -192,6 +193,7 @@ export async function PUT(
 		// Extract update data
 		const updateData: UserUpdateData = {
 			name: formData.get("name") as string,
+			category: (formData.get("category") as string) || "",
 			bio: (formData.get("bio") as string) || "",
 			description: (formData.get("description") as string) || "",
 			status: formData.get("status") as string,

@@ -222,6 +222,7 @@ export interface UserUpdateData {
 	name?: string;
 	bio?: string;
 	description?: string;
+	category?: string;
 	status?: string;
 	active?: number;
 	availability?: number;

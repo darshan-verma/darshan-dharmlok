@@ -60,7 +60,9 @@ export default function SellerPage() {
 	const [sellers, setSellers] = useState<Seller[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [isFormOpen, setIsFormOpen] = useState(false);
-	const [currentSeller, setCurrentSeller] = useState<Partial<Seller> | null>(null);
+	const [currentSeller, setCurrentSeller] = useState<Partial<Seller> | null>(
+		null
+	);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
 	// Fetch sellers on component mount
@@ -90,10 +92,13 @@ export default function SellerPage() {
 				}));
 
 				setSellers(mappedSellers);
-				
+
 				// Update pagination with the new API response structure
 				if (data.pagination) {
-					updatePagination(data.pagination.totalCount, data.pagination.totalPages);
+					updatePagination(
+						data.pagination.totalCount,
+						data.pagination.totalPages
+					);
 				}
 			} catch (error) {
 				console.error("Error fetching sellers:", error);
@@ -138,7 +143,9 @@ export default function SellerPage() {
 			toast.success("Status updated successfully");
 		} catch (error) {
 			console.error("Error updating status:", error);
-			toast.error(error instanceof Error ? error.message : "Failed to update status");
+			toast.error(
+				error instanceof Error ? error.message : "Failed to update status"
+			);
 		}
 	};
 
@@ -167,7 +174,11 @@ export default function SellerPage() {
 			);
 		} catch (error) {
 			console.error("Error updating approval status:", error);
-			toast.error(error instanceof Error ? error.message : "Failed to update approval status");
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to update approval status"
+			);
 		}
 	};
 
@@ -182,29 +193,37 @@ export default function SellerPage() {
 	const handleFormSubmit = async (sellerData: Omit<Seller, "id">) => {
 		try {
 			setIsSubmitting(true);
-			
+
 			const url = currentSeller?.id
 				? `/api/users/seller/${currentSeller.id}`
 				: "/api/users/seller";
 
 			const method = currentSeller?.id ? "PUT" : "POST";
 
-			// Prepare form data for multipart/form-data
+			// Prepare FormData for the API
 			const formData = new FormData();
 			formData.append("name", sellerData.name);
 			formData.append("email", sellerData.email);
 			formData.append("phone", sellerData.phone);
 			formData.append("status", sellerData.status || "Active");
 			formData.append("kycApproved", sellerData.isApproved ? "1" : "0");
-			
+			formData.append("userType", "seller");
+
 			// Add password only if it's a new user or if password is being updated
-			if (!currentSeller?.id || (sellerData as Record<string, unknown>).password) {
-				formData.append("password", (sellerData as Record<string, unknown>).password as string || "tempPassword123");
+			if (
+				!currentSeller?.id ||
+				(sellerData as Record<string, unknown>).password
+			) {
+				formData.append(
+					"password",
+					((sellerData as Record<string, unknown>).password as string) ||
+						"tempPassword123"
+				);
 			}
 
 			const response = await fetch(url, {
 				method,
-				body: formData, // Use FormData instead of JSON
+				body: formData,
 			});
 
 			if (!response.ok) {

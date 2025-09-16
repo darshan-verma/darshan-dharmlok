@@ -208,7 +208,7 @@ export default function PanditjiPage() {
 
 			const method = currentPanditji?.id ? "PUT" : "POST";
 
-			// Prepare form data for multipart/form-data
+			// Prepare FormData for the API
 			const formData = new FormData();
 			formData.append("name", panditjiData.name);
 			formData.append("email", panditjiData.email);
@@ -217,6 +217,7 @@ export default function PanditjiPage() {
 			formData.append("status", panditjiData.status || "Active");
 			formData.append("rank", panditjiData.rank || "");
 			formData.append("kycApproved", panditjiData.isApproved ? "1" : "0");
+			formData.append("userType", "panditji");
 
 			// Add password only if it's a new user or if password is being updated
 			if (
@@ -232,7 +233,7 @@ export default function PanditjiPage() {
 
 			const response = await fetch(url, {
 				method,
-				body: formData, // Use FormData instead of JSON
+				body: formData,
 			});
 
 			if (!response.ok) {

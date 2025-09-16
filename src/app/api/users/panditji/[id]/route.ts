@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { uploadToS3 } from "@/lib/uploadToS3";
 import bcrypt from "bcrypt";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import s3Client from "@/lib/s3Client";
@@ -58,6 +57,7 @@ export async function GET(
 				bannerImageUrl: true,
 				bio: true,
 				description: true,
+				category: true,
 				userType: true,
 				status: true,
 				active: true,
@@ -225,12 +225,17 @@ export async function PUT(
 		}
 
 		const formData = await request.formData();
+		console.log(
+			"PUT /api/users/panditji/[id] formData keys:",
+			Array.from(formData.keys())
+		);
 
 		// Extract update data
 		const updateData: UserUpdateData = {
 			name: formData.get("name") as string,
 			bio: (formData.get("bio") as string) || "",
 			description: (formData.get("description") as string) || "",
+			category: (formData.get("category") as string) || "",
 			status: formData.get("status") as string,
 			active: formData.get("active")
 				? parseInt(formData.get("active") as string)
@@ -300,62 +305,16 @@ export async function PUT(
 			updateData.password = await bcrypt.hash(newPassword, 10);
 		}
 
-		// Handle profile image upload
-		const profileImageFile = formData.get("profileImage") as File;
-		if (profileImageFile && profileImageFile.size > 0) {
-			try {
-				const fileBuffer = Buffer.from(await profileImageFile.arrayBuffer());
-				const fileName = `panditji-profiles/${Date.now()}-${
-					profileImageFile.name
-				}`;
-				const newProfileImageUrl = await uploadToS3(
-					fileBuffer,
-					fileName,
-					profileImageFile.type
-				);
-
-				// Delete old profile image if exists
-				if (existingUser.profileImageUrl) {
-					await deleteS3Media([existingUser.profileImageUrl]);
-				}
-
-				updateData.profileImageUrl = newProfileImageUrl;
-			} catch (uploadError) {
-				console.error("Profile image upload failed:", uploadError);
-				return NextResponse.json(
-					{ error: "Failed to upload profile image" },
-					{ status: 500 }
-				);
-			}
+		// Handle profile image upload (only if file is provided in the formData)
+		const profileImageUrl = formData.get("profileImageUrl") as string;
+		if (profileImageUrl) {
+			updateData.profileImageUrl = profileImageUrl;
 		}
 
-		// Handle banner image upload
-		const bannerImageFile = formData.get("bannerImage") as File;
-		if (bannerImageFile && bannerImageFile.size > 0) {
-			try {
-				const fileBuffer = Buffer.from(await bannerImageFile.arrayBuffer());
-				const fileName = `panditji-banners/${Date.now()}-${
-					bannerImageFile.name
-				}`;
-				const newBannerImageUrl = await uploadToS3(
-					fileBuffer,
-					fileName,
-					bannerImageFile.type
-				);
-
-				// Delete old banner image if exists
-				if (existingUser.bannerImageUrl) {
-					await deleteS3Media([existingUser.bannerImageUrl]);
-				}
-
-				updateData.bannerImageUrl = newBannerImageUrl;
-			} catch (uploadError) {
-				console.error("Banner image upload failed:", uploadError);
-				return NextResponse.json(
-					{ error: "Failed to upload banner image" },
-					{ status: 500 }
-				);
-			}
+		// Handle banner image upload (only if file is provided in the formData)
+		const bannerImageUrl = formData.get("bannerImageUrl") as string;
+		if (bannerImageUrl) {
+			updateData.bannerImageUrl = bannerImageUrl;
 		}
 
 		// Use transaction to update user and related data
@@ -439,7 +398,7 @@ export async function PUT(
 											serviceType: service.serviceType,
 											targetType: service.targetType || "general",
 											targetId: service.targetId || "",
-											price: parseFloat(service.price),
+											price: parseFloat(service.price.toString()),
 											details: service.details || "",
 											metadata: service.metadata || {},
 											status: service.status || "Active",
