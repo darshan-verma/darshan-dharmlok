@@ -305,16 +305,46 @@ export async function PUT(
 			updateData.password = await bcrypt.hash(newPassword, 10);
 		}
 
-		// Handle profile image upload (only if file is provided in the formData)
+		// Handle profile image upload or URL
+		const profileImageFile = formData.get("profileImage") as File;
 		const profileImageUrl = formData.get("profileImageUrl") as string;
-		if (profileImageUrl) {
-			updateData.profileImageUrl = profileImageUrl;
+
+		console.log("Profile image processing:", {
+			hasFile: profileImageFile && profileImageFile.size > 0,
+			receivedUrl: profileImageUrl,
+			existingUrl: existingUser.profileImageUrl,
+		});
+
+		if (profileImageFile && profileImageFile.size > 0) {
+			// Handle file upload (not implemented yet for panditji, but keeping for future)
+			console.log("Direct file upload not implemented for panditji yet");
+		} else if (
+			profileImageUrl !== undefined &&
+			profileImageUrl !== existingUser.profileImageUrl
+		) {
+			// Handle URL update (when image was uploaded separately) or clearing (empty string)
+			updateData.profileImageUrl = profileImageUrl || undefined;
 		}
 
-		// Handle banner image upload (only if file is provided in the formData)
+		// Handle banner image upload or URL
+		const bannerImageFile = formData.get("bannerImage") as File;
 		const bannerImageUrl = formData.get("bannerImageUrl") as string;
-		if (bannerImageUrl) {
-			updateData.bannerImageUrl = bannerImageUrl;
+
+		console.log("Banner image processing:", {
+			hasFile: bannerImageFile && bannerImageFile.size > 0,
+			receivedUrl: bannerImageUrl,
+			existingUrl: existingUser.bannerImageUrl,
+		});
+
+		if (bannerImageFile && bannerImageFile.size > 0) {
+			// Handle file upload (not implemented yet for panditji, but keeping for future)
+			console.log("Direct file upload not implemented for panditji yet");
+		} else if (
+			bannerImageUrl !== undefined &&
+			bannerImageUrl !== existingUser.bannerImageUrl
+		) {
+			// Handle URL update (when image was uploaded separately) or clearing (empty string)
+			updateData.bannerImageUrl = bannerImageUrl || undefined;
 		}
 
 		// Use transaction to update user and related data
