@@ -9,7 +9,7 @@ async function deleteS3Media(mediaUrls: string[]) {
 	if (!mediaUrls.length) return;
 	const bucket = process.env.AWS_S3_BUCKET;
 	if (!bucket) return;
-	
+
 	await Promise.all(
 		mediaUrls.map(async (url) => {
 			const key = url.split(`${bucket}/`)[1] || url.split("/").pop();
@@ -45,9 +45,9 @@ export async function GET(
 		}
 
 		const dharmguru = await prisma.user.findUnique({
-			where: { 
+			where: {
 				id: id,
-				userType: "Dharmguru" // Ensure it's a dharmguru
+				userType: "Dharmguru", // Ensure it's a dharmguru
 			},
 			select: {
 				// Dharmguru-specific fields
@@ -181,20 +181,23 @@ export async function PUT(
 			...(data.category !== undefined && { category: data.category }),
 			...(data.rank !== undefined && { rank: data.rank }),
 			...(data.bio !== undefined && { bio: data.bio }),
-			...(data.profileImageUrl !== undefined && { 
-				profileImageUrl: data.profileImageUrl 
+			...(data.profileImageUrl !== undefined && {
+				profileImageUrl: data.profileImageUrl,
 			}),
-			...(data.bannerImageUrl !== undefined && { 
-				bannerImageUrl: data.bannerImageUrl 
+			...(data.bannerImageUrl !== undefined && {
+				bannerImageUrl: data.bannerImageUrl,
 			}),
-			...(data.coverImageUrl !== undefined && { 
-				coverImageUrl: data.coverImageUrl 
+			...(data.coverImageUrl !== undefined && {
+				coverImageUrl: data.coverImageUrl,
 			}),
 			...(data.status !== undefined && { status: data.status }),
-			...(data.kycApproved !== undefined && { 
-				kycApproved: typeof data.kycApproved === "boolean" 
-					? (data.kycApproved ? 1 : 0) 
-					: data.kycApproved 
+			...(data.kycApproved !== undefined && {
+				kycApproved:
+					typeof data.kycApproved === "boolean"
+						? data.kycApproved
+							? 1
+							: 0
+						: data.kycApproved,
 			}),
 		};
 
@@ -284,7 +287,7 @@ export async function PUT(
 		return NextResponse.json(updatedDharmguru);
 	} catch (error) {
 		console.error("Error updating dharmguru:", error);
-		
+
 		if (error instanceof Prisma.PrismaClientKnownRequestError) {
 			if (error.code === "P2002") {
 				return NextResponse.json(
@@ -338,14 +341,14 @@ export async function DELETE(
 
 		// Collect media URLs for S3 deletion
 		const mediaUrls: string[] = [];
-		
+
 		// Add image URLs
-		dharmguru.images.forEach(img => {
+		dharmguru.images.forEach((img) => {
 			if (img.url) mediaUrls.push(img.url);
 		});
-		
+
 		// Add video URLs
-		dharmguru.videos.forEach(vid => {
+		dharmguru.videos.forEach((vid) => {
 			if (vid.videoFile) mediaUrls.push(vid.videoFile);
 			if (vid.thumbnailUrl) mediaUrls.push(vid.thumbnailUrl);
 		});
@@ -355,8 +358,8 @@ export async function DELETE(
 			// Delete comments first (foreign key constraints)
 			prisma.comment.deleteMany({ where: { userId: id } }),
 			// Delete posts and their media
-			prisma.media.deleteMany({ 
-				where: { post: { userId: id } }
+			prisma.media.deleteMany({
+				where: { post: { userId: id } },
 			}),
 			prisma.post.deleteMany({ where: { userId: id } }),
 			// Delete images and videos

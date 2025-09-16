@@ -124,11 +124,13 @@ export default function SellerPage() {
 
 	const handleUpdateStatus = async (id: string, newStatus: string) => {
 		try {
-			// Use the new seller-specific API endpoint for updates
+			// Use FormData to match the API endpoint expectations
+			const formData = new FormData();
+			formData.append("status", newStatus);
+
 			const response = await fetch(`/api/users/seller/${id}`, {
 				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ status: newStatus }),
+				body: formData,
 			});
 
 			if (!response.ok) {
@@ -151,11 +153,13 @@ export default function SellerPage() {
 
 	const handleToggleApproval = async (id: string, currentStatus: boolean) => {
 		try {
-			// Use the new seller-specific API endpoint for KYC approval updates
+			// Use FormData to match the API endpoint expectations
+			const formData = new FormData();
+			formData.append("kycApproved", (!currentStatus ? 1 : 0).toString());
+
 			const response = await fetch(`/api/users/seller/${id}`, {
 				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ kycApproved: !currentStatus ? 1 : 0 }),
+				body: formData,
 			});
 
 			if (!response.ok) {
