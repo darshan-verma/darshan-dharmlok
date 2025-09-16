@@ -156,261 +156,258 @@ export default function HotelDharamshalaPage() {
 			setIsDeleteDialogOpen(false);
 			setHotelDharamshalaToDelete(null);
 		}
-		const handleUpdateStatus = async (id: string, newStatus: string) => {
-			try {
-				// Use the new hotel_dharamshala_vendor-specific API endpoint for updates
-				const response = await fetch(
-					`/api/users/hotel_dharamshala_vendor/${id}`,
-					{
-						method: "PUT",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ status: newStatus }),
-					}
-				);
+	};
 
-				if (!response.ok) {
-					const errorData = await response.json();
-					throw new Error(errorData.error || `API error: ${response.status}`);
+	const handleUpdateStatus = async (id: string, newStatus: string) => {
+		try {
+			// Use the new hotel_dharamshala_vendor-specific API endpoint for updates
+			const response = await fetch(
+				`/api/users/hotel_dharamshala_vendor/${id}`,
+				{
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ status: newStatus }),
 				}
-
-				// Update local state
-				setHotelDharamshalas(
-					HotelDharamshalas.map((d) =>
-						d.id === id ? { ...d, status: newStatus } : d
-					)
-				);
-				toast.success("Status updated successfully");
-			} catch (error) {
-				console.error("Error updating status:", error);
-				toast.error(
-					error instanceof Error ? error.message : "Failed to update status"
-				);
-			}
-		};
-
-		const handleToggleApproval = async (id: string, currentStatus: boolean) => {
-			try {
-				// Use the new hotel_dharamshala_vendor-specific API endpoint for KYC approval updates
-				const response = await fetch(
-					`/api/users/hotel_dharamshala_vendor/${id}`,
-					{
-						method: "PUT",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ kycApproved: !currentStatus ? 1 : 0 }),
-					}
-				);
-
-				if (!response.ok) {
-					const errorData = await response.json();
-					throw new Error(errorData.error || `API error: ${response.status}`);
-				}
-
-				// Update local state
-				setHotelDharamshalas(
-					HotelDharamshalas.map((d) =>
-						d.id === id ? { ...d, isApproved: !currentStatus } : d
-					)
-				);
-				toast.success(
-					`HotelDharamshala ${
-						currentStatus ? "disapproved" : "approved"
-					} successfully`
-				);
-			} catch (error) {
-				console.error("Error updating approval status:", error);
-				toast.error(
-					error instanceof Error
-						? error.message
-						: "Failed to update approval status"
-				);
-			}
-		};
-
-		const handleLoginAsHotelDharamshala = (
-			HotelDharamshala: HotelDharamshala
-		) => {
-			// This would typically involve setting authentication state
-			// For now, we'll just show a toast message
-			toast.info(
-				`Login as ${HotelDharamshala.name} functionality would be implemented here`
 			);
 
-			// In a real implementation, you might do something like:
-			// router.push(`/admin/impersonate/${HotelDharamshala.id}`);
-		};
-
-		const handleFormSubmit = async (
-			HotelDharamshalaData: Omit<HotelDharamshala, "id">
-		) => {
-			setIsSubmitting(true);
-			try {
-				// Use the new hotel_dharamshala_vendor-specific API endpoints
-				const url = currentHotelDharamshala?.id
-					? `/api/users/hotel_dharamshala_vendor/${currentHotelDharamshala.id}`
-					: "/api/users/hotel_dharamshala_vendor";
-
-				const method = currentHotelDharamshala?.id ? "PUT" : "POST";
-
-				const requestData = {
-					...(currentHotelDharamshala?.id && {
-						id: currentHotelDharamshala.id,
-					}),
-					...HotelDharamshalaData,
-					userType: "hotel_dharamshala_vendor", // Use correct userType format
-					isApproved: HotelDharamshalaData.isApproved || false,
-					kycApproved: HotelDharamshalaData.isApproved ? 1 : 0, // Convert boolean to number for API
-				};
-
-				console.log("Sending request data:", requestData);
-
-				const response = await fetch(url, {
-					method,
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify(requestData),
-				});
-
-				if (!response.ok) {
-					const errorData = await response.json();
-					console.error("API error response:", errorData);
-					throw new Error("Failed to save HotelDharamshala");
-				}
-
-				// Refresh the HotelDharamshalas list
-				// Refresh the HotelDharamshalas list with the new API endpoint
-				const fetchResponse = await fetch(
-					"/api/users/hotel_dharamshala_vendor"
-				);
-				if (!fetchResponse.ok) {
-					throw new Error("Failed to fetch updated HotelDharamshalas");
-				}
-				const { users } = await fetchResponse.json();
-				console.log("Refreshed users data:", users);
-
-				// Map the user data to match HotelDharamshala structure
-				const mappedHotelDharamshalas = users.map(
-					(user: HotelDharamshalaApiResponse) => ({
-						id: user.id,
-						name: user.name || "",
-						phone: user.phone || "",
-						email: user.email || "",
-						status: user.status || "Inactive",
-						isApproved: user.kycApproved || false,
-					})
-				);
-
-				setHotelDharamshalas(mappedHotelDharamshalas);
-				setIsFormOpen(false);
-				toast.success(
-					currentHotelDharamshala?.id
-						? "HotelDharamshala updated successfully"
-						: "HotelDharamshala created successfully"
-				);
-			} catch (error: unknown) {
-				// Type guard for error with 'details'
-				if (typeof error === "object" && error !== null && "details" in error) {
-					const err = error as ApiErrorResponse;
-					if (Array.isArray(err.details)) {
-						err.details.forEach((message) => {
-							toast.error(String(message));
-						});
-					} else if (err.details && typeof err.details === "object") {
-						Object.values(err.details).forEach((message) => {
-							toast.error(String(message));
-						});
-					}
-				} else if (error instanceof Error) {
-					toast.error(error.message || "Failed to save HotelDharamshala");
-				} else {
-					toast.error("Failed to save HotelDharamshala");
-				}
-			} finally {
-				setIsSubmitting(false);
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || `API error: ${response.status}`);
 			}
-		};
 
-		if (loading) {
-			return (
-				<div className="flex justify-center items-center h-screen">
-					Loading...
-				</div>
+			// Update local state
+			setHotelDharamshalas(
+				HotelDharamshalas.map((d) =>
+					d.id === id ? { ...d, status: newStatus } : d
+				)
+			);
+			toast.success("Status updated successfully");
+		} catch (error) {
+			console.error("Error updating status:", error);
+			toast.error(
+				error instanceof Error ? error.message : "Failed to update status"
 			);
 		}
+	};
 
+	const handleToggleApproval = async (id: string, currentStatus: boolean) => {
+		try {
+			// Use the new hotel_dharamshala_vendor-specific API endpoint for KYC approval updates
+			const response = await fetch(
+				`/api/users/hotel_dharamshala_vendor/${id}`,
+				{
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ kycApproved: !currentStatus ? 1 : 0 }),
+				}
+			);
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.error || `API error: ${response.status}`);
+			}
+
+			// Update local state
+			setHotelDharamshalas(
+				HotelDharamshalas.map((d) =>
+					d.id === id ? { ...d, isApproved: !currentStatus } : d
+				)
+			);
+			toast.success(
+				`HotelDharamshala ${
+					currentStatus ? "disapproved" : "approved"
+				} successfully`
+			);
+		} catch (error) {
+			console.error("Error updating approval status:", error);
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to update approval status"
+			);
+		}
+	};
+
+	const handleLoginAsHotelDharamshala = (
+		HotelDharamshala: HotelDharamshala
+	) => {
+		// This would typically involve setting authentication state
+		// For now, we'll just show a toast message
+		toast.info(
+			`Login as ${HotelDharamshala.name} functionality would be implemented here`
+		);
+
+		// In a real implementation, you might do something like:
+		// router.push(`/admin/impersonate/${HotelDharamshala.id}`);
+	};
+
+	const handleFormSubmit = async (
+		HotelDharamshalaData: Omit<HotelDharamshala, "id">
+	) => {
+		setIsSubmitting(true);
+		try {
+			// Use the new hotel_dharamshala_vendor-specific API endpoints
+			const url = currentHotelDharamshala?.id
+				? `/api/users/hotel_dharamshala_vendor/${currentHotelDharamshala.id}`
+				: "/api/users/hotel_dharamshala_vendor";
+
+			const method = currentHotelDharamshala?.id ? "PUT" : "POST";
+
+			const requestData = {
+				...(currentHotelDharamshala?.id && {
+					id: currentHotelDharamshala.id,
+				}),
+				...HotelDharamshalaData,
+				userType: "hotel_dharamshala_vendor", // Use correct userType format
+				isApproved: HotelDharamshalaData.isApproved || false,
+				kycApproved: HotelDharamshalaData.isApproved ? 1 : 0, // Convert boolean to number for API
+			};
+
+			console.log("Sending request data:", requestData);
+
+			const response = await fetch(url, {
+				method,
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(requestData),
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				console.error("API error response:", errorData);
+				throw new Error("Failed to save HotelDharamshala");
+			}
+
+			// Refresh the HotelDharamshalas list
+			// Refresh the HotelDharamshalas list with the new API endpoint
+			const fetchResponse = await fetch("/api/users/hotel_dharamshala_vendor");
+			if (!fetchResponse.ok) {
+				throw new Error("Failed to fetch updated HotelDharamshalas");
+			}
+			const { users } = await fetchResponse.json();
+			console.log("Refreshed users data:", users);
+
+			// Map the user data to match HotelDharamshala structure
+			const mappedHotelDharamshalas = users.map(
+				(user: HotelDharamshalaApiResponse) => ({
+					id: user.id,
+					name: user.name || "",
+					phone: user.phone || "",
+					email: user.email || "",
+					status: user.status || "Inactive",
+					isApproved: user.kycApproved || false,
+				})
+			);
+
+			setHotelDharamshalas(mappedHotelDharamshalas);
+			setIsFormOpen(false);
+			toast.success(
+				currentHotelDharamshala?.id
+					? "HotelDharamshala updated successfully"
+					: "HotelDharamshala created successfully"
+			);
+		} catch (error: unknown) {
+			// Type guard for error with 'details'
+			if (typeof error === "object" && error !== null && "details" in error) {
+				const err = error as ApiErrorResponse;
+				if (Array.isArray(err.details)) {
+					err.details.forEach((message) => {
+						toast.error(String(message));
+					});
+				} else if (err.details && typeof err.details === "object") {
+					Object.values(err.details).forEach((message) => {
+						toast.error(String(message));
+					});
+				}
+			} else if (error instanceof Error) {
+				toast.error(error.message || "Failed to save HotelDharamshala");
+			} else {
+				toast.error("Failed to save HotelDharamshala");
+			}
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	if (loading) {
 		return (
-			<div className="container mx-auto py-6">
-				<h1 className="text-2xl font-bold mb-6">
-					Hotel Dharamshala Management
-				</h1>
-
-				<HotelDharamshalaTable
-					hotelDharamshalas={HotelDharamshalas}
-					setHotelDharamshalas={setHotelDharamshalas}
-					onAddHotelDharamshala={handleAddHotelDharamshala}
-					onEditHotelDharamshala={handleEditHotelDharamshala}
-					onDeleteHotelDharamshala={handleDeleteHotelDharamshala}
-					onUpdateStatus={handleUpdateStatus}
-					onToggleApproval={handleToggleApproval}
-					onLoginAsHotelDharamshala={handleLoginAsHotelDharamshala}
-				/>
-
-				<Pagination
-					currentPage={pagination.currentPage}
-					totalPages={pagination.totalPages}
-					totalItems={pagination.totalItems}
-					itemsPerPage={pagination.itemsPerPage}
-					onPageChange={handlePageChange}
-				/>
-
-				{/* Form Dialog */}
-				<Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-					<DialogContent className="sm:max-w-[600px]">
-						<DialogHeader>
-							<DialogTitle>
-								{currentHotelDharamshala?.id
-									? "Edit Hotel Dharamshala"
-									: "Add New Hotel Dharamshala"}
-							</DialogTitle>
-						</DialogHeader>
-						<HotelDharamshalaForm
-							initialData={currentHotelDharamshala || undefined}
-							onSubmit={handleFormSubmit}
-							onCancel={() => setIsFormOpen(false)}
-							isLoading={isSubmitting}
-						/>
-					</DialogContent>
-				</Dialog>
-
-				{/* Delete Confirmation Dialog */}
-				<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-					<DialogContent className="sm:max-w-[425px]">
-						<DialogHeader>
-							<DialogTitle>Confirm Deletion</DialogTitle>
-						</DialogHeader>
-						<div className="py-4">
-							<p>
-								Are you sure you want to delete {HotelDharamshalaToDelete?.name}
-								? This action cannot be undone.
-							</p>
-						</div>
-						<div className="flex justify-end gap-2">
-							<button
-								className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
-								onClick={() => setIsDeleteDialogOpen(false)}
-							>
-								Cancel
-							</button>
-							<button
-								className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-								onClick={handleDelete}
-							>
-								Delete
-							</button>
-						</div>
-					</DialogContent>
-				</Dialog>
+			<div className="flex justify-center items-center h-screen">
+				Loading...
 			</div>
 		);
-	};
+	}
+
+	return (
+		<div className="container mx-auto py-6">
+			<h1 className="text-2xl font-bold mb-6">Hotel Dharamshala Management</h1>
+
+			<HotelDharamshalaTable
+				hotelDharamshalas={HotelDharamshalas}
+				setHotelDharamshalas={setHotelDharamshalas}
+				onAddHotelDharamshala={handleAddHotelDharamshala}
+				onEditHotelDharamshala={handleEditHotelDharamshala}
+				onDeleteHotelDharamshala={handleDeleteHotelDharamshala}
+				onUpdateStatus={handleUpdateStatus}
+				onToggleApproval={handleToggleApproval}
+				onLoginAsHotelDharamshala={handleLoginAsHotelDharamshala}
+			/>
+
+			<Pagination
+				currentPage={pagination.currentPage}
+				totalPages={pagination.totalPages}
+				totalItems={pagination.totalItems}
+				itemsPerPage={pagination.itemsPerPage}
+				onPageChange={handlePageChange}
+			/>
+
+			{/* Form Dialog */}
+			<Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+				<DialogContent className="sm:max-w-[600px]">
+					<DialogHeader>
+						<DialogTitle>
+							{currentHotelDharamshala?.id
+								? "Edit Hotel Dharamshala"
+								: "Add New Hotel Dharamshala"}
+						</DialogTitle>
+					</DialogHeader>
+					<HotelDharamshalaForm
+						initialData={currentHotelDharamshala || undefined}
+						onSubmit={handleFormSubmit}
+						onCancel={() => setIsFormOpen(false)}
+						isLoading={isSubmitting}
+					/>
+				</DialogContent>
+			</Dialog>
+
+			{/* Delete Confirmation Dialog */}
+			<Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+				<DialogContent className="sm:max-w-[425px]">
+					<DialogHeader>
+						<DialogTitle>Confirm Deletion</DialogTitle>
+					</DialogHeader>
+					<div className="py-4">
+						<p>
+							Are you sure you want to delete {HotelDharamshalaToDelete?.name}?
+							This action cannot be undone.
+						</p>
+					</div>
+					<div className="flex justify-end gap-2">
+						<button
+							className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+							onClick={() => setIsDeleteDialogOpen(false)}
+						>
+							Cancel
+						</button>
+						<button
+							className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+							onClick={handleDelete}
+						>
+							Delete
+						</button>
+					</div>
+				</DialogContent>
+			</Dialog>
+		</div>
+	);
 }

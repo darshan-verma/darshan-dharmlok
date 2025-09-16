@@ -31,10 +31,10 @@ async function deleteS3Media(mediaUrls: string[]) {
 // GET - Get individual hotel dharamshala vendor by ID with dharamshala integration
 export async function GET(
 	_request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const userId = params.id;
+		const { id: userId } = await params;
 
 		if (!userId) {
 			return NextResponse.json(
@@ -254,10 +254,10 @@ export async function GET(
 // PUT - Update hotel dharamshala vendor user with accommodation services
 export async function PUT(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const userId = params.id;
+		const { id: userId } = await params;
 
 		if (!userId) {
 			return NextResponse.json(
@@ -551,10 +551,10 @@ export async function PUT(
 // DELETE - Delete hotel dharamshala vendor user
 export async function DELETE(
 	_request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const userId = params.id;
+		const { id: userId } = await params;
 
 		if (!userId) {
 			return NextResponse.json(

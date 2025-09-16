@@ -30,10 +30,10 @@ async function deleteS3Media(mediaUrls: string[]) {
 // GET - Get individual panditji user by ID with service offerings
 export async function GET(
 	_request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const userId = params.id;
+		const { id: userId } = await params;
 
 		if (!userId) {
 			return NextResponse.json(
@@ -190,10 +190,10 @@ export async function GET(
 // PUT - Update panditji user with service offerings
 export async function PUT(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const userId = params.id;
+		const { id: userId } = await params;
 
 		if (!userId) {
 			return NextResponse.json(
@@ -465,10 +465,10 @@ export async function PUT(
 // DELETE - Delete panditji user
 export async function DELETE(
 	_request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const userId = params.id;
+		const { id: userId } = await params;
 
 		if (!userId) {
 			return NextResponse.json(

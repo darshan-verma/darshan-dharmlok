@@ -4,6 +4,23 @@ import { Prisma } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { Address } from "@/types/user";
 
+interface DharmguruCreateData {
+	name: string;
+	email: string;
+	phone: string;
+	category: string;
+	rank?: string;
+	bio?: string;
+	profileImageUrl?: string;
+	bannerImageUrl?: string;
+	password?: string;
+	status?: string;
+	kycApproved?: number | boolean;
+	isApproved?: boolean;
+	active?: number;
+	addresses?: Address[];
+}
+
 /**
  * GET /api/users/dharmguru
  * Retrieves paginated list of dharmguru users with optimized fields
@@ -95,7 +112,7 @@ export async function POST(request: Request) {
 	try {
 		// Handle both JSON and FormData for backward compatibility
 		const contentType = request.headers.get("content-type") || "";
-		let data: any;
+		let data: Record<string, unknown>;
 
 		if (contentType.includes("application/json")) {
 			data = await request.json();
@@ -107,14 +124,17 @@ export async function POST(request: Request) {
 			const formData = await request.formData();
 			data = Object.fromEntries(formData.entries());
 			// Convert string values to appropriate types
-			if (data.isApproved) data.isApproved = data.isApproved === "true";
-			if (data.kycApproved) data.kycApproved = data.kycApproved === "true";
-			if (data.active) data.active = parseInt(data.active) || 1;
+			if (typeof data.isApproved === "string")
+				data.isApproved = data.isApproved === "true";
+			if (typeof data.kycApproved === "string")
+				data.kycApproved = data.kycApproved === "true";
+			if (typeof data.active === "string")
+				data.active = parseInt(data.active) || 1;
 		} else {
 			// Default to JSON
 			try {
 				data = await request.json();
-			} catch (error) {
+			} catch {
 				return NextResponse.json(
 					{ error: "Invalid request format. Please send JSON data." },
 					{ status: 400 }
@@ -135,9 +155,12 @@ export async function POST(request: Request) {
 			);
 		}
 
+		// Type assertion after validation
+		const validatedData = data as unknown as DharmguruCreateData;
+
 		// Check for existing email
 		const existingUser = await prisma.user.findUnique({
-			where: { email: data.email },
+			where: { email: validatedData.email },
 		});
 
 		if (existingUser) {
@@ -149,29 +172,32 @@ export async function POST(request: Request) {
 
 		// Hash password if provided
 		let hashedPassword = "";
-		if (data.password) {
-			hashedPassword = await bcrypt.hash(data.password, 12);
+		if (validatedData.password) {
+			hashedPassword = await bcrypt.hash(validatedData.password, 12);
 		}
 
 		// Create dharmguru with optimized data structure
 		const dharmguru = await prisma.user.create({
 			data: {
-				name: data.name,
-				email: data.email,
-				phone: data.phone,
+				name: validatedData.name,
+				email: validatedData.email,
+				phone: validatedData.phone,
 				userType: "Dharmguru", // Always set as Dharmguru
-				category: data.category,
-				rank: data.rank || "",
-				bio: data.bio || null,
-				profileImageUrl: data.profileImageUrl || null,
-				bannerImageUrl: data.bannerImageUrl || null,
+				category: validatedData.category,
+				rank: validatedData.rank || "",
+				bio: validatedData.bio || null,
+				profileImageUrl: validatedData.profileImageUrl || null,
+				bannerImageUrl: validatedData.bannerImageUrl || null,
 				password: hashedPassword,
-				status: data.status || "Active",
-				kycApproved: data.kycApproved || 0,
+				status: validatedData.status || "Active",
+				kycApproved:
+					typeof validatedData.kycApproved === "number"
+						? validatedData.kycApproved
+						: 0,
 				// Add addresses if provided
-				...(data.addresses && {
+				...(validatedData.addresses && {
 					addresses: {
-						create: data.addresses.map((addr: Address) => ({
+						create: validatedData.addresses.map((addr: Address) => ({
 							type: addr.type,
 							label: addr.label,
 							line1: addr.line1,

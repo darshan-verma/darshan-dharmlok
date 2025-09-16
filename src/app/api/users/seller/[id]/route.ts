@@ -31,10 +31,10 @@ async function deleteS3Media(mediaUrls: string[]) {
 // GET - Get individual seller user by ID with comprehensive product data
 export async function GET(
 	_request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const userId = params.id;
+		const { id: userId } = await params;
 
 		if (!userId) {
 			return NextResponse.json(
@@ -189,10 +189,10 @@ export async function GET(
 // PUT - Update seller user with product management
 export async function PUT(
 	request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const userId = params.id;
+		const { id: userId } = await params;
 
 		if (!userId) {
 			return NextResponse.json(
@@ -529,10 +529,10 @@ export async function PUT(
 // DELETE - Delete seller user and all associated products
 export async function DELETE(
 	_request: NextRequest,
-	{ params }: { params: { id: string } }
+	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
-		const userId = params.id;
+		const { id: userId } = await params;
 
 		if (!userId) {
 			return NextResponse.json(
