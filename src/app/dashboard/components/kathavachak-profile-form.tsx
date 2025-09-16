@@ -102,7 +102,9 @@ export default function KathavachakProfileForm({
 				// Use the new kathavachak-specific API endpoint for optimized queries
 				const res = await fetch(`/api/users/kathavachak/${profile?.id}`);
 				if (res.ok) {
-					const data: KathavachakApiResponse = await res.json();
+					const response = await res.json();
+					// Handle the nested data structure from the API
+					const data: KathavachakApiResponse = response.data || response;
 					setForm({
 						name: data.name || "",
 						email: data.email || "",
@@ -166,18 +168,36 @@ export default function KathavachakProfileForm({
 
 		setSaving(true);
 		try {
-			// Always send profileImageUrl and bannerImageUrl, but make them null if empty
-			const formToSend = {
-				...form,
-				profileImageUrl: form.avatarUrl || null,
-				bannerImageUrl: form.bannerImageUrl || null,
-			};
+			// Create FormData to match API expectations
+			const formData = new FormData();
+			formData.append("name", form.name);
+			formData.append("email", form.email);
+			formData.append("phone", form.phone);
+
+			// Handle profile image URL (send even if empty to allow clearing)
+			formData.append("profileImageUrl", form.avatarUrl || "");
+
+			// Handle banner image URL (send even if empty to allow clearing)
+			formData.append("bannerImageUrl", form.bannerImageUrl || "");
+
+			// Handle addresses
+			if (form.addresses.length > 0) {
+				formData.append("address", JSON.stringify(form.addresses[0])); // API expects single address
+			}
+
+			console.log("Submitting profile form with:", {
+				name: form.name,
+				email: form.email,
+				phone: form.phone,
+				profileImageUrl: form.avatarUrl,
+				bannerImageUrl: form.bannerImageUrl,
+				addressCount: form.addresses.length,
+			});
 
 			// Use the new kathavachak-specific API endpoint for updates
 			const response = await fetch(`/api/users/kathavachak/${profile?.id}`, {
 				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(formToSend),
+				body: formData,
 			});
 
 			if (!response.ok) {
@@ -191,7 +211,8 @@ export default function KathavachakProfileForm({
 			if (profile?.id) {
 				const res = await fetch(`/api/users/kathavachak/${profile.id}`);
 				if (res.ok) {
-					const data: KathavachakApiResponse = await res.json();
+					const response = await res.json();
+					const data: KathavachakApiResponse = response.data || response;
 					setForm({
 						name: data.name || "",
 						email: data.email || "",

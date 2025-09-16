@@ -54,7 +54,9 @@ export default function KathavachakPage() {
 					throw new Error(errorData.error || "Failed to fetch user data");
 				}
 
-				const userData = await response.json();
+				const responseData = await response.json();
+				// Handle the nested data structure from the API
+				const userData = responseData.data || responseData;
 				setUser(userData);
 			} catch (err) {
 				setError(

@@ -265,9 +265,18 @@ export async function PUT(
 			updateData.password = await bcrypt.hash(newPassword, 10);
 		}
 
-		// Handle profile image upload
+		// Handle profile image upload or URL
 		const profileImageFile = formData.get("profileImage") as File;
+		const profileImageUrl = formData.get("profileImageUrl") as string;
+
+		console.log("Profile image processing:", {
+			hasFile: profileImageFile && profileImageFile.size > 0,
+			receivedUrl: profileImageUrl,
+			existingUrl: existingUser.profileImageUrl,
+		});
+
 		if (profileImageFile && profileImageFile.size > 0) {
+			// Handle file upload
 			try {
 				const fileBuffer = Buffer.from(await profileImageFile.arrayBuffer());
 				const fileName = `kathavachak-profiles/${Date.now()}-${
@@ -292,11 +301,26 @@ export async function PUT(
 					{ status: 500 }
 				);
 			}
+		} else if (
+			profileImageUrl !== undefined &&
+			profileImageUrl !== existingUser.profileImageUrl
+		) {
+			// Handle URL update (when image was uploaded separately) or clearing (empty string)
+			updateData.profileImageUrl = profileImageUrl || undefined;
 		}
 
-		// Handle banner image upload
+		// Handle banner image upload or URL
 		const bannerImageFile = formData.get("bannerImage") as File;
+		const bannerImageUrl = formData.get("bannerImageUrl") as string;
+
+		console.log("Banner image processing:", {
+			hasFile: bannerImageFile && bannerImageFile.size > 0,
+			receivedUrl: bannerImageUrl,
+			existingUrl: existingUser.bannerImageUrl,
+		});
+
 		if (bannerImageFile && bannerImageFile.size > 0) {
+			// Handle file upload
 			try {
 				const fileBuffer = Buffer.from(await bannerImageFile.arrayBuffer());
 				const fileName = `kathavachak-banners/${Date.now()}-${
@@ -321,6 +345,12 @@ export async function PUT(
 					{ status: 500 }
 				);
 			}
+		} else if (
+			bannerImageUrl !== undefined &&
+			bannerImageUrl !== existingUser.bannerImageUrl
+		) {
+			// Handle URL update (when image was uploaded separately) or clearing (empty string)
+			updateData.bannerImageUrl = bannerImageUrl || undefined;
 		}
 
 		// Update kathavachak user

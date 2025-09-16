@@ -98,7 +98,9 @@ export default function SellerProfileForm({
 				// Use the new seller-specific API endpoint for optimized queries
 				const res = await fetch(`/api/users/seller/${profile?.id}`);
 				if (res.ok) {
-					const data: SellerApiResponse = await res.json();
+					const response = await res.json();
+					// Handle the nested data structure from the API
+					const data: SellerApiResponse = response.data || response;
 					setForm({
 						name: data.name || "",
 						email: data.email || "",
@@ -159,17 +161,24 @@ export default function SellerProfileForm({
 		}
 		setSaving(true);
 		try {
-			// Always send profileImageUrl, but make it null if empty
-			const formToSend = {
-				...form,
-				profileImageUrl: form.profileImageUrl || null,
-			};
+			// Create FormData to match API expectations
+			const formData = new FormData();
+			formData.append("name", form.name);
+			formData.append("email", form.email);
+			formData.append("phone", form.phone);
+
+			// Handle profile image URL (send even if empty to allow clearing)
+			formData.append("profileImageUrl", form.profileImageUrl || "");
+
+			// Handle addresses
+			if (form.addresses.length > 0) {
+				formData.append("address", JSON.stringify(form.addresses[0])); // API expects single address
+			}
 
 			// Use the new seller-specific API endpoint for updates
 			const response = await fetch(`/api/users/seller/${profile?.id}`, {
 				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(formToSend),
+				body: formData,
 			});
 
 			if (!response.ok) {
@@ -183,7 +192,8 @@ export default function SellerProfileForm({
 				// Fetch updated profile using the new seller-specific endpoint
 				const res = await fetch(`/api/users/seller/${profile.id}`);
 				if (res.ok) {
-					const data: SellerApiResponse = await res.json();
+					const response = await res.json();
+					const data: SellerApiResponse = response.data || response;
 					const updatedForm = {
 						name: data.name || "",
 						email: data.email || "",

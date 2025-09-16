@@ -662,15 +662,38 @@ export default function KathavachakDashboard() {
 						bio: "Spiritual orator and kathavachak.", // fallback, not on FullUser
 					});
 				} catch {
-					setProfile({
-						id: session.user.id,
-						name: session.user.name || "Kathavachak",
-						avatarUrl: session.user.image || undefined,
-						bannerImageUrl: "",
-						contact: "+91-9876543210",
-						rating: 4.88,
-						bio: "Spiritual orator and kathavachak.",
-					});
+					// Fallback to direct API call if userService fails
+					try {
+						const res = await fetch(
+							`/api/users/kathavachak/${session.user.id}`
+						);
+						if (res.ok) {
+							const response = await res.json();
+							const userData = response.data || response;
+							setProfile({
+								id: userData.id,
+								name: userData.name || "Kathavachak",
+								avatarUrl: userData.profileImageUrl || undefined,
+								bannerImageUrl: userData.bannerImageUrl || "",
+								contact: "+91-9876543210",
+								rating: 4.88,
+								bio: userData.bio || "Spiritual orator and kathavachak.",
+							});
+						} else {
+							throw new Error("API call failed");
+						}
+					} catch (apiError) {
+						console.error("API call also failed:", apiError);
+						setProfile({
+							id: session.user.id,
+							name: session.user.name || "Kathavachak",
+							avatarUrl: session.user.image || undefined,
+							bannerImageUrl: "",
+							contact: "+91-9876543210",
+							rating: 4.88,
+							bio: "Spiritual orator and kathavachak.",
+						});
+					}
 				} finally {
 					setProfileLoading(false);
 				}
@@ -855,12 +878,11 @@ export default function KathavachakDashboard() {
 								? {
 										id: profile.id,
 										name: profile.name ?? "",
-										email: (profile as unknown as FullUser).email ?? "",
-										phone: (profile as unknown as FullUser).phone ?? "",
-										addresses: (profile as unknown as FullUser).addresses ?? [],
+										email: "", // Will be fetched by the profile form from API
+										phone: "", // Will be fetched by the profile form from API
+										addresses: [], // Will be fetched by the profile form from API
 										avatarUrl: profile.avatarUrl,
 										bannerImageUrl: profile.bannerImageUrl,
-										
 								  }
 								: null
 						}
