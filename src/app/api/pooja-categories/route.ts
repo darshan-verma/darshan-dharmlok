@@ -26,8 +26,11 @@ export async function GET(req: NextRequest) {
 			price: typeof cat.price === "number" ? cat.price : undefined,
 			details: cat.details || "",
 			status: cat.status || "Inactive",
-			images: cat.images || [],
-			videos: cat.videos || [],
+			images:
+				cat.images && cat.images.length > 0
+					? cat.images
+					: ["https://via.placeholder.com/300x200?text=Pooja+Image"],
+			videos: cat.videos && cat.videos.length > 0 ? cat.videos : [],
 		})),
 		total,
 		pagination: { totalPages: Math.ceil(total / limit) },
@@ -65,8 +68,11 @@ export async function POST(req: NextRequest) {
 			date: created.date ? created.date.toISOString() : "",
 			price: typeof created.price === "number" ? created.price : undefined,
 			details: created.details || "",
-			images: created.images || [],
-			videos: created.videos || [],
+			images:
+				created.images && created.images.length > 0
+					? created.images
+					: ["https://via.placeholder.com/300x200?text=Pooja+Image"],
+			videos: created.videos && created.videos.length > 0 ? created.videos : [],
 		});
 	} catch {
 		return Response.json(

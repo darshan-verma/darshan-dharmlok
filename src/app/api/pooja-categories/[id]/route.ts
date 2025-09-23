@@ -25,8 +25,11 @@ export async function GET(req: NextRequest) {
 			price: typeof pooja.price === "number" ? pooja.price : undefined,
 			details: pooja.details || "",
 			status: pooja.status || "Inactive",
-			images: pooja.images || [],
-			videos: pooja.videos || [],
+			images:
+				pooja.images && pooja.images.length > 0
+					? pooja.images
+					: ["https://via.placeholder.com/300x200?text=Pooja+Image"],
+			videos: pooja.videos && pooja.videos.length > 0 ? pooja.videos : [],
 		});
 	} catch {
 		return Response.json(
@@ -70,8 +73,12 @@ export async function PUT(req: NextRequest) {
 				price: typeof updated.price === "number" ? updated.price : undefined,
 				details: updated.details || "",
 				status: updated.status || "Inactive",
-				images: updated.images || [],
-				videos: updated.videos || [],
+				images:
+					updated.images && updated.images.length > 0
+						? updated.images
+						: ["https://via.placeholder.com/300x200?text=Pooja+Image"],
+				videos:
+					updated.videos && updated.videos.length > 0 ? updated.videos : [],
 			});
 		}
 
@@ -103,8 +110,11 @@ export async function PUT(req: NextRequest) {
 			price: typeof updated.price === "number" ? updated.price : undefined,
 			details: updated.details || "",
 			status: updated.status || "Inactive",
-			images: updated.images || [],
-			videos: updated.videos || [],
+			images:
+				updated.images && updated.images.length > 0
+					? updated.images
+					: ["https://via.placeholder.com/300x200?text=Pooja+Image"],
+			videos: updated.videos && updated.videos.length > 0 ? updated.videos : [],
 		});
 	} catch {
 		return Response.json(
