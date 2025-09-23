@@ -6,6 +6,8 @@ export interface PoojaCategory {
 	price?: number;
 	details?: string;
 	status?: string;
+	images?: string[];
+	videos?: string[];
 }
 
 export interface Offering {

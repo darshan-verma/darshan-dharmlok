@@ -26,6 +26,8 @@ export async function GET(req: NextRequest) {
 			price: typeof cat.price === "number" ? cat.price : undefined,
 			details: cat.details || "",
 			status: cat.status || "Inactive",
+			images: cat.images || [],
+			videos: cat.videos || [],
 		})),
 		total,
 		pagination: { totalPages: Math.ceil(total / limit) },
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
 	try {
 		const body = await req.json();
-		const { name, description, date, price, details } = body;
+		const { name, description, date, price, details, images, videos } = body;
 
 		if (!name || typeof name !== "string" || name.trim().length < 2)
 			return Response.json(
@@ -51,6 +53,8 @@ export async function POST(req: NextRequest) {
 				date: date ? new Date(date) : undefined,
 				price: price !== undefined && price !== "" ? Number(price) : undefined,
 				details: details ?? "",
+				images: images || [],
+				videos: videos || [],
 			},
 		});
 
@@ -61,6 +65,8 @@ export async function POST(req: NextRequest) {
 			date: created.date ? created.date.toISOString() : "",
 			price: typeof created.price === "number" ? created.price : undefined,
 			details: created.details || "",
+			images: created.images || [],
+			videos: created.videos || [],
 		});
 	} catch {
 		return Response.json(

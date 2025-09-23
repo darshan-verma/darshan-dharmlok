@@ -54,6 +54,8 @@ export default function PoojaCategoryPage() {
 					price?: number;
 					details?: string;
 					status?: string;
+					images?: string[];
+					videos?: string[];
 				};
 				const mapped = data.categories.map((item: ApiPoojaCategory) => ({
 					id: item.id,
@@ -62,7 +64,9 @@ export default function PoojaCategoryPage() {
 					date: item.date || "",
 					price: item.price ?? undefined,
 					details: item.details || "",
-					status: item.status || "Inactive", // add status mapping
+					status: item.status || "Inactive",
+					images: item.images || [],
+					videos: item.videos || [],
 				}));
 				setPoojaCategories(mapped);
 				updatePagination(data.total, data.pagination.totalPages);
@@ -152,6 +156,8 @@ export default function PoojaCategoryPage() {
 					date: item.date || "",
 					price: item.price ?? undefined,
 					details: item.details || "",
+					images: item.images || [],
+					videos: item.videos || [],
 				}))
 			);
 

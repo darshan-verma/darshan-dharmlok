@@ -153,6 +153,8 @@ model PoojaCategory {
     price       Float?
     status      String? @default("Active")
     details     String?
+    images      String[]
+    videos      String[]
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
 }

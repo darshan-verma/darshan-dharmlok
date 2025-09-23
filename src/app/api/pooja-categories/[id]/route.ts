@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
 			price: typeof pooja.price === "number" ? pooja.price : undefined,
 			details: pooja.details || "",
 			status: pooja.status || "Inactive",
+			images: pooja.images || [],
+			videos: pooja.videos || [],
 		});
 	} catch {
 		return Response.json(
@@ -42,7 +44,8 @@ export async function PUT(req: NextRequest) {
 		const id = pathnameParts[pathnameParts.length - 1];
 
 		const body = await req.json();
-		const { name, description, date, price, details, status } = body;
+		const { name, description, date, price, details, status, images, videos } =
+			body;
 
 		// Allow status-only update
 		if (
@@ -51,7 +54,9 @@ export async function PUT(req: NextRequest) {
 			description === undefined &&
 			date === undefined &&
 			price === undefined &&
-			details === undefined
+			details === undefined &&
+			images === undefined &&
+			videos === undefined
 		) {
 			const updated = await prisma.poojaCategory.update({
 				where: { id },
@@ -65,6 +70,8 @@ export async function PUT(req: NextRequest) {
 				price: typeof updated.price === "number" ? updated.price : undefined,
 				details: updated.details || "",
 				status: updated.status || "Inactive",
+				images: updated.images || [],
+				videos: updated.videos || [],
 			});
 		}
 
@@ -82,6 +89,8 @@ export async function PUT(req: NextRequest) {
 				date: date ? new Date(date) : undefined,
 				price: price !== undefined && price !== "" ? Number(price) : undefined,
 				details: details ?? "",
+				images: images || [],
+				videos: videos || [],
 				...(status && { status }),
 			},
 		});
@@ -94,6 +103,8 @@ export async function PUT(req: NextRequest) {
 			price: typeof updated.price === "number" ? updated.price : undefined,
 			details: updated.details || "",
 			status: updated.status || "Inactive",
+			images: updated.images || [],
+			videos: updated.videos || [],
 		});
 	} catch {
 		return Response.json(

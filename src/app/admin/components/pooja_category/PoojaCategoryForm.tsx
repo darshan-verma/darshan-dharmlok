@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, X } from "lucide-react";
+import Image from "next/image";
 import { PoojaCategory } from "./PoojaCategoryTable";
 
 interface PoojaCategoryFormProps {
@@ -39,10 +40,14 @@ export default function PoojaCategoryForm({
 		date: initialData.date || "",
 		price: initialData.price ?? undefined,
 		details: initialData.details || "",
+		images: initialData.images || [],
+		videos: initialData.videos || [],
 	});
 
 	const [formErrors, setFormErrors] = useState<FormErrors>({});
 	const [isDirty, setIsDirty] = useState(false);
+	const [uploadingImages, setUploadingImages] = useState(false);
+	const [uploadingVideos, setUploadingVideos] = useState(false);
 
 	const validateForm = useCallback((data: typeof formData): FormErrors => {
 		const errors: FormErrors = {};
@@ -90,6 +95,99 @@ export default function PoojaCategoryForm({
 
 		return errors;
 	}, []);
+
+	const handleImageUpload = async (files: FileList | null) => {
+		if (!files || files.length === 0) return;
+
+		setUploadingImages(true);
+		try {
+			const uploadedUrls: string[] = [];
+			for (const file of Array.from(files)) {
+				const formDataUpload = new FormData();
+				formDataUpload.append("file", file);
+
+				const response = await fetch("/api/upload/profile-image", {
+					method: "POST",
+					body: formDataUpload,
+				});
+
+				if (!response.ok) {
+					throw new Error(`Failed to upload ${file.name}`);
+				}
+
+				const data = await response.json();
+				uploadedUrls.push(data.imageUrl);
+			}
+
+			setFormData((prev) => ({
+				...prev,
+				images: [...(prev.images || []), ...uploadedUrls],
+			}));
+			setIsDirty(true);
+		} catch (error) {
+			setFormErrors({
+				general:
+					error instanceof Error ? error.message : "Failed to upload images",
+			});
+		} finally {
+			setUploadingImages(false);
+		}
+	};
+
+	const handleVideoUpload = async (files: FileList | null) => {
+		if (!files || files.length === 0) return;
+
+		setUploadingVideos(true);
+		try {
+			const uploadedUrls: string[] = [];
+			for (const file of Array.from(files)) {
+				const formDataUpload = new FormData();
+				formDataUpload.append("file", file);
+				formDataUpload.append("source", "pooja-category");
+
+				const response = await fetch("/api/upload/video", {
+					method: "POST",
+					body: formDataUpload,
+				});
+
+				if (!response.ok) {
+					throw new Error(`Failed to upload ${file.name}`);
+				}
+
+				const data = await response.json();
+				uploadedUrls.push(data.videoUrl);
+			}
+
+			setFormData((prev) => ({
+				...prev,
+				videos: [...(prev.videos || []), ...uploadedUrls],
+			}));
+			setIsDirty(true);
+		} catch (error) {
+			setFormErrors({
+				general:
+					error instanceof Error ? error.message : "Failed to upload videos",
+			});
+		} finally {
+			setUploadingVideos(false);
+		}
+	};
+
+	const removeImage = (index: number) => {
+		setFormData((prev) => ({
+			...prev,
+			images: prev.images?.filter((_, i) => i !== index) || [],
+		}));
+		setIsDirty(true);
+	};
+
+	const removeVideo = (index: number) => {
+		setFormData((prev) => ({
+			...prev,
+			videos: prev.videos?.filter((_, i) => i !== index) || [],
+		}));
+		setIsDirty(true);
+	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -274,6 +372,96 @@ export default function PoojaCategoryForm({
 						<p className="text-xs text-gray-500">
 							Leave empty if price varies or is to be determined
 						</p>
+					</div>
+
+					{/* Images Field */}
+					<div className="space-y-2">
+						<Label className="text-sm font-medium">Images</Label>
+						<div className="space-y-2">
+							<Input
+								type="file"
+								accept="image/*"
+								multiple
+								onChange={(e) => handleImageUpload(e.target.files)}
+								disabled={isLoading || uploadingImages}
+								className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+							/>
+							{uploadingImages && (
+								<div className="flex items-center gap-2 text-sm text-blue-600">
+									<Loader2 className="h-4 w-4 animate-spin" />
+									Uploading images...
+								</div>
+							)}
+							{formData.images && formData.images.length > 0 && (
+								<div className="grid grid-cols-4 gap-2 mt-2">
+									{formData.images.map((image, index) => (
+										<div key={index} className="relative">
+											<Image
+												src={image}
+												alt={`Image ${index + 1}`}
+												width={80}
+												height={80}
+												className="w-full h-20 object-cover rounded"
+											/>
+											<Button
+												type="button"
+												variant="destructive"
+												size="sm"
+												className="absolute -top-2 -right-2 h-6 w-6 p-0"
+												onClick={() => removeImage(index)}
+												disabled={isLoading}
+											>
+												<X className="h-3 w-3" />
+											</Button>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
+					</div>
+
+					{/* Videos Field */}
+					<div className="space-y-2">
+						<Label className="text-sm font-medium">Videos</Label>
+						<div className="space-y-2">
+							<Input
+								type="file"
+								accept="video/*"
+								multiple
+								onChange={(e) => handleVideoUpload(e.target.files)}
+								disabled={isLoading || uploadingVideos}
+								className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+							/>
+							{uploadingVideos && (
+								<div className="flex items-center gap-2 text-sm text-blue-600">
+									<Loader2 className="h-4 w-4 animate-spin" />
+									Uploading videos...
+								</div>
+							)}
+							{formData.videos && formData.videos.length > 0 && (
+								<div className="grid grid-cols-4 gap-2 mt-2">
+									{formData.videos.map((video, index) => (
+										<div key={index} className="relative">
+											<video
+												src={video}
+												className="w-full h-20 object-cover rounded"
+												controls={false}
+											/>
+											<Button
+												type="button"
+												variant="destructive"
+												size="sm"
+												className="absolute -top-2 -right-2 h-6 w-6 p-0"
+												onClick={() => removeVideo(index)}
+												disabled={isLoading}
+											>
+												<X className="h-3 w-3" />
+											</Button>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
 					</div>
 
 					{/* Form Actions */}

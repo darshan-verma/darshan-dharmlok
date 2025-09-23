@@ -43,6 +43,8 @@ export interface PoojaCategory {
 	price?: number;
 	details?: string;
 	status?: string; // "Active" | "Inactive"
+	images?: string[];
+	videos?: string[];
 }
 
 interface PoojaCategoryTableProps {

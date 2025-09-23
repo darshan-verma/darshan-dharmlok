@@ -5,6 +5,7 @@ import {
 	CardDescription,
 	CardContent,
 } from "@/components/ui/card";
+import Image from "next/image";
 import { PoojaCategory } from "./types";
 
 interface Props {
@@ -53,6 +54,38 @@ export function PoojaCategoryDetailCard({ pooja }: Props) {
 					<div className="pt-1 mt-1 border-t border-gray-100">
 						<span className="font-medium">Details:</span>
 						<p className="text-sm mt-0.5 line-clamp-2">{pooja?.details}</p>
+					</div>
+				)}
+				{pooja?.images && pooja.images.length > 0 && (
+					<div className="pt-1 mt-1 border-t border-gray-100">
+						<span className="font-medium">Images:</span>
+						<div className="flex flex-wrap gap-2 mt-1">
+							{pooja.images.map((image, index) => (
+								<Image
+									key={index}
+									src={image}
+									alt={`Image ${index + 1}`}
+									width={64}
+									height={64}
+									className="w-16 h-16 object-cover rounded"
+								/>
+							))}
+						</div>
+					</div>
+				)}
+				{pooja?.videos && pooja.videos.length > 0 && (
+					<div className="pt-1 mt-1 border-t border-gray-100">
+						<span className="font-medium">Videos:</span>
+						<div className="flex flex-wrap gap-2 mt-1">
+							{pooja.videos.map((video, index) => (
+								<video
+									key={index}
+									src={video}
+									className="w-16 h-16 object-cover rounded"
+									controls={false}
+								/>
+							))}
+						</div>
 					</div>
 				)}
 			</CardContent>
