@@ -214,6 +214,7 @@ export async function GET(request: Request) {
 				lastLoginAt: true,
 				lastLogoutAt: true,
 				createdAt: true,
+				serviceOfferings: true,
 			},
 			orderBy: {
 				createdAt: "desc",
