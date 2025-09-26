@@ -32,6 +32,9 @@ export async function GET(_: NextRequest) {
 			travelByTrain: parseJsonArrayField(dharamshala.travelByTrain),
 			travelByBus: parseJsonArrayField(dharamshala.travelByBus),
 			travelByRoad: parseJsonArrayField(dharamshala.travelByRoad),
+			// Explicitly include bannerImage and coverImage as they are direct string fields
+			bannerImage: dharamshala.bannerImage,
+			coverImage: dharamshala.coverImage,
 			// dharamshalaFaqs will be included directly by Prisma if the relation is named so
 		}));
 		return NextResponse.json(result);
@@ -68,6 +71,8 @@ export async function POST(req: NextRequest) {
 			amenities,
 			imageFile,
 			videoFile,
+			bannerImage, // NEW: Accept bannerImage
+			coverImage, // NEW: Accept coverImage
 			dharamshalaFaqs, // Expect 'dharamshalaFaqs' from client
 		} = body;
 
@@ -92,6 +97,8 @@ export async function POST(req: NextRequest) {
 			amenities: amenities ? JSON.stringify(amenities) : "[]",
 			imageFile: imageFile ? JSON.stringify(imageFile) : "[]",
 			videoFile: videoFile ? JSON.stringify(videoFile) : "[]",
+			bannerImage, // NEW: Direct string assignment
+			coverImage, // NEW: Direct string assignment
 			travelByAir: travelByAir ? JSON.stringify(travelByAir) : "[]",
 			travelByTrain: travelByTrain ? JSON.stringify(travelByTrain) : "[]",
 			travelByBus: travelByBus ? JSON.stringify(travelByBus) : "[]",
@@ -132,6 +139,9 @@ export async function POST(req: NextRequest) {
 			travelByTrain: parseJsonArrayField(dharamshala.travelByTrain),
 			travelByBus: parseJsonArrayField(dharamshala.travelByBus),
 			travelByRoad: parseJsonArrayField(dharamshala.travelByRoad),
+			// Explicitly include bannerImage and coverImage as they are direct string fields
+			bannerImage: dharamshala.bannerImage,
+			coverImage: dharamshala.coverImage,
 			// dharamshalaFaqs will be included directly
 		};
 		return NextResponse.json(result);

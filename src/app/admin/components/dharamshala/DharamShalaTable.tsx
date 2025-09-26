@@ -42,6 +42,8 @@ export interface Dharamshala {
 	state: string;
 	city: string;
 	status: string;
+	bannerImage?: string; // NEW
+	coverImage?: string; // NEW
 }
 
 interface DharamshalaTableProps {

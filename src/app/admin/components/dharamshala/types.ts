@@ -26,6 +26,8 @@ export type DharamshalaData = {
 	updatedAt?: string;
 	imageFile?: string | string[];
 	videoFile?: string | string[];
+	bannerImage?: string; // NEW
+	coverImage?: string; // NEW
 };
 
 // Helper types for the DharamshalaInfoCard component
@@ -35,7 +37,4 @@ export type BlockNoteBlock = {
 	content?: { text: string }[];
 	[key: string]: unknown;
 };
-export type BlockNoteField =
-	| "description"
-	| "additionalInfo"
-
+export type BlockNoteField = "description" | "additionalInfo";

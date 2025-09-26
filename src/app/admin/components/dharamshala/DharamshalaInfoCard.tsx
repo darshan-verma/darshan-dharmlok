@@ -208,8 +208,60 @@ export function DharamshalaInfoCard({
 		}
 	};
 
-	const handleRemoveImage = (url: string) => {
-		setImageFiles((prev) => prev.filter((img) => img !== url));
+	// Banner Image handling
+	const handleBannerImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+		setIsUploadingImage(true);
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("dharamshalaId", editedDharamshala.id);
+			const response = await fetch("/api/upload/dharamshala-image", {
+				method: "POST",
+				body: formData,
+			});
+			if (!response.ok) throw new Error("Failed to upload banner image");
+			const { imageUrl } = await response.json();
+			setEditedDharamshala((prev) =>
+				prev ? { ...prev, bannerImage: imageUrl } : prev
+			);
+			toast.success("Banner image uploaded successfully!");
+		} catch {
+			toast.error("Failed to upload banner image");
+		} finally {
+			setIsUploadingImage(false);
+		}
+	};
+
+	// Cover Image handling
+	const handleCoverImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+		setIsUploadingImage(true);
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("dharamshalaId", editedDharamshala.id);
+			const response = await fetch("/api/upload/dharamshala-image", {
+				method: "POST",
+				body: formData,
+			});
+			if (!response.ok) throw new Error("Failed to upload cover image");
+			const { imageUrl } = await response.json();
+			setEditedDharamshala((prev) =>
+				prev ? { ...prev, coverImage: imageUrl } : prev
+			);
+			toast.success("Cover image uploaded successfully!");
+		} catch {
+			toast.error("Failed to upload cover image");
+		} finally {
+			setIsUploadingImage(false);
+		}
 	};
 
 	// Video handling
@@ -241,6 +293,10 @@ export function DharamshalaInfoCard({
 		} finally {
 			setIsUploadingVideo(false);
 		}
+	};
+
+	const handleRemoveImage = (url: string) => {
+		setImageFiles((prev) => prev.filter((img) => img !== url));
 	};
 
 	const handleRemoveVideo = (url: string) => {
@@ -692,6 +748,143 @@ export function DharamshalaInfoCard({
 							<CardTitle>Dharamshala Images & Videos</CardTitle>
 						</CardHeader>
 						<CardContent className="space-y-6">
+							{/* Banner and Cover Images Section */}
+							<div className="space-y-4">
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+									{/* Banner Image */}
+									<div className="space-y-2">
+										<Label>Banner Image</Label>
+										{editedDharamshala.bannerImage ? (
+											<div className="relative w-full h-32 rounded border overflow-hidden">
+												<Image
+													src={editedDharamshala.bannerImage}
+													alt="Banner Image"
+													fill
+													className="object-cover"
+													sizes="400px"
+												/>
+												{isEditing && (
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon"
+														onClick={() =>
+															setEditedDharamshala((prev) =>
+																prev ? { ...prev, bannerImage: "" } : prev
+															)
+														}
+														className="absolute top-1 right-1 bg-white/80"
+													>
+														<Trash2 className="h-4 w-4 text-red-500" />
+													</Button>
+												)}
+											</div>
+										) : (
+											isEditing && (
+												<div className="w-full h-32 border-2 border-dashed rounded flex items-center justify-center bg-muted">
+													<span className="text-sm text-gray-500">
+														No banner image
+													</span>
+												</div>
+											)
+										)}
+										{isEditing && (
+											<div className="flex items-center gap-2">
+												<label className="flex-1">
+													<Button
+														type="button"
+														variant="outline"
+														className="w-full"
+														disabled={isUploadingImage}
+														asChild
+													>
+														<span>
+															<Plus className="h-4 w-4 mr-2" />
+															{isUploadingImage
+																? "Uploading..."
+																: "Upload Banner"}
+														</span>
+													</Button>
+													<input
+														type="file"
+														accept="image/*"
+														className="hidden"
+														onChange={handleBannerImageUpload}
+														disabled={isUploadingImage}
+													/>
+												</label>
+											</div>
+										)}
+									</div>
+
+									{/* Cover Image */}
+									<div className="space-y-2">
+										<Label>Cover Image</Label>
+										{editedDharamshala.coverImage ? (
+											<div className="relative w-full h-32 rounded border overflow-hidden">
+												<Image
+													src={editedDharamshala.coverImage}
+													alt="Cover Image"
+													fill
+													className="object-cover"
+													sizes="400px"
+												/>
+												{isEditing && (
+													<Button
+														type="button"
+														variant="ghost"
+														size="icon"
+														onClick={() =>
+															setEditedDharamshala((prev) =>
+																prev ? { ...prev, coverImage: "" } : prev
+															)
+														}
+														className="absolute top-1 right-1 bg-white/80"
+													>
+														<Trash2 className="h-4 w-4 text-red-500" />
+													</Button>
+												)}
+											</div>
+										) : (
+											isEditing && (
+												<div className="w-full h-32 border-2 border-dashed rounded flex items-center justify-center bg-muted">
+													<span className="text-sm text-gray-500">
+														No cover image
+													</span>
+												</div>
+											)
+										)}
+										{isEditing && (
+											<div className="flex items-center gap-2">
+												<label className="flex-1">
+													<Button
+														type="button"
+														variant="outline"
+														className="w-full"
+														disabled={isUploadingImage}
+														asChild
+													>
+														<span>
+															<Plus className="h-4 w-4 mr-2" />
+															{isUploadingImage
+																? "Uploading..."
+																: "Upload Cover"}
+														</span>
+													</Button>
+													<input
+														type="file"
+														accept="image/*"
+														className="hidden"
+														onChange={handleCoverImageUpload}
+														disabled={isUploadingImage}
+													/>
+												</label>
+											</div>
+										)}
+									</div>
+								</div>
+							</div>
+
 							{/* Images Section */}
 							<div className="space-y-2">
 								<Label>Dharamshala Images</Label>

@@ -306,6 +306,8 @@ model Dharamshala {
     status         String      // e.g. "active", "inactive"
     imageFile      String?     // image of temple 
     videoFile      String?     // video file for temple video
+    bannerImage    String?     // NEW: URL for banner image
+    coverImage     String?     // NEW: URL for cover image
     // Location (map)
     address       String?
     location      String?
