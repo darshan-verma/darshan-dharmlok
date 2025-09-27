@@ -789,31 +789,13 @@ export function DharamshalaInfoCard({
 											)
 										)}
 										{isEditing && (
-											<div className="flex items-center gap-2">
-												<label className="flex-1">
-													<Button
-														type="button"
-														variant="outline"
-														className="w-full"
-														disabled={isUploadingImage}
-														asChild
-													>
-														<span>
-															<Plus className="h-4 w-4 mr-2" />
-															{isUploadingImage
-																? "Uploading..."
-																: "Upload Banner"}
-														</span>
-													</Button>
-													<input
-														type="file"
-														accept="image/*"
-														className="hidden"
-														onChange={handleBannerImageUpload}
-														disabled={isUploadingImage}
-													/>
-												</label>
-											</div>
+											<Input
+												type="file"
+												accept="image/*"
+												onChange={handleBannerImageUpload}
+												disabled={isUploadingImage}
+												className="w-full"
+											/>
 										)}
 									</div>
 
@@ -855,31 +837,13 @@ export function DharamshalaInfoCard({
 											)
 										)}
 										{isEditing && (
-											<div className="flex items-center gap-2">
-												<label className="flex-1">
-													<Button
-														type="button"
-														variant="outline"
-														className="w-full"
-														disabled={isUploadingImage}
-														asChild
-													>
-														<span>
-															<Plus className="h-4 w-4 mr-2" />
-															{isUploadingImage
-																? "Uploading..."
-																: "Upload Cover"}
-														</span>
-													</Button>
-													<input
-														type="file"
-														accept="image/*"
-														className="hidden"
-														onChange={handleCoverImageUpload}
-														disabled={isUploadingImage}
-													/>
-												</label>
-											</div>
+											<Input
+												type="file"
+												accept="image/*"
+												onChange={handleCoverImageUpload}
+												disabled={isUploadingImage}
+												className="w-full"
+											/>
 										)}
 									</div>
 								</div>

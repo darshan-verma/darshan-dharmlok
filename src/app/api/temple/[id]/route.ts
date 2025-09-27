@@ -89,6 +89,8 @@ export async function PUT(
 			amenities,
 			imageFile,
 			videoFile,
+			bannerImage, // NEW: Accept bannerImage
+			coverImage, // NEW: Accept coverImage
 			templeFaq,
 		} = body;
 
@@ -123,6 +125,8 @@ export async function PUT(
 			amenities: string;
 			imageFile: string;
 			videoFile: string;
+			bannerImage?: string; // NEW
+			coverImage?: string; // NEW
 			travelByAir: string;
 			travelByTrain: string;
 			travelByBus: string;
@@ -143,6 +147,8 @@ export async function PUT(
 			amenities: amenities ? JSON.stringify(amenities) : "[]",
 			imageFile: imageFile ? JSON.stringify(imageFile) : "[]",
 			videoFile: videoFile ? JSON.stringify(videoFile) : "[]",
+			bannerImage, // NEW: Direct string assignment
+			coverImage, // NEW: Direct string assignment
 			travelByAir: travelByAir ? JSON.stringify(travelByAir) : "[]",
 			travelByTrain: travelByTrain ? JSON.stringify(travelByTrain) : "[]",
 			travelByBus: travelByBus ? JSON.stringify(travelByBus) : "[]",

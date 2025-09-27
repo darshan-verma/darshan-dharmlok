@@ -28,6 +28,8 @@ export type TempleData = {
 	updatedAt?: string;
 	imageFile?: string | string[];
 	videoFile?: string | string[];
+	bannerImage?: string; // NEW: Optional string for banner image URL
+	coverImage?: string; // NEW: Optional string for cover image URL
 };
 
 export type BlockNoteBlock = {

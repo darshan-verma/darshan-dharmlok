@@ -262,6 +262,61 @@ export function TempleInfoCard({
 		);
 	};
 
+	// Banner and Cover Image handling
+	const handleBannerImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+		setIsUploadingImage(true);
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("templeId", editedTemple.id);
+			const response = await fetch("/api/upload/temple-image", {
+				method: "POST",
+				body: formData,
+			});
+			if (!response.ok) throw new Error("Failed to upload banner image");
+			const { imageUrl } = await response.json();
+			setEditedTemple((prev) =>
+				prev ? { ...prev, bannerImage: imageUrl } : prev
+			);
+			toast.success("Banner image uploaded successfully!");
+		} catch {
+			toast.error("Failed to upload banner image");
+		} finally {
+			setIsUploadingImage(false);
+		}
+	};
+
+	const handleCoverImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+		setIsUploadingImage(true);
+		try {
+			const formData = new FormData();
+			formData.append("file", file);
+			formData.append("templeId", editedTemple.id);
+			const response = await fetch("/api/upload/temple-image", {
+				method: "POST",
+				body: formData,
+			});
+			if (!response.ok) throw new Error("Failed to upload cover image");
+			const { imageUrl } = await response.json();
+			setEditedTemple((prev) =>
+				prev ? { ...prev, coverImage: imageUrl } : prev
+			);
+			toast.success("Cover image uploaded successfully!");
+		} catch {
+			toast.error("Failed to upload cover image");
+		} finally {
+			setIsUploadingImage(false);
+		}
+	};
+
 	// Rich text editor handler
 	function handleBlockNoteChange(field: BlockNoteField, val: string): void {
 		setEditedTemple((prev) => (prev ? { ...prev, [field]: val } : prev));
@@ -857,6 +912,66 @@ export function TempleInfoCard({
 								</div>
 								{isUploadingVideo && (
 									<p className="text-xs text-blue-600">Uploading video(s)...</p>
+								)}
+							</div>
+						</CardContent>
+					</Card>
+
+					{/* Banner & Cover Images Card */}
+					<Card>
+						<CardHeader>
+							<CardTitle>Banner & Cover Images</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-6">
+							{/* Banner Image Section */}
+							<div className="space-y-2">
+								<Label htmlFor="bannerImage">Banner Image</Label>
+								{editedTemple.bannerImage && (
+									<div className="mt-2 border rounded overflow-hidden max-w-md">
+										<Image
+											src={editedTemple.bannerImage}
+											alt="Banner Image"
+											width={400}
+											height={200}
+											style={{ objectFit: "cover" }}
+											className="w-full h-48 object-cover"
+										/>
+									</div>
+								)}
+								{isEditing && (
+									<Input
+										type="file"
+										accept="image/*"
+										onChange={handleBannerImageUpload}
+										disabled={isUploadingImage}
+										className="w-full"
+									/>
+								)}
+							</div>
+
+							{/* Cover Image Section */}
+							<div className="space-y-2">
+								<Label htmlFor="coverImage">Cover Image</Label>
+								{editedTemple.coverImage && (
+									<div className="mt-2 border rounded overflow-hidden max-w-md">
+										<Image
+											src={editedTemple.coverImage}
+											alt="Cover Image"
+											width={400}
+											height={200}
+											style={{ objectFit: "cover" }}
+											className="w-full h-48 object-cover"
+										/>
+									</div>
+								)}
+								{isEditing && (
+									<Input
+										type="file"
+										accept="image/*"
+										onChange={handleCoverImageUpload}
+										disabled={isUploadingImage}
+										className="w-full"
+									/>
 								)}
 							</div>
 						</CardContent>
