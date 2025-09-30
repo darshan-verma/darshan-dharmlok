@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcrypt";
@@ -52,6 +53,13 @@ const handler = NextAuth({
 					role: (user.userType || "user").toLowerCase(), // always lowercase
 				};
 			},
+		}),
+		GoogleProvider({
+			clientId:
+				process.env.GOOGLE_CLIENT_ID ||
+				"463577754721-m3ovdcjhs71np6h74fih9uqlt84c5804.apps.googleusercontent.com",
+			clientSecret:
+				process.env.GOOGLE_CLIENT_SECRET || "YOUR_GOOGLE_CLIENT_SECRET_HERE", // Replace with actual secret
 		}),
 	],
 	callbacks: {

@@ -22,6 +22,18 @@ const nextConfig: NextConfig = {
 				port: "",
 				pathname: "/**",
 			},
+			{
+				protocol: "https",
+				hostname: "dharmlok.s3.us-east-1.amazonaws.com",
+				port: "",
+				pathname: "/**",
+			},
+			{
+				protocol: "https",
+				hostname: "example.com",
+				port: "",
+				pathname: "/**",
+			},
 			// Add other existing remote patterns here if you have any
 			// For example:
 			// {
@@ -30,12 +42,6 @@ const nextConfig: NextConfig = {
 			//   port: '',
 			//   pathname: '/**',
 			// },
-			{
-				protocol: "https",
-				hostname: "dharmlok.s3.us-east-1.amazonaws.com",
-				port: "",
-				pathname: "/**",
-			},
 		],
 	},
 	// ... any other existing configurations
