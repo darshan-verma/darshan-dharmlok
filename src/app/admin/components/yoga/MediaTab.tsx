@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -71,11 +72,14 @@ export default function MediaTab({ yoga, onUpdate }: MediaTabProps) {
 					<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
 						{yoga.images.map((image, index) => (
 							<div key={index} className="relative">
-								<img
-									src={image}
-									alt={`Yoga image ${index + 1}`}
-									className="w-full h-32 object-cover rounded-lg"
-								/>
+								<div className="relative w-full h-32">
+									<Image
+										src={image}
+										alt={`Yoga image ${index + 1}`}
+										fill
+										className="object-cover rounded-lg"
+									/>
+								</div>
 								{yoga.coverImage === image && (
 									<div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs">
 										Cover

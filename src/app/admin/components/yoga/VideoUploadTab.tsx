@@ -70,7 +70,7 @@ export default function VideoUploadTab({
 			const uploadedUrls = await Promise.all(uploadPromises);
 			// Filter out any null or undefined URLs
 			const validUrls = uploadedUrls.filter(
-				(url: any) => url && typeof url === "string"
+				(url: string | undefined) => url && typeof url === "string"
 			);
 			const newVideos = [...videos, ...validUrls];
 			setVideos(newVideos);
@@ -143,7 +143,7 @@ export default function VideoUploadTab({
 					</div>
 				) : (
 					<p className="text-sm text-gray-500 text-center py-8">
-						No videos uploaded yet. Click "Upload Videos" to add some.
+						No videos uploaded yet. Click &quot;Upload Videos&quot; to add some.
 					</p>
 				)}
 

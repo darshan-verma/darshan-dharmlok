@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -111,11 +112,14 @@ export default function MediaUploadTab({
 				<CardContent>
 					{coverImage ? (
 						<div className="relative">
-							<img
-								src={coverImage}
-								alt="Cover"
-								className="w-full h-48 object-cover rounded-lg"
-							/>
+							<div className="relative w-full h-48">
+								<Image
+									src={coverImage}
+									alt="Cover"
+									fill
+									className="object-cover rounded-lg"
+								/>
+							</div>
 							<Button
 								variant="destructive"
 								size="sm"
@@ -171,11 +175,14 @@ export default function MediaUploadTab({
 						<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
 							{images.map((image, index) => (
 								<div key={index} className="relative group">
-									<img
-										src={image}
-										alt={`Image ${index + 1}`}
-										className="w-full h-32 object-cover rounded-lg"
-									/>
+									<div className="relative w-full h-32">
+										<Image
+											src={image}
+											alt={`Image ${index + 1}`}
+											fill
+											className="object-cover rounded-lg"
+										/>
+									</div>
 									<div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all rounded-lg flex items-center justify-center gap-2">
 										<Button
 											variant="secondary"
@@ -205,7 +212,8 @@ export default function MediaUploadTab({
 						</div>
 					) : (
 						<p className="text-sm text-gray-500 text-center py-8">
-							No images uploaded yet. Click "Upload Images" to add some.
+							No images uploaded yet. Click &quot;Upload Images&quot; to add
+							some.
 						</p>
 					)}
 
