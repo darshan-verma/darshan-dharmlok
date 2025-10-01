@@ -54,6 +54,9 @@ model User {
     reviews Review[]
     reminders Reminder[]
 
+    // Yoga sessions offered by this trainer
+    yogaSessions YogaSession[]
+
     // Optimized indexes for user-type specific API queries
     @@index([userType]) // Primary index for user type filtering
     @@index([userType, status]) // Combined index for type + status queries
@@ -233,6 +236,35 @@ model Yoga {
     coverImage  String?  // Cover image URL
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
+}
+// Yoga Session Model for instructor offerings
+model YogaSession {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    trainer     User     @relation(fields: [trainerId], references: [id])
+    trainerId   String   @db.ObjectId
+    name        String   // Session name
+    date        DateTime // Session date
+    serviceType String   // Type of yoga service (Hatha, Vinyasa, etc.)
+    description String
+    status      String   @default("Active")
+    bannerImage String?  // Banner image URL
+    coverImage  String?  // Cover image URL
+    images      String[] // Array of image URLs
+    videos      String[] // Array of video URLs
+    price       Float?   // Session price
+    duration    Int?     // Duration in minutes
+    capacity    Int?     // Max participants
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    // Relations
+    bookings    Booking[] // Bookings for this session
+
+    // Indexes
+    @@index([trainerId])
+    @@index([status])
+    @@index([date])
+    @@index([serviceType])
 }
 // Banner Model
 model Banner {
@@ -568,6 +600,8 @@ model Booking {
     teacher         User     @relation("TeacherBookings", fields: [teacherId], references: [id])
     teacherId       String   @db.ObjectId
     availabilityId  String?  @db.ObjectId
+    yogaSession     YogaSession? @relation(fields: [yogaSessionId], references: [id])
+    yogaSessionId   String?  @db.ObjectId
     scheduledAt     DateTime
     durationMin     Int
     price           Float

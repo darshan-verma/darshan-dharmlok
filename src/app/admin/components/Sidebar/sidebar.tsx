@@ -348,6 +348,18 @@ export function AdminSidebar({ className }: { className?: string }) {
 					<SidebarMenuItem>
 						<SidebarMenuButton
 							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/book-yoga"}
+						>
+							<Calendar className="h-5 w-5 text-blue-500" />
+							<Link href="/admin/book-yoga" className="flex items-center gap-2">
+								<span>Book Yoga</span>
+							</Link>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+
+					<SidebarMenuItem>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
 							isActive={pathname === "/admin/e-shop"}
 						>
 							<ShoppingBag className="h-5 w-5 text-pink-500" />
