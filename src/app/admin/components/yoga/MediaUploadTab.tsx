@@ -30,7 +30,11 @@ interface Yoga {
 
 interface MediaUploadTabProps {
 	yoga: Yoga;
-	onUpdate: (images: string[], coverImage?: string) => void;
+	onUpdate: (updates: {
+		bannerImage?: string;
+		coverImage?: string;
+		images?: string[];
+	}) => void;
 	onCancel?: () => void;
 }
 
@@ -39,8 +43,11 @@ export default function MediaUploadTab({
 	onUpdate,
 	onCancel,
 }: MediaUploadTabProps) {
-	const [images, setImages] = useState<string[]>(yoga.images || []);
+	const [bannerImage, setBannerImage] = useState<string>(
+		"" // Yoga doesn't have bannerImage, so start empty
+	);
 	const [coverImage, setCoverImage] = useState<string>(yoga.coverImage || "");
+	const [images, setImages] = useState<string[]>(yoga.images || []);
 	const [uploading, setUploading] = useState(false);
 
 	const handleImageUpload = async (
@@ -54,7 +61,6 @@ export default function MediaUploadTab({
 			const uploadPromises = Array.from(files).map(async (file) => {
 				const formData = new FormData();
 				formData.append("file", file);
-				// Don't pass userId for yoga images since they don't belong to a specific user
 				formData.append("type", "image");
 
 				const response = await fetch("/api/upload/image", {
@@ -75,8 +81,10 @@ export default function MediaUploadTab({
 			const validUrls = uploadedUrls.filter(
 				(url) => url && typeof url === "string"
 			);
+
 			const newImages = [...images, ...validUrls];
 			setImages(newImages);
+
 			toast.success("Images uploaded successfully");
 		} catch (error) {
 			console.error("Upload error:", error);
@@ -96,8 +104,57 @@ export default function MediaUploadTab({
 		toast.success("Cover image updated");
 	};
 
+	const handleSetBannerImage = (imageUrl: string) => {
+		setBannerImage(imageUrl);
+		toast.success("Banner image updated");
+	};
+
 	return (
 		<div className="space-y-6">
+			{/* Banner Image Section */}
+			<Card>
+				<CardHeader>
+					<CardTitle className="flex items-center gap-2">
+						<Star className="h-5 w-5" />
+						Banner Image
+					</CardTitle>
+					<CardDescription>
+						Set a banner image for this yoga session
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{bannerImage ? (
+						<div className="relative">
+							<div className="relative w-full h-48">
+								<Image
+									src={bannerImage}
+									alt="Banner"
+									fill
+									className="object-cover rounded-lg"
+								/>
+							</div>
+							<Button
+								variant="destructive"
+								size="sm"
+								className="absolute top-2 right-2"
+								onClick={() => {
+									setBannerImage("");
+								}}
+							>
+								<X className="h-4 w-4" />
+							</Button>
+						</div>
+					) : (
+						<div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+							<p className="text-gray-500 mb-4">No banner image set</p>
+							<p className="text-sm text-gray-400">
+								Select a banner image from the images below or upload a new one
+							</p>
+						</div>
+					)}
+				</CardContent>
+			</Card>
+
 			{/* Cover Image Section */}
 			<Card>
 				<CardHeader>
@@ -194,6 +251,15 @@ export default function MediaUploadTab({
 											<Star className="h-4 w-4" />
 										</Button>
 										<Button
+											variant="secondary"
+											size="sm"
+											onClick={() => handleSetBannerImage(image)}
+											className="opacity-0 group-hover:opacity-100 transition-opacity"
+											disabled={bannerImage === image}
+										>
+											Banner
+										</Button>
+										<Button
 											variant="destructive"
 											size="sm"
 											onClick={() => handleRemoveImage(index)}
@@ -205,6 +271,11 @@ export default function MediaUploadTab({
 									{coverImage === image && (
 										<div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs">
 											Cover
+										</div>
+									)}
+									{bannerImage === image && (
+										<div className="absolute top-2 right-2 bg-blue-500 text-white px-2 py-1 rounded text-xs">
+											Banner
 										</div>
 									)}
 								</div>
@@ -222,20 +293,28 @@ export default function MediaUploadTab({
 							<p className="text-sm text-gray-500">Uploading images...</p>
 						</div>
 					)}
-
-					{/* Action Buttons */}
-					<div className="flex justify-end gap-2 pt-4">
-						{onCancel && (
-							<Button variant="outline" onClick={onCancel}>
-								Cancel
-							</Button>
-						)}
-						<Button onClick={() => onUpdate(images, coverImage)}>
-							Save Changes
-						</Button>
-					</div>
 				</CardContent>
 			</Card>
+
+			{/* Action Buttons */}
+			<div className="flex justify-end gap-2 pt-4">
+				{onCancel && (
+					<Button variant="outline" onClick={onCancel}>
+						Cancel
+					</Button>
+				)}
+				<Button
+					onClick={() =>
+						onUpdate({
+							bannerImage,
+							coverImage,
+							images,
+						})
+					}
+				>
+					Save Changes
+				</Button>
+			</div>
 		</div>
 	);
 }

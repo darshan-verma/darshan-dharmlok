@@ -28,14 +28,24 @@ interface Yoga {
 
 interface MediaTabProps {
 	yoga: Yoga;
-	onUpdate: (images: string[], coverImage?: string) => void;
+	onUpdate: (updates: {
+		bannerImage?: string;
+		coverImage?: string;
+		images?: string[];
+		videos?: string[];
+	}) => void;
 }
 
 export default function MediaTab({ yoga, onUpdate }: MediaTabProps) {
 	const [isEditing, setIsEditing] = useState(false);
 
-	const handleSave = (images: string[], coverImage?: string) => {
-		onUpdate(images, coverImage);
+	const handleSave = (updates: {
+		bannerImage?: string;
+		coverImage?: string;
+		images?: string[];
+		videos?: string[];
+	}) => {
+		onUpdate(updates);
 		setIsEditing(false);
 	};
 

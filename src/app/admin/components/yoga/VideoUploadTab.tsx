@@ -52,7 +52,7 @@ export default function VideoUploadTab({
 			const uploadPromises = Array.from(files).map(async (file) => {
 				const formData = new FormData();
 				formData.append("file", file);
-				// Don't pass userId for yoga videos since they don't belong to a specific user
+				formData.append("type", "video");
 
 				const response = await fetch("/api/upload/video", {
 					method: "POST",
@@ -70,10 +70,12 @@ export default function VideoUploadTab({
 			const uploadedUrls = await Promise.all(uploadPromises);
 			// Filter out any null or undefined URLs
 			const validUrls = uploadedUrls.filter(
-				(url: string | undefined) => url && typeof url === "string"
+				(url) => url && typeof url === "string"
 			);
+
 			const newVideos = [...videos, ...validUrls];
 			setVideos(newVideos);
+
 			toast.success("Videos uploaded successfully");
 		} catch (error) {
 			console.error("Upload error:", error);
@@ -88,81 +90,102 @@ export default function VideoUploadTab({
 		setVideos(newVideos);
 	};
 
+	const handleSave = () => {
+		onUpdate(videos);
+	};
+
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Videos</CardTitle>
-				<CardDescription>Upload and manage yoga session videos</CardDescription>
-			</CardHeader>
-			<CardContent className="space-y-4">
-				{/* Upload Button */}
-				<div>
-					<Label htmlFor="video-upload" className="cursor-pointer">
-						<div className="flex items-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
-							<Upload className="h-5 w-5" />
-							<span>Upload Videos</span>
-						</div>
-					</Label>
-					<Input
-						id="video-upload"
-						type="file"
-						multiple
-						accept="video/*"
-						onChange={handleVideoUpload}
-						className="hidden"
-						disabled={uploading}
-					/>
-				</div>
-
-				{/* Videos Grid */}
-				{videos.length > 0 ? (
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						{videos.map((video, index) => (
-							<div key={index} className="relative group">
-								<video
-									src={video}
-									className="w-full h-48 object-cover rounded-lg"
-									preload="metadata"
-								/>
-								<div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all rounded-lg flex items-center justify-center">
-									<Button
-										variant="destructive"
-										size="sm"
-										onClick={() => handleRemoveVideo(index)}
-										className="opacity-0 group-hover:opacity-100 transition-opacity"
-									>
-										<X className="h-4 w-4" />
-									</Button>
-								</div>
-								<div className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-									<Play className="h-3 w-3" />
-									Video {index + 1}
-								</div>
+		<div className="space-y-6">
+			{/* Videos Section */}
+			<Card>
+				<CardHeader>
+					<CardTitle className="flex items-center gap-2">
+						<Play className="h-5 w-5" />
+						Videos
+					</CardTitle>
+					<CardDescription>
+						Upload and manage yoga session videos
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="space-y-4">
+					{/* Upload Button */}
+					<div>
+						<Label htmlFor="video-upload" className="cursor-pointer">
+							<div className="flex items-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
+								<Upload className="h-5 w-5" />
+								<span>Upload Videos</span>
 							</div>
-						))}
+						</Label>
+						<Input
+							id="video-upload"
+							type="file"
+							multiple
+							accept="video/*"
+							onChange={handleVideoUpload}
+							className="hidden"
+							disabled={uploading}
+						/>
 					</div>
-				) : (
-					<p className="text-sm text-gray-500 text-center py-8">
-						No videos uploaded yet. Click &quot;Upload Videos&quot; to add some.
-					</p>
-				)}
 
-				{uploading && (
-					<div className="text-center py-4">
-						<p className="text-sm text-gray-500">Uploading videos...</p>
-					</div>
-				)}
-
-				{/* Action Buttons */}
-				<div className="flex justify-end gap-2 pt-4">
-					{onCancel && (
-						<Button variant="outline" onClick={onCancel}>
-							Cancel
-						</Button>
+					{/* Videos List */}
+					{videos.length > 0 ? (
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							{videos.map((video, index) => (
+								<div
+									key={index}
+									className="relative group border rounded-lg p-4"
+								>
+									<div className="flex items-center gap-3">
+										<Play className="h-8 w-8 text-gray-400" />
+										<div className="flex-1">
+											<p className="text-sm font-medium">Video {index + 1}</p>
+											<p className="text-xs text-gray-500 truncate">{video}</p>
+										</div>
+										<Button
+											variant="destructive"
+											size="sm"
+											onClick={() => handleRemoveVideo(index)}
+											className="opacity-0 group-hover:opacity-100 transition-opacity"
+										>
+											<X className="h-4 w-4" />
+										</Button>
+									</div>
+									{/* Video Preview */}
+									<div className="mt-3">
+										<video
+											src={video}
+											controls
+											className="w-full h-32 object-cover rounded-lg"
+											preload="metadata"
+										/>
+									</div>
+								</div>
+							))}
+						</div>
+					) : (
+						<p className="text-sm text-gray-500 text-center py-8">
+							No videos uploaded yet. Click &quot;Upload Videos&quot; to add
+							some.
+						</p>
 					)}
-					<Button onClick={() => onUpdate(videos)}>Save Changes</Button>
-				</div>
-			</CardContent>
-		</Card>
+
+					{uploading && (
+						<div className="text-center py-4">
+							<p className="text-sm text-gray-500">Uploading videos...</p>
+						</div>
+					)}
+				</CardContent>
+			</Card>
+
+			{/* Action Buttons */}
+			<div className="flex justify-end gap-2 pt-4">
+				{onCancel && (
+					<Button variant="outline" onClick={onCancel}>
+						Cancel
+					</Button>
+				)}
+				<Button onClick={handleSave}>Save Changes</Button>
+			</div>
+		</div>
 	);
 }

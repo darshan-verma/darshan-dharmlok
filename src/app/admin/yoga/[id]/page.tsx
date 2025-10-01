@@ -153,17 +153,19 @@ export default function YogaDetailPage() {
 		}
 	};
 
-	const handleMediaUpdate = async (images: string[], coverImage?: string) => {
+	const handleMediaUpdate = async (updates: {
+		bannerImage?: string;
+		coverImage?: string;
+		images?: string[];
+		videos?: string[];
+	}) => {
 		try {
 			const response = await fetch(`/api/yoga/${yogaId}`, {
 				method: "PUT",
 				headers: {
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify({
-					images,
-					coverImage,
-				}),
+				body: JSON.stringify(updates),
 			});
 
 			if (!response.ok) {

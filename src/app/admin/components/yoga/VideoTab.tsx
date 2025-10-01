@@ -73,6 +73,7 @@ export default function VideoTab({ yoga, onUpdate }: VideoTabProps) {
 									src={video}
 									controls
 									className="w-full h-48 object-cover rounded-lg"
+									preload="metadata"
 								/>
 							</div>
 						))}
