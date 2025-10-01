@@ -29,7 +29,15 @@ export async function POST(req: NextRequest) {
 		const videoUrl = await uploadToS3(buffer, fileName, file.type);
 
 		let videoRecord = null;
-		if (userId && userId !== "unknown") {
+		// Only create database record for actual user videos, not for yoga or other content
+		if (
+			userId &&
+			userId !== "unknown" &&
+			typeof userId === "string" &&
+			!userId.includes("yoga") &&
+			!userId.includes("temple") &&
+			!userId.includes("dharamshala")
+		) {
 			try {
 				videoRecord = await prisma.video.create({
 					data: {
@@ -54,7 +62,7 @@ export async function POST(req: NextRequest) {
 				);
 			}
 		} else {
-			console.warn("No valid userId provided, skipping DB record.");
+			console.warn("Skipping DB record creation for non-user video upload.");
 		}
 
 		return NextResponse.json({ videoUrl, video: videoRecord });

@@ -214,90 +214,118 @@ export function AdminSidebar({ className }: { className?: string }) {
 					</div>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
-						isActive={pathname === "/admin/banner"}>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/banner"}
+						>
 							<BadgeDollarSign className="h-5 w-5 text-yellow-500" />
 							<Link href="/admin/banner" className="flex items-center gap-2">
-							<span>Banner</span>
+								<span>Banner</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
-						isActive={pathname === "/admin/video"}>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/video"}
+						>
 							<MailQuestion className="h-5 w-5 text-purple-500" />
-							<Link href="/admin/launch-video" className="flex items-center gap-2">
-							<span>Launch Video</span>
+							<Link
+								href="/admin/launch-video"
+								className="flex items-center gap-2"
+							>
+								<span>Launch Video</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
-						isActive={pathname === "/admin/quotes"}>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/quotes"}
+						>
 							<HandHeart className="h-5 w-5 text-green-500" />
 							<Link href="/admin/quotes" className="flex items-center gap-2">
-							<span>Quotes</span>
+								<span>Quotes</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
-						isActive={pathname === "/admin/temple"}>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/temple"}
+						>
 							<Building2 className="h-5 w-5 text-cyan-500" />
 							<Link href="/admin/temple" className="flex items-center gap-2">
-							<span>Temples</span>
+								<span>Temples</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
-						isActive={pathname === "/admin/dharamshala"}>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/dharamshala"}
+						>
 							<Building2 className="h-5 w-5 text-cyan-500" />
-							<Link href="/admin/dharamshala" className="flex items-center gap-2">
-							<span>Dharamshala</span>
-								</Link>
+							<Link
+								href="/admin/dharamshala"
+								className="flex items-center gap-2"
+							>
+								<span>Dharamshala</span>
+							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
 							isActive={pathname === "/admin/balvidya"}
-							>
+						>
 							<HandHeart className="h-5 w-5 text-green-500" />
 							<Link href="/admin/balvidhya" className="flex items-center gap-2">
-							<span>Bal-Vidya</span>
+								<span>Bal-Vidya</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
 							isActive={pathname === "/admin/pooja-category"}
 						>
 							<HandHeart className="h-5 w-5 text-green-500" />
-							<Link href="/admin/pooja-category" className="flex items-center gap-2">
-							<span>Pooja Category</span>
+							<Link
+								href="/admin/pooja-category"
+								className="flex items-center gap-2"
+							>
+								<span>Pooja Category</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
-						isActive={pathname === "/admin/audio-library"}>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/audio-library"}
+						>
 							<ShoppingBag className="h-5 w-5 text-pink-500" />
-							<Link href="/admin/audio-library" className="flex items-center gap-2">
-							<span>Audio Library</span>
+							<Link
+								href="/admin/audio-library"
+								className="flex items-center gap-2"
+							>
+								<span>Audio Library</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
-							isActive={pathname === "/admin/ebook"}>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/ebook"}
+						>
 							<ShoppingBag className="h-5 w-5 text-pink-500" />
 							<Link href="/admin/ebook" className="flex items-center gap-2">
 								<span>E-Book</span>
@@ -306,31 +334,49 @@ export function AdminSidebar({ className }: { className?: string }) {
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
-						isActive={pathname === "/admin/e-shop"}>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/yoga"}
+						>
+							<HandHeart className="h-5 w-5 text-emerald-500" />
+							<Link href="/admin/yoga" className="flex items-center gap-2">
+								<span>Yoga</span>
+							</Link>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+
+					<SidebarMenuItem>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/e-shop"}
+						>
 							<ShoppingBag className="h-5 w-5 text-pink-500" />
 							<Link href="/admin/e-shop" className="flex items-center gap-2">
-							<span>E-Shop</span>
+								<span>E-Shop</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
-						isActive={pathname === "/admin/coupon"}>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/coupon"}
+						>
 							<BadgeDollarSign className="h-5 w-5 text-yellow-500" />
 							<Link href="/admin/coupon" className="flex items-center gap-2">
-							<span>Coupon</span>
+								<span>Coupon</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
-						isActive={pathname === "/admin/events-booking"}>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/events-booking"}
+						>
 							<Calendar className="h-5 w-5 text-red-500" />
 							<Link href="/admin/events" className="flex items-center gap-2">
-							<span>Events and Booking</span>
+								<span>Events and Booking</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>

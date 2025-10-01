@@ -1,0 +1,233 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import { Upload, X, Star } from "lucide-react";
+import { toast } from "@/lib/toast";
+
+interface Yoga {
+	id: string;
+	name: string;
+	date: Date;
+	description: string;
+	status: string;
+	images: string[];
+	videos: string[];
+	coverImage?: string;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+interface MediaUploadTabProps {
+	yoga: Yoga;
+	onUpdate: (images: string[], coverImage?: string) => void;
+	onCancel?: () => void;
+}
+
+export default function MediaUploadTab({
+	yoga,
+	onUpdate,
+	onCancel,
+}: MediaUploadTabProps) {
+	const [images, setImages] = useState<string[]>(yoga.images || []);
+	const [coverImage, setCoverImage] = useState<string>(yoga.coverImage || "");
+	const [uploading, setUploading] = useState(false);
+
+	const handleImageUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const files = event.target.files;
+		if (!files || files.length === 0) return;
+
+		setUploading(true);
+		try {
+			const uploadPromises = Array.from(files).map(async (file) => {
+				const formData = new FormData();
+				formData.append("file", file);
+				// Don't pass userId for yoga images since they don't belong to a specific user
+				formData.append("type", "image");
+
+				const response = await fetch("/api/upload/image", {
+					method: "POST",
+					body: formData,
+				});
+
+				if (!response.ok) {
+					throw new Error("Upload failed");
+				}
+
+				const data = await response.json();
+				return data.imageUrl || data.url;
+			});
+
+			const uploadedUrls = await Promise.all(uploadPromises);
+			// Filter out any null or undefined URLs
+			const validUrls = uploadedUrls.filter(
+				(url) => url && typeof url === "string"
+			);
+			const newImages = [...images, ...validUrls];
+			setImages(newImages);
+			toast.success("Images uploaded successfully");
+		} catch (error) {
+			console.error("Upload error:", error);
+			toast.error("Failed to upload images");
+		} finally {
+			setUploading(false);
+		}
+	};
+
+	const handleRemoveImage = (index: number) => {
+		const newImages = images.filter((_, i) => i !== index);
+		setImages(newImages);
+	};
+
+	const handleSetCoverImage = (imageUrl: string) => {
+		setCoverImage(imageUrl);
+		toast.success("Cover image updated");
+	};
+
+	return (
+		<div className="space-y-6">
+			{/* Cover Image Section */}
+			<Card>
+				<CardHeader>
+					<CardTitle className="flex items-center gap-2">
+						<Star className="h-5 w-5" />
+						Cover Image
+					</CardTitle>
+					<CardDescription>
+						Set a cover image for this yoga session
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{coverImage ? (
+						<div className="relative">
+							<img
+								src={coverImage}
+								alt="Cover"
+								className="w-full h-48 object-cover rounded-lg"
+							/>
+							<Button
+								variant="destructive"
+								size="sm"
+								className="absolute top-2 right-2"
+								onClick={() => {
+									setCoverImage("");
+								}}
+							>
+								<X className="h-4 w-4" />
+							</Button>
+						</div>
+					) : (
+						<div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+							<p className="text-gray-500 mb-4">No cover image set</p>
+							<p className="text-sm text-gray-400">
+								Select a cover image from the images below or upload a new one
+							</p>
+						</div>
+					)}
+				</CardContent>
+			</Card>
+
+			{/* Images Section */}
+			<Card>
+				<CardHeader>
+					<CardTitle>Images</CardTitle>
+					<CardDescription>
+						Upload and manage yoga session images
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="space-y-4">
+					{/* Upload Button */}
+					<div>
+						<Label htmlFor="image-upload" className="cursor-pointer">
+							<div className="flex items-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
+								<Upload className="h-5 w-5" />
+								<span>Upload Images</span>
+							</div>
+						</Label>
+						<Input
+							id="image-upload"
+							type="file"
+							multiple
+							accept="image/*"
+							onChange={handleImageUpload}
+							className="hidden"
+							disabled={uploading}
+						/>
+					</div>
+
+					{/* Images Grid */}
+					{images.length > 0 ? (
+						<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+							{images.map((image, index) => (
+								<div key={index} className="relative group">
+									<img
+										src={image}
+										alt={`Image ${index + 1}`}
+										className="w-full h-32 object-cover rounded-lg"
+									/>
+									<div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all rounded-lg flex items-center justify-center gap-2">
+										<Button
+											variant="secondary"
+											size="sm"
+											onClick={() => handleSetCoverImage(image)}
+											className="opacity-0 group-hover:opacity-100 transition-opacity"
+											disabled={coverImage === image}
+										>
+											<Star className="h-4 w-4" />
+										</Button>
+										<Button
+											variant="destructive"
+											size="sm"
+											onClick={() => handleRemoveImage(index)}
+											className="opacity-0 group-hover:opacity-100 transition-opacity"
+										>
+											<X className="h-4 w-4" />
+										</Button>
+									</div>
+									{coverImage === image && (
+										<div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs">
+											Cover
+										</div>
+									)}
+								</div>
+							))}
+						</div>
+					) : (
+						<p className="text-sm text-gray-500 text-center py-8">
+							No images uploaded yet. Click "Upload Images" to add some.
+						</p>
+					)}
+
+					{uploading && (
+						<div className="text-center py-4">
+							<p className="text-sm text-gray-500">Uploading images...</p>
+						</div>
+					)}
+
+					{/* Action Buttons */}
+					<div className="flex justify-end gap-2 pt-4">
+						{onCancel && (
+							<Button variant="outline" onClick={onCancel}>
+								Cancel
+							</Button>
+						)}
+						<Button onClick={() => onUpdate(images, coverImage)}>
+							Save Changes
+						</Button>
+					</div>
+				</CardContent>
+			</Card>
+		</div>
+	);
+}

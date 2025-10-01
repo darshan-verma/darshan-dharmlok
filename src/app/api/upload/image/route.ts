@@ -28,10 +28,7 @@ export async function POST(req: NextRequest) {
 	const arrayBuffer = await file.arrayBuffer();
 	const buffer = Buffer.from(arrayBuffer);
 
-	const fileName = `profile-images/${Date.now()}_${file.name.replace(
-		/\s+/g,
-		"_"
-	)}`;
+	const fileName = `images/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
 	const imageUrl = await uploadToS3(buffer, fileName, file.type);
 
 	return NextResponse.json({ imageUrl });

@@ -45,6 +45,15 @@ model User {
     comments Comment[]
     products Product[] @relation("UserProducts")
 
+    // Relations for live-session features
+    liveSessions LiveSession[]            // sessions where this user is instructor
+    sessionParticipants SessionParticipant[]
+    teacherAvailabilities TeacherAvailability[]
+    bookings Booking[]                     // bookings created by this user
+    teacherBookings Booking[] @relation("TeacherBookings") // bookings where user is teacher
+    reviews Review[]
+    reminders Reminder[]
+
     // Optimized indexes for user-type specific API queries
     @@index([userType]) // Primary index for user type filtering
     @@index([userType, status]) // Combined index for type + status queries
@@ -212,6 +221,19 @@ model Quote {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }
+// Yoga Model
+model Yoga {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    name        String
+    date        DateTime @default(now())
+    description String
+    status      String   @default("Active")
+    images      String[] // Array of image URLs
+    videos      String[] // Array of video URLs
+    coverImage  String?  // Cover image URL
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
 // Banner Model
 model Banner {
     id          String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -235,15 +257,20 @@ model Video {
     user        User     @relation(fields: [userId], references: [id])
     userId      String   @db.ObjectId
     category    String
-    type        String   // e.g. "image", "video", "promo", etc.
+    type         String   // e.g. "image", "video", "promo", etc.
     thumbnailUrl String?  // URL/path to the thumbnail image
-    videoFile     String?  // optional file path if type == "video"
-    source      String? // To track the origin of the video, e.g., "launch-video"
-    status      String   // e.g. "active", "inactive", "draft"
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
-    likes       String[] @db.ObjectId // Array of userIds who liked the video
-    comments    Comment[]
+    videoFile    String?  // optional file path if type == "video"
+    source       String?  // To track the origin of the video, e.g., "launch-video"
+    status       String   // e.g. "active", "inactive", "draft"
+    duration     Int?     // length in seconds or minutes (decide convention)
+    ratingAvg    Float?   @default(0)
+    reviewCount  Int?     @default(0)
+    featured     Boolean  @default(false)
+    tags         String[]
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+    likes        String[] @db.ObjectId // Array of userIds who liked the video
+    comments     Comment[]
 }
 
 model Comment {
@@ -482,4 +509,103 @@ model Media {
     postId String @db.ObjectId
 
     @@index([postId])
+}
+
+// Live sessions (scheduled / live classes)
+model LiveSession {
+    id               String   @id @default(auto()) @map("_id") @db.ObjectId
+    title            String
+    subtitle         String?
+    description      String?
+    instructor       User     @relation(fields: [instructorId], references: [id])
+    instructorId     String   @db.ObjectId
+    startTime        DateTime
+    durationMin      Int
+    imageUrl         String?
+    participantCount Int      @default(0)
+    capacity         Int?
+    status           String   @default("upcoming") // upcoming | live | completed | cancelled
+    remindEnabled    Boolean  @default(true)
+    createdAt        DateTime @default(now())
+    updatedAt        DateTime @updatedAt
+
+    participants     SessionParticipant[]
+    reminders        Reminder[]
+}
+
+// Participants for a live session
+model SessionParticipant {
+    id        String      @id @default(auto()) @map("_id") @db.ObjectId
+    session   LiveSession @relation(fields: [sessionId], references: [id])
+    sessionId String      @db.ObjectId
+    user      User        @relation(fields: [userId], references: [id])
+    userId    String      @db.ObjectId
+    joinedAt  DateTime?
+    status    String      @default("registered") // registered | joined | no-show
+    createdAt DateTime    @default(now())
+}
+
+// Teacher availability (scheduling slots)
+model TeacherAvailability {
+    id            String   @id @default(auto()) @map("_id") @db.ObjectId
+    teacher       User     @relation(fields: [teacherId], references: [id])
+    teacherId     String   @db.ObjectId
+    startTime     DateTime
+    endTime       DateTime
+    pricePerHour  Float
+    sessionTypes  String[]
+    isRecurring   Boolean  @default(false)
+    recurringRule String?
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+}
+
+// Bookings for teacher sessions
+model Booking {
+    id              String   @id @default(auto()) @map("_id") @db.ObjectId
+    user            User     @relation(fields: [userId], references: [id])
+    userId          String   @db.ObjectId
+    teacher         User     @relation("TeacherBookings", fields: [teacherId], references: [id])
+    teacherId       String   @db.ObjectId
+    availabilityId  String?  @db.ObjectId
+    scheduledAt     DateTime
+    durationMin     Int
+    price           Float
+    status          String   @default("pending") // pending|confirmed|completed|cancelled
+    notes           String?
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @updatedAt
+
+    @@index([teacherId])
+    @@index([userId])
+}
+
+// Reviews & ratings
+model Review {
+    id         String   @id @default(auto()) @map("_id") @db.ObjectId
+    user       User     @relation(fields: [userId], references: [id])
+    userId     String   @db.ObjectId
+    targetType String   // "Video" | "Teacher" | "Session"
+    targetId   String
+    rating     Int
+    title      String?
+    comment    String?
+    helpful    Int      @default(0)
+    notHelpful Int      @default(0)
+    createdAt  DateTime @default(now())
+
+    @@index([targetType, targetId])
+}
+
+// Reminders set by users for sessions
+model Reminder {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    userId    String   @db.ObjectId
+    sessionId String   @db.ObjectId
+    remindAt  DateTime
+    createdAt DateTime @default(now())
+
+    // Relations
+    user    User?      @relation(fields: [userId], references: [id])
+    session LiveSession? @relation(fields: [sessionId], references: [id])
 }
