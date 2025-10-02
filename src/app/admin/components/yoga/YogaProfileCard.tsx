@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Yoga } from "./YogaTable";
 
 interface YogaProfileCardProps {
@@ -10,21 +11,29 @@ export default function YogaProfileCard({ yoga }: YogaProfileCardProps) {
 	return (
 		<div className="bg-white rounded-lg border shadow-sm p-6">
 			<div className="flex flex-col items-center text-center space-y-4">
-				{/* Yoga Icon/Avatar */}
-				<div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center">
-					<svg
-						className="w-10 h-10 text-emerald-600"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+				{/* Yoga Cover Image */}
+				<div className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center bg-emerald-100">
+					{yoga.coverImage ? (
+						<Image
+							src={yoga.coverImage}
+							alt={yoga.name}
+							className="w-full h-full object-cover"
 						/>
-					</svg>
+					) : (
+						<svg
+							className="w-10 h-10 text-emerald-600"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+							/>
+						</svg>
+					)}
 				</div>
 
 				{/* Yoga Name */}

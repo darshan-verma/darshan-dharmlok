@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { YogaSession } from "./BookYogaTable";
 
 interface BookYogaProfileCardProps {
@@ -12,21 +13,29 @@ export default function BookYogaProfileCard({
 	return (
 		<div className="bg-white rounded-lg border shadow-sm p-6">
 			<div className="flex flex-col items-center text-center space-y-4">
-				{/* Session Icon/Avatar */}
-				<div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
-					<svg
-						className="w-10 h-10 text-blue-600"
-						fill="none"
-						stroke="currentColor"
-						viewBox="0 0 24 24"
-					>
-						<path
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth={2}
-							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+				{/* Session Cover Image */}
+				<div className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center bg-blue-100">
+					{session.coverImage ? (
+						<Image
+							src={session.coverImage}
+							alt={session.name}
+							className="w-full h-full object-cover"
 						/>
-					</svg>
+					) : (
+						<svg
+							className="w-10 h-10 text-blue-600"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth={2}
+								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+					)}
 				</div>
 
 				{/* Session Name */}

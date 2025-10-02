@@ -95,6 +95,19 @@ export function AdminSidebar({ className }: { className?: string }) {
 					<SidebarMenuItem>
 						<SidebarMenuButton
 							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/trainers"}
+							asChild
+						>
+							<Link href="/admin/trainers">
+								<User className="h-5 w-5 text-emerald-500" />
+								<span>Trainers</span>
+							</Link>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+
+					<SidebarMenuItem>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
 							isActive={pathname === "/admin/kathavachak"}
 							asChild
 						>

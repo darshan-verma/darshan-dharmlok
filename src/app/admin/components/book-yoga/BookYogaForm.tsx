@@ -85,18 +85,16 @@ export default function BookYogaForm({
 	useEffect(() => {
 		const fetchTrainers = async () => {
 			try {
-				const response = await fetch("/api/users?limit=1000"); // Get all users
+				const response = await fetch("/api/trainers?limit=1000"); // Get all trainers
 				if (response.ok) {
 					const data = await response.json();
-					// Filter users that could be trainers (you can adjust this logic)
-					const trainers: Trainer[] = (data.users as ApiUser[]).filter(
-						(user) =>
-							user.userType &&
-							(user.userType.toLowerCase().includes("yoga") ||
-								user.userType.toLowerCase().includes("trainer") ||
-								user.userType.toLowerCase().includes("instructor") ||
-								user.userType === "panditji" || // Assuming panditji can also teach yoga
-								user.userType === "dharmguru")
+					// Use all trainers from the dedicated trainers API
+					const trainers: Trainer[] = (data.users as ApiUser[]).map(
+						(trainer) => ({
+							id: trainer.id,
+							name: trainer.name,
+							userType: trainer.userType,
+						})
 					);
 					setTrainers(trainers);
 				}
