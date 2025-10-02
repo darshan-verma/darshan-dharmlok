@@ -643,3 +643,27 @@ model Reminder {
     user    User?      @relation(fields: [userId], references: [id])
     session LiveSession? @relation(fields: [sessionId], references: [id])
 }
+
+// Motivation Speaker Model
+model MotivationSpeaker {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    name        String
+    date        DateTime @default(now())
+    phone       String
+    email       String
+    timings     String   // e.g. "10:00 AM - 12:00 PM"
+    category    String   // e.g. "Spiritual", "Motivational", "Life Skills"
+    status      String   @default("Active")
+    coverImage  String?  // Cover image URL
+    bannerImage String?  // Banner image URL
+    images      String[] // Array of image URLs
+    videos      String[] // Array of video URLs
+    description String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    // Indexes
+    @@index([status])
+    @@index([category])
+    @@index([date])
+}

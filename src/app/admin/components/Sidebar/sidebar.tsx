@@ -16,6 +16,7 @@ import {
 	LogOut,
 	Settings,
 	Cast,
+	Mic,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -366,6 +367,21 @@ export function AdminSidebar({ className }: { className?: string }) {
 							<Calendar className="h-5 w-5 text-blue-500" />
 							<Link href="/admin/book-yoga" className="flex items-center gap-2">
 								<span>Book Yoga</span>
+							</Link>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+
+					<SidebarMenuItem>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/motivation-speaker"}
+						>
+							<Mic className="h-5 w-5 text-purple-500" />
+							<Link
+								href="/admin/motivation-speaker"
+								className="flex items-center gap-2"
+							>
+								<span>Motivation Speaker</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>

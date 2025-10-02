@@ -17,6 +17,8 @@ export default function YogaProfileCard({ yoga }: YogaProfileCardProps) {
 						<Image
 							src={yoga.coverImage}
 							alt={yoga.name}
+							width={80}
+							height={80}
 							className="w-full h-full object-cover"
 						/>
 					) : (

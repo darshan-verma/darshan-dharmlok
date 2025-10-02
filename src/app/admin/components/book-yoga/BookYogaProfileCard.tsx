@@ -19,6 +19,8 @@ export default function BookYogaProfileCard({
 						<Image
 							src={session.coverImage}
 							alt={session.name}
+							width={80}
+							height={80}
 							className="w-full h-full object-cover"
 						/>
 					) : (
