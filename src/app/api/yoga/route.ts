@@ -7,6 +7,10 @@ export interface Yoga {
 	date: string;
 	description: string;
 	status: string;
+	coverImage?: string;
+	bannerImage?: string;
+	images?: string[];
+	videos?: string[];
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -25,6 +29,18 @@ export async function GET(req: NextRequest) {
 				orderBy: { createdAt: "desc" },
 				skip,
 				take: limit,
+				select: {
+					id: true,
+					name: true,
+					date: true,
+					description: true,
+					status: true,
+					coverImage: true,
+					images: true,
+					videos: true,
+					createdAt: true,
+					updatedAt: true,
+				},
 			}),
 		]);
 
@@ -34,6 +50,9 @@ export async function GET(req: NextRequest) {
 			date: y.date instanceof Date ? y.date.toISOString().slice(0, 10) : y.date,
 			description: y.description,
 			status: y.status,
+			coverImage: y.coverImage || undefined,
+			images: y.images || [],
+			videos: y.videos || [],
 			createdAt: y.createdAt?.toISOString?.() ?? "",
 			updatedAt: y.updatedAt?.toISOString?.() ?? "",
 		}));
@@ -60,12 +79,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
 	try {
 		const body = await req.json();
-		const { name, date, description, status } = body as {
-			name: string;
-			date: string;
-			description: string;
-			status: string;
-		};
+		const { name, date, description, status, coverImage, images, videos } =
+			body as {
+				name: string;
+				date: string;
+				description: string;
+				status: string;
+				coverImage?: string;
+				images?: string[];
+				videos?: string[];
+			};
 
 		if (!name || !date || !description || !status) {
 			return NextResponse.json(
@@ -80,6 +103,9 @@ export async function POST(req: NextRequest) {
 				date: new Date(date),
 				description,
 				status,
+				coverImage: coverImage || null,
+				images: images || [],
+				videos: videos || [],
 			},
 		});
 
@@ -92,6 +118,9 @@ export async function POST(req: NextRequest) {
 					: newYoga.date,
 			description: newYoga.description,
 			status: newYoga.status,
+			coverImage: newYoga.coverImage || undefined,
+			images: newYoga.images || [],
+			videos: newYoga.videos || [],
 			createdAt: newYoga.createdAt?.toISOString?.() ?? "",
 			updatedAt: newYoga.updatedAt?.toISOString?.() ?? "",
 		};

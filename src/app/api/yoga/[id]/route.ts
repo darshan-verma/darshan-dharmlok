@@ -7,9 +7,10 @@ export interface Yoga {
 	date: string;
 	description: string;
 	status: string;
+	coverImage?: string;
+	bannerImage?: string;
 	images?: string[];
 	videos?: string[];
-	coverImage?: string;
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -25,7 +26,21 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
 		}
 
-		const yoga = await prisma.yoga.findUnique({ where: { id } });
+		const yoga = await prisma.yoga.findUnique({
+			where: { id },
+			select: {
+				id: true,
+				name: true,
+				date: true,
+				description: true,
+				status: true,
+				coverImage: true,
+				images: true,
+				videos: true,
+				createdAt: true,
+				updatedAt: true,
+			},
+		});
 		if (!yoga) {
 			return NextResponse.json({ error: "Yoga not found" }, { status: 404 });
 		}
@@ -39,9 +54,10 @@ export async function GET(req: NextRequest) {
 					: yoga.date,
 			description: yoga.description,
 			status: yoga.status,
+			coverImage: yoga.coverImage || undefined,
+			bannerImage: undefined, // Yoga model doesn't have bannerImage
 			images: yoga.images || [],
 			videos: yoga.videos || [],
-			coverImage: yoga.coverImage || undefined,
 			createdAt: yoga.createdAt?.toISOString?.() ?? "",
 			updatedAt: yoga.updatedAt?.toISOString?.() ?? "",
 		};
@@ -68,16 +84,25 @@ export async function PUT(req: NextRequest) {
 		}
 
 		const body = await req.json();
-		const { name, date, description, status, images, videos, coverImage } =
-			body as {
-				name?: string;
-				date?: string;
-				description?: string;
-				status?: string;
-				images?: string[];
-				videos?: string[];
-				coverImage?: string;
-			};
+		const {
+			name,
+			date,
+			description,
+			status,
+			images,
+			videos,
+			coverImage,
+			bannerImage,
+		} = body as {
+			name?: string;
+			date?: string;
+			description?: string;
+			status?: string;
+			images?: string[];
+			videos?: string[];
+			coverImage?: string;
+			bannerImage?: string;
+		};
 
 		const updateData: {
 			name?: string;
@@ -110,9 +135,10 @@ export async function PUT(req: NextRequest) {
 					: updatedYoga.date,
 			description: updatedYoga.description,
 			status: updatedYoga.status,
+			coverImage: updatedYoga.coverImage || undefined,
+			bannerImage: bannerImage, // Return the bannerImage from request (not stored in DB)
 			images: updatedYoga.images || [],
 			videos: updatedYoga.videos || [],
-			coverImage: updatedYoga.coverImage || undefined,
 			createdAt: updatedYoga.createdAt?.toISOString?.() ?? "",
 			updatedAt: updatedYoga.updatedAt?.toISOString?.() ?? "",
 		};
