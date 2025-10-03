@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+
+export interface YogaImage {
+	url: string;
+	caption?: string;
+	alt?: string;
+	order: number;
+}
 
 export interface Yoga {
 	id: string;
@@ -9,7 +17,7 @@ export interface Yoga {
 	status: string;
 	coverImage?: string;
 	bannerImage?: string;
-	images?: string[];
+	images?: YogaImage[];
 	videos?: string[];
 	createdAt?: string;
 	updatedAt?: string;
@@ -47,16 +55,15 @@ export async function GET(req: NextRequest) {
 		const data: Yoga[] = yogas.map((y) => ({
 			id: y.id,
 			name: y.name,
-			date: y.date instanceof Date ? y.date.toISOString().slice(0, 10) : y.date,
+			date: y.date.toISOString(),
 			description: y.description,
 			status: y.status,
 			coverImage: y.coverImage || undefined,
-			images: y.images || [],
+			images: (y.images as unknown as YogaImage[]) || [],
 			videos: y.videos || [],
-			createdAt: y.createdAt?.toISOString?.() ?? "",
-			updatedAt: y.updatedAt?.toISOString?.() ?? "",
+			createdAt: y.createdAt.toISOString(),
+			updatedAt: y.updatedAt.toISOString(),
 		}));
-
 		return NextResponse.json({
 			data,
 			pagination: {
@@ -86,7 +93,7 @@ export async function POST(req: NextRequest) {
 				description: string;
 				status: string;
 				coverImage?: string;
-				images?: string[];
+				images?: YogaImage[];
 				videos?: string[];
 			};
 
@@ -104,7 +111,7 @@ export async function POST(req: NextRequest) {
 				description,
 				status,
 				coverImage: coverImage || null,
-				images: images || [],
+				images: (images || []) as unknown as Prisma.InputJsonValue,
 				videos: videos || [],
 			},
 		});
@@ -119,7 +126,7 @@ export async function POST(req: NextRequest) {
 			description: newYoga.description,
 			status: newYoga.status,
 			coverImage: newYoga.coverImage || undefined,
-			images: newYoga.images || [],
+			images: (newYoga.images as unknown as YogaImage[]) || [],
 			videos: newYoga.videos || [],
 			createdAt: newYoga.createdAt?.toISOString?.() ?? "",
 			updatedAt: newYoga.updatedAt?.toISOString?.() ?? "",

@@ -231,7 +231,7 @@ model Yoga {
     date        DateTime @default(now())
     description String
     status      String   @default("Active")
-    images      String[] // Array of image URLs
+    images      Json?    // Array of image objects with url, caption, alt, order
     videos      String[] // Array of video URLs
     coverImage  String?  // Cover image URL
     createdAt   DateTime @default(now())

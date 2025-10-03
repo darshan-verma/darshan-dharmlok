@@ -26,13 +26,20 @@ import YogaDetailsTab from "../../components/yoga/YogaDetailsTab";
 import MediaTab from "../../components/yoga/MediaTab";
 import VideoTab from "../../components/yoga/VideoTab";
 
+interface YogaImage {
+	url: string;
+	caption?: string;
+	alt?: string;
+	order: number;
+}
+
 interface Yoga {
 	id: string;
 	name: string;
 	date: Date;
 	description: string;
 	status: string;
-	images: string[];
+	images: YogaImage[];
 	videos: string[];
 	coverImage?: string;
 	createdAt: Date;
@@ -45,7 +52,7 @@ interface YogaApiResponse {
 	date: string;
 	description: string;
 	status: string;
-	images: string[];
+	images: YogaImage[];
 	videos: string[];
 	coverImage?: string;
 	createdAt: string;
@@ -156,7 +163,7 @@ export default function YogaDetailPage() {
 	const handleMediaUpdate = async (updates: {
 		bannerImage?: string;
 		coverImage?: string;
-		images?: string[];
+		images?: YogaImage[];
 		videos?: string[];
 	}) => {
 		try {

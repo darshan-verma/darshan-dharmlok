@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+
+export interface YogaImage {
+	url: string;
+	caption?: string;
+	alt?: string;
+	order: number;
+}
 
 export interface Yoga {
 	id: string;
@@ -9,7 +17,7 @@ export interface Yoga {
 	status: string;
 	coverImage?: string;
 	bannerImage?: string;
-	images?: string[];
+	images?: YogaImage[];
 	videos?: string[];
 	createdAt?: string;
 	updatedAt?: string;
@@ -56,7 +64,9 @@ export async function GET(req: NextRequest) {
 			status: yoga.status,
 			coverImage: yoga.coverImage || undefined,
 			bannerImage: undefined, // Yoga model doesn't have bannerImage
-			images: yoga.images || [],
+			images: Array.isArray(yoga.images)
+				? (yoga.images as unknown as YogaImage[])
+				: [],
 			videos: yoga.videos || [],
 			createdAt: yoga.createdAt?.toISOString?.() ?? "",
 			updatedAt: yoga.updatedAt?.toISOString?.() ?? "",
@@ -98,7 +108,7 @@ export async function PUT(req: NextRequest) {
 			date?: string;
 			description?: string;
 			status?: string;
-			images?: string[];
+			images?: YogaImage[];
 			videos?: string[];
 			coverImage?: string;
 			bannerImage?: string;
@@ -109,7 +119,7 @@ export async function PUT(req: NextRequest) {
 			date?: Date;
 			description?: string;
 			status?: string;
-			images?: string[];
+			images?: Prisma.InputJsonValue;
 			videos?: string[];
 			coverImage?: string;
 		} = {};
@@ -117,7 +127,8 @@ export async function PUT(req: NextRequest) {
 		if (date !== undefined) updateData.date = new Date(date);
 		if (description !== undefined) updateData.description = description;
 		if (status !== undefined) updateData.status = status;
-		if (images !== undefined) updateData.images = images;
+		if (images !== undefined)
+			updateData.images = images as unknown as Prisma.InputJsonValue;
 		if (videos !== undefined) updateData.videos = videos;
 		if (coverImage !== undefined) updateData.coverImage = coverImage;
 
@@ -137,7 +148,9 @@ export async function PUT(req: NextRequest) {
 			status: updatedYoga.status,
 			coverImage: updatedYoga.coverImage || undefined,
 			bannerImage: bannerImage, // Return the bannerImage from request (not stored in DB)
-			images: updatedYoga.images || [],
+			images: Array.isArray(updatedYoga.images)
+				? (updatedYoga.images as unknown as YogaImage[])
+				: [],
 			videos: updatedYoga.videos || [],
 			createdAt: updatedYoga.createdAt?.toISOString?.() ?? "",
 			updatedAt: updatedYoga.updatedAt?.toISOString?.() ?? "",

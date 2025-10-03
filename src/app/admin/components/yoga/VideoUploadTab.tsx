@@ -14,13 +14,20 @@ import {
 import { Upload, X, Play } from "lucide-react";
 import { toast } from "@/lib/toast";
 
+interface YogaImage {
+	url: string;
+	caption?: string;
+	alt?: string;
+	order: number;
+}
+
 interface Yoga {
 	id: string;
 	name: string;
 	date: Date;
 	description: string;
 	status: string;
-	images: string[];
+	images: YogaImage[];
 	videos: string[];
 	coverImage?: string;
 	createdAt: Date;

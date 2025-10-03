@@ -48,13 +48,20 @@ import {
 import { toastSuccess, toastError } from "@/lib/toast";
 
 // Define the Yoga interface
+export interface YogaImage {
+	url: string;
+	caption?: string;
+	alt?: string;
+	order: number;
+}
+
 export interface Yoga {
 	id: string;
 	name: string;
 	date: Date;
 	description: string;
 	status: string;
-	images: string[];
+	images: YogaImage[];
 	videos: string[];
 	coverImage?: string;
 	createdAt: Date;
