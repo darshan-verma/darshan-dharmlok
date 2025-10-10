@@ -667,3 +667,19 @@ model MotivationSpeaker {
     @@index([category])
     @@index([date])
 }
+
+// Blog Model
+model Blog {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    title       String
+    content     String   // Blog content/description
+    coverImage  String?  // Cover image URL
+    bannerImage String?  // Banner image URL
+    status      String   @default("Active") // "Active" | "Inactive"
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    // Indexes
+    @@index([status])
+    @@index([createdAt])
+}

@@ -17,6 +17,7 @@ import {
 	Settings,
 	Cast,
 	Mic,
+	FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -418,6 +419,18 @@ export function AdminSidebar({ className }: { className?: string }) {
 							<Calendar className="h-5 w-5 text-red-500" />
 							<Link href="/admin/events" className="flex items-center gap-2">
 								<span>Events and Booking</span>
+							</Link>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+
+					<SidebarMenuItem>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/blogs"}
+						>
+							<FileText className="h-5 w-5 text-blue-500" />
+							<Link href="/admin/blogs" className="flex items-center gap-2">
+								<span>Blogs</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
