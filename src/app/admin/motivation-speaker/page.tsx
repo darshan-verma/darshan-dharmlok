@@ -27,6 +27,7 @@ interface MotivationSpeakerApiResponse {
 	status: string;
 	coverImage?: string;
 	bannerImage?: string;
+	profileImage?: string;
 	images: string[];
 	videos: string[];
 	description?: string;
@@ -103,6 +104,7 @@ export default function MotivationSpeakerPage() {
 						status: speaker.status || "Active",
 						coverImage: speaker.coverImage,
 						bannerImage: speaker.bannerImage,
+						profileImage: speaker.profileImage,
 						images: speaker.images || [],
 						videos: speaker.videos || [],
 						description: speaker.description,
@@ -171,10 +173,63 @@ export default function MotivationSpeakerPage() {
 	};
 
 	const handleFormSubmit = async (
-		speakerData: Omit<MotivationSpeaker, "id" | "createdAt" | "updatedAt">
+		speakerData: Omit<MotivationSpeaker, "id" | "createdAt" | "updatedAt"> & {
+			profileImageFile?: File | null;
+		}
 	) => {
 		try {
 			setIsSubmitting(true);
+
+			let finalProfileImageUrl = speakerData.profileImage;
+
+			// Handle profile image upload if a new file is provided
+			if (speakerData.profileImageFile) {
+				const imageToastId = toast.loading("Uploading profile image...");
+				const formData = new FormData();
+				formData.append("file", speakerData.profileImageFile);
+
+				try {
+					const uploadResponse = await fetch("/api/upload/image", {
+						method: "POST",
+						body: formData,
+					});
+
+					if (!uploadResponse.ok) {
+						const errorData = await uploadResponse.json().catch(() => ({}));
+						throw new Error(
+							errorData.error ||
+								errorData.message ||
+								"Profile image upload failed"
+						);
+					}
+					const uploadResult = await uploadResponse.json();
+					finalProfileImageUrl = uploadResult.imageUrl;
+					toast.dismiss(imageToastId);
+					toast.success("Profile image uploaded successfully!");
+				} catch (uploadError) {
+					toast.dismiss(imageToastId);
+					toast.error(
+						uploadError instanceof Error
+							? uploadError.message
+							: "Profile image upload failed"
+					);
+					setIsSubmitting(false);
+					return;
+				}
+			} else if (
+				speakerData.profileImage === undefined &&
+				!speakerData.profileImageFile
+			) {
+				// If profileImageFile is not present and profileImage is explicitly undefined (cleared by form)
+				finalProfileImageUrl = undefined;
+			}
+
+			// Prepare the data for API submission (exclude profileImageFile)
+			const { profileImageFile: _profileImageFile, ...apiData } = speakerData;
+			const dataToSubmit = {
+				...apiData,
+				profileImage: finalProfileImageUrl,
+			};
 
 			const url = currentSpeaker?.id
 				? `/api/motivation-speaker/${currentSpeaker.id}`
@@ -187,7 +242,7 @@ export default function MotivationSpeakerPage() {
 				headers: {
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify(speakerData),
+				body: JSON.stringify(dataToSubmit),
 			});
 
 			if (!response.ok) {
@@ -217,6 +272,7 @@ export default function MotivationSpeakerPage() {
 					status: speaker.status || "Active",
 					coverImage: speaker.coverImage,
 					bannerImage: speaker.bannerImage,
+					profileImage: speaker.profileImage,
 					images: speaker.images || [],
 					videos: speaker.videos || [],
 					description: speaker.description,
@@ -296,6 +352,7 @@ export default function MotivationSpeakerPage() {
 						</DialogTitle>
 					</DialogHeader>
 					<MotivationSpeakerForm
+						key={currentSpeaker?.id || "new"}
 						initialData={currentSpeaker || undefined}
 						onSubmit={handleFormSubmit}
 						onCancel={() => setIsFormOpen(false)}

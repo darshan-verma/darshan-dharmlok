@@ -12,6 +12,7 @@ export interface MotivationSpeaker {
 	status: string;
 	coverImage?: string;
 	bannerImage?: string;
+	profileImage?: string;
 	images: string[];
 	videos: string[];
 	description?: string;
@@ -54,6 +55,7 @@ export async function GET(req: NextRequest) {
 			status: speaker.status,
 			coverImage: speaker.coverImage || undefined,
 			bannerImage: speaker.bannerImage || undefined,
+			profileImage: speaker.profileImage || undefined,
 			images: speaker.images,
 			videos: speaker.videos,
 			description: speaker.description || undefined,
@@ -93,6 +95,7 @@ export async function PUT(req: NextRequest) {
 			status,
 			coverImage,
 			bannerImage,
+			profileImage,
 			images,
 			videos,
 			description,
@@ -106,6 +109,7 @@ export async function PUT(req: NextRequest) {
 			status?: string;
 			coverImage?: string;
 			bannerImage?: string;
+			profileImage?: string;
 			images?: string[];
 			videos?: string[];
 			description?: string;
@@ -121,6 +125,7 @@ export async function PUT(req: NextRequest) {
 			status?: string;
 			coverImage?: string;
 			bannerImage?: string;
+			profileImage?: string;
 			images?: string[];
 			videos?: string[];
 			description?: string;
@@ -134,6 +139,7 @@ export async function PUT(req: NextRequest) {
 		if (status !== undefined) updateData.status = status;
 		if (coverImage !== undefined) updateData.coverImage = coverImage;
 		if (bannerImage !== undefined) updateData.bannerImage = bannerImage;
+		if (profileImage !== undefined) updateData.profileImage = profileImage;
 		if (images !== undefined) updateData.images = images;
 		if (videos !== undefined) updateData.videos = videos;
 		if (description !== undefined) updateData.description = description;
@@ -157,6 +163,7 @@ export async function PUT(req: NextRequest) {
 			status: updatedSpeaker.status,
 			coverImage: updatedSpeaker.coverImage || undefined,
 			bannerImage: updatedSpeaker.bannerImage || undefined,
+			profileImage: updatedSpeaker.profileImage || undefined,
 			images: updatedSpeaker.images,
 			videos: updatedSpeaker.videos,
 			description: updatedSpeaker.description || undefined,

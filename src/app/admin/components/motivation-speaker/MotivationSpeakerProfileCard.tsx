@@ -13,11 +13,11 @@ export default function MotivationSpeakerProfileCard({
 	return (
 		<div className="bg-white rounded-lg border shadow-sm p-6">
 			<div className="flex flex-col items-center text-center space-y-4">
-				{/* Speaker Cover Image */}
+				{/* Speaker Profile Image */}
 				<div className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center bg-purple-100">
-					{speaker.coverImage ? (
+					{speaker.profileImage ? (
 						<Image
-							src={speaker.coverImage}
+							src={speaker.profileImage}
 							alt={speaker.name}
 							width={80}
 							height={80}

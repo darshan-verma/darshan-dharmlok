@@ -12,10 +12,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import Image from "next/image"; // Import next/image
+import { Trash2, UploadCloud } from "lucide-react"; // Import icons
 import { MotivationSpeaker } from "./MotivationSpeakerTable";
 
 interface MotivationSpeakerFormProps {
-	initialData?: Partial<MotivationSpeaker>;
+	initialData?: Partial<MotivationSpeaker & { profileImageFile?: File | null }>;
 	onSubmit: (
 		speakerData: Omit<MotivationSpeaker, "id" | "createdAt" | "updatedAt">
 	) => Promise<void>;
@@ -33,14 +35,19 @@ export default function MotivationSpeakerForm({
 		category: "",
 		status: "Active",
 		description: "",
+		profileImage: undefined,
+		profileImageFile: null,
 	},
 	onSubmit,
 	onCancel,
 	isLoading = false,
 }: MotivationSpeakerFormProps) {
+	// Initialize state directly from props
 	const [speakerData, setSpeakerData] = useState<
-		Omit<MotivationSpeaker, "id" | "createdAt" | "updatedAt">
-	>({
+		Omit<MotivationSpeaker, "id" | "createdAt" | "updatedAt"> & {
+			profileImageFile?: File | null;
+		}
+	>(() => ({
 		name: initialData.name || "",
 		date: initialData.date || new Date(),
 		phone: initialData.phone || "",
@@ -50,13 +57,18 @@ export default function MotivationSpeakerForm({
 		status: initialData.status || "Active",
 		coverImage: initialData.coverImage || "",
 		bannerImage: initialData.bannerImage || "",
+		profileImage: initialData.profileImage || undefined,
+		profileImageFile: initialData.profileImageFile || null,
 		images: initialData.images || [],
 		videos: initialData.videos || [],
 		description: initialData.description || "",
-	});
+	}));
 
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 	const [buttonLoading, setButtonLoading] = useState(false);
+	const [profileImagePreviewUrl, setProfileImagePreviewUrl] = useState<
+		string | null
+	>(() => initialData.profileImage || null);
 
 	const validateForm = (data: typeof speakerData) => {
 		const errors: Record<string, string> = {};
@@ -97,6 +109,21 @@ export default function MotivationSpeakerForm({
 			errors.date = "Date is required";
 		}
 
+		// Basic validation for profileImageFile if present
+		if (data.profileImageFile && data.profileImageFile.size > 5 * 1024 * 1024) {
+			// 5MB limit
+			errors.profileImageFile = "Profile image size should be less than 5MB.";
+		}
+		if (
+			data.profileImageFile &&
+			!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(
+				data.profileImageFile.type
+			)
+		) {
+			errors.profileImageFile =
+				"Invalid profile image format. Use JPG, PNG, WebP, or GIF.";
+		}
+
 		return errors;
 	};
 
@@ -130,6 +157,62 @@ export default function MotivationSpeakerForm({
 		// Clear error for this field if it exists
 		if (formErrors[field]) {
 			setFormErrors({ ...formErrors, [field]: "" });
+		}
+	};
+
+	const handleProfileImageUrlChange = (value: string) => {
+		setSpeakerData({
+			...speakerData,
+			profileImage: value,
+			profileImageFile: null,
+		}); // If URL is typed, clear selected file
+		setProfileImagePreviewUrl(value); // Update preview with URL
+		if (formErrors.profileImage)
+			setFormErrors({ ...formErrors, profileImage: "" });
+		if (formErrors.profileImageFile)
+			setFormErrors({ ...formErrors, profileImageFile: "" });
+	};
+
+	const handleProfileFileChange = (
+		event: React.ChangeEvent<HTMLInputElement>
+	) => {
+		const file = event.target.files?.[0];
+		if (file) {
+			setSpeakerData({
+				...speakerData,
+				profileImageFile: file,
+				profileImage: undefined,
+			}); // New file overrides existing imageUrl input
+			const reader = new FileReader();
+			reader.onloadend = () => {
+				setProfileImagePreviewUrl(reader.result as string);
+			};
+			reader.readAsDataURL(file);
+			if (formErrors.profileImageFile)
+				setFormErrors({ ...formErrors, profileImageFile: "" });
+			if (formErrors.profileImage)
+				setFormErrors({ ...formErrors, profileImage: "" });
+		}
+	};
+
+	const handleRemoveProfileImage = () => {
+		setSpeakerData({
+			...speakerData,
+			profileImageFile: null,
+			profileImage: undefined,
+		}); // Clear both file and URL input
+		setProfileImagePreviewUrl(null);
+		const fileInput = document.getElementById(
+			"profileImageFile"
+		) as HTMLInputElement;
+		if (fileInput) {
+			fileInput.value = ""; // Reset file input
+		}
+		const imageUrlInput = document.getElementById(
+			"profileImageUrl"
+		) as HTMLInputElement;
+		if (imageUrlInput) {
+			imageUrlInput.value = "";
 		}
 	};
 
@@ -251,6 +334,76 @@ export default function MotivationSpeakerForm({
 					placeholder="Enter speaker description"
 					rows={4}
 				/>
+			</div>
+
+			<div className="space-y-2">
+				<Label htmlFor="profileImageFile">Profile Image (Upload or URL)</Label>
+				<div className="flex items-center gap-4">
+					{profileImagePreviewUrl && (
+						<div className="relative w-24 h-24 rounded-full border overflow-hidden shrink-0">
+							<Image
+								src={profileImagePreviewUrl}
+								alt="Profile image preview"
+								layout="fill"
+								objectFit="cover"
+								onError={() => {
+									// If URL from input fails, clear preview. File preview shouldn't fail this way.
+									if (speakerData.profileImage && !speakerData.profileImageFile)
+										setProfileImagePreviewUrl(null);
+								}}
+							/>
+						</div>
+					)}
+					{!profileImagePreviewUrl && (
+						<div className="w-24 h-24 rounded-full border bg-muted flex items-center justify-center shrink-0">
+							<UploadCloud className="w-8 h-8 text-gray-400" />
+						</div>
+					)}
+					<div className="flex-grow space-y-2">
+						<Input
+							id="profileImageFile"
+							type="file"
+							accept="image/jpeg,image/png,image/webp,image/gif"
+							onChange={handleProfileFileChange}
+							className={`file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 ${
+								formErrors.profileImageFile ? "border-red-500" : ""
+							}`}
+						/>
+						<Input
+							id="profileImageUrl"
+							type="url"
+							value={speakerData.profileImage || ""}
+							onChange={(e) => handleProfileImageUrlChange(e.target.value)}
+							placeholder="Or paste profile image URL here"
+							className={formErrors.profileImage ? "border-red-500" : ""}
+							disabled={!!speakerData.profileImageFile} // Disable if a file is selected
+						/>
+					</div>
+					{(profileImagePreviewUrl || speakerData.profileImage) && ( // Show remove button if there's any image source
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							onClick={handleRemoveProfileImage}
+							title="Remove profile image"
+							className="shrink-0"
+						>
+							<Trash2 className="h-4 w-4 text-red-500" />
+						</Button>
+					)}
+				</div>
+				{formErrors.profileImageFile && (
+					<p className="text-sm text-red-500 mt-1">
+						{formErrors.profileImageFile}
+					</p>
+				)}
+				{formErrors.profileImage && (
+					<p className="text-sm text-red-500 mt-1">{formErrors.profileImage}</p>
+				)}
+				<p className="text-xs text-gray-500 mt-1">
+					Upload a profile image (max 5MB) or provide a direct URL. Upload takes
+					precedence.
+				</p>
 			</div>
 
 			<div className="space-y-2">

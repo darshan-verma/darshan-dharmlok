@@ -12,6 +12,7 @@ export interface MotivationSpeaker {
 	status: string;
 	coverImage?: string;
 	bannerImage?: string;
+	profileImage?: string;
 	images: string[];
 	videos: string[];
 	description?: string;
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest) {
 			status: s.status,
 			coverImage: s.coverImage || undefined,
 			bannerImage: s.bannerImage || undefined,
+			profileImage: s.profileImage || undefined,
 			images: s.images,
 			videos: s.videos,
 			description: s.description || undefined,
@@ -86,6 +88,7 @@ export async function POST(req: NextRequest) {
 			status,
 			coverImage,
 			bannerImage,
+			profileImage,
 			images,
 			videos,
 			description,
@@ -99,6 +102,7 @@ export async function POST(req: NextRequest) {
 			status: string;
 			coverImage?: string;
 			bannerImage?: string;
+			profileImage?: string;
 			images?: string[];
 			videos?: string[];
 			description?: string;
@@ -133,6 +137,7 @@ export async function POST(req: NextRequest) {
 				status,
 				coverImage,
 				bannerImage,
+				profileImage,
 				images: images || [],
 				videos: videos || [],
 				description,
@@ -153,6 +158,7 @@ export async function POST(req: NextRequest) {
 			status: newSpeaker.status,
 			coverImage: newSpeaker.coverImage || undefined,
 			bannerImage: newSpeaker.bannerImage || undefined,
+			profileImage: newSpeaker.profileImage || undefined,
 			images: newSpeaker.images,
 			videos: newSpeaker.videos,
 			description: newSpeaker.description || undefined,

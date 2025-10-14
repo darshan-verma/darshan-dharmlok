@@ -59,6 +59,7 @@ export interface MotivationSpeaker {
 	status: string;
 	coverImage?: string;
 	bannerImage?: string;
+	profileImage?: string;
 	images: string[];
 	videos: string[];
 	description?: string;

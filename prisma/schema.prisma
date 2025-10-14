@@ -656,6 +656,7 @@ model MotivationSpeaker {
     status      String   @default("Active")
     coverImage  String?  // Cover image URL
     bannerImage String?  // Banner image URL
+    profileImage String? // Profile image URL
     images      String[] // Array of image URLs
     videos      String[] // Array of video URLs
     description String?
