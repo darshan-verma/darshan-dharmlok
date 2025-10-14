@@ -69,28 +69,6 @@ export default function BlogForm({
 	>(initialData.bannerImageUrl || null);
 
 	useEffect(() => {
-		// This effect ensures that if initialData.coverImageUrl changes (e.g., when editing an existing blog),
-		// the preview is updated accordingly, but only if no new file has been selected.
-		if (initialData.coverImageUrl && !blogData.coverImageFile) {
-			setCoverImagePreviewUrl(initialData.coverImageUrl);
-		} else if (!initialData.coverImageUrl && !blogData.coverImageFile) {
-			setCoverImagePreviewUrl(null);
-		}
-		// If a coverImageFile is selected, it takes precedence for the preview, handled in handleCoverFileChange.
-	}, [initialData.coverImageUrl, blogData.coverImageFile]);
-
-	useEffect(() => {
-		// This effect ensures that if initialData.bannerImageUrl changes (e.g., when editing an existing blog),
-		// the preview is updated accordingly, but only if no new file has been selected.
-		if (initialData.bannerImageUrl && !blogData.bannerImageFile) {
-			setBannerImagePreviewUrl(initialData.bannerImageUrl);
-		} else if (!initialData.bannerImageUrl && !blogData.bannerImageFile) {
-			setBannerImagePreviewUrl(null);
-		}
-		// If a bannerImageFile is selected, it takes precedence for the preview, handled in handleBannerFileChange.
-	}, [initialData.bannerImageUrl, blogData.bannerImageFile]);
-
-	useEffect(() => {
 		// Reset form data when initialData changes (for editing existing blogs)
 		setBlogData({
 			title: initialData.title || "",
@@ -104,7 +82,15 @@ export default function BlogForm({
 		setCoverImagePreviewUrl(initialData.coverImageUrl || null);
 		setBannerImagePreviewUrl(initialData.bannerImageUrl || null);
 		setFormErrors({}); // Clear any previous form errors
-	}, [initialData]);
+	}, [
+		initialData.title,
+		initialData.content,
+		initialData.status,
+		initialData.coverImageUrl,
+		initialData.bannerImageUrl,
+		initialData.coverImageFile,
+		initialData.bannerImageFile,
+	]);
 
 	const validateForm = (data: BlogFormData) => {
 		const errors: Record<string, string> = {};
