@@ -43,6 +43,12 @@ export default function KathavachakPage() {
 			return;
 		}
 
+		const isAdmin = session?.user?.role?.toLowerCase() === "admin";
+		if (isAdmin) {
+			setLoading(false);
+			return;
+		}
+
 		const fetchUser = async () => {
 			try {
 				const userId = session.user.id;
