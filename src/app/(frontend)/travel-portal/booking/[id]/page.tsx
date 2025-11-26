@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import TransportSelector from "../../components/TransportSelector";
+import TravellerSelector from "../../../components/travel-portal/TravellerSelector";
 
 interface Destination {
 	id: string;
@@ -55,6 +56,7 @@ interface BookingFormData {
 	phone: string;
 	fromLocation: string;
 	transportType: string;
+	travelClass?: string;
 	travelDate: string;
 	returnDate: string;
 	departureTime: string;
@@ -83,6 +85,7 @@ export default function BookingPage() {
 			phone: "",
 			fromLocation: "",
 			transportType: "",
+			travelClass: "Economy",
 			travelDate: "",
 			returnDate: "",
 			departureTime: "09:00",
@@ -92,6 +95,36 @@ export default function BookingPage() {
 
 	const travelers = form.watch("travelers");
 	const transportType = form.watch("transportType");
+	const travelClass = form.watch("travelClass");
+
+	// Keep travelClass in sync with transport type: set sensible defaults
+	useEffect(() => {
+		const trainClasses = [
+			"All classes",
+			"Sleeper",
+			"Third AC",
+			"Second AC",
+			"First AC",
+			"Second Seating",
+			"Vistadome AC",
+			"AC Chair Car",
+			"First Class",
+			"Third AC Economy",
+		];
+
+		const currentClass = form.getValues("travelClass") || "";
+		if (transportType === "train") {
+			// If switching to train, default to 'All classes' unless user already chose a train class
+			if (!trainClasses.includes(currentClass)) {
+				form.setValue("travelClass", "All classes");
+			}
+		} else if (transportType) {
+			// If switching away from train and previous class was a train class, reset to 'Economy'
+			if (trainClasses.includes(currentClass)) {
+				form.setValue("travelClass", "Economy");
+			}
+		}
+	}, [transportType, form]);
 
 	// Calculate price with transport multiplier
 	const getTransportMultiplier = () => {
@@ -148,6 +181,7 @@ export default function BookingPage() {
 			phone: data.phone,
 			fromLocation: data.fromLocation,
 			transportType: data.transportType,
+			travelClass: data.travelClass || "",
 			travelDate: data.travelDate,
 			returnDate: data.returnDate,
 			departureTime: data.departureTime,
@@ -213,7 +247,7 @@ export default function BookingPage() {
 									<Badge className="w-fit">{destination.category}</Badge>
 									<CardTitle className="text-xl">{destination.name}</CardTitle>
 									<div className="flex items-center text-muted-foreground text-sm">
-										<MapPin className="h-4 w-4 mr-1" />
+										<MapPin className="h-4 w-4 mr-1 text-red-500" />
 										<span>{destination.location}</span>
 									</div>
 								</div>
@@ -594,19 +628,20 @@ export default function BookingPage() {
 																message: "Maximum 20 travelers allowed",
 															},
 														}}
-														render={({ field }) => (
+														render={() => (
 															<FormItem>
-																<FormLabel>Number of Travelers *</FormLabel>
+																<FormLabel>Travellers & Class</FormLabel>
 																<FormControl>
-																	<Input
-																		type="number"
-																		min="1"
-																		max="20"
-																		{...field}
-																		onChange={(e) => {
-																			const value = parseInt(e.target.value);
-																			field.onChange(isNaN(value) ? 1 : value);
-																		}}
+																	<TravellerSelector
+																		travellers={travelers || 1}
+																		travelClass={travelClass || "Economy"}
+																		transportType={transportType}
+																		onTravellersChange={(count: number) =>
+																			form.setValue("travelers", count)
+																		}
+																		onClassChange={(cls: string) =>
+																			form.setValue("travelClass", cls)
+																		}
 																	/>
 																</FormControl>
 																<FormDescription className="text-xs">

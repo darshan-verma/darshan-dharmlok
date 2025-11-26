@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import DestinationCard from "../components/travel-portal/DestinationCard";
+import FlightBookingUI from "../components/travel-portal/FlightBookingUI";
 import {
 	ArrowRight,
 	MapPin,
@@ -127,91 +128,44 @@ export default function TravelHomePage() {
 	}, []);
 
 	return (
-		<div className="min-h-screen">
-			{/* Hero Section */}
-			<section className="relative text-white py-32 overflow-hidden min-h-[85vh] flex items-center">
-				{/* Background Image with Overlay */}
-				<div className="absolute inset-0">
-					<Image
-						src="/travel-destinations/travel-portal-banner.jpg"
-						alt="Ganga Aarti"
-						fill
-						className="object-cover"
-					/>
-					{/* Gradient Overlays for better text readability */}
-					<div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/60"></div>
-					<div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40"></div>
-				</div>
+		<div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
+			{/* Spiritual Background Pattern (behind content, low opacity) */}
+			<div className="fixed inset-0 z-0 opacity-50 pointer-events-none">
+				<Image
+					src="/travel-destinations/travel-portal-banner.jpg"
+					alt="Spiritual Pattern"
+					fill
+					className="object-cover"
+				/>
+			</div>
 
-				{/* Decorative Light Effects */}
-				<div className="absolute top-20 left-10 w-72 h-72 bg-orange-500/20 rounded-full blur-3xl animate-pulse"></div>
-				<div
-					className="absolute bottom-20 right-10 w-96 h-96 bg-yellow-500/20 rounded-full blur-3xl animate-pulse"
-					style={{ animationDelay: "1s" }}
-				></div>
-
-				<div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
-					<div className="inline-block mb-6 px-5 py-2.5 bg-orange-500/30 backdrop-blur-md rounded-full text-sm font-medium border border-orange-300/30 shadow-lg">
-						✨ Experience Divine Rituals & Sacred Journeys
-					</div>
-					<h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-tight drop-shadow-2xl">
-						Embark on Sacred Journeys
-						<br />
-						<span className="text-yellow-400 drop-shadow-lg">
-							Across Bharat
-						</span>
-					</h1>
-					<p className="text-xl sm:text-2xl mb-10 max-w-3xl mx-auto text-white drop-shadow-lg">
-						Discover ancient temples, witness divine rituals, and embark on
-						transformative pilgrimages to India&apos;s holiest destinations
-					</p>
-					<div className="flex flex-col sm:flex-row gap-4 justify-center">
-						<Link href="/travel-portal/destinations">
-							<Button
-								size="lg"
-								className="bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 text-lg px-8 py-6 shadow-2xl hover:shadow-orange-500/50 transition-all duration-300"
-							>
-								Explore Destinations
-								<ArrowRight className="ml-2 h-5 w-5" />
-							</Button>
-						</Link>
-						<Link href="/travel-portal/my-trips">
-							<Button
-								size="lg"
-								variant="outline"
-								className="border-2 border-white/80 bg-white/10 backdrop-blur-md text-white hover:bg-white/20 text-lg px-8 py-6 shadow-xl"
-							>
-								View My Trips
-							</Button>
-						</Link>
-					</div>
-
-					{/* Stats */}
-					<div className="grid grid-cols-3 gap-8 max-w-2xl mx-auto mt-16">
-						<div className="backdrop-blur-sm bg-white/10 rounded-lg p-4 border border-white/20">
-							<div className="text-4xl font-bold drop-shadow-lg">100+</div>
-							<div className="text-white/90 mt-1 text-sm">Destinations</div>
+			{/* Page content (kept above background) */}
+			<div className="relative z-10">
+				{/* Flight Booking UI */}
+				<section className="relative py-16 bg-gradient-to-b from-orange-100/30 via-transparent to-transparent">
+					{/* Decorative Elements */}
+					<div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+						{/* Om Symbol Pattern - Very Subtle */}
+						<div className="absolute top-10 right-10 text-orange-200/20 text-9xl font-serif select-none">
+							ॐ
 						</div>
-						<div className="backdrop-blur-sm bg-white/10 rounded-lg p-4 border border-white/20">
-							<div className="text-4xl font-bold drop-shadow-lg">5000+</div>
-							<div className="text-white/90 mt-1 text-sm">Happy Travelers</div>
-						</div>
-						<div className="backdrop-blur-sm bg-white/10 rounded-lg p-4 border border-white/20">
-							<div className="text-4xl font-bold drop-shadow-lg">4.9★</div>
-							<div className="text-white/90 mt-1 text-sm">Average Rating</div>
+						<div className="absolute bottom-20 left-10 text-amber-200/20 text-7xl font-serif select-none">
+							ॐ
 						</div>
 					</div>
-				</div>
-			</section>
+
+					<FlightBookingUI />
+				</section>
+			</div>
 
 			{/* Categories Section */}
-			<section className="py-16 bg-gradient-to-b from-background to-secondary/10">
+			<section className="relative py-16 bg-gradient-to-b from-transparent via-orange-50/30 to-amber-50/30">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="text-center mb-12">
-						<h2 className="text-3xl sm:text-4xl font-bold mb-3">
+						<h2 className="text-3xl sm:text-4xl font-bold mb-3 opacity-100">
 							Browse by Category
 						</h2>
-						<p className="text-muted-foreground text-lg">
+						<p className="text-gray-700 text-lg">
 							Find the perfect spiritual journey for you
 						</p>
 					</div>
@@ -226,7 +180,7 @@ export default function TravelHomePage() {
 								<div className="relative h-full">
 									{/* Subtle Background Effect */}
 									<div
-										className={`absolute inset-0 bg-gradient-to-br ${category.color} rounded-2xl opacity-0 group-hover:opacity-3 transition-all duration-500`}
+										className={`absolute inset-0 bg-gradient-to-br ${category.color} rounded-2xl opacity-0 group-hover:opacity-30 transition-all duration-500`}
 									></div>
 
 									{/* Main Card */}
@@ -269,13 +223,13 @@ export default function TravelHomePage() {
 			</section>
 
 			{/* Featured Destinations */}
-			<section className="py-16 bg-background">
+			<section className="py-16 bg-gradient-to-b from-amber-50/30 to-orange-50/20">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="text-center mb-12">
-						<h2 className="text-3xl sm:text-4xl font-bold mb-3">
+						<h2 className="text-3xl sm:text-4xl font-bold mb-3 opacity-100">
 							Featured Destinations
 						</h2>
-						<p className="text-muted-foreground text-lg">
+						<p className="text-gray-700 text-lg">
 							Handpicked sacred places for your spiritual journey
 						</p>
 					</div>
@@ -303,7 +257,11 @@ export default function TravelHomePage() {
 							</div>
 							<div className="text-center mt-10">
 								<Link href="/travel-portal/destinations">
-									<Button size="lg" variant="outline">
+									<Button
+										size="lg"
+										variant="outline"
+										className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 opacity-90 hover:opacity-100 pt-0"
+									>
 										View All Destinations
 										<ArrowRight className="ml-2 h-4 w-4" />
 									</Button>
@@ -315,22 +273,29 @@ export default function TravelHomePage() {
 			</section>
 
 			{/* Features Section */}
-			<section className="py-16 bg-gradient-to-b from-secondary/10 to-background">
+			<section className="py-16 bg-gradient-to-b from-orange-50/20 to-amber-50/30">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="text-center mb-12">
-						<h2 className="text-3xl sm:text-4xl font-bold mb-3">
+						<h2 className="text-3xl sm:text-4xl font-bold mb-3 opacity-100">
 							Why Choose Dharmlok?
 						</h2>
-						<p className="text-muted-foreground text-lg">
+						<p className="text-gray-700 text-lg">
 							Your trusted partner for spiritual journeys
 						</p>
 					</div>
 					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
 						{features.map((feature) => (
-							<Card key={feature.title} className="text-center">
+							<Card
+								key={feature.title}
+								className="text-center bg-white/80 backdrop-blur-sm"
+							>
 								<CardContent className="pt-6">
-									<div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-										<feature.icon className="h-8 w-8" />
+									<div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-orange-100 text-orange-600 mb-4">
+										<feature.icon
+											className={`h-8 w-8 ${
+												feature.icon === MapPin ? "text-red-500" : ""
+											}`}
+										/>
 									</div>
 									<h3 className="text-lg font-semibold mb-2">
 										{feature.title}
@@ -346,19 +311,19 @@ export default function TravelHomePage() {
 			</section>
 
 			{/* Testimonials Section */}
-			<section className="py-16 bg-background">
+			<section className="py-16 bg-gradient-to-b from-amber-50/30 to-orange-50/20">
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="text-center mb-12">
-						<h2 className="text-3xl sm:text-4xl font-bold mb-3">
+						<h2 className="text-3xl sm:text-4xl font-bold mb-3 opacity-100">
 							What Our Travelers Say
 						</h2>
-						<p className="text-muted-foreground text-lg">
+						<p className="text-gray-700 text-lg opacity-100">
 							Real experiences from real people
 						</p>
 					</div>
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 						{testimonials.map((testimonial, index) => (
-							<Card key={index}>
+							<Card key={index} className="opacity-90">
 								<CardContent className="pt-6">
 									<Quote className="h-8 w-8 text-primary mb-4" />
 									<p className="text-muted-foreground mb-4 leading-relaxed">
@@ -386,19 +351,19 @@ export default function TravelHomePage() {
 			</section>
 
 			{/* CTA Section */}
-			<section className="py-16 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white">
+			<section className="py-16 bg-gradient-to-r from-orange-400 via-amber-400 to-yellow-300 text-white">
 				<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-					<h2 className="text-3xl sm:text-4xl font-bold mb-4">
+					<h2 className="text-3xl sm:text-4xl font-bold mb-4 text-white opacity-90">
 						Ready to Begin Your Spiritual Journey?
 					</h2>
-					<p className="text-xl mb-8 text-white/90">
+					<p className="text-xl mb-8 text-white opacity-90">
 						Join thousands of travelers who have discovered peace and
 						enlightenment
 					</p>
 					<Link href="/travel-portal/destinations">
 						<Button
 							size="lg"
-							className="bg-white text-purple-600 hover:bg-gray-100 text-lg px-8 py-6"
+							className="bg-white text-purple-600 hover:bg-gray-100 text-lg px-8 py-6 opacity-90"
 						>
 							Start Exploring Now
 							<ArrowRight className="ml-2 h-5 w-5" />

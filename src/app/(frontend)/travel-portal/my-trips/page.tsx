@@ -220,7 +220,7 @@ export default function MyTripsPage() {
 												</TableCell>
 												<TableCell>
 													<div className="flex items-center text-muted-foreground">
-														<MapPin className="h-4 w-4 mr-1" />
+														<MapPin className="h-4 w-4 mr-1 text-red-500" />
 														<span>{booking.destination.location || "N/A"}</span>
 													</div>
 												</TableCell>

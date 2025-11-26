@@ -131,6 +131,10 @@ export default function TransportSelector({
 		}
 	}, [destination, selectedTransport, onTransportChange]);
 
+	// Find selected option details for compact banner
+	const selectedOption = options.find((o) => o.id === selectedTransport);
+	const BannerIcon = selectedOption ? selectedOption.icon : Plane;
+
 	if (options.length === 0) {
 		return (
 			<Card>
@@ -253,9 +257,16 @@ export default function TransportSelector({
 
 			{/* Compact Info Banner */}
 			<div className="flex items-start gap-2 p-2.5 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg">
-				<Plane className="h-3.5 w-3.5 text-blue-600 mt-0.5 flex-shrink-0" />
+				<BannerIcon className="h-3.5 w-3.5 text-blue-600 mt-0.5 flex-shrink-0" />
 				<p className="text-[11px] text-muted-foreground leading-relaxed">
-					Transportation costs are additional. Final price shown in summary.
+					{selectedOption ? (
+						<>
+							{selectedOption.name} costs are additional. Final price shown in
+							summary.
+						</>
+					) : (
+						"Transportation costs are additional. Final price shown in summary."
+					)}
 				</p>
 			</div>
 		</div>

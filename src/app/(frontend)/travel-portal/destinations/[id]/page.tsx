@@ -146,7 +146,7 @@ export default function DestinationDetailPage() {
 						<div>
 							<h1 className="text-4xl font-bold mb-3">{destination.name}</h1>
 							<div className="flex items-center text-muted-foreground text-lg">
-								<MapPin className="h-5 w-5 mr-2" />
+								<MapPin className="h-5 w-5 mr-2 text-red-500" />
 								<span>{destination.location}</span>
 							</div>
 						</div>

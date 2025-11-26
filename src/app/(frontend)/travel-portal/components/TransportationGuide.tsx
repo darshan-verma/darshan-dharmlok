@@ -165,7 +165,7 @@ export default function TransportationGuide({
 									{/* Additional Tips */}
 									<div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 border border-blue-200 dark:border-blue-900">
 										<div className="flex items-start gap-3">
-											<MapPin className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+											<MapPin className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
 											<div>
 												<h4 className="font-medium text-sm mb-1">Travel Tip</h4>
 												<p className="text-sm text-muted-foreground">
@@ -200,7 +200,7 @@ export default function TransportationGuide({
 							<span>Compare travel times before booking</span>
 						</div>
 						<div className="flex items-center gap-2">
-							<MapPin className="h-4 w-4" />
+							<MapPin className="h-4 w-4 text-red-500" />
 							<span>Local transport available at destination</span>
 						</div>
 					</div>

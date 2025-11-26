@@ -29,7 +29,7 @@ export default function DestinationCard({ destination }: DestinationCardProps) {
 			href={`/travel-portal/destinations/${destination.id}`}
 			className="group"
 		>
-			<Card className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+			<Card className="overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 opacity-90 hover:opacity-100 pt-0">
 				<div className="relative h-48 w-full overflow-hidden bg-muted">
 					<Image
 						src={destination.image}
@@ -49,7 +49,7 @@ export default function DestinationCard({ destination }: DestinationCardProps) {
 						{destination.name}
 					</h3>
 					<div className="flex items-center text-sm text-muted-foreground mt-1">
-						<MapPin className="h-4 w-4 mr-1" />
+						<MapPin className="h-4 w-4 mr-1 text-red-500" />
 						<span className="line-clamp-1">{destination.location}</span>
 					</div>
 				</CardHeader>
