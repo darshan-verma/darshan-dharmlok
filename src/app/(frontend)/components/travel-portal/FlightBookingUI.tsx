@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import CategoryTabs from "./CategoryTabs";
 import TripTypeSelector from "./TripTypeSelector";
 import FromToSelector from "./FromToSelector";
@@ -24,6 +25,7 @@ interface CityLeg {
 }
 
 export default function FlightBookingUI() {
+	const router = useRouter();
 	const [activeCategory, setActiveCategory] = useState("Flights");
 	const [tripType, setTripType] = useState("round-trip");
 	const [departureDate, setDepartureDate] = useState<Date>();
@@ -78,8 +80,55 @@ export default function FlightBookingUI() {
 	};
 
 	const handleSearch = () => {
-		// Handle search logic here
-		console.log("Searching flights...", { tripType, multiCityLegs });
+		// Prepare search parameters and navigate to flight search page
+		const searchParams = new URLSearchParams();
+
+		if (tripType === "one-way" || tripType === "round-trip") {
+			searchParams.set("origin", from.code);
+			searchParams.set("destination", to.code);
+			searchParams.set(
+				"departureDate",
+				departureDate
+					? departureDate.toISOString().split("T")[0] + "T00:00:00"
+					: ""
+			);
+
+			if (tripType === "round-trip" && returnDate) {
+				searchParams.set(
+					"returnDate",
+					returnDate.toISOString().split("T")[0] + "T00:00:00"
+				);
+			}
+		} else if (tripType === "multi-city") {
+			// For multi-city, use the first leg for now
+			const firstLeg = multiCityLegs[0];
+			if (firstLeg) {
+				searchParams.set("origin", firstLeg.from.code);
+				searchParams.set("destination", firstLeg.to.code);
+				searchParams.set(
+					"departureDate",
+					firstLeg.date
+						? firstLeg.date.toISOString().split("T")[0] + "T00:00:00"
+						: ""
+				);
+			}
+		}
+
+		searchParams.set("adults", String(travellers));
+		searchParams.set("journeyType", tripType === "round-trip" ? "2" : "1");
+		searchParams.set(
+			"cabinClass",
+			travelClass === "Economy"
+				? "2"
+				: travelClass === "Premium Economy"
+				? "3"
+				: travelClass === "Business"
+				? "4"
+				: "1"
+		);
+
+		// Navigate to flight search page with parameters
+		router.push(`/travel-portal/flight-search?${searchParams.toString()}`);
 	};
 
 	// Map active category to a transportType id used by TravellerSelector
