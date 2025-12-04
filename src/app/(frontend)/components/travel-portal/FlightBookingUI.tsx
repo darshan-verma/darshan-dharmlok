@@ -109,20 +109,21 @@ export default function FlightBookingUI() {
 				searchParams.set("returnDate", formatLocalDate(returnDate));
 			}
 		} else if (tripType === "multi-city") {
-			// For multi-city, use the first leg for now
-			const firstLeg = multiCityLegs[0];
-			if (firstLeg) {
-				searchParams.set("origin", firstLeg.from.code);
-				searchParams.set("destination", firstLeg.to.code);
-				searchParams.set(
-					"departureDate",
-					firstLeg.date ? formatLocalDate(firstLeg.date) : ""
-				);
-			}
+			// For multi-city, pass all legs data
+			multiCityLegs.forEach((leg, index) => {
+				searchParams.set(`leg${index + 1}From`, leg.from.code);
+				searchParams.set(`leg${index + 1}To`, leg.to.code);
+				if (leg.date) {
+					searchParams.set(`leg${index + 1}Date`, formatLocalDate(leg.date));
+				}
+			});
 		}
 
 		searchParams.set("adults", String(travellers));
-		searchParams.set("journeyType", tripType === "round-trip" ? "2" : "1");
+		searchParams.set(
+			"journeyType",
+			tripType === "round-trip" ? "2" : tripType === "multi-city" ? "3" : "1"
+		);
 		searchParams.set(
 			"cabinClass",
 			travelClass === "Economy"

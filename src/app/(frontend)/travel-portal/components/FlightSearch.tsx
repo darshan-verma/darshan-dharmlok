@@ -10,12 +10,17 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Plane, Sunrise, Sun, Sunset, Moon } from "lucide-react";
 import { toast } from "@/lib/toast";
-import type { FlightResult, FlightSegmentDetail } from "@/types/tekTravels";
+import type {
+	FlightResult,
+	FlightSegmentDetail,
+	FlightSegment as ApiFlightSegment,
+} from "@/types/tekTravels";
 import DateSelector from "../../components/travel-portal/DateSelector";
 import TravellerSelector from "../../components/travel-portal/TravellerSelector";
 import FromToSelector from "../../components/travel-portal/FromToSelector";
 import TripTypeSelector from "../../components/travel-portal/TripTypeSelector";
 import SearchButton from "../../components/travel-portal/SearchButton";
+import MultiCitySelector from "../../components/travel-portal/MultiCitySelector";
 
 interface City {
 	city: string;
@@ -23,18 +28,47 @@ interface City {
 	code: string;
 }
 
+interface CityLeg {
+	id: string;
+	from: City;
+	to: City;
+	date?: Date;
+}
+
 interface FlightSearchForm {
 	origin: string;
 	destination: string;
 	departureDate: Date | undefined;
 	returnDate?: Date | undefined;
+	segments?: FlightSegment[]; // For multi-city flights
 	adults: number;
 	children: number;
 	infants: number;
 	cabinClass: string;
-	journeyType: "1" | "2"; // 1: OneWay, 2: Return
+	journeyType: "1" | "2" | "3"; // 1: OneWay, 2: Return, 3: MultiCity
 	directFlight: boolean;
 	oneStopFlight: boolean;
+}
+
+interface FlightSegment {
+	origin: string;
+	destination: string;
+	departureDate: Date | undefined;
+}
+
+interface FlightSearchParams {
+	AdultCount: string;
+	ChildCount: string;
+	InfantCount: string;
+	FlightCabinClass: string;
+	JourneyType: "1" | "2" | "3";
+	DirectFlight: string;
+	OneStopFlight: string;
+	Segments?: ApiFlightSegment[];
+	Origin?: string;
+	Destination?: string;
+	PreferredDepartureTime?: string;
+	ReturnPreferredDepartureTime?: string;
 }
 
 const timeSlots = [
@@ -64,11 +98,13 @@ const reverseCabinClassMapping: { [key: string]: string } = {
 const tripTypeMapping: { [key: string]: string } = {
 	"one-way": "1",
 	"round-trip": "2",
+	"multi-city": "3",
 };
 
 const reverseTripTypeMapping: { [key: string]: string } = {
 	"1": "one-way",
 	"2": "round-trip",
+	"3": "multi-city",
 };
 
 // Airport code to city name mapping
@@ -119,6 +155,34 @@ export default function FlightSearch() {
 	// TripTypeSelector state
 	const [tripType, setTripType] = useState("one-way");
 
+	// Multi-city state
+	const [multiCityLegs, setMultiCityLegs] = useState<CityLeg[]>([
+		{
+			id: "leg-1",
+			from: { city: "Delhi", airport: "Delhi Airport India", code: "DEL" },
+			to: {
+				city: "Bengaluru",
+				airport: "Bengaluru International Airport",
+				code: "BLR",
+			},
+			date: undefined,
+		},
+		{
+			id: "leg-2",
+			from: {
+				city: "Bengaluru",
+				airport: "Bengaluru International Airport",
+				code: "BLR",
+			},
+			to: {
+				city: "Mumbai",
+				airport: "Chhatrapati Shivaji Maharaj International Airport",
+				code: "BOM",
+			},
+			date: undefined,
+		},
+	]);
+
 	// FromToSelector state
 	const [from, setFrom] = useState({
 		city: "Delhi",
@@ -150,6 +214,10 @@ export default function FlightSearch() {
 			destination: "",
 			departureDate: undefined,
 			returnDate: undefined,
+			segments: [
+				{ origin: "", destination: "", departureDate: undefined },
+				{ origin: "", destination: "", departureDate: undefined },
+			],
 			adults: 1,
 			children: 0,
 			infants: 0,
@@ -170,8 +238,101 @@ export default function FlightSearch() {
 		const journeyType = searchParams.get("journeyType");
 		const cabinClass = searchParams.get("cabinClass");
 
-		if (origin && destination && departureDate) {
-			// Fill form with URL parameters
+		// Check for multi-city parameters
+		const leg1From = searchParams.get("leg1From");
+		const leg1To = searchParams.get("leg1To");
+		const leg1Date = searchParams.get("leg1Date");
+		const leg2From = searchParams.get("leg2From");
+		const leg2To = searchParams.get("leg2To");
+		const leg2Date = searchParams.get("leg2Date");
+		const leg3From = searchParams.get("leg3From");
+		const leg3To = searchParams.get("leg3To");
+		const leg3Date = searchParams.get("leg3Date");
+
+		if (journeyType === "3" && leg1From && leg1To) {
+			// Multi-city search
+			setTripType("multi-city");
+			form.setValue("journeyType", "3");
+
+			const newLegs: CityLeg[] = [];
+
+			// Add leg 1
+			if (leg1From && leg1To) {
+				newLegs.push({
+					id: "leg-1",
+					from: {
+						city: "Delhi",
+						airport: "Delhi Airport India",
+						code: leg1From,
+					}, // Simplified, should lookup actual city
+					to: {
+						city: "Bengaluru",
+						airport: "Bengaluru International Airport",
+						code: leg1To,
+					}, // Simplified
+					date: leg1Date ? new Date(leg1Date) : undefined,
+				});
+			}
+
+			// Add leg 2
+			if (leg2From && leg2To) {
+				newLegs.push({
+					id: "leg-2",
+					from: {
+						city: "Bengaluru",
+						airport: "Bengaluru International Airport",
+						code: leg2From,
+					}, // Simplified
+					to: {
+						city: "Mumbai",
+						airport: "Chhatrapati Shivaji Maharaj International Airport",
+						code: leg2To,
+					}, // Simplified
+					date: leg2Date ? new Date(leg2Date) : undefined,
+				});
+			}
+
+			// Add leg 3
+			if (leg3From && leg3To) {
+				newLegs.push({
+					id: "leg-3",
+					from: {
+						city: "Mumbai",
+						airport: "Chhatrapati Shivaji Maharaj International Airport",
+						code: leg3From,
+					}, // Simplified
+					to: { city: "Delhi", airport: "Delhi Airport India", code: leg3To }, // Simplified
+					date: leg3Date ? new Date(leg3Date) : undefined,
+				});
+			}
+
+			setMultiCityLegs(newLegs);
+
+			// Update form segments
+			const segments = newLegs.map((leg) => ({
+				origin: leg.from.code,
+				destination: leg.to.code,
+				departureDate: leg.date,
+			}));
+			form.setValue("segments", segments);
+
+			// Automatically perform multi-city search
+			handleAutoSearch({
+				origin: "",
+				destination: "",
+				departureDate: undefined,
+				returnDate: undefined,
+				segments: segments,
+				adults: adults ? parseInt(adults) : 1,
+				children: 0,
+				infants: 0,
+				cabinClass: cabinClass || "1",
+				journeyType: "3",
+				directFlight: true,
+				oneStopFlight: false,
+			});
+		} else if (origin && destination && departureDate) {
+			// One-way or round-trip search
 			form.setValue("origin", origin);
 			form.setValue("destination", destination);
 			setFrom({ city: "Delhi", airport: "Delhi Airport India", code: origin }); // Simplified, should lookup actual city
@@ -240,7 +401,7 @@ export default function FlightSearch() {
 
 	const handleTripTypeChange = (type: string) => {
 		setTripType(type);
-		form.setValue("journeyType", tripTypeMapping[type] as "1" | "2");
+		form.setValue("journeyType", tripTypeMapping[type] as "1" | "2" | "3");
 	};
 
 	// Filter flights based on selected criteria
@@ -319,11 +480,40 @@ export default function FlightSearch() {
 		}
 	}, [flights]);
 
+	// Sync multi-city legs with form segments
+	useEffect(() => {
+		if (tripType === "multi-city") {
+			const segments = multiCityLegs.map((leg) => ({
+				origin: leg.from.code,
+				destination: leg.to.code,
+				departureDate: leg.date,
+			}));
+			form.setValue("segments", segments);
+		}
+	}, [multiCityLegs, tripType, form]);
+
 	const handleAutoSearch = async (searchData: FlightSearchForm) => {
 		// Validate round trip requires return date
 		if (searchData.journeyType === "2" && !searchData.returnDate) {
 			toast.error("Please select a return date for round trip flights");
 			return;
+		}
+
+		// Validate multi-city requires at least 2 segments with complete data
+		if (searchData.journeyType === "3") {
+			if (!searchData.segments || searchData.segments.length < 2) {
+				toast.error("Multi-city flights require at least 2 segments");
+				return;
+			}
+			for (let i = 0; i < searchData.segments.length; i++) {
+				const segment = searchData.segments[i];
+				if (!segment.origin || !segment.destination || !segment.departureDate) {
+					toast.error(
+						`Segment ${i + 1} is incomplete. Please fill all fields.`
+					);
+					return;
+				}
+			}
 		}
 
 		setLoading(true);
@@ -334,18 +524,12 @@ export default function FlightSearch() {
 				const year = date.getFullYear();
 				const month = String(date.getMonth() + 1).padStart(2, "0");
 				const day = String(date.getDate()).padStart(2, "0");
-				return `${year}-${month}-${day}`;
+				const hours = String(date.getHours()).padStart(2, "0");
+				const minutes = String(date.getMinutes()).padStart(2, "0");
+				return `${year}-${month}-${day}T${hours}:${minutes}:00`;
 			};
 
-			const searchParams = {
-				Origin: searchData.origin.toUpperCase(),
-				Destination: searchData.destination.toUpperCase(),
-				PreferredDepartureTime: searchData.departureDate
-					? formatLocalDate(searchData.departureDate)
-					: "",
-				ReturnPreferredDepartureTime: searchData.returnDate
-					? formatLocalDate(searchData.returnDate)
-					: "",
+			const searchParams: FlightSearchParams = {
 				AdultCount: String(searchData.adults),
 				ChildCount: String(searchData.children),
 				InfantCount: String(searchData.infants),
@@ -354,6 +538,31 @@ export default function FlightSearch() {
 				DirectFlight: String(searchData.directFlight),
 				OneStopFlight: String(searchData.oneStopFlight),
 			};
+
+			// Handle different journey types
+			if (searchData.journeyType === "3" && searchData.segments) {
+				// Multi-city
+				searchParams.Segments = searchData.segments.map((segment) => ({
+					Origin: segment.origin.toUpperCase(),
+					Destination: segment.destination.toUpperCase(),
+					FlightCabinClass: searchData.cabinClass,
+					PreferredDepartureTime: segment.departureDate
+						? formatLocalDate(segment.departureDate)
+						: "",
+				}));
+			} else {
+				// One-way or round-trip
+				searchParams.Origin = searchData.origin.toUpperCase();
+				searchParams.Destination = searchData.destination.toUpperCase();
+				searchParams.PreferredDepartureTime = searchData.departureDate
+					? formatLocalDate(searchData.departureDate)
+					: "";
+				if (searchData.journeyType === "2") {
+					searchParams.ReturnPreferredDepartureTime = searchData.returnDate
+						? formatLocalDate(searchData.returnDate)
+						: "";
+				}
+			}
 
 			const response = await fetch("/api/travel/flights/search", {
 				method: "POST",
@@ -433,6 +642,21 @@ export default function FlightSearch() {
 			return;
 		}
 
+		// Validate multi-city requires segments
+		if (data.journeyType === "3") {
+			if (!data.segments || data.segments.length < 2) {
+				toast.error("Multi-city flights require at least 2 segments");
+				return;
+			}
+			for (let i = 0; i < data.segments.length; i++) {
+				const segment = data.segments[i];
+				if (!segment.origin || !segment.destination || !segment.departureDate) {
+					toast.error(`Please fill all fields for segment ${i + 1}`);
+					return;
+				}
+			}
+		}
+
 		setLoading(true);
 		setSearchPerformed(true);
 
@@ -441,18 +665,12 @@ export default function FlightSearch() {
 				const year = date.getFullYear();
 				const month = String(date.getMonth() + 1).padStart(2, "0");
 				const day = String(date.getDate()).padStart(2, "0");
-				return `${year}-${month}-${day}`;
+				const hours = String(date.getHours()).padStart(2, "0");
+				const minutes = String(date.getMinutes()).padStart(2, "0");
+				return `${year}-${month}-${day}T${hours}:${minutes}:00`;
 			};
 
-			const searchParams = {
-				Origin: data.origin.toUpperCase(),
-				Destination: data.destination.toUpperCase(),
-				PreferredDepartureTime: data.departureDate
-					? formatLocalDate(data.departureDate)
-					: "",
-				ReturnPreferredDepartureTime: data.returnDate
-					? formatLocalDate(data.returnDate)
-					: "",
+			const searchParams: FlightSearchParams = {
 				AdultCount: String(data.adults),
 				ChildCount: String(data.children),
 				InfantCount: String(data.infants),
@@ -461,6 +679,39 @@ export default function FlightSearch() {
 				DirectFlight: String(data.directFlight),
 				OneStopFlight: String(data.oneStopFlight),
 			};
+
+			// Handle different journey types
+			if (data.journeyType === "3" && data.segments) {
+				// Multi-city
+				searchParams.Segments = data.segments.map((segment) => {
+					console.log(
+						"Processing segment:",
+						segment,
+						"departureDate type:",
+						typeof segment.departureDate
+					);
+					return {
+						Origin: segment.origin.toUpperCase(),
+						Destination: segment.destination.toUpperCase(),
+						FlightCabinClass: data.cabinClass,
+						PreferredDepartureTime: segment.departureDate
+							? formatLocalDate(new Date(segment.departureDate))
+							: "",
+					};
+				});
+			} else {
+				// One-way or round-trip
+				searchParams.Origin = data.origin.toUpperCase();
+				searchParams.Destination = data.destination.toUpperCase();
+				searchParams.PreferredDepartureTime = data.departureDate
+					? formatLocalDate(data.departureDate)
+					: "";
+				if (data.journeyType === "2") {
+					searchParams.ReturnPreferredDepartureTime = data.returnDate
+						? formatLocalDate(data.returnDate)
+						: "";
+				}
+			}
 
 			const response = await fetch("/api/travel/flights/search", {
 				method: "POST",
@@ -791,15 +1042,22 @@ export default function FlightSearch() {
 						</div>
 
 						<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-							{/* From/To Selector */}
+							{/* From/To Selector or Multi-City Selector */}
 							<div className="lg:col-span-2">
-								<FromToSelector
-									from={from}
-									to={to}
-									onSwap={handleSwap}
-									onFromChange={handleFromChange}
-									onToChange={handleToChange}
-								/>
+								{tripType === "multi-city" ? (
+									<MultiCitySelector
+										legs={multiCityLegs}
+										onLegsChange={setMultiCityLegs}
+									/>
+								) : (
+									<FromToSelector
+										from={from}
+										to={to}
+										onSwap={handleSwap}
+										onFromChange={handleFromChange}
+										onToChange={handleToChange}
+									/>
+								)}
 							</div>
 
 							{/* Dates */}
@@ -1110,133 +1368,176 @@ export default function FlightSearch() {
 																	"Round trip flight:",
 																	flight.Segments
 																);
-																return flight.Segments &&
-																	flight.Segments.length > 1 ? (
+																// Check if this is a multi-city flight (more than 2 segments or JourneyType indicates multi-city)
+																const isMultiCity =
+																	tripType === "multi-city" ||
+																	(flight.Segments &&
+																		flight.Segments.length > 2);
+																const isRoundTrip =
+																	!isMultiCity &&
+																	flight.Segments &&
+																	flight.Segments.length === 2;
+
+																if (isMultiCity && flight.Segments) {
+																	// Multi-city display - show all legs
+																	return (
+																		<div>
+																			{flight.Segments.map(
+																				(legSegments, legIndex) => (
+																					<FlightLegDisplay
+																						key={legIndex}
+																						segments={legSegments}
+																						legType={`Leg ${legIndex + 1}: ${
+																							legSegments?.[0]?.Origin?.Airport
+																								?.CityName ||
+																							legSegments?.[0]?.Origin?.Airport
+																								?.AirportCode
+																						} → ${
+																							legSegments?.[
+																								legSegments.length - 1
+																							]?.Destination?.Airport
+																								?.CityName ||
+																							legSegments?.[
+																								legSegments.length - 1
+																							]?.Destination?.Airport
+																								?.AirportCode
+																						}`}
+																					/>
+																				)
+																			)}
+																		</div>
+																	);
+																} else if (isRoundTrip) {
 																	// Round trip display - Outbound (Departure) first, Inbound (Return) second
-																	<div>
-																		{flight.Segments?.[0] && (
-																			<FlightLegDisplay
-																				segments={flight.Segments[0]}
-																				legType="Outbound (Departure Flight)"
-																			/>
-																		)}
-																		{flight.Segments?.[1] ? (
-																			<FlightLegDisplay
-																				segments={flight.Segments[1]}
-																				legType="Inbound (Return Flight)"
-																			/>
-																		) : (
-																			<div className="text-red-500 text-sm">
-																				Return flight data not available
-																			</div>
-																		)}
-																	</div>
-																) : (
+																	return (
+																		<div>
+																			{flight.Segments?.[0] && (
+																				<FlightLegDisplay
+																					segments={flight.Segments[0]}
+																					legType="Outbound (Departure Flight)"
+																				/>
+																			)}
+																			{flight.Segments?.[1] ? (
+																				<FlightLegDisplay
+																					segments={flight.Segments[1]}
+																					legType="Inbound (Return Flight)"
+																				/>
+																			) : (
+																				<div className="text-red-500 text-sm">
+																					Return flight data not available
+																				</div>
+																			)}
+																		</div>
+																	);
+																} else {
 																	// One-way display
-																	<div className="flex items-center gap-4 mb-3">
-																		<div className="text-center">
-																			<div className="text-lg font-bold">
-																				{flight.Segments?.[0]?.[0]?.Origin
-																					?.Airport?.AirportCode || "N/A"}
+																	return (
+																		<div className="flex items-center gap-4 mb-3">
+																			<div className="text-center">
+																				<div className="text-lg font-bold">
+																					{flight.Segments?.[0]?.[0]?.Origin
+																						?.Airport?.AirportCode || "N/A"}
+																				</div>
+																				<div className="text-sm text-muted-foreground font-medium">
+																					{flight.Segments?.[0]?.[0]?.Origin
+																						?.Airport?.CityName ||
+																						(flight.Segments?.[0]?.[0]?.Origin
+																							?.Airport?.AirportCode &&
+																							airportToCityMap[
+																								flight.Segments[0][0].Origin
+																									.Airport.AirportCode
+																							]) ||
+																						flight.Segments?.[0]?.[0]?.Origin
+																							?.Airport?.AirportCode ||
+																						"Unknown"}
+																				</div>
+																				<div className="text-sm font-medium">
+																					{formatTime(
+																						flight.Segments?.[0]?.[0]?.Origin
+																							?.DepTime ||
+																							flight.Segments?.[0]?.[0]
+																								?.DepartureTime
+																					)}
+																				</div>
+																				<div className="text-xs text-muted-foreground">
+																					{formatDate(
+																						flight.Segments?.[0]?.[0]?.Origin
+																							?.DepTime ||
+																							flight.Segments?.[0]?.[0]
+																								?.DepartureTime
+																					)}
+																				</div>
 																			</div>
-																			<div className="text-sm text-muted-foreground font-medium">
-																				{flight.Segments?.[0]?.[0]?.Origin
-																					?.Airport?.CityName ||
-																					(flight.Segments?.[0]?.[0]?.Origin
-																						?.Airport?.AirportCode &&
-																						airportToCityMap[
-																							flight.Segments[0][0].Origin
-																								.Airport.AirportCode
-																						]) ||
-																					flight.Segments?.[0]?.[0]?.Origin
-																						?.Airport?.AirportCode ||
-																					"Unknown"}
-																			</div>
-																			<div className="text-sm font-medium">
-																				{formatTime(
-																					flight.Segments?.[0]?.[0]?.Origin
-																						?.DepTime ||
-																						flight.Segments?.[0]?.[0]
-																							?.DepartureTime
-																				)}
-																			</div>
-																			<div className="text-xs text-muted-foreground">
-																				{formatDate(
-																					flight.Segments?.[0]?.[0]?.Origin
-																						?.DepTime ||
-																						flight.Segments?.[0]?.[0]
-																							?.DepartureTime
-																				)}
-																			</div>
-																		</div>
 
-																		<div className="flex-1 flex flex-col items-center">
-																			<div className="text-sm text-muted-foreground mb-1">
-																				{formatDuration(
-																					flight.Segments?.[0]?.[0]?.Duration
-																				)}
+																			<div className="flex-1 flex flex-col items-center">
+																				<div className="text-sm text-muted-foreground mb-1">
+																					{formatDuration(
+																						flight.Segments?.[0]?.[0]?.Duration
+																					)}
+																				</div>
+																				<div className="w-full h-px bg-border relative">
+																					<Plane className="h-3 w-3 absolute right-0 top-1/2 -translate-y-1/2 text-blue-500" />
+																				</div>
+																				{flight.Segments?.[0] &&
+																					flight.Segments[0].length > 1 && (
+																						<div className="text-xs text-muted-foreground mt-1">
+																							{flight.Segments[0].length - 1}{" "}
+																							stop(s)
+																						</div>
+																					)}
 																			</div>
-																			<div className="w-full h-px bg-border relative">
-																				<Plane className="h-3 w-3 absolute right-0 top-1/2 -translate-y-1/2 text-blue-500" />
-																			</div>
-																			{flight.Segments?.[0] &&
-																				flight.Segments[0].length > 1 && (
-																					<div className="text-xs text-muted-foreground mt-1">
-																						{flight.Segments[0].length - 1}{" "}
-																						stop(s)
-																					</div>
-																				)}
-																		</div>
 
-																		<div className="text-center">
-																			<div className="text-lg font-bold">
-																				{flight.Segments?.[0]?.[
-																					flight.Segments[0].length - 1
-																				]?.Destination?.Airport?.AirportCode ||
-																					"N/A"}
-																			</div>
-																			<div className="text-sm text-muted-foreground font-medium">
-																				{flight.Segments?.[0]?.[
-																					flight.Segments[0].length - 1
-																				]?.Destination?.Airport?.CityName ||
-																					(flight.Segments?.[0]?.[
+																			<div className="text-center">
+																				<div className="text-lg font-bold">
+																					{flight.Segments?.[0]?.[
 																						flight.Segments[0].length - 1
 																					]?.Destination?.Airport
-																						?.AirportCode &&
-																						airportToCityMap[
-																							flight.Segments[0][
+																						?.AirportCode || "N/A"}
+																				</div>
+																				<div className="text-sm text-muted-foreground font-medium">
+																					{flight.Segments?.[0]?.[
+																						flight.Segments[0].length - 1
+																					]?.Destination?.Airport?.CityName ||
+																						(flight.Segments?.[0]?.[
+																							flight.Segments[0].length - 1
+																						]?.Destination?.Airport
+																							?.AirportCode &&
+																							airportToCityMap[
+																								flight.Segments[0][
+																									flight.Segments[0].length - 1
+																								].Destination.Airport
+																									.AirportCode
+																							]) ||
+																						flight.Segments?.[0]?.[
+																							flight.Segments[0].length - 1
+																						]?.Destination?.Airport
+																							?.AirportCode ||
+																						"Unknown"}
+																				</div>
+																				<div className="text-sm font-medium">
+																					{formatTime(
+																						flight.Segments?.[0]?.[
+																							flight.Segments[0].length - 1
+																						]?.Destination?.ArrTime ||
+																							flight.Segments?.[0]?.[
 																								flight.Segments[0].length - 1
-																							].Destination.Airport.AirportCode
-																						]) ||
-																					flight.Segments?.[0]?.[
-																						flight.Segments[0].length - 1
-																					]?.Destination?.Airport
-																						?.AirportCode ||
-																					"Unknown"}
-																			</div>
-																			<div className="text-sm font-medium">
-																				{formatTime(
-																					flight.Segments?.[0]?.[
-																						flight.Segments[0].length - 1
-																					]?.Destination?.ArrTime ||
+																							]?.ArrivalTime
+																					)}
+																				</div>
+																				<div className="text-xs text-muted-foreground">
+																					{formatDate(
 																						flight.Segments?.[0]?.[
 																							flight.Segments[0].length - 1
-																						]?.ArrivalTime
-																				)}
-																			</div>
-																			<div className="text-xs text-muted-foreground">
-																				{formatDate(
-																					flight.Segments?.[0]?.[
-																						flight.Segments[0].length - 1
-																					]?.Destination?.ArrTime ||
-																						flight.Segments?.[0]?.[
-																							flight.Segments[0].length - 1
-																						]?.ArrivalTime
-																				)}
+																						]?.Destination?.ArrTime ||
+																							flight.Segments?.[0]?.[
+																								flight.Segments[0].length - 1
+																							]?.ArrivalTime
+																					)}
+																				</div>
 																			</div>
 																		</div>
-																	</div>
-																);
+																	);
+																}
 															})()}
 														</div>
 
