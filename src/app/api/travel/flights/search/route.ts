@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchFlights } from "@/lib/tekTravelsClient";
+import type { FlightSegment } from "@/types/tekTravels";
 
 /**
  * POST /api/travel/flights/search
@@ -9,13 +10,38 @@ export async function POST(request: NextRequest) {
 	try {
 		const body = await request.json();
 
-		// Validate required parameters
-		if (!body.Origin || !body.Destination) {
-			return NextResponse.json(
-				{ error: "Origin and Destination are required" },
-				{ status: 400 }
-			);
+		// Validate dates are not in the past
+		const today = new Date();
+		today.setHours(0, 0, 0, 0); // Set to start of today
+
+		if (body.PreferredDepartureTime) {
+			const departureDate = new Date(body.PreferredDepartureTime);
+			if (departureDate < today) {
+				return NextResponse.json(
+					{ error: "Departure date cannot be in the past" },
+					{ status: 400 }
+				);
+			}
 		}
+
+		if (body.ReturnPreferredDepartureTime) {
+			const returnDate = new Date(body.ReturnPreferredDepartureTime);
+			if (returnDate < today) {
+				return NextResponse.json(
+					{ error: "Return date cannot be in the past" },
+					{ status: 400 }
+				);
+			}
+		}
+
+		// Helper function to format date as yyyy-MM-ddTHH:mm:ss
+		const formatDate = (dateStr: string) => {
+			const date = new Date(dateStr);
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, "0");
+			const day = String(date.getDate()).padStart(2, "0");
+			return `${year}-${month}-${day}T00:00:00`;
+		};
 
 		// Format search parameters to match TekTravels API exactly
 		const searchParams = {
@@ -29,28 +55,44 @@ export async function POST(request: NextRequest) {
 				body.OneStopFlight !== undefined ? String(body.OneStopFlight) : "false",
 			JourneyType: body.JourneyType || "1", // 1: OneWay, 2: Return, 3: MultiCity
 			PreferredAirlines: body.PreferredAirlines || null,
-			Segments: [
-				{
-					Origin: body.Origin,
-					Destination: body.Destination,
-					FlightCabinClass: body.FlightCabinClass || "1", // 1: All, 2: Economy, 3: Premium Economy, 4: Business, 5: Premium Business, 6: First
-					PreferredDepartureTime: body.PreferredDepartureTime,
-					PreferredArrivalTime: body.PreferredArrivalTime,
-				},
-			],
+			Segments: [] as FlightSegment[],
 			Sources: body.Sources || null,
 		};
 
-		// If return journey, add return segment
-		if (body.JourneyType == "2" && body.ReturnDate) {
+		// Add outbound segment first
+		searchParams.Segments.push({
+			Origin: body.Origin,
+			Destination: body.Destination,
+			FlightCabinClass: body.FlightCabinClass || "1",
+			PreferredDepartureTime: body.PreferredDepartureTime
+				? formatDate(body.PreferredDepartureTime)
+				: "",
+			...(body.PreferredArrivalTime && {
+				PreferredArrivalTime: formatDate(body.PreferredArrivalTime),
+			}),
+		});
+
+		// If return journey, add return segment below the outbound
+		if (
+			body.JourneyType == "2" &&
+			body.ReturnPreferredDepartureTime &&
+			body.ReturnPreferredDepartureTime.trim() !== ""
+		) {
 			searchParams.Segments.push({
 				Origin: body.Destination,
 				Destination: body.Origin,
 				FlightCabinClass: body.FlightCabinClass || "1",
-				PreferredDepartureTime: body.ReturnPreferredDepartureTime,
-				PreferredArrivalTime: body.ReturnPreferredArrivalTime,
+				PreferredDepartureTime: formatDate(body.ReturnPreferredDepartureTime),
+				...(body.ReturnPreferredArrivalTime && {
+					PreferredArrivalTime: formatDate(body.ReturnPreferredArrivalTime),
+				}),
 			});
 		}
+
+		console.log(
+			"Search params being sent:",
+			JSON.stringify(searchParams, null, 2)
+		);
 
 		const result = await searchFlights(searchParams);
 

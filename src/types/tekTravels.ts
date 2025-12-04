@@ -61,14 +61,20 @@ export interface FlightSegmentDetail {
 		FlightNumber: string;
 		FareClass: string;
 	};
-	Origin: Airport;
-	Destination: Airport;
+	Origin: {
+		Airport: Airport;
+		DepTime: string;
+	};
+	Destination: {
+		Airport: Airport;
+		ArrTime: string;
+	};
 	Duration: number;
 	GroundTime: number;
 	Mile: number;
 	StopOver: boolean;
-	DepartureTime: string;
-	ArrivalTime: string;
+	DepartureTime?: string;
+	ArrivalTime?: string;
 	FlightStatus: string;
 	StopPoint: string;
 	StopPointArrivalTime: string;

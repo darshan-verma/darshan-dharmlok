@@ -80,6 +80,20 @@ export default function FlightBookingUI() {
 	};
 
 	const handleSearch = () => {
+		// Validate round trip requires return date
+		if (tripType === "round-trip" && !returnDate) {
+			alert("Please select a return date for round trip flights");
+			return;
+		}
+
+		// Helper function to format date in local timezone
+		const formatLocalDate = (date: Date) => {
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, "0");
+			const day = String(date.getDate()).padStart(2, "0");
+			return `${year}-${month}-${day}T00:00:00`;
+		};
+
 		// Prepare search parameters and navigate to flight search page
 		const searchParams = new URLSearchParams();
 
@@ -88,16 +102,11 @@ export default function FlightBookingUI() {
 			searchParams.set("destination", to.code);
 			searchParams.set(
 				"departureDate",
-				departureDate
-					? departureDate.toISOString().split("T")[0] + "T00:00:00"
-					: ""
+				departureDate ? formatLocalDate(departureDate) : ""
 			);
 
 			if (tripType === "round-trip" && returnDate) {
-				searchParams.set(
-					"returnDate",
-					returnDate.toISOString().split("T")[0] + "T00:00:00"
-				);
+				searchParams.set("returnDate", formatLocalDate(returnDate));
 			}
 		} else if (tripType === "multi-city") {
 			// For multi-city, use the first leg for now
@@ -107,9 +116,7 @@ export default function FlightBookingUI() {
 				searchParams.set("destination", firstLeg.to.code);
 				searchParams.set(
 					"departureDate",
-					firstLeg.date
-						? firstLeg.date.toISOString().split("T")[0] + "T00:00:00"
-						: ""
+					firstLeg.date ? formatLocalDate(firstLeg.date) : ""
 				);
 			}
 		}

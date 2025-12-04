@@ -5,34 +5,29 @@ import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-	Loader2,
-	Plane,
-	Search,
-	Sunrise,
-	Sun,
-	Sunset,
-	Moon,
-} from "lucide-react";
+import { Plane, Sunrise, Sun, Sunset, Moon } from "lucide-react";
 import { toast } from "@/lib/toast";
-import type { FlightResult } from "@/types/tekTravels";
+import type { FlightResult, FlightSegmentDetail } from "@/types/tekTravels";
+import DateSelector from "../../components/travel-portal/DateSelector";
+import TravellerSelector from "../../components/travel-portal/TravellerSelector";
+import FromToSelector from "../../components/travel-portal/FromToSelector";
+import TripTypeSelector from "../../components/travel-portal/TripTypeSelector";
+import SearchButton from "../../components/travel-portal/SearchButton";
+
+interface City {
+	city: string;
+	airport: string;
+	code: string;
+}
 
 interface FlightSearchForm {
 	origin: string;
 	destination: string;
-	departureDate: string;
-	returnDate?: string;
+	departureDate: Date | undefined;
+	returnDate?: Date | undefined;
 	adults: number;
 	children: number;
 	infants: number;
@@ -49,11 +44,92 @@ const timeSlots = [
 	{ label: "After 6PM", icon: Moon, range: [18, 24] },
 ];
 
+const cabinClassMapping: { [key: string]: string } = {
+	Economy: "1",
+	"Premium Economy": "3",
+	Business: "4",
+	"Premium Business": "5",
+	First: "6",
+};
+
+const reverseCabinClassMapping: { [key: string]: string } = {
+	"1": "Economy",
+	"2": "Economy",
+	"3": "Premium Economy",
+	"4": "Business",
+	"5": "Premium Business",
+	"6": "First",
+};
+
+const tripTypeMapping: { [key: string]: string } = {
+	"one-way": "1",
+	"round-trip": "2",
+};
+
+const reverseTripTypeMapping: { [key: string]: string } = {
+	"1": "one-way",
+	"2": "round-trip",
+};
+
+// Airport code to city name mapping
+const airportToCityMap: { [key: string]: string } = {
+	DEL: "Delhi",
+	BLR: "Bengaluru",
+	BOM: "Mumbai",
+	HYD: "Hyderabad",
+	MAA: "Chennai",
+	CCU: "Kolkata",
+	PNQ: "Pune",
+	AMD: "Ahmedabad",
+	GOI: "Goa",
+	JAI: "Jaipur",
+	COK: "Kochi",
+	TRV: "Thiruvananthapuram",
+	GAU: "Guwahati",
+	IXC: "Chandigarh",
+	IXR: "Ranchi",
+	BBI: "Bhubaneswar",
+	VNS: "Varanasi",
+	IXB: "Bagdogra",
+	NAG: "Nagpur",
+	IXL: "Leh",
+	ATQ: "Amritsar",
+	IXJ: "Jammu",
+	SXR: "Srinagar",
+	IXZ: "Port Blair",
+	IXU: "Aurangabad",
+	RPR: "Raipur",
+	IXD: "Allahabad",
+};
+
 export default function FlightSearch() {
 	const searchParams = useSearchParams();
 	const [loading, setLoading] = useState(false);
 	const [flights, setFlights] = useState<FlightResult[]>([]);
 	const [searchPerformed, setSearchPerformed] = useState(false);
+
+	// DateSelector state
+	const [departureDate, setDepartureDate] = useState<Date>();
+	const [returnDate, setReturnDate] = useState<Date>();
+
+	// TravellerSelector state
+	const [travellers, setTravellers] = useState(1);
+	const [travelClass, setTravelClass] = useState("Economy");
+
+	// TripTypeSelector state
+	const [tripType, setTripType] = useState("one-way");
+
+	// FromToSelector state
+	const [from, setFrom] = useState({
+		city: "Delhi",
+		airport: "Delhi Airport India",
+		code: "DEL",
+	});
+	const [to, setTo] = useState({
+		city: "Bengaluru",
+		airport: "Bengaluru International Airport",
+		code: "BLR",
+	});
 
 	// Filter states
 	const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000]);
@@ -72,8 +148,8 @@ export default function FlightSearch() {
 		defaultValues: {
 			origin: "",
 			destination: "",
-			departureDate: "",
-			returnDate: "",
+			departureDate: undefined,
+			returnDate: undefined,
 			adults: 1,
 			children: 0,
 			infants: 0,
@@ -98,26 +174,40 @@ export default function FlightSearch() {
 			// Fill form with URL parameters
 			form.setValue("origin", origin);
 			form.setValue("destination", destination);
-			form.setValue("departureDate", departureDate.split("T")[0]); // Extract date part
+			setFrom({ city: "Delhi", airport: "Delhi Airport India", code: origin }); // Simplified, should lookup actual city
+			setTo({
+				city: "Bengaluru",
+				airport: "Bengaluru International Airport",
+				code: destination,
+			}); // Simplified
+			const depDate = new Date(departureDate);
+			setDepartureDate(depDate);
+			form.setValue("departureDate", depDate);
 			if (returnDate) {
-				form.setValue("returnDate", returnDate.split("T")[0]);
+				const retDate = new Date(returnDate);
+				setReturnDate(retDate);
+				form.setValue("returnDate", retDate);
 			}
 			if (adults) {
-				form.setValue("adults", parseInt(adults));
+				const adultCount = parseInt(adults);
+				setTravellers(adultCount);
+				form.setValue("adults", adultCount);
 			}
 			if (journeyType) {
 				form.setValue("journeyType", journeyType as "1" | "2");
+				setTripType(reverseTripTypeMapping[journeyType] || "one-way");
 			}
 			if (cabinClass) {
 				form.setValue("cabinClass", cabinClass);
+				setTravelClass(reverseCabinClassMapping[cabinClass] || "Economy");
 			}
 
 			// Automatically perform search
 			handleAutoSearch({
 				origin,
 				destination,
-				departureDate,
-				returnDate: returnDate || undefined,
+				departureDate: depDate,
+				returnDate: returnDate ? new Date(returnDate) : undefined,
 				adults: adults ? parseInt(adults) : 1,
 				children: 0,
 				infants: 0,
@@ -127,7 +217,31 @@ export default function FlightSearch() {
 				oneStopFlight: false,
 			});
 		}
-	}, [searchParams, form]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [searchParams]);
+
+	const handleSwap = () => {
+		const temp = from;
+		setFrom(to);
+		setTo(temp);
+		form.setValue("origin", to.code);
+		form.setValue("destination", from.code);
+	};
+
+	const handleFromChange = (city: City) => {
+		setFrom(city);
+		form.setValue("origin", city.code);
+	};
+
+	const handleToChange = (city: City) => {
+		setTo(city);
+		form.setValue("destination", city.code);
+	};
+
+	const handleTripTypeChange = (type: string) => {
+		setTripType(type);
+		form.setValue("journeyType", tripTypeMapping[type] as "1" | "2");
+	};
 
 	// Filter flights based on selected criteria
 	useEffect(() => {
@@ -162,10 +276,7 @@ export default function FlightSearch() {
 			}
 
 			// Departure time (for round trip)
-			if (
-				form.watch("journeyType") === "2" &&
-				selectedDepartureTimes.length > 0
-			) {
+			if (tripType === "round-trip" && selectedDepartureTimes.length > 0) {
 				const timeString =
 					flight.Segments?.[0]?.[0]?.Origin?.DepTime ||
 					flight.Segments?.[0]?.[0]?.DepartureTime;
@@ -194,7 +305,7 @@ export default function FlightSearch() {
 		selectedAirlines,
 		selectedDepartureTimes,
 		selectedArrivalTimes,
-		form,
+		tripType,
 	]);
 
 	// Update price range when new flights are loaded
@@ -209,15 +320,32 @@ export default function FlightSearch() {
 	}, [flights]);
 
 	const handleAutoSearch = async (searchData: FlightSearchForm) => {
+		// Validate round trip requires return date
+		if (searchData.journeyType === "2" && !searchData.returnDate) {
+			toast.error("Please select a return date for round trip flights");
+			return;
+		}
+
 		setLoading(true);
 		setSearchPerformed(true);
 
 		try {
+			const formatLocalDate = (date: Date) => {
+				const year = date.getFullYear();
+				const month = String(date.getMonth() + 1).padStart(2, "0");
+				const day = String(date.getDate()).padStart(2, "0");
+				return `${year}-${month}-${day}`;
+			};
+
 			const searchParams = {
 				Origin: searchData.origin.toUpperCase(),
 				Destination: searchData.destination.toUpperCase(),
-				PreferredDepartureTime: searchData.departureDate,
-				ReturnPreferredDepartureTime: searchData.returnDate,
+				PreferredDepartureTime: searchData.departureDate
+					? formatLocalDate(searchData.departureDate)
+					: "",
+				ReturnPreferredDepartureTime: searchData.returnDate
+					? formatLocalDate(searchData.returnDate)
+					: "",
 				AdultCount: String(searchData.adults),
 				ChildCount: String(searchData.children),
 				InfantCount: String(searchData.infants),
@@ -242,7 +370,46 @@ export default function FlightSearch() {
 			}
 
 			// Extract flights from the response
-			const flightResults = result.data?.Response?.Results?.[0] || [];
+			let flightResults: FlightResult[] = [];
+
+			if (searchParams.JourneyType === "2") {
+				// Round trip - combine outbound and return flights
+				const outboundFlights = result.data?.Response?.Results?.[0] || [];
+				const returnFlights = result.data?.Response?.Results?.[1] || [];
+
+				console.log("Round trip search results:", {
+					outboundFlights: outboundFlights.length,
+					returnFlights: returnFlights.length,
+					journeyType: searchParams.JourneyType,
+				});
+
+				// For round trips, create combined flight results
+				// Each result will have both outbound and return segments
+				flightResults = outboundFlights.map(
+					(outboundFlight: FlightResult, index: number) => {
+						const returnFlight = returnFlights[index] || returnFlights[0];
+						const totalFare = returnFlight
+							? outboundFlight.Fare.OfferedFare + returnFlight.Fare.OfferedFare
+							: outboundFlight.Fare.OfferedFare;
+
+						return {
+							...outboundFlight,
+							Fare: {
+								...outboundFlight.Fare,
+								OfferedFare: totalFare,
+							},
+							Segments: [
+								outboundFlight.Segments[0], // Outbound segments
+								returnFlight ? returnFlight.Segments[0] : [], // Return segments
+							],
+						};
+					}
+				);
+			} else {
+				// One-way
+				flightResults = result.data?.Response?.Results?.[0] || [];
+			}
+
 			setFlights(flightResults);
 
 			if (flightResults.length === 0) {
@@ -260,15 +427,32 @@ export default function FlightSearch() {
 	};
 
 	const onSubmit = async (data: FlightSearchForm) => {
+		// Validate round trip requires return date
+		if (data.journeyType === "2" && !data.returnDate) {
+			toast.error("Please select a return date for round trip flights");
+			return;
+		}
+
 		setLoading(true);
 		setSearchPerformed(true);
 
 		try {
+			const formatLocalDate = (date: Date) => {
+				const year = date.getFullYear();
+				const month = String(date.getMonth() + 1).padStart(2, "0");
+				const day = String(date.getDate()).padStart(2, "0");
+				return `${year}-${month}-${day}`;
+			};
+
 			const searchParams = {
 				Origin: data.origin.toUpperCase(),
 				Destination: data.destination.toUpperCase(),
-				PreferredDepartureTime: data.departureDate,
-				ReturnPreferredDepartureTime: data.returnDate,
+				PreferredDepartureTime: data.departureDate
+					? formatLocalDate(data.departureDate)
+					: "",
+				ReturnPreferredDepartureTime: data.returnDate
+					? formatLocalDate(data.returnDate)
+					: "",
 				AdultCount: String(data.adults),
 				ChildCount: String(data.children),
 				InfantCount: String(data.infants),
@@ -293,7 +477,46 @@ export default function FlightSearch() {
 			}
 
 			// Extract flights from the response
-			const flightResults = result.data?.Response?.Results?.[0] || [];
+			let flightResults: FlightResult[] = [];
+
+			if (searchParams.JourneyType === "2") {
+				// Round trip - combine outbound and return flights
+				const outboundFlights = result.data?.Response?.Results?.[0] || [];
+				const returnFlights = result.data?.Response?.Results?.[1] || [];
+
+				console.log("Round trip search results:", {
+					outboundFlights: outboundFlights.length,
+					returnFlights: returnFlights.length,
+					journeyType: searchParams.JourneyType,
+				});
+
+				// For round trips, create combined flight results
+				// Each result will have both outbound and return segments
+				flightResults = outboundFlights.map(
+					(outboundFlight: FlightResult, index: number) => {
+						const returnFlight = returnFlights[index] || returnFlights[0];
+						const totalFare = returnFlight
+							? outboundFlight.Fare.OfferedFare + returnFlight.Fare.OfferedFare
+							: outboundFlight.Fare.OfferedFare;
+
+						return {
+							...outboundFlight,
+							Fare: {
+								...outboundFlight.Fare,
+								OfferedFare: totalFare,
+							},
+							Segments: [
+								outboundFlight.Segments[0], // Outbound segments
+								returnFlight ? returnFlight.Segments[0] : [], // Return segments
+							],
+						};
+					}
+				);
+			} else {
+				// One-way
+				flightResults = result.data?.Response?.Results?.[0] || [];
+			}
+
 			setFlights(flightResults);
 
 			if (flightResults.length === 0) {
@@ -316,7 +539,8 @@ export default function FlightSearch() {
 		return `${hours}h ${mins}m`;
 	};
 
-	const formatTime = (dateString: string) => {
+	const formatTime = (dateString: string | undefined) => {
+		if (!dateString) return "--:--";
 		if (!dateString) return "N/A";
 
 		console.log("Raw date string:", dateString);
@@ -408,7 +632,8 @@ export default function FlightSearch() {
 		}
 	};
 
-	const formatDate = (dateString: string) => {
+	const formatDate = (dateString: string | undefined) => {
+		if (!dateString) return "--";
 		if (!dateString) return "N/A";
 
 		try {
@@ -452,6 +677,100 @@ export default function FlightSearch() {
 		}
 	};
 
+	const FlightLegDisplay = ({
+		segments,
+		legType,
+	}: {
+		segments: FlightSegmentDetail[];
+		legType: string;
+	}) => {
+		const firstSegment = segments?.[0];
+		const lastSegment = segments?.[segments.length - 1];
+
+		console.log(`FlightLegDisplay - ${legType}:`, {
+			segments,
+			firstSegment,
+			lastSegment,
+		});
+
+		if (!firstSegment || !lastSegment) return null;
+
+		// Get city names with better fallback logic
+		const getLocationName = (
+			location:
+				| FlightSegmentDetail["Origin"]
+				| FlightSegmentDetail["Destination"]
+		) => {
+			const airportCode = location?.Airport?.AirportCode;
+			return (
+				location?.Airport?.CityName ||
+				(airportCode && airportToCityMap[airportCode]) ||
+				location?.Airport?.AirportName ||
+				airportCode ||
+				"Unknown"
+			);
+		};
+
+		return (
+			<div className="mb-4">
+				<div className="text-sm font-semibold text-primary mb-2">{legType}</div>
+				<div className="flex items-center gap-4">
+					<div className="text-center">
+						<div className="text-lg font-bold">
+							{firstSegment.Origin?.Airport?.AirportCode || "N/A"}
+						</div>
+						<div className="text-sm text-muted-foreground font-medium">
+							{getLocationName(firstSegment.Origin)}
+						</div>
+						<div className="text-sm font-medium">
+							{formatTime(
+								firstSegment.Origin?.DepTime || firstSegment.DepartureTime
+							)}
+						</div>
+						<div className="text-xs text-muted-foreground">
+							{formatDate(
+								firstSegment.Origin?.DepTime || firstSegment.DepartureTime
+							)}
+						</div>
+					</div>
+
+					<div className="flex-1 flex flex-col items-center">
+						<div className="text-sm text-muted-foreground mb-1">
+							{formatDuration(firstSegment.Duration)}
+						</div>
+						<div className="w-full h-px bg-border relative">
+							<Plane className="h-3 w-3 absolute right-0 top-1/2 -translate-y-1/2 text-blue-500" />
+						</div>
+						{segments.length > 1 && (
+							<div className="text-xs text-muted-foreground mt-1">
+								{segments.length - 1} stop(s)
+							</div>
+						)}
+					</div>
+
+					<div className="text-center">
+						<div className="text-lg font-bold">
+							{lastSegment.Destination?.Airport?.AirportCode || "N/A"}
+						</div>
+						<div className="text-sm text-muted-foreground font-medium">
+							{getLocationName(lastSegment.Destination)}
+						</div>
+						<div className="text-sm font-medium">
+							{formatTime(
+								lastSegment.Destination?.ArrTime || lastSegment.ArrivalTime
+							)}
+						</div>
+						<div className="text-xs text-muted-foreground">
+							{formatDate(
+								lastSegment.Destination?.ArrTime || lastSegment.ArrivalTime
+							)}
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	};
+
 	return (
 		<div className="max-w-6xl mx-auto p-6 space-y-6">
 			<Card>
@@ -463,117 +782,59 @@ export default function FlightSearch() {
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-							{/* Origin */}
-							<div className="space-y-2">
-								<Label htmlFor="origin">From</Label>
-								<Input
-									id="origin"
-									placeholder="DEL"
-									{...form.register("origin", { required: true })}
-									className="uppercase"
+						{/* Trip Type Selector */}
+						<div className="flex justify-center">
+							<TripTypeSelector
+								tripType={tripType}
+								onTripTypeChange={handleTripTypeChange}
+							/>
+						</div>
+
+						<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+							{/* From/To Selector */}
+							<div className="lg:col-span-2">
+								<FromToSelector
+									from={from}
+									to={to}
+									onSwap={handleSwap}
+									onFromChange={handleFromChange}
+									onToChange={handleToChange}
 								/>
 							</div>
 
-							{/* Destination */}
-							<div className="space-y-2">
-								<Label htmlFor="destination">To</Label>
-								<Input
-									id="destination"
-									placeholder="BOM"
-									{...form.register("destination", { required: true })}
-									className="uppercase"
-								/>
-							</div>
-
-							{/* Departure Date */}
-							<div className="space-y-2">
-								<Label htmlFor="departureDate">Departure Date</Label>
-								<Input
-									id="departureDate"
-									type="date"
-									{...form.register("departureDate", { required: true })}
-									min={new Date().toISOString().split("T")[0]}
-								/>
-							</div>
-
-							{/* Return Date */}
-							<div className="space-y-2">
-								<Label htmlFor="returnDate">Return Date</Label>
-								<Input
-									id="returnDate"
-									type="date"
-									{...form.register("returnDate")}
-									min={
-										form.watch("departureDate") ||
-										new Date().toISOString().split("T")[0]
-									}
-									disabled={form.watch("journeyType") === "1"}
+							{/* Dates */}
+							<div className="lg:col-span-2">
+								<DateSelector
+									departureDate={departureDate}
+									returnDate={returnDate}
+									onDepartureDateChange={(date) => {
+										setDepartureDate(date);
+										form.setValue("departureDate", date);
+									}}
+									onReturnDateChange={(date) => {
+										setReturnDate(date);
+										form.setValue("returnDate", date);
+									}}
+									isRoundTrip={tripType === "round-trip"}
 								/>
 							</div>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-							{/* Journey Type */}
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							{/* Travellers & Class */}
 							<div className="space-y-2">
-								<Label>Journey Type</Label>
-								<Select
-									value={form.watch("journeyType")}
-									onValueChange={(value) =>
-										form.setValue("journeyType", value as "1" | "2")
-									}
-								>
-									<SelectTrigger>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="1">One Way</SelectItem>
-										<SelectItem value="2">Return</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-
-							{/* Cabin Class */}
-							<div className="space-y-2">
-								<Label>Cabin Class</Label>
-								<Select
-									value={form.watch("cabinClass")}
-									onValueChange={(value) => form.setValue("cabinClass", value)}
-								>
-									<SelectTrigger>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="1">All</SelectItem>
-										<SelectItem value="2">Economy</SelectItem>
-										<SelectItem value="3">Premium Economy</SelectItem>
-										<SelectItem value="4">Business</SelectItem>
-										<SelectItem value="5">Premium Business</SelectItem>
-										<SelectItem value="6">First</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-
-							{/* Passengers */}
-							<div className="space-y-2">
-								<Label>Adults</Label>
-								<Select
-									value={String(form.watch("adults"))}
-									onValueChange={(value) =>
-										form.setValue("adults", parseInt(value))
-									}
-								>
-									<SelectTrigger>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										{[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-											<SelectItem key={num} value={String(num)}>
-												{num}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+								<TravellerSelector
+									travellers={travellers}
+									travelClass={travelClass}
+									onTravellersChange={(count) => {
+										setTravellers(count);
+										form.setValue("adults", count); // For now, set all as adults
+									}}
+									onClassChange={(cls) => {
+										setTravelClass(cls);
+										form.setValue("cabinClass", cabinClassMapping[cls] || "1");
+									}}
+								/>
 							</div>
 
 							{/* Flight Preferences */}
@@ -608,19 +869,11 @@ export default function FlightSearch() {
 							</div>
 						</div>
 
-						<Button type="submit" disabled={loading} className="w-full">
-							{loading ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Searching Flights...
-								</>
-							) : (
-								<>
-									<Search className="mr-2 h-4 w-4" />
-									Search Flights
-								</>
-							)}
-						</Button>
+						{/* Search Button */}
+						<SearchButton
+							onSearch={form.handleSubmit(onSubmit)}
+							loading={loading}
+						/>
 					</form>
 				</CardContent>
 			</Card>
@@ -669,7 +922,7 @@ export default function FlightSearch() {
 									</div>
 
 									{/* Departure Time Filter (for round trip) */}
-									{form.watch("journeyType") === "2" && (
+									{tripType === "round-trip" && (
 										<div className="space-y-3">
 											<Label className="text-sm font-medium">
 												Departure Time
@@ -830,7 +1083,7 @@ export default function FlightSearch() {
 												className="border-l-4 border-l-blue-500"
 											>
 												<CardContent className="p-4">
-													<div className="flex justify-between items-start">
+													<div className="flex items-start">
 														<div className="flex-1">
 															{/* Airline Info */}
 															<div className="flex items-center gap-2 mb-2">
@@ -852,106 +1105,163 @@ export default function FlightSearch() {
 															</div>
 
 															{/* Flight Route */}
-															<div className="flex items-center gap-4 mb-3">
-																<div className="text-center">
-																	<div className="text-lg font-bold">
-																		{
-																			flight.Segments?.[0]?.[0]?.Origin
-																				?.AirportCode
-																		}
-																	</div>
-																	<div className="text-sm text-muted-foreground">
-																		{
-																			flight.Segments?.[0]?.[0]?.Origin
-																				?.CityName
-																		}
-																	</div>
-																	<div className="text-sm font-medium">
-																		{formatTime(
-																			flight.Segments?.[0]?.[0]?.Origin
-																				?.DepTime ||
-																				flight.Segments?.[0]?.[0]?.DepartureTime
+															{(() => {
+																console.log(
+																	"Round trip flight:",
+																	flight.Segments
+																);
+																return flight.Segments &&
+																	flight.Segments.length > 1 ? (
+																	// Round trip display - Outbound (Departure) first, Inbound (Return) second
+																	<div>
+																		{flight.Segments?.[0] && (
+																			<FlightLegDisplay
+																				segments={flight.Segments[0]}
+																				legType="Outbound (Departure Flight)"
+																			/>
 																		)}
-																	</div>
-																	<div className="text-xs text-muted-foreground">
-																		{formatDate(
-																			flight.Segments?.[0]?.[0]?.Origin
-																				?.DepTime ||
-																				flight.Segments?.[0]?.[0]?.DepartureTime
-																		)}
-																	</div>
-																</div>
-
-																<div className="flex-1 flex flex-col items-center">
-																	<div className="text-sm text-muted-foreground mb-1">
-																		{formatDuration(
-																			flight.Segments?.[0]?.[0]?.Duration
-																		)}
-																	</div>
-																	<div className="w-full h-px bg-border relative">
-																		<Plane className="h-3 w-3 absolute right-0 top-1/2 -translate-y-1/2 text-blue-500" />
-																	</div>
-																	{flight.Segments?.[0] &&
-																		flight.Segments[0].length > 1 && (
-																			<div className="text-xs text-muted-foreground mt-1">
-																				{flight.Segments[0].length - 1} stop(s)
+																		{flight.Segments?.[1] ? (
+																			<FlightLegDisplay
+																				segments={flight.Segments[1]}
+																				legType="Inbound (Return Flight)"
+																			/>
+																		) : (
+																			<div className="text-red-500 text-sm">
+																				Return flight data not available
 																			</div>
 																		)}
-																</div>
+																	</div>
+																) : (
+																	// One-way display
+																	<div className="flex items-center gap-4 mb-3">
+																		<div className="text-center">
+																			<div className="text-lg font-bold">
+																				{flight.Segments?.[0]?.[0]?.Origin
+																					?.Airport?.AirportCode || "N/A"}
+																			</div>
+																			<div className="text-sm text-muted-foreground font-medium">
+																				{flight.Segments?.[0]?.[0]?.Origin
+																					?.Airport?.CityName ||
+																					(flight.Segments?.[0]?.[0]?.Origin
+																						?.Airport?.AirportCode &&
+																						airportToCityMap[
+																							flight.Segments[0][0].Origin
+																								.Airport.AirportCode
+																						]) ||
+																					flight.Segments?.[0]?.[0]?.Origin
+																						?.Airport?.AirportCode ||
+																					"Unknown"}
+																			</div>
+																			<div className="text-sm font-medium">
+																				{formatTime(
+																					flight.Segments?.[0]?.[0]?.Origin
+																						?.DepTime ||
+																						flight.Segments?.[0]?.[0]
+																							?.DepartureTime
+																				)}
+																			</div>
+																			<div className="text-xs text-muted-foreground">
+																				{formatDate(
+																					flight.Segments?.[0]?.[0]?.Origin
+																						?.DepTime ||
+																						flight.Segments?.[0]?.[0]
+																							?.DepartureTime
+																				)}
+																			</div>
+																		</div>
 
-																<div className="text-center">
-																	<div className="text-lg font-bold">
-																		{
-																			flight.Segments?.[0]?.[
-																				flight.Segments[0].length - 1
-																			]?.Destination?.AirportCode
-																		}
-																	</div>
-																	<div className="text-sm text-muted-foreground">
-																		{
-																			flight.Segments?.[0]?.[
-																				flight.Segments[0].length - 1
-																			]?.Destination?.CityName
-																		}
-																	</div>
-																	<div className="text-sm font-medium">
-																		{formatTime(
-																			flight.Segments?.[0]?.[
-																				flight.Segments[0].length - 1
-																			]?.Destination?.ArrTime ||
-																				flight.Segments?.[0]?.[
+																		<div className="flex-1 flex flex-col items-center">
+																			<div className="text-sm text-muted-foreground mb-1">
+																				{formatDuration(
+																					flight.Segments?.[0]?.[0]?.Duration
+																				)}
+																			</div>
+																			<div className="w-full h-px bg-border relative">
+																				<Plane className="h-3 w-3 absolute right-0 top-1/2 -translate-y-1/2 text-blue-500" />
+																			</div>
+																			{flight.Segments?.[0] &&
+																				flight.Segments[0].length > 1 && (
+																					<div className="text-xs text-muted-foreground mt-1">
+																						{flight.Segments[0].length - 1}{" "}
+																						stop(s)
+																					</div>
+																				)}
+																		</div>
+
+																		<div className="text-center">
+																			<div className="text-lg font-bold">
+																				{flight.Segments?.[0]?.[
 																					flight.Segments[0].length - 1
-																				]?.ArrivalTime
-																		)}
-																	</div>
-																	<div className="text-xs text-muted-foreground">
-																		{formatDate(
-																			flight.Segments?.[0]?.[
-																				flight.Segments[0].length - 1
-																			]?.Destination?.ArrTime ||
-																				flight.Segments?.[0]?.[
+																				]?.Destination?.Airport?.AirportCode ||
+																					"N/A"}
+																			</div>
+																			<div className="text-sm text-muted-foreground font-medium">
+																				{flight.Segments?.[0]?.[
 																					flight.Segments[0].length - 1
-																				]?.ArrivalTime
-																		)}
+																				]?.Destination?.Airport?.CityName ||
+																					(flight.Segments?.[0]?.[
+																						flight.Segments[0].length - 1
+																					]?.Destination?.Airport
+																						?.AirportCode &&
+																						airportToCityMap[
+																							flight.Segments[0][
+																								flight.Segments[0].length - 1
+																							].Destination.Airport.AirportCode
+																						]) ||
+																					flight.Segments?.[0]?.[
+																						flight.Segments[0].length - 1
+																					]?.Destination?.Airport
+																						?.AirportCode ||
+																					"Unknown"}
+																			</div>
+																			<div className="text-sm font-medium">
+																				{formatTime(
+																					flight.Segments?.[0]?.[
+																						flight.Segments[0].length - 1
+																					]?.Destination?.ArrTime ||
+																						flight.Segments?.[0]?.[
+																							flight.Segments[0].length - 1
+																						]?.ArrivalTime
+																				)}
+																			</div>
+																			<div className="text-xs text-muted-foreground">
+																				{formatDate(
+																					flight.Segments?.[0]?.[
+																						flight.Segments[0].length - 1
+																					]?.Destination?.ArrTime ||
+																						flight.Segments?.[0]?.[
+																							flight.Segments[0].length - 1
+																						]?.ArrivalTime
+																				)}
+																			</div>
+																		</div>
 																	</div>
-																</div>
-															</div>
+																);
+															})()}
 														</div>
 
+														{/* Vertical Separator */}
+														<div className="border-l border-gray-300 mx-4 h-full"></div>
+
 														{/* Price */}
-														<div className="text-right">
-															<div className="text-2xl font-bold text-green-600">
-																₹{flight.Fare.OfferedFare.toLocaleString()}
-															</div>
-															<div className="text-sm text-muted-foreground">
-																{flight.Fare.Currency}
-															</div>
-															{flight.IsRefundable && (
-																<div className="text-xs text-green-600 mt-1">
-																	Refundable
+														<div className="flex flex-col items-end justify-between">
+															<div className="text-right mb-3">
+																<div className="text-2xl font-bold text-green-600">
+																	₹{flight.Fare.OfferedFare.toLocaleString()}
 																</div>
-															)}
-															<Button size="sm" className="mt-2">
+																<div className="text-sm text-muted-foreground">
+																	{flight.Fare.Currency}
+																</div>
+																{flight.IsRefundable && (
+																	<div className="text-xs text-green-600 mt-1">
+																		Refundable
+																	</div>
+																)}
+															</div>
+															<Button
+																size="sm"
+																className="w-full min-w-[120px]"
+															>
 																Select Flight
 															</Button>
 														</div>
