@@ -1,16 +1,16 @@
 /**
- * TypeScript type definitions for TekTravels API
+ * TypeScript type definitions for TBO API
  */
 
 // Authentication Types
-export interface TekTravelsAuthRequest {
+export interface TboAuthRequest {
 	ClientId: string;
 	UserName: string;
 	Password: string;
 	EndUserIp: string;
 }
 
-export interface TekTravelsAuthResponse {
+export interface TboAuthResponse {
 	Status: number;
 	TokenId: string;
 	Error?: {
@@ -84,6 +84,8 @@ export interface FlightSegmentDetail {
 	IsETicketEligible: boolean;
 	FlightInfoIndex: string;
 	AirlineRemark: string;
+	Baggage?: string;
+	CabinBaggage?: string;
 }
 
 export interface Fare {
@@ -117,6 +119,14 @@ export interface Fare {
 	TotalMealCharges: number;
 	TotalSeatCharges: number;
 	TotalSpecialServiceCharges: number;
+	// Missing GST components
+	IGSTAmount?: number;
+	CGSTAmount?: number;
+	SGSTAmount?: number;
+	CessAmount?: number;
+	AirlineTransFee?: number;
+	// Calculated field for Net Payable
+	NetPayable?: number;
 }
 
 export interface FlightResult {
@@ -310,3 +320,61 @@ export type CabinClass = 1 | 2 | 3 | 4 | 5 | 6;
 export type JourneyType = 1 | 2 | 3;
 export type PassengerType = 1 | 2 | 3;
 export type Gender = 1 | 2;
+
+// Fare Upsell Types
+export interface FareUpsellRequest {
+	EndUserIp: string;
+	TokenId?: string;
+	TraceId: string;
+	ResultIndex: string;
+}
+
+export interface FareUpsellResponse {
+	Response: {
+		TraceId: string;
+		Results: FlightResult[];
+	};
+	Error?: {
+		ErrorCode: number;
+		ErrorMessage: string;
+	};
+}
+
+// Price RBD Types
+export interface PriceRBDRequest {
+	EndUserIp: string;
+	TokenId?: string;
+	TraceId: string;
+	AdultCount: string;
+	ChildCount: string;
+	InfantCount: string;
+	AirSearchResult: Array<{
+		ResultIndex: string;
+		Source: number;
+		IsLCC: boolean;
+		IsRefundable: boolean;
+		AirlineRemark: string;
+		Segments: Array<Array<{
+			TripIndicator: number;
+			SegmentIndicator: number;
+			Airline: {
+				AirlineCode: string;
+				AirlineName: string;
+				FlightNumber: string;
+				FareClass: string;
+				OperatingCarrier: string;
+			};
+		}>>;
+	}>;
+}
+
+export interface PriceRBDResponse {
+	Response: {
+		TraceId: string;
+		Results: FlightResult;
+	};
+	Error?: {
+		ErrorCode: number;
+		ErrorMessage: string;
+	};
+}

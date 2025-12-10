@@ -1,6 +1,6 @@
 /**
- * Example hook for using TekTravels flight search in your frontend
- * Place this in: src/hooks/useTekTravelsFlights.ts
+ * Example hook for using TBO flight search in your frontend
+ * Place this in: src/hooks/useTboFlights.ts
  */
 
 import { useState } from "react";
@@ -17,7 +17,7 @@ interface FlightSearchParams {
 	journeyType?: 1 | 2 | 3; // 1: OneWay, 2: Return, 3: MultiCity
 }
 
-export function useTekTravelsFlights() {
+export function useTboFlights() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [flights, setFlights] = useState<unknown[]>([]);
@@ -81,10 +81,10 @@ export function useTekTravelsFlights() {
 
 // Example usage in a component:
 /*
-import { useTekTravelsFlights } from '@/hooks/useTekTravelsFlights';
+import { useTboFlights } from '@/hooks/useTboFlights';
 
 export default function FlightSearchComponent() {
-  const { searchFlights, flights, loading, error } = useTekTravelsFlights();
+  const { searchFlights, flights, loading, error } = useTboFlights();
 
   const handleSearch = async () => {
     try {

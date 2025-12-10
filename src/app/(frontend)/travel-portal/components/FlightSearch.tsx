@@ -1,26 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plane, Sunrise, Sun, Sunset, Moon } from "lucide-react";
+import { Plane, Sunrise, Sun, Sunset, Moon, Loader2 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import type {
 	FlightResult,
 	FlightSegmentDetail,
 	FlightSegment as ApiFlightSegment,
-} from "@/types/tekTravels";
+} from "@/types/tbo";
 import DateSelector from "../../components/travel-portal/DateSelector";
 import TravellerSelector from "../../components/travel-portal/TravellerSelector";
 import FromToSelector from "../../components/travel-portal/FromToSelector";
 import TripTypeSelector from "../../components/travel-portal/TripTypeSelector";
 import SearchButton from "../../components/travel-portal/SearchButton";
 import MultiCitySelector from "../../components/travel-portal/MultiCitySelector";
+import FareBreakdown from "@/components/travel-portal/FareBreakdown";
 
 interface City {
 	city: string;
@@ -140,9 +141,12 @@ const airportToCityMap: { [key: string]: string } = {
 
 export default function FlightSearch() {
 	const searchParams = useSearchParams();
+	const router = useRouter();
 	const [loading, setLoading] = useState(false);
 	const [flights, setFlights] = useState<FlightResult[]>([]);
+	const [traceId, setTraceId] = useState<string>("");
 	const [searchPerformed, setSearchPerformed] = useState(false);
+	const [selectingFlight, setSelectingFlight] = useState<string | null>(null);
 
 	// DateSelector state
 	const [departureDate, setDepartureDate] = useState<Date>();
@@ -207,6 +211,9 @@ export default function FlightSearch() {
 	);
 
 	const [filteredFlights, setFilteredFlights] = useState<FlightResult[]>([]);
+	const [expandedFareBreakdown, setExpandedFareBreakdown] = useState<
+		string | null
+	>(null);
 
 	const form = useForm<FlightSearchForm>({
 		defaultValues: {
@@ -578,6 +585,10 @@ export default function FlightSearch() {
 				throw new Error(result.error || "Search failed");
 			}
 
+			if (result.data?.Response?.TraceId) {
+				setTraceId(result.data.Response.TraceId);
+			}
+
 			// Extract flights from the response
 			let flightResults: FlightResult[] = [];
 
@@ -725,6 +736,10 @@ export default function FlightSearch() {
 
 			if (!result.success) {
 				throw new Error(result.error || "Search failed");
+			}
+
+			if (result.data?.Response?.TraceId) {
+				setTraceId(result.data.Response.TraceId);
 			}
 
 			// Extract flights from the response
@@ -1558,16 +1573,67 @@ export default function FlightSearch() {
 																		Refundable
 																	</div>
 																)}
+																<Button
+																	variant="outline"
+																	size="sm"
+																	className="mt-2 text-xs"
+																	onClick={() =>
+																		setExpandedFareBreakdown(
+																			expandedFareBreakdown ===
+																				flight.ResultIndex
+																				? null
+																				: flight.ResultIndex
+																		)
+																	}
+																>
+																	{expandedFareBreakdown === flight.ResultIndex
+																		? "Hide"
+																		: "View"}{" "}
+																	Fare Details
+																</Button>
 															</div>
 															<Button
 																size="sm"
 																className="w-full min-w-[120px]"
+																disabled={
+																	selectingFlight === flight.ResultIndex
+																}
+																onClick={() => {
+																	setSelectingFlight(flight.ResultIndex);
+																	const values = form.getValues();
+																	const params = new URLSearchParams({
+																		traceId: traceId,
+																		resultIndex: flight.ResultIndex,
+																		adultCount: String(values.adults),
+																		childCount: String(values.children),
+																		infantCount: String(values.infants),
+																	});
+																	router.push(
+																		`/travel-portal/book?${params.toString()}`
+																	);
+																}}
 															>
-																Select Flight
+																{selectingFlight === flight.ResultIndex ? (
+																	<>
+																		<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+																		Processing
+																	</>
+																) : (
+																	"Select Flight"
+																)}
 															</Button>
 														</div>
 													</div>
 												</CardContent>
+												{/* Fare Breakdown */}
+												{expandedFareBreakdown === flight.ResultIndex && (
+													<div className="px-4 pb-4">
+														<FareBreakdown
+															flight={flight}
+															showValidation={true}
+														/>
+													</div>
+												)}
 											</Card>
 										))}
 									</div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchFlights } from "@/lib/tekTravelsClient";
-import type { FlightSegment } from "@/types/tekTravels";
+import { searchFlights } from "@/lib/tboClient";
+import { calculateNetPayable } from "@/lib/tboFareCalculations";
+import type { FlightSegment } from "@/types/tbo";
 
 interface RequestSegment {
 	Origin: string;
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
 			return `${year}-${month}-${day}T${hours}:${minutes}:00`;
 		};
 
-		// Format search parameters to match TekTravels API exactly
+		// Format search parameters to match TBO API exactly
 		const searchParams = {
 			EndUserIp: "183.83.54.192", // Use the IP provided by user
 			AdultCount: body.AdultCount || "1",
@@ -141,6 +142,19 @@ export async function POST(request: NextRequest) {
 		);
 
 		const result = await searchFlights(searchParams);
+
+		// Calculate NetPayable for each flight result
+		if (result?.Response?.Results) {
+			for (const resultArray of result.Response.Results) {
+				if (resultArray && Array.isArray(resultArray)) {
+					for (const flight of resultArray) {
+						if (flight?.Fare) {
+							flight.Fare.NetPayable = calculateNetPayable(flight.Fare);
+						}
+					}
+				}
+			}
+		}
 
 		// Log the first flight's date format for debugging
 		if (result?.Response?.Results?.[0]?.[0]) {

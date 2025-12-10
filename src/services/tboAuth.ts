@@ -1,6 +1,6 @@
 /**
- * TekTravels Authentication Service
- * Handles authentication with TekTravels API and token management
+ * TBO Authentication Service
+ * Handles authentication with TBO API and token management
  * Token is valid for 24 hours and automatically refreshed when expired
  */
 
@@ -32,7 +32,7 @@ function getAuthCredentials() {
 
 	if (!clientId || !userId || !password || !apiUrl) {
 		throw new Error(
-			"Missing TekTravels API credentials. Please check environment variables."
+			"Missing TBO API credentials. Please check environment variables."
 		);
 	}
 
@@ -51,7 +51,7 @@ function isTokenValid(): boolean {
 }
 
 /**
- * Authenticate with TekTravels API and get a new token
+ * Authenticate with TBO API and get a new token
  */
 async function authenticateAPI(): Promise<string> {
 	const { clientId, userId, password, apiUrl } = getAuthCredentials();
@@ -82,7 +82,7 @@ async function authenticateAPI(): Promise<string> {
 
 		if (data.Status !== 1 || !data.TokenId) {
 			const errorMsg = data.Error?.ErrorMessage || "Authentication failed";
-			throw new Error(`TekTravels API Error: ${errorMsg}`);
+			throw new Error(`TBO API Error: ${errorMsg}`);
 		}
 
 		// Cache token for 24 hours (minus 5 minutes buffer)
@@ -92,10 +92,10 @@ async function authenticateAPI(): Promise<string> {
 			expiresAt,
 		};
 
-		console.log("✓ TekTravels authentication successful. Token cached.");
+		console.log("✓ TBO authentication successful. Token cached.");
 		return data.TokenId;
 	} catch (error) {
-		console.error("TekTravels authentication error:", error);
+		console.error("TBO authentication error:", error);
 		throw error;
 	}
 }
@@ -104,13 +104,13 @@ async function authenticateAPI(): Promise<string> {
  * Get valid authentication token (from cache or by authenticating)
  * This is the main function to be used throughout the application
  */
-export async function getTekTravelsToken(): Promise<string> {
+export async function getTboToken(): Promise<string> {
 	if (isTokenValid() && tokenCache) {
-		console.log("✓ Using cached TekTravels token");
+		console.log("✓ Using cached TBO token");
 		return tokenCache.token;
 	}
 
-	console.log("⟳ Fetching new TekTravels token...");
+	console.log("⟳ Fetching new TBO token...");
 	return await authenticateAPI();
 }
 

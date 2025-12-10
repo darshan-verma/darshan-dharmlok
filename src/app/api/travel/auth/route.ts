@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import {
-	getTekTravelsToken,
+	getTboToken,
 	clearTokenCache,
 	getTokenExpiration,
 	hasValidToken,
-} from "@/services/tekTravelsAuth";
+} from "@/services/tboAuth";
 
 /**
  * GET /api/travel/auth
@@ -12,7 +12,7 @@ import {
  */
 export async function GET() {
 	try {
-		const token = await getTekTravelsToken();
+		const token = await getTboToken();
 		const expiresAt = getTokenExpiration();
 
 		return NextResponse.json({
@@ -22,7 +22,7 @@ export async function GET() {
 			isCached: hasValidToken(),
 		});
 	} catch (error) {
-		console.error("Failed to get TekTravels token:", error);
+		console.error("Failed to get TBO token:", error);
 		return NextResponse.json(
 			{
 				success: false,
@@ -42,7 +42,7 @@ export async function POST() {
 		// Clear existing cache to force new authentication
 		clearTokenCache();
 
-		const token = await getTekTravelsToken();
+		const token = await getTboToken();
 		const expiresAt = getTokenExpiration();
 
 		return NextResponse.json({
@@ -52,7 +52,7 @@ export async function POST() {
 			message: "Token refreshed successfully",
 		});
 	} catch (error) {
-		console.error("Failed to refresh TekTravels token:", error);
+		console.error("Failed to refresh TBO token:", error);
 		return NextResponse.json(
 			{
 				success: false,

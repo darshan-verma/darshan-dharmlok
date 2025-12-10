@@ -1,9 +1,9 @@
 /**
- * TekTravels API Client
- * Provides helper methods to make authenticated requests to TekTravels API
+ * TBO API Client
+ * Provides helper methods to make authenticated requests to TBO API
  */
 
-import { getTekTravelsToken } from "@/services/tekTravelsAuth";
+import { getTboToken } from "@/services/tboAuth";
 import type {
 	FlightSearchRequest,
 	FlightSearchResponse,
@@ -15,12 +15,16 @@ import type {
 	BookingResponse,
 	SeatMapRequest,
 	SeatMapResponse,
-} from "@/types/tekTravels";
+	FareUpsellRequest,
+	FareUpsellResponse,
+	PriceRBDRequest,
+	PriceRBDResponse,
+} from "@/types/tbo";
 
 const API_BASE_URL = process.env.TEKTRAVELS_API_URL || "";
 const BOOKING_API_BASE_URL = process.env.TEKTRAVELS_BOOKING_API_URL || "";
 
-export interface TekTravelsRequestConfig {
+export interface TboRequestConfig {
 	endpoint: string;
 	method?: "GET" | "POST" | "PUT" | "DELETE";
 	body?: unknown;
@@ -29,11 +33,11 @@ export interface TekTravelsRequestConfig {
 }
 
 /**
- * Make an authenticated request to TekTravels API
+ * Make an authenticated request to TBO API
  * Automatically includes the authentication token
  */
-export async function tekTravelsRequest<T = unknown>(
-	config: TekTravelsRequestConfig
+export async function tboRequest<T = unknown>(
+	config: TboRequestConfig
 ): Promise<T> {
 	const {
 		endpoint,
@@ -45,7 +49,7 @@ export async function tekTravelsRequest<T = unknown>(
 
 	try {
 		// Get valid token (from cache or by authenticating)
-		const token = await getTekTravelsToken();
+		const token = await getTboToken();
 
 		// Use appropriate base URL based on service
 		const baseUrl = service === "booking" ? BOOKING_API_BASE_URL : API_BASE_URL;
@@ -74,7 +78,7 @@ export async function tekTravelsRequest<T = unknown>(
 
 		if (!response.ok) {
 			throw new Error(
-				`TekTravels API request failed: ${response.status} ${response.statusText}`
+				`TBO API request failed: ${response.status} ${response.statusText}`
 			);
 		}
 
@@ -83,7 +87,7 @@ export async function tekTravelsRequest<T = unknown>(
 		// Check for API-level errors at top level
 		if (data.Error && data.Error.ErrorCode !== 0) {
 			throw new Error(
-				`TekTravels API Error: ${data.Error.ErrorMessage || "Unknown error"}`
+				`TBO API Error: ${data.Error.ErrorMessage || "Unknown error"}`
 			);
 		}
 
@@ -99,15 +103,13 @@ export async function tekTravelsRequest<T = unknown>(
 				return data as T;
 			}
 			throw new Error(
-				`TekTravels API Error: ${
-					data.Response.Error.ErrorMessage || "Unknown error"
-				}`
+				`TBO API Error: ${data.Response.Error.ErrorMessage || "Unknown error"}`
 			);
 		}
 
 		return data as T;
 	} catch (error) {
-		console.error(`TekTravels API Error (${endpoint}):`, error);
+		console.error(`TBO API Error (${endpoint}):`, error);
 		throw error;
 	}
 }
@@ -118,7 +120,7 @@ export async function tekTravelsRequest<T = unknown>(
 export async function searchFlights(
 	searchParams: Omit<FlightSearchRequest, "TokenId">
 ): Promise<FlightSearchResponse> {
-	return tekTravelsRequest<FlightSearchResponse>({
+	return tboRequest<FlightSearchResponse>({
 		endpoint: "Search",
 		method: "POST",
 		body: searchParams,
@@ -132,7 +134,7 @@ export async function searchFlights(
 export async function getFareRules(
 	fareRuleParams: Omit<FareRuleRequest, "TokenId">
 ): Promise<FareRuleResponse> {
-	return tekTravelsRequest<FareRuleResponse>({
+	return tboRequest<FareRuleResponse>({
 		endpoint: "FareRule",
 		method: "POST",
 		body: fareRuleParams,
@@ -146,7 +148,7 @@ export async function getFareRules(
 export async function getFareQuote(
 	fareQuoteParams: Omit<FareQuoteRequest, "TokenId">
 ): Promise<FareQuoteResponse> {
-	return tekTravelsRequest<FareQuoteResponse>({
+	return tboRequest<FareQuoteResponse>({
 		endpoint: "FareQuote",
 		method: "POST",
 		body: fareQuoteParams,
@@ -160,7 +162,7 @@ export async function getFareQuote(
 export async function bookFlight(
 	bookingParams: Omit<BookingRequest, "TokenId">
 ): Promise<BookingResponse> {
-	return tekTravelsRequest<BookingResponse>({
+	return tboRequest<BookingResponse>({
 		endpoint: "Book",
 		method: "POST",
 		body: bookingParams,
@@ -174,7 +176,7 @@ export async function bookFlight(
 export async function getBookingDetails(
 	bookingParams: Record<string, unknown>
 ) {
-	return tekTravelsRequest({
+	return tboRequest({
 		endpoint: "GetBookingDetails",
 		method: "POST",
 		body: bookingParams,
@@ -186,7 +188,7 @@ export async function getBookingDetails(
  * Cancel booking
  */
 export async function cancelBooking(cancelParams: Record<string, unknown>) {
-	return tekTravelsRequest({
+	return tboRequest({
 		endpoint: "Cancel",
 		method: "POST",
 		body: cancelParams,
@@ -198,7 +200,7 @@ export async function cancelBooking(cancelParams: Record<string, unknown>) {
  * Send change request for booking
  */
 export async function sendChangeRequest(changeParams: Record<string, unknown>) {
-	return tekTravelsRequest({
+	return tboRequest({
 		endpoint: "SendChangeRequest",
 		method: "POST",
 		body: changeParams,
@@ -210,10 +212,38 @@ export async function sendChangeRequest(changeParams: Record<string, unknown>) {
  * Get calendar fare
  */
 export async function getCalendarFare(calendarParams: Record<string, unknown>) {
-	return tekTravelsRequest({
+	return tboRequest({
 		endpoint: "GetCalendarFare",
 		method: "POST",
 		body: calendarParams,
+		service: "booking",
+	});
+}
+
+/**
+ * Get fare upsell options
+ */
+export async function getFareUpsell(
+	fareUpsellParams: Omit<FareUpsellRequest, "TokenId">
+): Promise<FareUpsellResponse> {
+	return tboRequest<FareUpsellResponse>({
+		endpoint: "FareUpsell",
+		method: "POST",
+		body: fareUpsellParams,
+		service: "booking",
+	});
+}
+
+/**
+ * Get price RBD
+ */
+export async function getPriceRBD(
+	priceRBDParams: Omit<PriceRBDRequest, "TokenId">
+): Promise<PriceRBDResponse> {
+	return tboRequest<PriceRBDResponse>({
+		endpoint: "PriceRBD",
+		method: "POST",
+		body: priceRBDParams,
 		service: "booking",
 	});
 }
@@ -228,7 +258,7 @@ export const SSR = {
 	getSeatMap: async (
 		seatMapParams: Omit<SeatMapRequest, "TokenId">
 	): Promise<SeatMapResponse> => {
-		return tekTravelsRequest<SeatMapResponse>({
+		return tboRequest<SeatMapResponse>({
 			endpoint: "SeatMap",
 			method: "POST",
 			body: seatMapParams,
@@ -240,7 +270,7 @@ export const SSR = {
 	 * Get meal options
 	 */
 	getMeal: async (mealParams: Record<string, unknown>) => {
-		return tekTravelsRequest({
+		return tboRequest({
 			endpoint: "Meal",
 			method: "POST",
 			body: mealParams,
@@ -252,7 +282,7 @@ export const SSR = {
 	 * Get baggage options
 	 */
 	getBaggage: async (baggageParams: Record<string, unknown>) => {
-		return tekTravelsRequest({
+		return tboRequest({
 			endpoint: "Baggage",
 			method: "POST",
 			body: baggageParams,

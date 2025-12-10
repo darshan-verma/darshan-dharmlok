@@ -120,3 +120,33 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Fare Rules Styles */
+.fare-rules-content ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.fare-rules-content li {
+  margin-bottom: 0.25rem;
+}
+
+.fare-rules-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.fare-rules-content th,
+.fare-rules-content td {
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem;
+  text-align: left;
+}
+
+.fare-rules-content th {
+  background-color: #f9fafb;
+  font-weight: 600;
+}
