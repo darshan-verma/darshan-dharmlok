@@ -12,13 +12,10 @@ import {
 	CreditCard,
 	IndianRupee,
 	Clock,
-	Calendar,
 	ScrollText,
 	TrendingUp,
 	Tag,
 	ArrowRight,
-	Luggage,
-	Utensils,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -102,14 +99,21 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		// Map flightResult to match PriceRBD expectation (adding TripIndicator and SegmentIndicator)
 		const mappedSegments = flightResult.Segments.map((group, groupIndex) =>
 			group.map((segment, segIndex) => ({
-				...segment,
 				TripIndicator: groupIndex + 1,
 				SegmentIndicator: segIndex + 1,
+				Airline: {
+					...segment.Airline,
+					OperatingCarrier: segment.Airline.AirlineCode,
+				},
 			}))
 		);
 
 		const airSearchResultItem = {
-			...flightResult,
+			ResultIndex: flightResult.ResultIndex,
+			Source: flightResult.Source,
+			IsLCC: flightResult.IsLCC,
+			IsRefundable: flightResult.IsRefundable,
+			AirlineRemark: flightResult.AirlineRemark,
 			Segments: mappedSegments,
 		};
 
@@ -119,7 +123,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 			AdultCount: adultCount,
 			ChildCount: childCount,
 			InfantCount: infantCount,
-			AirSearchResult: [airSearchResultItem] as any,
+			AirSearchResult: [airSearchResultItem],
 		});
 	} catch (e) {
 		console.error("Error fetching PriceRBD", e);

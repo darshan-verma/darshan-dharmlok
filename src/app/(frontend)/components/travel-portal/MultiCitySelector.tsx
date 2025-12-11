@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import FromToSelector from "./FromToSelector";
 import { Calendar } from "@/components/ui/calendar";
@@ -31,12 +32,18 @@ export default function MultiCitySelector({
 	legs,
 	onLegsChange,
 }: MultiCitySelectorProps) {
+	const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+
 	const addLeg = () => {
 		const lastLeg = legs[legs.length - 1];
 		const newLeg: CityLeg = {
 			id: `leg-${Date.now()}`,
 			from: lastLeg.to, // Start from where the last leg ended
-			to: { city: "Mumbai", airport: "Chhatrapati Shivaji Maharaj International Airport", code: "BOM" },
+			to: {
+				city: "Mumbai",
+				airport: "Chhatrapati Shivaji Maharaj International Airport",
+				code: "BOM",
+			},
 			date: undefined,
 		};
 		onLegsChange([...legs, newLeg]);
@@ -94,7 +101,10 @@ export default function MultiCitySelector({
 
 					{/* Date Selector */}
 					<div className="w-full lg:w-1/2">
-						<Popover>
+						<Popover
+							open={openPopoverId === leg.id}
+							onOpenChange={(open) => setOpenPopoverId(open ? leg.id : null)}
+						>
 							<PopoverTrigger asChild>
 								<button className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 cursor-pointer transition-colors text-left">
 									<div className="text-xs text-gray-500 mb-1 uppercase">
@@ -123,7 +133,10 @@ export default function MultiCitySelector({
 								<Calendar
 									mode="single"
 									selected={leg.date}
-									onSelect={(date) => updateLeg(leg.id, { date })}
+									onSelect={(date) => {
+										updateLeg(leg.id, { date });
+										setOpenPopoverId(null);
+									}}
 									disabled={(date) => date < new Date()}
 									initialFocus
 								/>

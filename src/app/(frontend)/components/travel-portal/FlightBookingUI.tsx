@@ -5,7 +5,7 @@ import CategoryTabs from "./CategoryTabs";
 import TripTypeSelector from "./TripTypeSelector";
 import FromToSelector from "./FromToSelector";
 import DateSelector from "./DateSelector";
-import TravellerSelector from "./TravellerSelector";
+import TravellerSelector, { TravellerCount } from "./TravellerSelector";
 import SpecialFareOptions from "./SpecialFareOptions";
 import SearchButton from "./SearchButton";
 import MultiCitySelector from "./MultiCitySelector";
@@ -30,7 +30,11 @@ export default function FlightBookingUI() {
 	const [tripType, setTripType] = useState("round-trip");
 	const [departureDate, setDepartureDate] = useState<Date>();
 	const [returnDate, setReturnDate] = useState<Date>();
-	const [travellers, setTravellers] = useState(1);
+	const [travellers, setTravellers] = useState<TravellerCount>({
+		adults: 1,
+		children: 0,
+		infants: 0,
+	});
 	const [travelClass, setTravelClass] = useState("Economy");
 	const [selectedFare, setSelectedFare] = useState("Regular");
 
@@ -119,7 +123,9 @@ export default function FlightBookingUI() {
 			});
 		}
 
-		searchParams.set("adults", String(travellers));
+		searchParams.set("adults", String(travellers.adults));
+		searchParams.set("children", String(travellers.children));
+		searchParams.set("infants", String(travellers.infants));
 		searchParams.set(
 			"journeyType",
 			tripType === "round-trip" ? "2" : tripType === "multi-city" ? "3" : "1"

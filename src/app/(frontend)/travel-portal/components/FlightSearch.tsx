@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,9 @@ import type {
 	FlightSegment as ApiFlightSegment,
 } from "@/types/tbo";
 import DateSelector from "../../components/travel-portal/DateSelector";
-import TravellerSelector from "../../components/travel-portal/TravellerSelector";
+import TravellerSelector, {
+	TravellerCount,
+} from "../../components/travel-portal/TravellerSelector";
 import FromToSelector from "../../components/travel-portal/FromToSelector";
 import TripTypeSelector from "../../components/travel-portal/TripTypeSelector";
 import SearchButton from "../../components/travel-portal/SearchButton";
@@ -148,12 +150,21 @@ export default function FlightSearch() {
 	const [searchPerformed, setSearchPerformed] = useState(false);
 	const [selectingFlight, setSelectingFlight] = useState<string | null>(null);
 
+	// Cache for search results
+	const searchCache = useRef<
+		Record<string, { results: FlightResult[]; traceId: string }>
+	>({});
+
 	// DateSelector state
 	const [departureDate, setDepartureDate] = useState<Date>();
 	const [returnDate, setReturnDate] = useState<Date>();
 
 	// TravellerSelector state
-	const [travellers, setTravellers] = useState(1);
+	const [travellers, setTravellers] = useState<TravellerCount>({
+		adults: 1,
+		children: 0,
+		infants: 0,
+	});
 	const [travelClass, setTravelClass] = useState("Economy");
 
 	// TripTypeSelector state
@@ -242,8 +253,17 @@ export default function FlightSearch() {
 		const departureDate = searchParams.get("departureDate");
 		const returnDate = searchParams.get("returnDate");
 		const adults = searchParams.get("adults");
+		const children = searchParams.get("children");
+		const infants = searchParams.get("infants");
 		const journeyType = searchParams.get("journeyType");
 		const cabinClass = searchParams.get("cabinClass");
+
+		console.log("FlightSearch Params:", {
+			adults,
+			children,
+			infants,
+			journeyType,
+		});
 
 		// Check for multi-city parameters
 		const leg1From = searchParams.get("leg1From");
@@ -255,6 +275,21 @@ export default function FlightSearch() {
 		const leg3From = searchParams.get("leg3From");
 		const leg3To = searchParams.get("leg3To");
 		const leg3Date = searchParams.get("leg3Date");
+
+		// Parse travellers
+		const adultCount = adults ? parseInt(adults) : 1;
+		const childCount = children ? parseInt(children) : 0;
+		const infantCount = infants ? parseInt(infants) : 0;
+
+		// Update state and form
+		setTravellers({
+			adults: adultCount,
+			children: childCount,
+			infants: infantCount,
+		});
+		form.setValue("adults", adultCount);
+		form.setValue("children", childCount);
+		form.setValue("infants", infantCount);
 
 		if (journeyType === "3" && leg1From && leg1To) {
 			// Multi-city search
@@ -330,9 +365,9 @@ export default function FlightSearch() {
 				departureDate: undefined,
 				returnDate: undefined,
 				segments: segments,
-				adults: adults ? parseInt(adults) : 1,
-				children: 0,
-				infants: 0,
+				adults: adultCount,
+				children: childCount,
+				infants: infantCount,
 				cabinClass: cabinClass || "1",
 				journeyType: "3",
 				directFlight: true,
@@ -356,11 +391,7 @@ export default function FlightSearch() {
 				setReturnDate(retDate);
 				form.setValue("returnDate", retDate);
 			}
-			if (adults) {
-				const adultCount = parseInt(adults);
-				setTravellers(adultCount);
-				form.setValue("adults", adultCount);
-			}
+
 			if (journeyType) {
 				form.setValue("journeyType", journeyType as "1" | "2");
 				setTripType(reverseTripTypeMapping[journeyType] || "one-way");
@@ -376,9 +407,9 @@ export default function FlightSearch() {
 				destination,
 				departureDate: depDate,
 				returnDate: returnDate ? new Date(returnDate) : undefined,
-				adults: adults ? parseInt(adults) : 1,
-				children: 0,
-				infants: 0,
+				adults: adultCount,
+				children: childCount,
+				infants: infantCount,
 				cabinClass: cabinClass || "1",
 				journeyType: (journeyType as "1" | "2") || "1",
 				directFlight: true,
@@ -409,6 +440,16 @@ export default function FlightSearch() {
 	const handleTripTypeChange = (type: string) => {
 		setTripType(type);
 		form.setValue("journeyType", tripTypeMapping[type] as "1" | "2" | "3");
+
+		if (type === "multi-city" && departureDate) {
+			setMultiCityLegs((prev) => {
+				const newLegs = [...prev];
+				if (newLegs[0]) {
+					newLegs[0] = { ...newLegs[0], date: departureDate };
+				}
+				return newLegs;
+			});
+		}
 	};
 
 	// Filter flights based on selected criteria
@@ -554,7 +595,7 @@ export default function FlightSearch() {
 					Destination: segment.destination.toUpperCase(),
 					FlightCabinClass: searchData.cabinClass,
 					PreferredDepartureTime: segment.departureDate
-						? formatLocalDate(segment.departureDate)
+						? formatLocalDate(new Date(segment.departureDate))
 						: "",
 				}));
 			} else {
@@ -562,13 +603,31 @@ export default function FlightSearch() {
 				searchParams.Origin = searchData.origin.toUpperCase();
 				searchParams.Destination = searchData.destination.toUpperCase();
 				searchParams.PreferredDepartureTime = searchData.departureDate
-					? formatLocalDate(searchData.departureDate)
+					? formatLocalDate(new Date(searchData.departureDate))
 					: "";
 				if (searchData.journeyType === "2") {
 					searchParams.ReturnPreferredDepartureTime = searchData.returnDate
-						? formatLocalDate(searchData.returnDate)
+						? formatLocalDate(new Date(searchData.returnDate))
 						: "";
 				}
+			}
+
+			// Check cache
+			const cacheKey = JSON.stringify(searchParams);
+			if (searchCache.current[cacheKey]) {
+				console.log("Using cached results for:", cacheKey);
+				const cached = searchCache.current[cacheKey];
+				setFlights(cached.results);
+				setTraceId(cached.traceId);
+				setLoading(false);
+				if (cached.results.length === 0) {
+					toast.info("No flights found (cached)");
+				} else {
+					toast.success(
+						`Found ${cached.results.length} flight options (cached)`
+					);
+				}
+				return;
 			}
 
 			const response = await fetch("/api/travel/flights/search", {
@@ -585,8 +644,9 @@ export default function FlightSearch() {
 				throw new Error(result.error || "Search failed");
 			}
 
-			if (result.data?.Response?.TraceId) {
-				setTraceId(result.data.Response.TraceId);
+			const newTraceId = result.data?.Response?.TraceId || "";
+			if (newTraceId) {
+				setTraceId(newTraceId);
 			}
 
 			// Extract flights from the response
@@ -629,6 +689,12 @@ export default function FlightSearch() {
 				// One-way
 				flightResults = result.data?.Response?.Results?.[0] || [];
 			}
+
+			// Update cache
+			searchCache.current[cacheKey] = {
+				results: flightResults,
+				traceId: newTraceId,
+			};
 
 			setFlights(flightResults);
 
@@ -647,156 +713,7 @@ export default function FlightSearch() {
 	};
 
 	const onSubmit = async (data: FlightSearchForm) => {
-		// Validate round trip requires return date
-		if (data.journeyType === "2" && !data.returnDate) {
-			toast.error("Please select a return date for round trip flights");
-			return;
-		}
-
-		// Validate multi-city requires segments
-		if (data.journeyType === "3") {
-			if (!data.segments || data.segments.length < 2) {
-				toast.error("Multi-city flights require at least 2 segments");
-				return;
-			}
-			for (let i = 0; i < data.segments.length; i++) {
-				const segment = data.segments[i];
-				if (!segment.origin || !segment.destination || !segment.departureDate) {
-					toast.error(`Please fill all fields for segment ${i + 1}`);
-					return;
-				}
-			}
-		}
-
-		setLoading(true);
-		setSearchPerformed(true);
-
-		try {
-			const formatLocalDate = (date: Date) => {
-				const year = date.getFullYear();
-				const month = String(date.getMonth() + 1).padStart(2, "0");
-				const day = String(date.getDate()).padStart(2, "0");
-				const hours = String(date.getHours()).padStart(2, "0");
-				const minutes = String(date.getMinutes()).padStart(2, "0");
-				return `${year}-${month}-${day}T${hours}:${minutes}:00`;
-			};
-
-			const searchParams: FlightSearchParams = {
-				AdultCount: String(data.adults),
-				ChildCount: String(data.children),
-				InfantCount: String(data.infants),
-				FlightCabinClass: data.cabinClass,
-				JourneyType: data.journeyType,
-				DirectFlight: String(data.directFlight),
-				OneStopFlight: String(data.oneStopFlight),
-			};
-
-			// Handle different journey types
-			if (data.journeyType === "3" && data.segments) {
-				// Multi-city
-				searchParams.Segments = data.segments.map((segment) => {
-					console.log(
-						"Processing segment:",
-						segment,
-						"departureDate type:",
-						typeof segment.departureDate
-					);
-					return {
-						Origin: segment.origin.toUpperCase(),
-						Destination: segment.destination.toUpperCase(),
-						FlightCabinClass: data.cabinClass,
-						PreferredDepartureTime: segment.departureDate
-							? formatLocalDate(new Date(segment.departureDate))
-							: "",
-					};
-				});
-			} else {
-				// One-way or round-trip
-				searchParams.Origin = data.origin.toUpperCase();
-				searchParams.Destination = data.destination.toUpperCase();
-				searchParams.PreferredDepartureTime = data.departureDate
-					? formatLocalDate(data.departureDate)
-					: "";
-				if (data.journeyType === "2") {
-					searchParams.ReturnPreferredDepartureTime = data.returnDate
-						? formatLocalDate(data.returnDate)
-						: "";
-				}
-			}
-
-			const response = await fetch("/api/travel/flights/search", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(searchParams),
-			});
-
-			const result = await response.json();
-
-			if (!result.success) {
-				throw new Error(result.error || "Search failed");
-			}
-
-			if (result.data?.Response?.TraceId) {
-				setTraceId(result.data.Response.TraceId);
-			}
-
-			// Extract flights from the response
-			let flightResults: FlightResult[] = [];
-
-			if (searchParams.JourneyType === "2") {
-				// Round trip - combine outbound and return flights
-				const outboundFlights = result.data?.Response?.Results?.[0] || [];
-				const returnFlights = result.data?.Response?.Results?.[1] || [];
-
-				console.log("Round trip search results:", {
-					outboundFlights: outboundFlights.length,
-					returnFlights: returnFlights.length,
-					journeyType: searchParams.JourneyType,
-				});
-
-				// For round trips, create combined flight results
-				// Each result will have both outbound and return segments
-				flightResults = outboundFlights.map(
-					(outboundFlight: FlightResult, index: number) => {
-						const returnFlight = returnFlights[index] || returnFlights[0];
-						const totalFare = returnFlight
-							? outboundFlight.Fare.OfferedFare + returnFlight.Fare.OfferedFare
-							: outboundFlight.Fare.OfferedFare;
-
-						return {
-							...outboundFlight,
-							Fare: {
-								...outboundFlight.Fare,
-								OfferedFare: totalFare,
-							},
-							Segments: [
-								outboundFlight.Segments[0], // Outbound segments
-								returnFlight ? returnFlight.Segments[0] : [], // Return segments
-							],
-						};
-					}
-				);
-			} else {
-				// One-way
-				flightResults = result.data?.Response?.Results?.[0] || [];
-			}
-
-			setFlights(flightResults);
-
-			if (flightResults.length === 0) {
-				toast.info("No flights found for the selected criteria");
-			} else {
-				toast.success(`Found ${flightResults.length} flight options`);
-			}
-		} catch (error) {
-			console.error("Flight search error:", error);
-			toast.error(error instanceof Error ? error.message : "Search failed");
-			setFlights([]);
-		} finally {
-			setLoading(false);
-		}
+		await handleAutoSearch(data);
 	};
 
 	const formatDuration = (minutes: number) => {
@@ -1076,21 +993,23 @@ export default function FlightSearch() {
 							</div>
 
 							{/* Dates */}
-							<div className="lg:col-span-2">
-								<DateSelector
-									departureDate={departureDate}
-									returnDate={returnDate}
-									onDepartureDateChange={(date) => {
-										setDepartureDate(date);
-										form.setValue("departureDate", date);
-									}}
-									onReturnDateChange={(date) => {
-										setReturnDate(date);
-										form.setValue("returnDate", date);
-									}}
-									isRoundTrip={tripType === "round-trip"}
-								/>
-							</div>
+							{tripType !== "multi-city" && (
+								<div className="lg:col-span-2">
+									<DateSelector
+										departureDate={departureDate}
+										returnDate={returnDate}
+										onDepartureDateChange={(date) => {
+											setDepartureDate(date);
+											form.setValue("departureDate", date);
+										}}
+										onReturnDateChange={(date) => {
+											setReturnDate(date);
+											form.setValue("returnDate", date);
+										}}
+										isRoundTrip={tripType === "round-trip"}
+									/>
+								</div>
+							)}
 						</div>
 
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1101,7 +1020,9 @@ export default function FlightSearch() {
 									travelClass={travelClass}
 									onTravellersChange={(count) => {
 										setTravellers(count);
-										form.setValue("adults", count); // For now, set all as adults
+										form.setValue("adults", count.adults);
+										form.setValue("children", count.children);
+										form.setValue("infants", count.infants);
 									}}
 									onClassChange={(cls) => {
 										setTravelClass(cls);

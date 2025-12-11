@@ -7,11 +7,17 @@ import {
 } from "@/components/ui/popover";
 import { ChevronDown, Minus, Plus } from "lucide-react";
 
+export interface TravellerCount {
+	adults: number;
+	children: number;
+	infants: number;
+}
+
 interface TravellerSelectorProps {
-	travellers: number;
+	travellers: TravellerCount | number;
 	travelClass: string;
 	transportType?: string;
-	onTravellersChange: (count: number) => void;
+	onTravellersChange: (count: TravellerCount) => void;
 	onClassChange: (classType: string) => void;
 }
 
@@ -23,22 +29,38 @@ export default function TravellerSelector({
 	onClassChange,
 }: TravellerSelectorProps) {
 	const [open, setOpen] = useState(false);
-	const [adults, setAdults] = useState(Math.max(1, travellers || 1));
-	const [children, setChildren] = useState(0);
-	const [infants, setInfants] = useState(0);
+
+	// Initialize state based on props
+	const getInitialState = () => {
+		if (typeof travellers === "number") {
+			return {
+				adults: Math.max(1, travellers),
+				children: 0,
+				infants: 0,
+			};
+		}
+		return {
+			adults: travellers.adults || 1,
+			children: travellers.children || 0,
+			infants: travellers.infants || 0,
+		};
+	};
+
+	const [adults, setAdults] = useState(getInitialState().adults);
+	const [children, setChildren] = useState(getInitialState().children);
+	const [infants, setInfants] = useState(getInitialState().infants);
 
 	useEffect(() => {
-		// Sync initial adults count when `travellers` prop changes
-		if (travellers && travellers > 0) {
-			// If current total differs from incoming, set adults to match (simple sync)
-			const currentTotal = adults + children + infants;
-			if (currentTotal !== travellers) {
-				setAdults(Math.max(1, travellers));
-				setChildren(0);
-				setInfants(0);
-			}
+		if (typeof travellers === "number") {
+			setAdults(Math.max(1, travellers));
+			setChildren(0);
+			setInfants(0);
+		} else {
+			setAdults(travellers.adults);
+			setChildren(travellers.children);
+			setInfants(travellers.infants);
 		}
-	}, [travellers, adults, children, infants]);
+	}, [travellers]);
 
 	const totalTravellers = adults + children + infants;
 
@@ -178,7 +200,7 @@ export default function TravellerSelector({
 					{/* Apply Button */}
 					<button
 						onClick={() => {
-							onTravellersChange(totalTravellers);
+							onTravellersChange({ adults, children, infants });
 							setOpen(false);
 						}}
 						className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors"

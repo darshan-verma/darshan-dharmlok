@@ -34,7 +34,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import TransportSelector from "../../components/TransportSelector";
-import TravellerSelector from "../../../components/travel-portal/TravellerSelector";
+import TravellerSelector, {
+	TravellerCount,
+} from "../../../components/travel-portal/TravellerSelector";
 
 interface Destination {
 	id: string;
@@ -636,8 +638,15 @@ export default function BookingPage() {
 																		travellers={travelers || 1}
 																		travelClass={travelClass || "Economy"}
 																		transportType={transportType}
-																		onTravellersChange={(count: number) =>
-																			form.setValue("travelers", count)
+																		onTravellersChange={(
+																			count: TravellerCount
+																		) =>
+																			form.setValue(
+																				"travelers",
+																				count.adults +
+																					count.children +
+																					count.infants
+																			)
 																		}
 																		onClassChange={(cls: string) =>
 																			form.setValue("travelClass", cls)

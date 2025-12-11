@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import {
 	Popover,
@@ -23,11 +24,14 @@ export default function DateSelector({
 	onReturnDateChange,
 	isRoundTrip,
 }: DateSelectorProps) {
+	const [departureOpen, setDepartureOpen] = useState(false);
+	const [returnOpen, setReturnOpen] = useState(false);
+
 	return (
 		<div className="flex gap-0 bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
 			{/* Departure Date */}
 			<div className="flex-1">
-				<Popover>
+				<Popover open={departureOpen} onOpenChange={setDepartureOpen}>
 					<PopoverTrigger asChild>
 						<button className="w-full p-4 hover:bg-gray-100 cursor-pointer transition-colors text-left">
 							<div className="text-xs text-gray-500 mb-1 uppercase">
@@ -56,7 +60,10 @@ export default function DateSelector({
 						<Calendar
 							mode="single"
 							selected={departureDate}
-							onSelect={onDepartureDateChange}
+							onSelect={(date) => {
+								onDepartureDateChange(date);
+								setDepartureOpen(false);
+							}}
 							disabled={(date) => date < new Date()}
 							initialFocus
 						/>
@@ -66,7 +73,7 @@ export default function DateSelector({
 
 			{/* Return Date */}
 			<div className="flex-1 border-l border-gray-200">
-				<Popover>
+				<Popover open={returnOpen} onOpenChange={setReturnOpen}>
 					<PopoverTrigger asChild>
 						<button
 							className={`w-full p-4 hover:bg-gray-100 cursor-pointer transition-colors text-left relative ${
@@ -113,7 +120,10 @@ export default function DateSelector({
 						<Calendar
 							mode="single"
 							selected={returnDate}
-							onSelect={onReturnDateChange}
+							onSelect={(date) => {
+								onReturnDateChange(date);
+								setReturnOpen(false);
+							}}
 							disabled={(date) => date < (departureDate || new Date())}
 							initialFocus
 						/>
