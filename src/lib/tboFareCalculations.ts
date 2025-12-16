@@ -30,10 +30,10 @@ export function calculatePublishedFare(
 
 /**
  * Calculates the Offered Fare according to TBO's formula:
- * Offered Fare = Published Fare - Commission Earned (Commission + PLB + Incentive) - TDS - Agency Markup
+ * Offered Fare = Published Fare - Commission Earned (Commission + PLB + Incentive) - Agency Markup
  *
- * Note: We use the CALCULATED Published Fare (which includes TDS) as the base,
- * because the API's Published Fare often excludes TDS.
+ * Note: TDS is already included in Published Fare and should NOT be deducted separately.
+ * TDS is not part of offered fare in search response - it's only visible in the breakdown.
  */
 export function calculateOfferedFare(
 	fare: Fare,
@@ -42,17 +42,16 @@ export function calculateOfferedFare(
 	const publishedFare = calculatePublishedFare(fare, agencyMarkup);
 	const commissionTotal =
 		fare.CommissionEarned + fare.PLBEarned + fare.IncentiveEarned;
-	const tdsAmount = fare.TdsOnCommission + fare.TdsOnPLB + fare.TdsOnIncentive;
 
-	return publishedFare - commissionTotal - tdsAmount - agencyMarkup;
+	return publishedFare - commissionTotal - agencyMarkup;
 }
 
 /**
  * Calculates the Net Payable according to TBO's formula:
  * Net Payable = Published Fare - (CommissionEarned + IncentiveEarned + PLBEarned + AdditionalTxnFee) + (TdsOnCommission + TdsOnIncentive + TdsOnPLB) + GST(IGSTAmount+CGSTAmount+SGSTAmount+CessAmount)
  *
- * Note: We use the API's Published Fare as the base here because Net Payable is what we pay to TBO,
- * and TBO's invoice is based on their Published Fare + Taxes/Fees.
+ * Note: We use the API's Published Fare as the base here because Net Payable is what we pay to TBO.
+ * AdditionalTxnFee refers to the earned fee (AdditionalTxnFeeOfrd), not the published fee.
  */
 export function calculateNetPayable(fare: Fare): number {
 	const commissionTotal =
@@ -67,7 +66,7 @@ export function calculateNetPayable(fare: Fare): number {
 	return (
 		fare.PublishedFare -
 		commissionTotal -
-		fare.AdditionalTxnFeePub +
+		fare.AdditionalTxnFeeOfrd +
 		tdsTotal +
 		gstTotal
 	);
@@ -195,6 +194,8 @@ export function getFareBreakdown(fare: Fare, agencyMarkup: number = 0) {
 		calculatedPublishedFare = fare.PublishedFare;
 	}
 
+	const calculatedOfferedFare = calculateOfferedFare(fare, agencyMarkup);
+
 	return {
 		baseFare: fare.BaseFare,
 		tax: fare.Tax,
@@ -208,7 +209,8 @@ export function getFareBreakdown(fare: Fare, agencyMarkup: number = 0) {
 		agencyMarkup,
 		publishedFare: calculatedPublishedFare, // Use adjusted value
 		apiPublishedFare: fare.PublishedFare, // Keep API value for reference
-		offeredFare: fare.OfferedFare,
+		offeredFare: calculatedOfferedFare, // Use calculated value for consistency
+		apiOfferedFare: fare.OfferedFare, // Keep API value for reference
 		netPayable: calculateNetPayable(fare),
 	};
 }

@@ -134,10 +134,11 @@ export interface FlightResult {
 	Source: number;
 	IsLCC: boolean;
 	IsRefundable: boolean;
+	IsUpsellAllowed?: boolean;
 	AirlineCode: string;
 	ValidatingAirlineCode: string;
 	AirlineRemark: string;
-	Fare: Fare;
+	Fare?: Fare;
 	FareBreakdown: Array<{
 		PassengerType: number;
 		PassengerCount: number;
@@ -354,17 +355,19 @@ export interface PriceRBDRequest {
 		IsLCC: boolean;
 		IsRefundable: boolean;
 		AirlineRemark: string;
-		Segments: Array<Array<{
-			TripIndicator: number;
-			SegmentIndicator: number;
-			Airline: {
-				AirlineCode: string;
-				AirlineName: string;
-				FlightNumber: string;
-				FareClass: string;
-				OperatingCarrier: string;
-			};
-		}>>;
+		Segments: Array<
+			Array<{
+				TripIndicator: number;
+				SegmentIndicator: number;
+				Airline: {
+					AirlineCode: string;
+					AirlineName: string;
+					FlightNumber: string;
+					FareClass: string;
+					OperatingCarrier: string;
+				};
+			}>
+		>;
 	}>;
 }
 

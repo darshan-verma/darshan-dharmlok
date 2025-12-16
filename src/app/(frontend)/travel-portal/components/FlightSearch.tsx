@@ -8,7 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plane, Sunrise, Sun, Sunset, Moon, Loader2 } from "lucide-react";
+import {
+	Plane,
+	Sunrise,
+	Sun,
+	Sunset,
+	Moon,
+	Loader2,
+	IndianRupee,
+	RefreshCw,
+} from "lucide-react";
 import { toast } from "@/lib/toast";
 import type {
 	FlightResult,
@@ -23,7 +32,8 @@ import FromToSelector from "../../components/travel-portal/FromToSelector";
 import TripTypeSelector from "../../components/travel-portal/TripTypeSelector";
 import SearchButton from "../../components/travel-portal/SearchButton";
 import MultiCitySelector from "../../components/travel-portal/MultiCitySelector";
-import FareBreakdown from "@/components/travel-portal/FareBreakdown";
+import { Separator } from "@/components/ui/separator";
+import { getFareBreakdown } from "@/lib/tboFareCalculations";
 
 interface City {
 	city: string;
@@ -141,6 +151,37 @@ const airportToCityMap: { [key: string]: string } = {
 	IXD: "Allahabad",
 };
 
+// Airport code to airport name mapping
+const airportToNameMap: { [key: string]: string } = {
+	DEL: "Indira Gandhi International Airport",
+	BLR: "Kempegowda International Airport",
+	BOM: "Chhatrapati Shivaji Maharaj International Airport",
+	HYD: "Rajiv Gandhi International Airport",
+	MAA: "Chennai International Airport",
+	CCU: "Netaji Subhas Chandra Bose International Airport",
+	PNQ: "Pune International Airport",
+	AMD: "Sardar Vallabhbhai Patel International Airport",
+	GOI: "Goa International Airport",
+	JAI: "Jaipur International Airport",
+	COK: "Cochin International Airport",
+	TRV: "Trivandrum International Airport",
+	GAU: "Lokpriya Gopinath Bordoloi International Airport",
+	IXC: "Chandigarh International Airport",
+	IXR: "Birsa Munda Airport",
+	BBI: "Biju Patnaik International Airport",
+	VNS: "Lal Bahadur Shastri Airport",
+	IXB: "Bagdogra Airport",
+	NAG: "Dr. Babasaheb Ambedkar International Airport",
+	IXL: "Kushok Bakula Rimpochee Airport",
+	ATQ: "Sri Guru Ram Dass Jee International Airport",
+	IXJ: "Jammu Airport",
+	SXR: "Sheikh ul-Alam International Airport",
+	IXZ: "Veer Savarkar International Airport",
+	IXU: "Aurangabad Airport",
+	RPR: "Swami Vivekananda Airport",
+	IXD: "Allahabad Airport",
+};
+
 export default function FlightSearch() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
@@ -150,10 +191,56 @@ export default function FlightSearch() {
 	const [searchPerformed, setSearchPerformed] = useState(false);
 	const [selectingFlight, setSelectingFlight] = useState<string | null>(null);
 
-	// Cache for search results
+	// Cache for search results with timestamp
 	const searchCache = useRef<
-		Record<string, { results: FlightResult[]; traceId: string }>
+		Record<
+			string,
+			{
+				results: FlightResult[];
+				traceId: string;
+				timestamp: number;
+				journeyType: string;
+			}
+		>
 	>({});
+
+	// Load cache from sessionStorage on initial mount so it survives navigation
+	useEffect(() => {
+		try {
+			const stored = sessionStorage.getItem("flightSearchCache");
+			if (stored) {
+				const parsedCache = JSON.parse(stored);
+				const now = Date.now();
+				const CACHE_EXPIRY = 30 * 60 * 1000; // 30 minutes
+
+				// Filter out expired cache entries
+				const validCache: Record<
+					string,
+					{
+						results: FlightResult[];
+						traceId: string;
+						timestamp: number;
+						journeyType: string;
+					}
+				> = {};
+				Object.keys(parsedCache).forEach((key) => {
+					const entry = parsedCache[key];
+					if (entry.timestamp && now - entry.timestamp < CACHE_EXPIRY) {
+						validCache[key] = entry;
+					}
+				});
+
+				searchCache.current = validCache;
+				console.log(
+					"Loaded flight search cache from sessionStorage",
+					Object.keys(validCache).length,
+					"valid entries"
+				);
+			}
+		} catch (e) {
+			console.warn("Failed to load flight search cache:", e);
+		}
+	}, []);
 
 	// DateSelector state
 	const [departureDate, setDepartureDate] = useState<Date>();
@@ -169,6 +256,7 @@ export default function FlightSearch() {
 
 	// TripTypeSelector state
 	const [tripType, setTripType] = useState("one-way");
+	const prevTripTypeRef = useRef("one-way");
 
 	// Multi-city state
 	const [multiCityLegs, setMultiCityLegs] = useState<CityLeg[]>([
@@ -452,10 +540,37 @@ export default function FlightSearch() {
 		}
 	};
 
+	// Clear flights and cache when trip type changes
+	useEffect(() => {
+		if (prevTripTypeRef.current !== tripType) {
+			console.log(
+				`Trip type changed from ${prevTripTypeRef.current} to ${tripType}, clearing all cache and flights`
+			);
+
+			// Clear displayed flights
+			setFlights([]);
+			setSearchPerformed(false);
+
+			// CLEAR ENTIRE CACHE when trip type changes
+			searchCache.current = {};
+
+			// Update sessionStorage
+			try {
+				sessionStorage.setItem("flightSearchCache", JSON.stringify({}));
+				console.log("Cleared entire flight search cache");
+			} catch (e) {
+				console.warn("Failed to clear flight search cache:", e);
+			}
+
+			prevTripTypeRef.current = tripType;
+		}
+	}, [tripType]);
+
 	// Filter flights based on selected criteria
 	useEffect(() => {
 		const filtered = flights.filter((flight) => {
-			const price = flight.Fare.OfferedFare;
+			if (!flight.Fare) return false;
+			const price = flight.Fare!.OfferedFare;
 			if (price < priceRange[0] || price > priceRange[1]) return false;
 
 			if (
@@ -520,11 +635,15 @@ export default function FlightSearch() {
 	// Update price range when new flights are loaded
 	useEffect(() => {
 		if (flights.length > 0) {
-			const prices = flights.map((flight) => flight.Fare.OfferedFare);
-			const minPrice = Math.min(...prices);
-			const maxPrice = Math.max(...prices);
-			setPriceBounds([minPrice, maxPrice]);
-			setPriceRange([minPrice, maxPrice]);
+			const prices = flights
+				.filter((flight) => flight.Fare)
+				.map((flight) => flight.Fare!.OfferedFare);
+			if (prices.length > 0) {
+				const minPrice = Math.min(...prices);
+				const maxPrice = Math.max(...prices);
+				setPriceBounds([minPrice, maxPrice]);
+				setPriceRange([minPrice, maxPrice]);
+			}
 		}
 	}, [flights]);
 
@@ -540,7 +659,11 @@ export default function FlightSearch() {
 		}
 	}, [multiCityLegs, tripType, form]);
 
-	const handleAutoSearch = async (searchData: FlightSearchForm) => {
+	const handleAutoSearch = async (
+		searchData: FlightSearchForm,
+		options?: { forceRefresh?: boolean }
+	) => {
+		const forceRefresh = options?.forceRefresh === true;
 		// Validate round trip requires return date
 		if (searchData.journeyType === "2" && !searchData.returnDate) {
 			toast.error("Please select a return date for round trip flights");
@@ -612,22 +735,58 @@ export default function FlightSearch() {
 				}
 			}
 
-			// Check cache
+			// Check cache (unless forced refresh requested)
+			// Include journey type in cache validation to prevent wrong trip type results
 			const cacheKey = JSON.stringify(searchParams);
-			if (searchCache.current[cacheKey]) {
-				console.log("Using cached results for:", cacheKey);
-				const cached = searchCache.current[cacheKey];
-				setFlights(cached.results);
-				setTraceId(cached.traceId);
-				setLoading(false);
-				if (cached.results.length === 0) {
-					toast.info("No flights found (cached)");
-				} else {
-					toast.success(
-						`Found ${cached.results.length} flight options (cached)`
+
+			if (!forceRefresh) {
+				// First, try to get the latest search for this journey type
+				const latestKey = `latest_${searchParams.JourneyType}`;
+				const latestCache = searchCache.current[latestKey];
+
+				if (
+					latestCache &&
+					latestCache.journeyType === searchParams.JourneyType
+				) {
+					console.log(
+						"Using latest cached results for journey type:",
+						searchParams.JourneyType
 					);
+					setFlights(latestCache.results);
+					setTraceId(latestCache.traceId);
+					setLoading(false);
+					if (latestCache.results.length === 0) {
+						toast.info("No flights found (cached)");
+					} else {
+						toast.success(
+							`Found ${latestCache.results.length} flight options (cached)`
+						);
+					}
+					return;
 				}
-				return;
+
+				// Fallback: try exact cache key match
+				if (searchCache.current[cacheKey]) {
+					const cached = searchCache.current[cacheKey];
+					// Validate that cached journey type matches current search
+					const cachedJourneyType = JSON.parse(cacheKey).JourneyType;
+					if (cachedJourneyType === searchParams.JourneyType) {
+						console.log("Using exact cached results for:", cacheKey);
+						setFlights(cached.results);
+						setTraceId(cached.traceId);
+						setLoading(false);
+						if (cached.results.length === 0) {
+							toast.info("No flights found (cached)");
+						} else {
+							toast.success(
+								`Found ${cached.results.length} flight options (cached)`
+							);
+						}
+						return;
+					} else {
+						console.log("Cache journey type mismatch, fetching fresh results");
+					}
+				}
 			}
 
 			const response = await fetch("/api/travel/flights/search", {
@@ -657,27 +816,94 @@ export default function FlightSearch() {
 				const outboundFlights = result.data?.Response?.Results?.[0] || [];
 				const returnFlights = result.data?.Response?.Results?.[1] || [];
 
-				console.log("Round trip search results:", {
-					outboundFlights: outboundFlights.length,
-					returnFlights: returnFlights.length,
+				console.log("Round trip search results processing:", {
+					outboundCount: outboundFlights.length,
+					returnCount: returnFlights.length,
 					journeyType: searchParams.JourneyType,
 				});
 
 				// For round trips, create combined flight results
 				// Each result will have both outbound and return segments
+				// We manually combine all fare components to ensure consistency with pricing formulas
 				flightResults = outboundFlights.map(
 					(outboundFlight: FlightResult, index: number) => {
 						const returnFlight = returnFlights[index] || returnFlights[0];
-						const totalFare = returnFlight
-							? outboundFlight.Fare.OfferedFare + returnFlight.Fare.OfferedFare
-							: outboundFlight.Fare.OfferedFare;
+
+						let combinedFare = outboundFlight.Fare;
+						let returnResultIndex = undefined;
+
+						if (returnFlight && outboundFlight.Fare && returnFlight.Fare) {
+							console.log(`Combining fares for index ${index}:`, {
+								outbound: outboundFlight.Fare.OfferedFare,
+								return: returnFlight.Fare.OfferedFare,
+							});
+
+							returnResultIndex = returnFlight.ResultIndex;
+							const f1 = outboundFlight.Fare;
+							const f2 = returnFlight.Fare;
+
+							// Combine ALL fare components as per TBO pricing formula
+							combinedFare = {
+								...f1,
+								BaseFare: Number(f1.BaseFare) + Number(f2.BaseFare),
+								Tax: Number(f1.Tax) + Number(f2.Tax),
+								YQTax: Number(f1.YQTax) + Number(f2.YQTax),
+								AdditionalTxnFeeOfrd:
+									Number(f1.AdditionalTxnFeeOfrd) +
+									Number(f2.AdditionalTxnFeeOfrd),
+								AdditionalTxnFeePub:
+									Number(f1.AdditionalTxnFeePub) +
+									Number(f2.AdditionalTxnFeePub),
+								PGCharge: Number(f1.PGCharge) + Number(f2.PGCharge),
+								OtherCharges: Number(f1.OtherCharges) + Number(f2.OtherCharges),
+								Discount: Number(f1.Discount) + Number(f2.Discount),
+								PublishedFare:
+									Number(f1.PublishedFare) + Number(f2.PublishedFare),
+								CommissionEarned:
+									Number(f1.CommissionEarned) + Number(f2.CommissionEarned),
+								PLBEarned: Number(f1.PLBEarned) + Number(f2.PLBEarned),
+								IncentiveEarned:
+									Number(f1.IncentiveEarned) + Number(f2.IncentiveEarned),
+								OfferedFare: Number(f1.OfferedFare) + Number(f2.OfferedFare),
+								TdsOnCommission:
+									Number(f1.TdsOnCommission) + Number(f2.TdsOnCommission),
+								TdsOnPLB: Number(f1.TdsOnPLB) + Number(f2.TdsOnPLB),
+								TdsOnIncentive:
+									Number(f1.TdsOnIncentive) + Number(f2.TdsOnIncentive),
+								ServiceFee: Number(f1.ServiceFee) + Number(f2.ServiceFee),
+								TotalBaggageCharges:
+									Number(f1.TotalBaggageCharges) +
+									Number(f2.TotalBaggageCharges),
+								TotalMealCharges:
+									Number(f1.TotalMealCharges) + Number(f2.TotalMealCharges),
+								TotalSeatCharges:
+									Number(f1.TotalSeatCharges) + Number(f2.TotalSeatCharges),
+								TotalSpecialServiceCharges:
+									Number(f1.TotalSpecialServiceCharges) +
+									Number(f2.TotalSpecialServiceCharges),
+								IGSTAmount:
+									(Number(f1.IGSTAmount) || 0) + (Number(f2.IGSTAmount) || 0),
+								CGSTAmount:
+									(Number(f1.CGSTAmount) || 0) + (Number(f2.CGSTAmount) || 0),
+								SGSTAmount:
+									(Number(f1.SGSTAmount) || 0) + (Number(f2.SGSTAmount) || 0),
+								CessAmount:
+									(Number(f1.CessAmount) || 0) + (Number(f2.CessAmount) || 0),
+								AirlineTransFee:
+									(Number(f1.AirlineTransFee) || 0) +
+									(Number(f2.AirlineTransFee) || 0),
+							};
+							console.log(`Combined Fare Result:`, {
+								BaseFare: combinedFare.BaseFare,
+								PublishedFare: combinedFare.PublishedFare,
+								OfferedFare: combinedFare.OfferedFare,
+							});
+						}
 
 						return {
 							...outboundFlight,
-							Fare: {
-								...outboundFlight.Fare,
-								OfferedFare: totalFare,
-							},
+							ReturnResultIndex: returnResultIndex,
+							Fare: combinedFare,
 							Segments: [
 								outboundFlight.Segments[0], // Outbound segments
 								returnFlight ? returnFlight.Segments[0] : [], // Return segments
@@ -686,15 +912,68 @@ export default function FlightSearch() {
 					}
 				);
 			} else {
-				// One-way
+				// One-way and Multi-city
+				// For multi-city, TBO API returns flights with all segments already combined in one flight object
+				// The fare breakdown is already calculated for all legs combined
 				flightResults = result.data?.Response?.Results?.[0] || [];
 			}
 
-			// Update cache
-			searchCache.current[cacheKey] = {
+			// Update cache with timestamp and journey type
+			// Keep only the most recent search for this journey type
+			const now = Date.now();
+			const newCache: Record<
+				string,
+				{
+					results: FlightResult[];
+					traceId: string;
+					timestamp: number;
+					journeyType: string;
+				}
+			> = {};
+
+			// Remove ALL old entries for the same journey type
+			Object.keys(searchCache.current).forEach((key) => {
+				const entry = searchCache.current[key];
+				if (entry.journeyType !== searchParams.JourneyType) {
+					newCache[key] = entry;
+				}
+			});
+
+			// Add the new search result (only one per journey type)
+			newCache[cacheKey] = {
 				results: flightResults,
 				traceId: newTraceId,
+				timestamp: now,
+				journeyType: searchParams.JourneyType,
 			};
+
+			// Store a marker for the latest search of this journey type
+			const latestKey = `latest_${searchParams.JourneyType}`;
+			newCache[latestKey] = {
+				results: flightResults,
+				traceId: newTraceId,
+				timestamp: now,
+				journeyType: searchParams.JourneyType,
+			};
+
+			searchCache.current = newCache;
+
+			// Persist cache to sessionStorage so it survives navigation/back
+			try {
+				sessionStorage.setItem(
+					"flightSearchCache",
+					JSON.stringify(searchCache.current)
+				);
+				console.log(
+					"Updated cache for journey type",
+					searchParams.JourneyType,
+					"with",
+					flightResults.length,
+					"results"
+				);
+			} catch (e) {
+				console.warn("Failed to persist flight search cache:", e);
+			}
 
 			setFlights(flightResults);
 
@@ -886,9 +1165,10 @@ export default function FlightSearch() {
 		) => {
 			const airportCode = location?.Airport?.AirportCode;
 			return (
+				location?.Airport?.AirportName ||
+				(airportCode && airportToNameMap[airportCode]) ||
 				location?.Airport?.CityName ||
 				(airportCode && airportToCityMap[airportCode]) ||
-				location?.Airport?.AirportName ||
 				airportCode ||
 				"Unknown"
 			);
@@ -1259,9 +1539,32 @@ export default function FlightSearch() {
 					<div className="lg:col-span-3">
 						<Card>
 							<CardHeader>
-								<CardTitle>
-									Flight Results ({filteredFlights.length} of {flights.length})
-								</CardTitle>
+								<div className="flex items-center justify-between">
+									<CardTitle>
+										Flight Results ({filteredFlights.length} of {flights.length}
+										)
+									</CardTitle>
+									<div>
+										<Button
+											size="sm"
+											variant="outline"
+											className="text-sm"
+											onClick={async () => {
+												try {
+													const currentValues = form.getValues();
+													await handleAutoSearch(currentValues, {
+														forceRefresh: true,
+													});
+												} catch (e) {
+													console.error("Refresh failed:", e);
+												}
+											}}
+											disabled={loading}
+										>
+											<RefreshCw className="mr-2 h-4 w-4" /> Refresh Results
+										</Button>
+									</div>
+								</div>
 							</CardHeader>
 							<CardContent>
 								{filteredFlights.length === 0 ? (
@@ -1326,6 +1629,10 @@ export default function FlightSearch() {
 																						legType={`Leg ${legIndex + 1}: ${
 																							legSegments?.[0]?.Origin?.Airport
 																								?.CityName ||
+																							airportToCityMap[
+																								legSegments?.[0]?.Origin
+																									?.Airport?.AirportCode
+																							] ||
 																							legSegments?.[0]?.Origin?.Airport
 																								?.AirportCode
 																						} → ${
@@ -1333,6 +1640,12 @@ export default function FlightSearch() {
 																								legSegments.length - 1
 																							]?.Destination?.Airport
 																								?.CityName ||
+																							airportToCityMap[
+																								legSegments?.[
+																									legSegments.length - 1
+																								]?.Destination?.Airport
+																									?.AirportCode
+																							] ||
 																							legSegments?.[
 																								legSegments.length - 1
 																							]?.Destination?.Airport
@@ -1376,15 +1689,17 @@ export default function FlightSearch() {
 																				</div>
 																				<div className="text-sm text-muted-foreground font-medium">
 																					{flight.Segments?.[0]?.[0]?.Origin
-																						?.Airport?.CityName ||
-																						(flight.Segments?.[0]?.[0]?.Origin
-																							?.Airport?.AirportCode &&
-																							airportToCityMap[
-																								flight.Segments[0][0].Origin
-																									.Airport.AirportCode
-																							]) ||
+																						?.Airport?.AirportName ||
+																						airportToNameMap[
+																							flight.Segments?.[0]?.[0]?.Origin
+																								?.Airport?.AirportCode
+																						] ||
 																						flight.Segments?.[0]?.[0]?.Origin
-																							?.Airport?.AirportCode ||
+																							?.Airport?.CityName ||
+																						airportToCityMap[
+																							flight.Segments?.[0]?.[0]?.Origin
+																								?.Airport?.AirportCode
+																						] ||
 																						"Unknown"}
 																				</div>
 																				<div className="text-sm font-medium">
@@ -1433,21 +1748,23 @@ export default function FlightSearch() {
 																				<div className="text-sm text-muted-foreground font-medium">
 																					{flight.Segments?.[0]?.[
 																						flight.Segments[0].length - 1
-																					]?.Destination?.Airport?.CityName ||
-																						(flight.Segments?.[0]?.[
-																							flight.Segments[0].length - 1
-																						]?.Destination?.Airport
-																							?.AirportCode &&
-																							airportToCityMap[
-																								flight.Segments[0][
-																									flight.Segments[0].length - 1
-																								].Destination.Airport
-																									.AirportCode
-																							]) ||
+																					]?.Destination?.Airport
+																						?.AirportName ||
+																						airportToNameMap[
+																							flight.Segments?.[0]?.[
+																								flight.Segments[0].length - 1
+																							]?.Destination?.Airport
+																								?.AirportCode
+																						] ||
 																						flight.Segments?.[0]?.[
 																							flight.Segments[0].length - 1
-																						]?.Destination?.Airport
-																							?.AirportCode ||
+																						]?.Destination?.Airport?.CityName ||
+																						airportToCityMap[
+																							flight.Segments?.[0]?.[
+																								flight.Segments[0].length - 1
+																							]?.Destination?.Airport
+																								?.AirportCode
+																						] ||
 																						"Unknown"}
 																				</div>
 																				<div className="text-sm font-medium">
@@ -1483,15 +1800,31 @@ export default function FlightSearch() {
 														{/* Price */}
 														<div className="flex flex-col items-end justify-between">
 															<div className="text-right mb-3">
-																<div className="text-2xl font-bold text-green-600">
-																	₹{flight.Fare.OfferedFare.toLocaleString()}
-																</div>
-																<div className="text-sm text-muted-foreground">
-																	{flight.Fare.Currency}
-																</div>
-																{flight.IsRefundable && (
-																	<div className="text-xs text-green-600 mt-1">
-																		Refundable
+																{flight.Fare ? (
+																	<>
+																		<div className="text-2xl font-bold text-green-600">
+																			₹
+																			{(() => {
+																				// Show Published Fare (customer price), not Offered Fare (agency cost)
+																				const breakdown = getFareBreakdown(
+																					flight.Fare,
+																					0
+																				);
+																				return breakdown.publishedFare.toLocaleString();
+																			})()}
+																		</div>
+																		<div className="text-sm text-muted-foreground">
+																			{flight.Fare.Currency}
+																		</div>
+																		{flight.IsRefundable && (
+																			<div className="text-xs text-green-600 mt-1">
+																				Refundable
+																			</div>
+																		)}
+																	</>
+																) : (
+																	<div className="text-sm text-muted-foreground">
+																		Price not available
 																	</div>
 																)}
 																<Button
@@ -1528,7 +1861,16 @@ export default function FlightSearch() {
 																		adultCount: String(values.adults),
 																		childCount: String(values.children),
 																		infantCount: String(values.infants),
+																		isUpsellAllowed: String(
+																			!!flight.IsUpsellAllowed
+																		),
 																	});
+																	if ((flight as any).ReturnResultIndex) {
+																		params.append(
+																			"returnResultIndex",
+																			(flight as any).ReturnResultIndex
+																		);
+																	}
 																	router.push(
 																		`/travel-portal/book?${params.toString()}`
 																	);
@@ -1546,15 +1888,54 @@ export default function FlightSearch() {
 														</div>
 													</div>
 												</CardContent>
-												{/* Fare Breakdown */}
-												{expandedFareBreakdown === flight.ResultIndex && (
-													<div className="px-4 pb-4">
-														<FareBreakdown
-															flight={flight}
-															showValidation={true}
-														/>
-													</div>
-												)}
+												{/* Fare Breakdown (inline summary swapped in) */}
+												{expandedFareBreakdown === flight.ResultIndex &&
+													flight.Fare && (
+														<div className="px-4 pb-4">
+															<div>
+																<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+																	<IndianRupee className="h-4 w-4 text-gray-500" />
+																	Fare Breakdown
+																</h3>
+																{(() => {
+																	const breakdown = getFareBreakdown(
+																		flight.Fare,
+																		0
+																	);
+																	return (
+																		<div className="bg-gray-50 p-4 rounded-lg text-sm space-y-2 border border-gray-100">
+																			<div className="flex justify-between text-gray-600">
+																				<span>Base Fare</span>
+																				<span className="font-medium text-gray-900">
+																					{flight.Fare.Currency}{" "}
+																					{breakdown.baseFare.toLocaleString()}
+																				</span>
+																			</div>
+																			<div className="flex justify-between text-gray-600">
+																				<span>Tax & Charges</span>
+																				<span className="font-medium text-gray-900">
+																					{flight.Fare.Currency}{" "}
+																					{(
+																						breakdown.tax +
+																						breakdown.gst.total +
+																						breakdown.otherCharges
+																					).toLocaleString()}
+																				</span>
+																			</div>
+																			<Separator className="my-2" />
+																			<div className="flex justify-between font-bold text-lg text-primary">
+																				<span>Total Amount</span>
+																				<span className="flex items-center">
+																					<IndianRupee className="h-4 w-4 mr-1" />
+																					{breakdown.publishedFare.toLocaleString()}
+																				</span>
+																			</div>
+																		</div>
+																	);
+																})()}
+															</div>
+														</div>
+													)}
 											</Card>
 										))}
 									</div>
