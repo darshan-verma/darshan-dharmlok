@@ -15,6 +15,7 @@ import {
 	TrendingUp,
 	Tag,
 	ArrowRight,
+	Search,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,12 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		EndUserIp: "192.168.1.1",
 	}).catch((e) => {
 		console.error("Error fetching fare rules", e);
+		console.error("Fare rules error details:", {
+			traceId,
+			resultIndex,
+			error: e.message,
+			stack: e.stack,
+		});
 		return null;
 	});
 
@@ -107,6 +114,44 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		}
 	} catch (e) {
 		console.error("Error fetching fare quote", e);
+
+		// Check if the error is due to invalid/expired ResultIndex
+		const errorMessage = e instanceof Error ? e.message : String(e);
+		if (
+			errorMessage.includes("Invalid Outbound Result Index") ||
+			errorMessage.includes("Invalid Result Index")
+		) {
+			return (
+				<div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+					<Card className="max-w-md w-full">
+						<CardHeader>
+							<CardTitle className="text-center text-red-600 flex items-center justify-center gap-2">
+								<XCircle className="h-6 w-6" />
+								Session Expired
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="text-center space-y-4">
+							<p className="text-gray-600">
+								The flight search session has expired. Flight prices and
+								availability change frequently, so search results are only valid
+								for a limited time.
+							</p>
+							<p className="text-sm text-gray-500">
+								Please search for flights again to get current prices and
+								availability.
+							</p>
+							<Button asChild className="w-full">
+								<Link href="/travel-portal">
+									<Search className="mr-2 h-4 w-4" />
+									Search Flights Again
+								</Link>
+							</Button>
+						</CardContent>
+					</Card>
+				</div>
+			);
+		}
+
 		return (
 			<div className="p-4 text-red-500">
 				Error fetching flight details. The flight might no longer be available.
@@ -115,7 +160,34 @@ export default async function BookingPage({ searchParams }: PageProps) {
 	}
 
 	if (!fareQuoteResponse?.Response?.Results) {
-		return <div className="p-4 text-red-500">Flight no longer available.</div>;
+		return (
+			<div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+				<Card className="max-w-md w-full">
+					<CardHeader>
+						<CardTitle className="text-center text-red-600 flex items-center justify-center gap-2">
+							<XCircle className="h-6 w-6" />
+							Flight Not Available
+						</CardTitle>
+					</CardHeader>
+					<CardContent className="text-center space-y-4">
+						<p className="text-gray-600">
+							The selected flight is no longer available. This can happen when
+							flights sell out quickly or prices change.
+						</p>
+						<p className="text-sm text-gray-500">
+							Please search for alternative flights with similar dates and
+							routes.
+						</p>
+						<Button asChild className="w-full">
+							<Link href="/travel-portal">
+								<Search className="mr-2 h-4 w-4" />
+								Search Flights Again
+							</Link>
+						</Button>
+					</CardContent>
+				</Card>
+			</div>
+		);
 	}
 
 	let flightResult = fareQuoteResponse.Response.Results;
@@ -215,6 +287,24 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		fareRulePromise,
 		fareUpsellPromise,
 	]);
+
+	// Log the fare rules response for debugging
+	console.log("=== Fare Rules Debug Info ===");
+	console.log("fareRules:", fareRules);
+	console.log("fareRules?.Response:", fareRules?.Response);
+	console.log("fareRules?.Response?.Results:", fareRules?.Response?.Results);
+	console.log(
+		"fareRules?.Response?.FareRules:",
+		fareRules?.Response?.FareRules
+	);
+	console.log(
+		"fareRules?.Response?.Results?.MiniFareRules:",
+		fareRules?.Response?.Results?.MiniFareRules
+	);
+	console.log(
+		"fareRules?.Response?.Results?.FareRules:",
+		fareRules?.Response?.Results?.FareRules
+	);
 
 	// Log the fare upsell response for debugging
 	if (isUpsellAllowed) {
@@ -427,162 +517,153 @@ export default async function BookingPage({ searchParams }: PageProps) {
 						)}
 
 						{isUpsellAllowed && upsellOptions.length > 0 && (
-							<div className="overflow-x-auto -mx-4 px-4 pb-3 custom-scrollbar">
-								<div className="flex gap-4">
-									{upsellOptions.map((deal) => {
-										const firstSegment = deal.Segments?.[0]?.[0];
-										const lastGroup = deal.Segments?.[deal.Segments.length - 1];
-										const lastSegment = lastGroup?.[lastGroup.length - 1];
-										const totalDuration = deal.Segments?.reduce(
-											(sum, group) => {
-												return (
-													sum +
-													group.reduce(
-														(inner, seg) => inner + (seg.Duration || 0),
-														0
-													)
-												);
-											},
-											0
-										);
-										const totalLegs = deal.Segments?.reduce(
-											(count, group) => count + group.length,
-											0
-										);
-										const stops = Math.max(0, (totalLegs || 1) - 1);
-
-										const upsellParams = new URLSearchParams({
-											traceId,
-											resultIndex: deal.ResultIndex,
-											adultCount,
-											childCount,
-											infantCount,
-										});
-
-										// Check if this upsell option itself allows further upselling
-										if (deal.IsUpsellAllowed === true) {
-											upsellParams.set("isUpsellAllowed", "true");
-										}
-
-										if (returnResultIndex) {
-											upsellParams.set("returnResultIndex", returnResultIndex);
-										}
-
-										const href = `/travel-portal/book?${upsellParams.toString()}`;
-
+							<div className="grid grid-cols-2 gap-4">
+								{upsellOptions.map((deal) => {
+									const firstSegment = deal.Segments?.[0]?.[0];
+									const lastGroup = deal.Segments?.[deal.Segments.length - 1];
+									const lastSegment = lastGroup?.[lastGroup.length - 1];
+									const totalDuration = deal.Segments?.reduce((sum, group) => {
 										return (
-											<Card
-												key={`${deal.ResultIndex}-${deal.ValidatingAirlineCode}`}
-												className="min-w-[280px] max-w-[320px] border border-purple-100 bg-purple-50/40"
-											>
-												<CardContent className="p-4 space-y-4">
-													<div className="flex items-center justify-between gap-2">
-														<div className="space-y-1">
-															<div className="flex items-center gap-2">
-																<div className="h-8 w-8 rounded flex items-center justify-center overflow-hidden bg-white">
-																	<AirlineLogo
-																		airlineCode={
-																			firstSegment?.Airline?.AirlineCode || ""
-																		}
-																		airlineName={
-																			firstSegment?.Airline?.AirlineName || ""
-																		}
-																		size="md"
-																	/>
-																</div>
-																<div>
-																	<div className="text-sm font-semibold text-purple-900">
-																		{firstSegment?.Airline?.AirlineName ||
-																			"Upsell Fare"}
-																	</div>
-																	<div className="text-xs text-gray-600">
-																		{firstSegment?.Airline?.AirlineCode}
-																	</div>
-																</div>
-															</div>
-														</div>
-														<Badge
-															variant="outline"
-															className="border-purple-200 text-purple-800"
-														>
-															{stops === 0
-																? "Non-stop"
-																: `${stops} stop${stops > 1 ? "s" : ""}`}
-														</Badge>
-													</div>
-
-													<div className="flex items-center justify-between">
-														<div>
-															<div className="text-lg font-semibold text-gray-900">
-																{firstSegment?.Origin.Airport.CityCode}
-															</div>
-															<div className="text-xs text-gray-600">
-																{firstSegment?.Origin.DepTime
-																	? new Date(
-																			firstSegment.Origin.DepTime
-																	  ).toLocaleTimeString([], {
-																			hour: "2-digit",
-																			minute: "2-digit",
-																	  })
-																	: "--"}
-															</div>
-														</div>
-														<div className="text-center text-gray-500 text-xs">
-															<div className="font-medium text-gray-700">
-																{totalDuration || 0}m
-															</div>
-															<div className="h-px w-16 bg-purple-200 mx-auto my-1" />
-															<div className="text-[10px]">Duration</div>
-														</div>
-														<div className="text-right">
-															<div className="text-lg font-semibold text-gray-900">
-																{lastSegment?.Destination.Airport.CityCode}
-															</div>
-															<div className="text-xs text-gray-600">
-																{lastSegment?.Destination.ArrTime
-																	? new Date(
-																			lastSegment.Destination.ArrTime
-																	  ).toLocaleTimeString([], {
-																			hour: "2-digit",
-																			minute: "2-digit",
-																	  })
-																	: "--"}
-															</div>
-														</div>
-													</div>
-
-													<div className="flex items-center justify-between">
-														<div className="text-sm text-gray-600">
-															Baggage {firstSegment?.Baggage || "--"}
-														</div>
-														<div className="text-right">
-															<div className="text-xl font-bold text-purple-900">
-																{deal.Fare?.Currency ||
-																	flightResult.Fare?.Currency ||
-																	"INR"}{" "}
-																{deal.Fare?.PublishedFare?.toLocaleString() ||
-																	"--"}
-															</div>
-															<div className="text-xs text-gray-500">
-																per itinerary
-															</div>
-														</div>
-													</div>
-
-													<Button
-														asChild
-														variant="secondary"
-														className="w-full"
-													>
-														<Link href={href} prefetch={false}>
-															View Deal
-														</Link>
-													</Button>
-												</CardContent>
-											</Card>
+											sum +
+											group.reduce(
+												(inner, seg) => inner + (seg.Duration || 0),
+												0
+											)
 										);
-									})}
-								</div>
+									}, 0);
+									const totalLegs = deal.Segments?.reduce(
+										(count, group) => count + group.length,
+										0
+									);
+									const stops = Math.max(0, (totalLegs || 1) - 1);
+
+									const upsellParams = new URLSearchParams({
+										traceId,
+										resultIndex: deal.ResultIndex,
+										adultCount,
+										childCount,
+										infantCount,
+									});
+
+									// Check if this upsell option itself allows further upselling
+									if (deal.IsUpsellAllowed === true) {
+										upsellParams.set("isUpsellAllowed", "true");
+									}
+
+									if (returnResultIndex) {
+										upsellParams.set("returnResultIndex", returnResultIndex);
+									}
+
+									const href = `/travel-portal/book?${upsellParams.toString()}`;
+
+									return (
+										<Card
+											key={`${deal.ResultIndex}-${deal.ValidatingAirlineCode}`}
+											className="border border-purple-100 bg-purple-50/40"
+										>
+											<CardContent className="p-4 space-y-4">
+												<div className="flex items-center justify-between gap-2">
+													<div className="space-y-1">
+														<div className="flex items-center gap-2">
+															<div className="h-8 w-8 rounded flex items-center justify-center overflow-hidden bg-white">
+																<AirlineLogo
+																	airlineCode={
+																		firstSegment?.Airline?.AirlineCode || ""
+																	}
+																	airlineName={
+																		firstSegment?.Airline?.AirlineName || ""
+																	}
+																	size="md"
+																/>
+															</div>
+															<div>
+																<div className="text-sm font-semibold text-purple-900">
+																	{firstSegment?.Airline?.AirlineName ||
+																		"Upsell Fare"}
+																</div>
+																<div className="text-xs text-gray-600">
+																	{firstSegment?.Airline?.AirlineCode}
+																</div>
+															</div>
+														</div>
+													</div>
+													<Badge
+														variant="outline"
+														className="border-purple-200 text-purple-800"
+													>
+														{stops === 0
+															? "Non-stop"
+															: `${stops} stop${stops > 1 ? "s" : ""}`}
+													</Badge>
+												</div>
+
+												<div className="flex items-center justify-between">
+													<div>
+														<div className="text-lg font-semibold text-gray-900">
+															{firstSegment?.Origin.Airport.CityCode}
+														</div>
+														<div className="text-xs text-gray-600">
+															{firstSegment?.Origin.DepTime
+																? new Date(
+																		firstSegment.Origin.DepTime
+																  ).toLocaleTimeString([], {
+																		hour: "2-digit",
+																		minute: "2-digit",
+																  })
+																: "--"}
+														</div>
+													</div>
+													<div className="text-center text-gray-500 text-xs">
+														<div className="font-medium text-gray-700">
+															{totalDuration || 0}m
+														</div>
+														<div className="h-px w-16 bg-purple-200 mx-auto my-1" />
+														<div className="text-[10px]">Duration</div>
+													</div>
+													<div className="text-right">
+														<div className="text-lg font-semibold text-gray-900">
+															{lastSegment?.Destination.Airport.CityCode}
+														</div>
+														<div className="text-xs text-gray-600">
+															{lastSegment?.Destination.ArrTime
+																? new Date(
+																		lastSegment.Destination.ArrTime
+																  ).toLocaleTimeString([], {
+																		hour: "2-digit",
+																		minute: "2-digit",
+																  })
+																: "--"}
+														</div>
+													</div>
+												</div>
+
+												<div className="flex items-center justify-between">
+													<div className="text-sm text-gray-600">
+														Baggage {firstSegment?.Baggage || "--"}
+													</div>
+													<div className="text-right">
+														<div className="text-xl font-bold text-purple-900">
+															{deal.Fare?.Currency ||
+																flightResult.Fare?.Currency ||
+																"INR"}{" "}
+															{deal.Fare?.PublishedFare?.toLocaleString() ||
+																"--"}
+														</div>
+														<div className="text-xs text-gray-500">
+															per itinerary
+														</div>
+													</div>
+												</div>
+
+												<Button asChild variant="secondary" className="w-full">
+													<Link href={href} prefetch={false}>
+														View Deal
+													</Link>
+												</Button>
+											</CardContent>
+										</Card>
+									);
+								})}
 							</div>
 						)}
 
@@ -620,48 +701,135 @@ export default async function BookingPage({ searchParams }: PageProps) {
 						</CardTitle>
 					</CardHeader>
 					<CardContent className="pt-4">
-						{fareRules?.Response?.FareRules ? (
-							<div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-								{fareRules.Response.FareRules.map((rule, index) => (
-									<div
-										key={index}
-										className="bg-orange-50/50 p-4 rounded-lg border border-orange-100"
-									>
-										<div className="font-medium mb-2 text-orange-900">
-											<div className="flex items-center gap-2">
-												<span className="text-sm">Airline:</span>
-												<span className="text-sm text-gray-700">
-													{rule.Airline}
-												</span>
+						{(() => {
+							// Handle different response structures
+							const miniFareRules =
+								fareRules?.Response?.Results?.MiniFareRules ||
+								fareRules?.Response?.MiniFareRules;
+							const fareRulesArray =
+								fareRules?.Response?.Results?.FareRules ||
+								fareRules?.Response?.FareRules;
+
+							if (miniFareRules && miniFareRules.length > 0) {
+								return (
+									<div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+										{miniFareRules.map((ruleGroup, groupIndex) => (
+											<div
+												key={groupIndex}
+												className="bg-orange-50/50 p-4 rounded-lg border border-orange-100"
+											>
+												<div className="font-medium mb-3 text-orange-900">
+													Fare Rules for{" "}
+													{ruleGroup[0]?.JourneyPoints || "Route"}
+												</div>
+												<div className="space-y-3">
+													{ruleGroup.map((rule, ruleIndex) => (
+														<div
+															key={ruleIndex}
+															className="bg-white p-3 rounded border border-orange-200"
+														>
+															<div className="flex items-center justify-between mb-2">
+																<div className="flex items-center gap-2">
+																	<Badge
+																		variant="outline"
+																		className={`${
+																			rule.Type === "Cancellation"
+																				? "bg-red-50 text-red-700 border-red-200"
+																				: rule.Type === "Reissue"
+																				? "bg-blue-50 text-blue-700 border-blue-200"
+																				: "bg-gray-50 text-gray-700 border-gray-200"
+																		}`}
+																	>
+																		{rule.Type}
+																	</Badge>
+																	{rule.OnlineReissueAllowed && (
+																		<Badge
+																			variant="outline"
+																			className="bg-green-50 text-green-700 border-green-200"
+																		>
+																			Online Allowed
+																		</Badge>
+																	)}
+																</div>
+																<div className="text-sm text-gray-600">
+																	{rule.From}-{rule.To} {rule.Unit}
+																</div>
+															</div>
+															<div className="text-sm font-medium text-gray-900">
+																{rule.Details}
+															</div>
+														</div>
+													))}
+												</div>
 											</div>
-											<div className="flex items-center gap-2 mt-1">
-												<span className="text-sm">Fare Basis Code:</span>
-												<span className="text-sm text-gray-700">
-													{rule.FareBasisCode}
-												</span>
-											</div>
-											<div className="flex items-center gap-2 mt-1">
-												<Badge
-													variant="outline"
-													className="bg-white text-orange-700 border-orange-200"
-												>
-													{rule.Origin} {"->"} {rule.Destination}
-												</Badge>
-											</div>
-										</div>
-										<div
-											className="text-sm text-gray-700 fare-rules-content"
-											dangerouslySetInnerHTML={{ __html: rule.FareRuleDetail }}
-										/>
+										))}
 									</div>
-								))}
-							</div>
-						) : (
-							<div className="text-center py-8 text-gray-500">
-								<ScrollText className="h-12 w-12 mx-auto mb-3 opacity-20" />
-								<p>No fare rules available.</p>
-							</div>
-						)}
+								);
+							} else if (fareRulesArray && fareRulesArray.length > 0) {
+								return (
+									<div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+										{fareRulesArray.map((rule, index) => (
+											<div
+												key={index}
+												className="bg-orange-50/50 p-4 rounded-lg border border-orange-100"
+											>
+												<div className="font-medium mb-2 text-orange-900">
+													<div className="flex items-center gap-2">
+														<span className="text-sm">Airline:</span>
+														<span className="text-sm text-gray-700">
+															{rule.Airline}
+														</span>
+													</div>
+													<div className="flex items-center gap-2 mt-1">
+														<span className="text-sm">Fare Basis Code:</span>
+														<span className="text-sm text-gray-700">
+															{rule.FareBasisCode}
+														</span>
+													</div>
+													<div className="flex items-center gap-2 mt-1">
+														<Badge
+															variant="outline"
+															className="bg-white text-orange-700 border-orange-200"
+														>
+															{rule.Origin} {"->"} {rule.Destination}
+														</Badge>
+													</div>
+												</div>
+												{rule.FareRuleDetail ? (
+													<div
+														className="text-sm text-gray-700 fare-rules-content"
+														dangerouslySetInnerHTML={{
+															__html: rule.FareRuleDetail,
+														}}
+													/>
+												) : (
+													<div className="text-sm text-gray-500 italic">
+														Detailed fare rules not available for this fare
+														basis.
+													</div>
+												)}
+											</div>
+										))}
+									</div>
+								);
+							} else if (fareRules === null) {
+								return (
+									<div className="text-center py-8 text-gray-500">
+										<ScrollText className="h-12 w-12 mx-auto mb-3 opacity-20" />
+										<p>
+											Unable to load fare rules. Please try refreshing the page.
+										</p>
+									</div>
+								);
+							} else {
+								return (
+									<div className="text-center py-8 text-gray-500">
+										<ScrollText className="h-12 w-12 mx-auto mb-3 opacity-20" />
+										<p>No fare rules available for this flight.</p>
+									</div>
+								);
+							}
+						})()}
 					</CardContent>
 				</Card>
 

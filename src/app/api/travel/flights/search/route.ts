@@ -80,14 +80,13 @@ export async function POST(request: NextRequest) {
 			AdultCount: body.AdultCount || "1",
 			ChildCount: body.ChildCount || "0",
 			InfantCount: body.InfantCount || "0",
-			DirectFlight:
-				body.DirectFlight !== undefined ? String(body.DirectFlight) : "true",
-			OneStopFlight:
-				body.OneStopFlight !== undefined ? String(body.OneStopFlight) : "false",
+			DirectFlight: "false", // Include all flight types
+			OneStopFlight: "false", // Include all flight types
 			JourneyType: body.JourneyType || "1", // 1: OneWay, 2: Return, 3: MultiCity
 			PreferredAirlines: body.PreferredAirlines || null,
 			Segments: [] as FlightSegment[],
-			Sources: body.Sources || null,
+			Sources: null, // Let TBO decide the best sources
+			MaxResults: 100, // Maximum number of results to return
 		};
 
 		// Handle different journey types
@@ -143,6 +142,14 @@ export async function POST(request: NextRequest) {
 
 		const result = await searchFlights(searchParams);
 
+		// Log the number of results returned
+		console.log("TBO API Response Results count:", {
+			hasResults: !!result?.Response?.Results,
+			resultsLength: result?.Response?.Results?.length,
+			firstArrayLength: result?.Response?.Results?.[0]?.length,
+			secondArrayLength: result?.Response?.Results?.[1]?.length,
+		});
+
 		// Calculate NetPayable for each flight result
 		if (result?.Response?.Results) {
 			for (const resultArray of result.Response.Results) {
@@ -160,6 +167,11 @@ export async function POST(request: NextRequest) {
 		if (result?.Response?.Results?.[0]?.[0]) {
 			const firstFlight = result.Response.Results[0][0];
 			console.log("Sample flight data structure:", {
+				resultIndex: firstFlight.ResultIndex,
+				isUpsellAllowed: firstFlight.IsUpsellAllowed,
+				isLCC: firstFlight.IsLCC,
+				isRefundable: firstFlight.IsRefundable,
+				airlineCode: firstFlight.AirlineCode,
 				segments: firstFlight.Segments,
 				segmentLength: firstFlight.Segments?.[0]?.length,
 				firstSegment: firstFlight.Segments?.[0]?.[0],

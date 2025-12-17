@@ -17,6 +17,7 @@ import {
 	Loader2,
 	IndianRupee,
 	RefreshCw,
+	TrendingUp,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import type {
@@ -1518,6 +1519,20 @@ export default function FlightSearch() {
 																				return breakdown.publishedFare.toLocaleString();
 																			})()}
 																		</div>
+																		{/* Fare Class (RBD) */}
+																		<div className="text-xs text-gray-500 mt-1">
+																			Class:{" "}
+																			{flight.Segments[0][0].Airline.FareClass}
+																		</div>
+																		{/* Upsell Availability Indicator */}
+																		{flight.IsUpsellAllowed && (
+																			<div className="flex items-center justify-center gap-1 mt-1 mb-1">
+																				<TrendingUp className="h-3 w-3 text-purple-600" />
+																				<span className="text-xs text-purple-700 font-medium">
+																					Upsell Available
+																				</span>
+																			</div>
+																		)}
 																		<Button
 																			variant="link"
 																			size="sm"

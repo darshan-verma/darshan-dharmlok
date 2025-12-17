@@ -40,6 +40,7 @@ export interface FlightSearchRequest {
 	PreferredAirlines?: string[] | null;
 	Segments: FlightSegment[];
 	Sources?: string[] | null;
+	MaxResults?: number; // Maximum number of results to return
 }
 
 export interface Airport {
@@ -270,14 +271,110 @@ export interface FareRuleRequest {
 
 export interface FareRuleResponse {
 	Response: {
+		Error: {
+			ErrorCode: number;
+			ErrorMessage: string;
+		};
+		ResponseStatus: number;
 		TraceId: string;
-		FareRules: Array<{
+		// Fare rules can be in different structures
+		FareRules?: Array<{
 			Origin: string;
 			Destination: string;
 			Airline: string;
 			FareBasisCode: string;
 			FareRuleDetail: string;
+			FareRestriction: string;
+			FareFamilyCode: string;
+			FareRuleIndex: string;
+			DepartureTime?: string;
+			ReturnDate?: string;
+			FlightId?: number;
+			FareInclusions?: unknown;
 		}>;
+		Results?: {
+			FareInclusions: unknown[];
+			FirstNameFormat: string;
+			IsBookableIfSeatNotAvailable: boolean;
+			IsExclusiveFare: boolean;
+			IsFreeMealAvailable: boolean;
+			IsHoldAllowedWithSSR: boolean;
+			IsHoldMandatoryWithSSR: boolean;
+			LastNameFormat: string;
+			ResultIndex: string;
+			Source: number;
+			IsLCC: boolean;
+			IsRefundable: boolean;
+			IsPanRequiredAtBook: boolean;
+			IsPanRequiredAtTicket: boolean;
+			GSTAllowed: boolean;
+			IsCouponAppilcable: boolean;
+			IsGSTMandatory: boolean;
+			IsHoldAllowed: boolean;
+			AirlineRemark: string;
+			IsPassportFullDetailRequiredAtBook: boolean;
+			ResultFareType: string;
+			Fare: Fare;
+			FareBreakdown: Array<{
+				Currency: string;
+				PassengerType: number;
+				PassengerCount: number;
+				BaseFare: number;
+				Tax: number;
+				TaxBreakUp?: Array<{
+					key: string;
+					value: number;
+				}>;
+				YQTax: number;
+				AdditionalTxnFeeOfrd: number;
+				AdditionalTxnFeePub: number;
+				PGCharge: number;
+				SupplierReissueCharges: number;
+			}>;
+			Segments: Array<FlightSegmentDetail[]>;
+			LastTicketDate: string;
+			TicketAdvisory: string | null;
+			FareRules: Array<{
+				Origin: string;
+				Destination: string;
+				Airline: string;
+				FareBasisCode: string;
+				FareRuleDetail: string;
+				FareRestriction: string;
+				FareFamilyCode: string;
+				FareRuleIndex: string;
+			}>;
+			MiniFareRules: Array<
+				Array<{
+					JourneyPoints: string;
+					Type: string;
+					From: string;
+					To: string;
+					Unit: string;
+					Details: string;
+					OnlineReissueAllowed: boolean;
+					OnlineRefundAllowed: boolean;
+				}>
+			>;
+			AirlineCode: string;
+			ValidatingAirline: string;
+			FareClassification: {
+				Color: string;
+				Type: string;
+			};
+		};
+		MiniFareRules?: Array<
+			Array<{
+				JourneyPoints: string;
+				Type: string;
+				From: string;
+				To: string;
+				Unit: string;
+				Details: string;
+				OnlineReissueAllowed: boolean;
+				OnlineRefundAllowed: boolean;
+			}>
+		>;
 	};
 	Error?: {
 		ErrorCode: number;

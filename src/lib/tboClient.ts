@@ -98,7 +98,9 @@ export async function tboRequest<T = unknown>(
 			data.Response.Error.ErrorCode !== 0
 		) {
 			// Special case: "No result found" is not really an error, just no flights available
-			if (data.Response.Error.ErrorMessage === "No result found") {
+			if (
+				data.Response.Error.ErrorMessage?.toLowerCase() === "no result found"
+			) {
 				// Return the response as is - it should have empty Results array
 				return data as T;
 			}
