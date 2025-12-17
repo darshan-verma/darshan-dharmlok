@@ -39,11 +39,7 @@ export default function MultiCitySelector({
 		const newLeg: CityLeg = {
 			id: `leg-${Date.now()}`,
 			from: lastLeg.to, // Start from where the last leg ended
-			to: {
-				city: "Mumbai",
-				airport: "Chhatrapati Shivaji Maharaj International Airport",
-				code: "BOM",
-			},
+			to: { city: "", airport: "", code: "" },
 			date: undefined,
 		};
 		onLegsChange([...legs, newLeg]);
@@ -56,9 +52,22 @@ export default function MultiCitySelector({
 	};
 
 	const updateLeg = (id: string, updates: Partial<CityLeg>) => {
-		onLegsChange(
-			legs.map((leg) => (leg.id === id ? { ...leg, ...updates } : leg))
+		const updatedLegs = legs.map((leg) =>
+			leg.id === id ? { ...leg, ...updates } : leg
 		);
+
+		// If destination (to) was updated, update the next leg's origin (from)
+		if (updates.to) {
+			const currentIndex = updatedLegs.findIndex((leg) => leg.id === id);
+			if (currentIndex >= 0 && currentIndex < updatedLegs.length - 1) {
+				updatedLegs[currentIndex + 1] = {
+					...updatedLegs[currentIndex + 1],
+					from: updates.to,
+				};
+			}
+		}
+
+		onLegsChange(updatedLegs);
 	};
 
 	const swapCities = (id: string) => {

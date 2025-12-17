@@ -39,40 +39,28 @@ export default function FlightBookingUI() {
 	const [selectedFare, setSelectedFare] = useState("Regular");
 
 	const [from, setFrom] = useState({
-		city: "Delhi",
-		airport: "Delhi Airport India",
-		code: "DEL",
+		city: "",
+		airport: "",
+		code: "",
 	});
 	const [to, setTo] = useState({
-		city: "Bengaluru",
-		airport: "Bengaluru International Airport ...",
-		code: "BLR",
+		city: "",
+		airport: "",
+		code: "",
 	});
 
 	// Multi-city state
 	const [multiCityLegs, setMultiCityLegs] = useState<CityLeg[]>([
 		{
 			id: "leg-1",
-			from: { city: "Delhi", airport: "Delhi Airport India", code: "DEL" },
-			to: {
-				city: "Bengaluru",
-				airport: "Bengaluru International Airport",
-				code: "BLR",
-			},
+			from: { city: "", airport: "", code: "" },
+			to: { city: "", airport: "", code: "" },
 			date: undefined,
 		},
 		{
 			id: "leg-2",
-			from: {
-				city: "Bengaluru",
-				airport: "Bengaluru International Airport",
-				code: "BLR",
-			},
-			to: {
-				city: "Mumbai",
-				airport: "Chhatrapati Shivaji Maharaj International Airport",
-				code: "BOM",
-			},
+			from: { city: "", airport: "", code: "" },
+			to: { city: "", airport: "", code: "" },
 			date: undefined,
 		},
 	]);

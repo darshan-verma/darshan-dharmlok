@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import FareBreakdown from "@/components/travel-portal/FareBreakdown";
+import AirlineLogo from "@/components/travel-portal/AirlineLogo";
 
 interface PageProps {
 	searchParams: Promise<{
@@ -45,6 +46,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		isUpsellAllowed: isUpsellAllowedParam,
 	} = params;
 
+	// Check if upsell is available from the search response (IsUpsellAllowed flag)
 	const isUpsellAllowed = isUpsellAllowedParam === "true";
 
 	if (!traceId || !resultIndex) {
@@ -56,6 +58,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 	}
 
 	// Fire fare rules and upsell in parallel
+	// If IsUpsellAllowed is true in search response, fetch upsell data from /FareUpsell endpoint
 	const fareRulePromise = getFareRules({
 		TraceId: traceId,
 		ResultIndex: resultIndex,
@@ -70,10 +73,19 @@ export default async function BookingPage({ searchParams }: PageProps) {
 				TraceId: traceId,
 				ResultIndex: resultIndex,
 				EndUserIp: "192.168.1.1",
-		  }).catch((e) => {
-				console.error("Error fetching fare upsell", e);
-				return null;
 		  })
+				.then((result) => {
+					console.log("=== Fare Upsell API Success ===");
+					console.log("Raw API response:", JSON.stringify(result, null, 2));
+					return result;
+				})
+				.catch((e) => {
+					console.error("=== Error fetching fare upsell ===");
+					console.error("Error details:", e);
+					console.error("Error message:", e.message);
+					console.error("Error stack:", e.stack);
+					return null;
+				})
 		: Promise.resolve(null);
 
 	// Fetch fare quote (outbound + optional return)
@@ -204,6 +216,25 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		fareUpsellPromise,
 	]);
 
+	// Log the fare upsell response for debugging
+	if (isUpsellAllowed) {
+		console.log("=== Fare Upsell Debug Info ===");
+		console.log("isUpsellAllowed:", isUpsellAllowed);
+		console.log(
+			"fareUpsell full response:",
+			JSON.stringify(fareUpsell, null, 2)
+		);
+		console.log("fareUpsell?.Response:", fareUpsell?.Response);
+		console.log(
+			"fareUpsell?.Response?.Results:",
+			fareUpsell?.Response?.Results
+		);
+		console.log(
+			"Array.isArray(fareUpsell?.Response?.Results):",
+			Array.isArray(fareUpsell?.Response?.Results)
+		);
+	}
+
 	const upsellOptions = Array.isArray(fareUpsell?.Response?.Results)
 		? fareUpsell.Response.Results
 		: [];
@@ -278,7 +309,13 @@ export default async function BookingPage({ searchParams }: PageProps) {
 												<div className="mb-6 last:mb-0">
 													<div className="flex items-center justify-between mb-2">
 														<div className="flex items-center gap-2 text-sm text-gray-600">
-															<Plane className="h-3 w-3" />
+															<div className="h-6 w-6 rounded flex items-center justify-center overflow-hidden bg-gray-50">
+																<AirlineLogo
+																	airlineCode={segment.Airline.AirlineCode}
+																	airlineName={segment.Airline.AirlineName}
+																	size="sm"
+																/>
+															</div>
 															<span>{segment.Airline.AirlineName}</span>
 															<span className="text-gray-400">•</span>
 															<span className="font-medium">
@@ -422,6 +459,11 @@ export default async function BookingPage({ searchParams }: PageProps) {
 											infantCount,
 										});
 
+										// Check if this upsell option itself allows further upselling
+										if (deal.IsUpsellAllowed === true) {
+											upsellParams.set("isUpsellAllowed", "true");
+										}
+
 										if (returnResultIndex) {
 											upsellParams.set("returnResultIndex", returnResultIndex);
 										}
@@ -436,12 +478,27 @@ export default async function BookingPage({ searchParams }: PageProps) {
 												<CardContent className="p-4 space-y-4">
 													<div className="flex items-center justify-between gap-2">
 														<div className="space-y-1">
-															<div className="text-sm font-semibold text-purple-900">
-																{firstSegment?.Airline?.AirlineName ||
-																	"Upsell Fare"}
-															</div>
-															<div className="text-xs text-gray-600">
-																{firstSegment?.Airline?.AirlineCode}
+															<div className="flex items-center gap-2">
+																<div className="h-8 w-8 rounded flex items-center justify-center overflow-hidden bg-white">
+																	<AirlineLogo
+																		airlineCode={
+																			firstSegment?.Airline?.AirlineCode || ""
+																		}
+																		airlineName={
+																			firstSegment?.Airline?.AirlineName || ""
+																		}
+																		size="md"
+																	/>
+																</div>
+																<div>
+																	<div className="text-sm font-semibold text-purple-900">
+																		{firstSegment?.Airline?.AirlineName ||
+																			"Upsell Fare"}
+																	</div>
+																	<div className="text-xs text-gray-600">
+																		{firstSegment?.Airline?.AirlineCode}
+																	</div>
+																</div>
 															</div>
 														</div>
 														<Badge
@@ -530,9 +587,23 @@ export default async function BookingPage({ searchParams }: PageProps) {
 						)}
 
 						{isUpsellAllowed && upsellOptions.length === 0 && (
-							<div className="text-center py-8 text-gray-500">
-								<TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-20" />
-								<p>No upsell deals found.</p>
+							<div className="text-center py-8">
+								<TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-20 text-gray-400" />
+								<p className="text-gray-600 font-medium mb-1">
+									Upsell Options Unavailable
+								</p>
+								<p className="text-sm text-gray-500 mb-2">
+									While this flight supports upgrades, the supplier could not
+									provide additional fare options at this time.
+								</p>
+								<div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3 text-left max-w-md mx-auto">
+									<p className="text-xs text-amber-800">
+										<strong>Technical Note:</strong> The TBO API returned an
+										error: &quot;FareUpsell failed from the Supplier end.&quot;
+										This typically means the airline/GDS does not have upsell
+										inventory available for this specific flight at this moment.
+									</p>
+								</div>
 							</div>
 						)}
 					</CardContent>
@@ -603,56 +674,121 @@ export default async function BookingPage({ searchParams }: PageProps) {
 						</CardTitle>
 					</CardHeader>
 					<CardContent className="pt-4">
-						{priceRBDResponse?.Response?.Results ? (
-							<div className="space-y-4">
-								{priceRBDResponse.Response.Results.Fare ? (
-									<div className="bg-green-50 p-4 rounded-lg border border-green-100 flex items-start gap-3">
-										<div className="bg-green-100 p-2 rounded-full">
-											<Tag className="h-4 w-4 text-green-700" />
-										</div>
-										<div>
-											<h3 className="font-medium text-green-900">
-												Updated Pricing Available
-											</h3>
-											<div className="mt-2 text-sm text-green-800">
-												<div className="flex items-center gap-2">
-													<span>New Total:</span>
-													<span className="font-bold text-lg">
-														{priceRBDResponse.Response.Results.Fare.Currency}{" "}
-														{
-															priceRBDResponse.Response.Results.Fare
-																.PublishedFare
-														}
-													</span>
+						{(() => {
+							if (!priceRBDResponse?.Response?.Results) {
+								return (
+									<div className="text-center py-8 text-gray-500">
+										<Tag className="h-12 w-12 mx-auto mb-3 opacity-20" />
+										<p>No RBD pricing available.</p>
+									</div>
+								);
+							}
+
+							// Handle array of arrays structure
+							let priceRBDResult;
+							if (Array.isArray(priceRBDResponse.Response.Results)) {
+								priceRBDResult = priceRBDResponse.Response.Results[0]?.[0];
+							} else {
+								priceRBDResult = priceRBDResponse.Response.Results;
+							}
+
+							if (!priceRBDResult) {
+								return (
+									<div className="text-center py-8 text-gray-500">
+										<Tag className="h-12 w-12 mx-auto mb-3 opacity-20" />
+										<p>No RBD pricing data available.</p>
+									</div>
+								);
+							}
+
+							return (
+								<div className="space-y-4">
+									{priceRBDResult.Fare ? (
+										<div className="space-y-3">
+											<div className="bg-green-50 p-4 rounded-lg border border-green-100 flex items-start gap-3">
+												<div className="bg-green-100 p-2 rounded-full">
+													<Tag className="h-4 w-4 text-green-700" />
+												</div>
+												<div className="flex-1">
+													<h3 className="font-medium text-green-900 mb-2">
+														Fare Pricing Details
+													</h3>
+													<div className="space-y-2 text-sm text-green-800">
+														<div className="flex justify-between">
+															<span>Base Fare:</span>
+															<span className="font-semibold">
+																{priceRBDResult.Fare.Currency}{" "}
+																{priceRBDResult.Fare.BaseFare.toLocaleString()}
+															</span>
+														</div>
+														<div className="flex justify-between">
+															<span>Taxes & Fees:</span>
+															<span className="font-semibold">
+																{priceRBDResult.Fare.Currency}{" "}
+																{priceRBDResult.Fare.Tax.toLocaleString()}
+															</span>
+														</div>
+														<div className="border-t border-green-200 pt-2 mt-2 flex justify-between">
+															<span className="font-semibold">Total Fare:</span>
+															<span className="font-bold text-lg">
+																{priceRBDResult.Fare.Currency}{" "}
+																{priceRBDResult.Fare.PublishedFare.toLocaleString()}
+															</span>
+														</div>
+														{priceRBDResult.IsRefundable !== undefined && (
+															<div className="flex items-center gap-2 mt-2 pt-2 border-t border-green-200">
+																{priceRBDResult.IsRefundable ? (
+																	<>
+																		<CheckCircle2 className="h-4 w-4 text-green-600" />
+																		<span className="text-xs">Refundable</span>
+																	</>
+																) : (
+																	<>
+																		<XCircle className="h-4 w-4 text-red-600" />
+																		<span className="text-xs">
+																			Non-Refundable
+																		</span>
+																	</>
+																)}
+															</div>
+														)}
+													</div>
 												</div>
 											</div>
+											{priceRBDResult.FareClassification && (
+												<div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+													<div className="text-sm">
+														<span className="text-gray-600">Fare Type: </span>
+														<Badge
+															style={{
+																backgroundColor:
+																	priceRBDResult.FareClassification.Color,
+															}}
+														>
+															{priceRBDResult.FareClassification.Type}
+														</Badge>
+													</div>
+												</div>
+											)}
 										</div>
-									</div>
-								) : (
-									<div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex items-start gap-3">
-										<div className="bg-blue-100 p-2 rounded-full">
-											<Tag className="h-4 w-4 text-blue-700" />
+									) : (
+										<div className="bg-gray-50 p-4 rounded-lg border">
+											<p className="text-sm text-gray-600">
+												Fare information not available in response.
+											</p>
 										</div>
-										<div>
-											<h3 className="font-medium text-blue-900">
-												Price RBD Response Received
-											</h3>
-											<div className="mt-2 text-sm text-blue-800">
-												<p>Response structure differs from expected format.</p>
-											</div>
-										</div>
-									</div>
-								)}
-								<pre className="text-xs bg-gray-50 p-4 rounded-lg border overflow-auto max-h-60 font-mono text-gray-600">
-									{JSON.stringify(priceRBDResponse.Response.Results, null, 2)}
-								</pre>
-							</div>
-						) : (
-							<div className="text-center py-8 text-gray-500">
-								<Tag className="h-12 w-12 mx-auto mb-3 opacity-20" />
-								<p>No RBD pricing available.</p>
-							</div>
-						)}
+									)}
+									<details className="text-xs">
+										<summary className="cursor-pointer text-gray-600 hover:text-gray-900">
+											View Raw Response
+										</summary>
+										<pre className="mt-2 bg-gray-50 p-4 rounded-lg border overflow-auto max-h-60 font-mono text-gray-600">
+											{JSON.stringify(priceRBDResult, null, 2)}
+										</pre>
+									</details>
+								</div>
+							);
+						})()}
 					</CardContent>
 				</Card>
 			</div>

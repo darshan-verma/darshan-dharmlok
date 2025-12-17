@@ -139,6 +139,7 @@ export interface FlightResult {
 	ValidatingAirlineCode: string;
 	AirlineRemark: string;
 	Fare?: Fare;
+	ReturnResultIndex?: string; // Added for round-trip flights
 	FareBreakdown: Array<{
 		PassengerType: number;
 		PassengerCount: number;
@@ -146,6 +147,10 @@ export interface FlightResult {
 		Tax: number;
 	}>;
 	Segments: Array<FlightSegmentDetail[]>;
+	FareClassification?: {
+		Color: string;
+		Type: string;
+	};
 }
 
 export interface FlightSearchResponse {
@@ -374,7 +379,7 @@ export interface PriceRBDRequest {
 export interface PriceRBDResponse {
 	Response: {
 		TraceId: string;
-		Results: FlightResult;
+		Results: FlightResult[][] | FlightResult; // Can be array of arrays or single result
 	};
 	Error?: {
 		ErrorCode: number;
