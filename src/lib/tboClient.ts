@@ -19,6 +19,8 @@ import type {
 	FareUpsellResponse,
 	PriceRBDRequest,
 	PriceRBDResponse,
+	SSRRequest,
+	SSRResponse,
 } from "@/types/tbo";
 
 const API_BASE_URL = process.env.TEKTRAVELS_API_URL || "";
@@ -159,7 +161,21 @@ export async function getFareQuote(
 }
 
 /**
- * Book a flight
+ * Get SSR (Special Service Request) options
+ */
+export async function getSSR(
+	ssrParams: Omit<SSRRequest, "TokenId">
+): Promise<SSRResponse> {
+	return tboRequest<SSRResponse>({
+		endpoint: "SSR",
+		method: "POST",
+		body: ssrParams,
+		service: "booking",
+	});
+}
+
+/**
+ * Get seat map
  */
 export async function bookFlight(
 	bookingParams: Omit<BookingRequest, "TokenId">

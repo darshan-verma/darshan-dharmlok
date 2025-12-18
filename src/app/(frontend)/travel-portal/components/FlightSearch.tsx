@@ -373,6 +373,26 @@ export default function FlightSearch() {
 		const leg3To = searchParams.get("leg3To");
 		const leg3Date = searchParams.get("leg3Date");
 
+		// If any search parameters are present, clear the cache to ensure fresh search
+		if (
+			origin ||
+			destination ||
+			departureDate ||
+			leg1From ||
+			leg1To ||
+			leg1Date
+		) {
+			console.log(
+				"URL search parameters detected, clearing cache for fresh search"
+			);
+			searchCache.current = {};
+			try {
+				sessionStorage.setItem("flightSearchCache", JSON.stringify({}));
+			} catch (e) {
+				console.warn("Failed to clear flight search cache:", e);
+			}
+		}
+
 		// Parse travellers
 		const adultCount = adults ? parseInt(adults) : 1;
 		const childCount = children ? parseInt(children) : 0;
@@ -951,6 +971,17 @@ export default function FlightSearch() {
 	};
 
 	const onSubmit = async (data: FlightSearchForm) => {
+		// Clear cache for fresh search when user manually submits
+		console.log(
+			"Manual search submission detected, clearing cache for fresh search"
+		);
+		searchCache.current = {};
+		try {
+			sessionStorage.setItem("flightSearchCache", JSON.stringify({}));
+		} catch (e) {
+			console.warn("Failed to clear flight search cache:", e);
+		}
+
 		await handleAutoSearch(data);
 	};
 

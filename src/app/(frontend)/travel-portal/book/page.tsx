@@ -4,8 +4,13 @@ import {
 	getFareRules,
 	getFareUpsell,
 	getPriceRBD,
+	getSSR,
 } from "@/lib/tboClient";
-import { PriceRBDResponse } from "@/types/tbo";
+import {
+	PriceRBDResponse,
+	FareUpsellResponse,
+	FlightResult,
+} from "@/types/tbo";
 import {
 	Plane,
 	CheckCircle2,
@@ -94,6 +99,22 @@ export default async function BookingPage({ searchParams }: PageProps) {
 					return null;
 				})
 		: Promise.resolve(null);
+
+	// Fetch SSR (Special Service Request) options
+	const ssrPromise = getSSR({
+		TraceId: traceId,
+		ResultIndex: resultIndex,
+		EndUserIp: "192.168.1.1",
+	}).catch((e) => {
+		console.error("Error fetching SSR", e);
+		console.error("SSR error details:", {
+			traceId,
+			resultIndex,
+			error: e.message,
+			stack: e.stack,
+		});
+		return null;
+	});
 
 	// Fetch fare quote (outbound + optional return)
 	let fareQuoteResponse;
@@ -283,9 +304,10 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		console.error("Error fetching PriceRBD", e);
 	}
 
-	const [fareRules, fareUpsell] = await Promise.all([
+	const [fareRules, fareUpsell, ssrResponse] = await Promise.all([
 		fareRulePromise,
 		fareUpsellPromise,
+		ssrPromise,
 	]);
 
 	// Log the fare rules response for debugging
@@ -325,9 +347,10 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		);
 	}
 
-	const upsellOptions = Array.isArray(fareUpsell?.Response?.Results)
-		? fareUpsell.Response.Results
-		: [];
+	const upsellOptions: FareUpsellResponse["Response"]["Results"] =
+		Array.isArray(fareUpsell?.Response?.Results)
+			? fareUpsell.Response.Results
+			: [];
 
 	return (
 		<div className="container mx-auto p-4 space-y-8 max-w-7xl">
@@ -340,42 +363,37 @@ export default async function BookingPage({ searchParams }: PageProps) {
 				{/* Flight Details */}
 				<Card className="shadow-sm">
 					<CardHeader className="pb-2 border-b">
-						<CardTitle className="text-xl font-semibold flex items-center gap-2">
-							<Plane className="h-5 w-5 text-blue-600" />
-							Flight Details
+						<CardTitle className="text-xl font-semibold flex items-center justify-between">
+							<div className="flex items-center gap-2">
+								<Plane className="h-5 w-5 text-blue-600" />
+								Flight Details
+							</div>
+							<div className="flex items-center gap-2">
+								<span className="font-medium text-gray-900 text-lg">
+									{flightResult.AirlineCode}
+								</span>
+								<Badge variant={flightResult.IsLCC ? "secondary" : "default"}>
+									{flightResult.IsLCC ? "LCC" : "Full Service"}
+								</Badge>
+								{flightResult.IsRefundable ? (
+									<Badge
+										variant="outline"
+										className="text-green-600 border-green-200 bg-green-50"
+									>
+										<CheckCircle2 className="h-3 w-3 mr-1" /> Refundable
+									</Badge>
+								) : (
+									<Badge
+										variant="outline"
+										className="text-red-600 border-red-200 bg-red-50"
+									>
+										<XCircle className="h-3 w-3 mr-1" /> Non-Refundable
+									</Badge>
+								)}
+							</div>
 						</CardTitle>
 					</CardHeader>
-					<CardContent className="pt-4 space-y-6">
-						<div className="flex justify-between items-start">
-							<div>
-								<div className="flex items-center gap-2 mb-1">
-									<span className="font-medium text-gray-900 text-lg">
-										{flightResult.AirlineCode}
-									</span>
-									<Badge variant={flightResult.IsLCC ? "secondary" : "default"}>
-										{flightResult.IsLCC ? "LCC" : "Full Service"}
-									</Badge>
-								</div>
-								<div className="flex items-center gap-2 text-sm text-gray-600">
-									{flightResult.IsRefundable ? (
-										<Badge
-											variant="outline"
-											className="text-green-600 border-green-200 bg-green-50"
-										>
-											<CheckCircle2 className="h-3 w-3 mr-1" /> Refundable
-										</Badge>
-									) : (
-										<Badge
-											variant="outline"
-											className="text-red-600 border-red-200 bg-red-50"
-										>
-											<XCircle className="h-3 w-3 mr-1" /> Non-Refundable
-										</Badge>
-									)}
-								</div>
-							</div>
-						</div>
-
+					<CardContent>
 						<div>
 							<FareBreakdown flight={flightResult} showValidation={false} />
 						</div>
@@ -485,6 +503,74 @@ export default async function BookingPage({ searchParams }: PageProps) {
 							</div>
 						</div>
 
+						{/* Passenger Details */}
+						<div>
+							<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+								<CheckCircle2 className="h-4 w-4 text-gray-500" />
+								Passenger Details
+							</h3>
+							<div className="bg-gray-50 rounded-lg p-4 space-y-3">
+								<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+									<div className="flex items-center gap-3">
+										<div className="bg-blue-100 p-2 rounded-full flex items-center justify-center w-8 h-8">
+											<span className="text-sm font-semibold text-blue-800">
+												A
+											</span>
+										</div>
+										<div>
+											<div className="text-sm font-medium text-gray-900">
+												Adults
+											</div>
+											<div className="text-xs text-gray-600">
+												{adultCount} passenger{adultCount !== "1" ? "s" : ""}
+											</div>
+										</div>
+									</div>
+									{childCount !== "0" && (
+										<div className="flex items-center gap-3">
+											<div className="bg-green-100 p-2 rounded-full flex items-center justify-center w-8 h-8">
+												<span className="text-sm font-semibold text-green-800">
+													C
+												</span>
+											</div>
+											<div>
+												<div className="text-sm font-medium text-gray-900">
+													Children
+												</div>
+												<div className="text-xs text-gray-600">
+													{childCount} passenger{childCount !== "1" ? "s" : ""}
+												</div>
+											</div>
+										</div>
+									)}
+									{infantCount !== "0" && (
+										<div className="flex items-center gap-3">
+											<div className="bg-yellow-100 p-2 rounded-full flex items-center justify-center w-8 h-8">
+												<span className="text-sm font-semibold text-yellow-800">
+													I
+												</span>
+											</div>
+											<div>
+												<div className="text-sm font-medium text-gray-900">
+													Infants
+												</div>
+												<div className="text-xs text-gray-600">
+													{infantCount} passenger
+													{infantCount !== "1" ? "s" : ""}
+												</div>
+											</div>
+										</div>
+									)}
+								</div>
+								<div className="pt-2 border-t border-gray-200">
+									<p className="text-xs text-gray-500">
+										Passenger names and contact details will be collected during
+										the booking process.
+									</p>
+								</div>
+							</div>
+						</div>
+
 						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<div>
 								<div className="text-sm text-gray-600">Total fare</div>
@@ -517,153 +603,162 @@ export default async function BookingPage({ searchParams }: PageProps) {
 						)}
 
 						{isUpsellAllowed && upsellOptions.length > 0 && (
-							<div className="grid grid-cols-2 gap-4">
-								{upsellOptions.map((deal) => {
-									const firstSegment = deal.Segments?.[0]?.[0];
-									const lastGroup = deal.Segments?.[deal.Segments.length - 1];
-									const lastSegment = lastGroup?.[lastGroup.length - 1];
-									const totalDuration = deal.Segments?.reduce((sum, group) => {
-										return (
-											sum +
-											group.reduce(
-												(inner, seg) => inner + (seg.Duration || 0),
-												0
-											)
+							<div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+								<div className="grid grid-cols-2 gap-4">
+									{upsellOptions.map((deal: FlightResult) => {
+										const firstSegment = deal.Segments?.[0]?.[0];
+										const lastGroup = deal.Segments?.[deal.Segments.length - 1];
+										const lastSegment = lastGroup?.[lastGroup.length - 1];
+										const totalDuration = deal.Segments?.reduce(
+											(sum, group) => {
+												return (
+													sum +
+													group.reduce(
+														(inner, seg) => inner + (seg.Duration || 0),
+														0
+													)
+												);
+											},
+											0
 										);
-									}, 0);
-									const totalLegs = deal.Segments?.reduce(
-										(count, group) => count + group.length,
-										0
-									);
-									const stops = Math.max(0, (totalLegs || 1) - 1);
+										const totalLegs = deal.Segments?.reduce(
+											(count, group) => count + group.length,
+											0
+										);
+										const stops = Math.max(0, (totalLegs || 1) - 1);
 
-									const upsellParams = new URLSearchParams({
-										traceId,
-										resultIndex: deal.ResultIndex,
-										adultCount,
-										childCount,
-										infantCount,
-									});
+										const upsellParams = new URLSearchParams({
+											traceId,
+											resultIndex: deal.ResultIndex,
+											adultCount,
+											childCount,
+											infantCount,
+										});
 
-									// Check if this upsell option itself allows further upselling
-									if (deal.IsUpsellAllowed === true) {
-										upsellParams.set("isUpsellAllowed", "true");
-									}
+										// Check if this upsell option itself allows further upselling
+										if (deal.IsUpsellAllowed === true) {
+											upsellParams.set("isUpsellAllowed", "true");
+										}
 
-									if (returnResultIndex) {
-										upsellParams.set("returnResultIndex", returnResultIndex);
-									}
+										if (returnResultIndex) {
+											upsellParams.set("returnResultIndex", returnResultIndex);
+										}
 
-									const href = `/travel-portal/book?${upsellParams.toString()}`;
+										const href = `/travel-portal/book?${upsellParams.toString()}`;
 
-									return (
-										<Card
-											key={`${deal.ResultIndex}-${deal.ValidatingAirlineCode}`}
-											className="border border-purple-100 bg-purple-50/40"
-										>
-											<CardContent className="p-4 space-y-4">
-												<div className="flex items-center justify-between gap-2">
-													<div className="space-y-1">
-														<div className="flex items-center gap-2">
-															<div className="h-8 w-8 rounded flex items-center justify-center overflow-hidden bg-white">
-																<AirlineLogo
-																	airlineCode={
-																		firstSegment?.Airline?.AirlineCode || ""
-																	}
-																	airlineName={
-																		firstSegment?.Airline?.AirlineName || ""
-																	}
-																	size="md"
-																/>
-															</div>
-															<div>
-																<div className="text-sm font-semibold text-purple-900">
-																	{firstSegment?.Airline?.AirlineName ||
-																		"Upsell Fare"}
+										return (
+											<Card
+												key={`${deal.ResultIndex}-${deal.ValidatingAirlineCode}`}
+												className="border border-purple-100 bg-purple-50/40"
+											>
+												<CardContent className="p-4 space-y-4">
+													<div className="flex items-center justify-between gap-2">
+														<div className="space-y-1">
+															<div className="flex items-center gap-2">
+																<div className="h-8 w-8 rounded flex items-center justify-center overflow-hidden bg-white">
+																	<AirlineLogo
+																		airlineCode={
+																			firstSegment?.Airline?.AirlineCode || ""
+																		}
+																		airlineName={
+																			firstSegment?.Airline?.AirlineName || ""
+																		}
+																		size="md"
+																	/>
 																</div>
-																<div className="text-xs text-gray-600">
-																	{firstSegment?.Airline?.AirlineCode}
+																<div>
+																	<div className="text-sm font-semibold text-purple-900">
+																		{firstSegment?.Airline?.AirlineName ||
+																			"Upsell Fare"}
+																	</div>
+																	<div className="text-xs text-gray-600">
+																		{firstSegment?.Airline?.AirlineCode}
+																	</div>
 																</div>
 															</div>
 														</div>
+														<Badge
+															variant="outline"
+															className="border-purple-200 text-purple-800"
+														>
+															{stops === 0
+																? "Non-stop"
+																: `${stops} stop${stops > 1 ? "s" : ""}`}
+														</Badge>
 													</div>
-													<Badge
-														variant="outline"
-														className="border-purple-200 text-purple-800"
+
+													<div className="flex items-center justify-between">
+														<div>
+															<div className="text-lg font-semibold text-gray-900">
+																{firstSegment?.Origin.Airport.CityCode}
+															</div>
+															<div className="text-xs text-gray-600">
+																{firstSegment?.Origin.DepTime
+																	? new Date(
+																			firstSegment.Origin.DepTime
+																	  ).toLocaleTimeString([], {
+																			hour: "2-digit",
+																			minute: "2-digit",
+																	  })
+																	: "--"}
+															</div>
+														</div>
+														<div className="text-center text-gray-500 text-xs">
+															<div className="font-medium text-gray-700">
+																{totalDuration || 0}m
+															</div>
+															<div className="h-px w-16 bg-purple-200 mx-auto my-1" />
+															<div className="text-[10px]">Duration</div>
+														</div>
+														<div className="text-right">
+															<div className="text-lg font-semibold text-gray-900">
+																{lastSegment?.Destination.Airport.CityCode}
+															</div>
+															<div className="text-xs text-gray-600">
+																{lastSegment?.Destination.ArrTime
+																	? new Date(
+																			lastSegment.Destination.ArrTime
+																	  ).toLocaleTimeString([], {
+																			hour: "2-digit",
+																			minute: "2-digit",
+																	  })
+																	: "--"}
+															</div>
+														</div>
+													</div>
+
+													<div className="flex items-center justify-between">
+														<div className="text-sm text-gray-600">
+															Baggage {firstSegment?.Baggage || "--"}
+														</div>
+														<div className="text-right">
+															<div className="text-xl font-bold text-purple-900">
+																{deal.Fare?.Currency ||
+																	flightResult.Fare?.Currency ||
+																	"INR"}{" "}
+																{deal.Fare?.PublishedFare?.toLocaleString() ||
+																	"--"}
+															</div>
+															<div className="text-xs text-gray-500">
+																per itinerary
+															</div>
+														</div>
+													</div>
+
+													<Button
+														asChild
+														variant="secondary"
+														className="w-full"
 													>
-														{stops === 0
-															? "Non-stop"
-															: `${stops} stop${stops > 1 ? "s" : ""}`}
-													</Badge>
-												</div>
-
-												<div className="flex items-center justify-between">
-													<div>
-														<div className="text-lg font-semibold text-gray-900">
-															{firstSegment?.Origin.Airport.CityCode}
-														</div>
-														<div className="text-xs text-gray-600">
-															{firstSegment?.Origin.DepTime
-																? new Date(
-																		firstSegment.Origin.DepTime
-																  ).toLocaleTimeString([], {
-																		hour: "2-digit",
-																		minute: "2-digit",
-																  })
-																: "--"}
-														</div>
-													</div>
-													<div className="text-center text-gray-500 text-xs">
-														<div className="font-medium text-gray-700">
-															{totalDuration || 0}m
-														</div>
-														<div className="h-px w-16 bg-purple-200 mx-auto my-1" />
-														<div className="text-[10px]">Duration</div>
-													</div>
-													<div className="text-right">
-														<div className="text-lg font-semibold text-gray-900">
-															{lastSegment?.Destination.Airport.CityCode}
-														</div>
-														<div className="text-xs text-gray-600">
-															{lastSegment?.Destination.ArrTime
-																? new Date(
-																		lastSegment.Destination.ArrTime
-																  ).toLocaleTimeString([], {
-																		hour: "2-digit",
-																		minute: "2-digit",
-																  })
-																: "--"}
-														</div>
-													</div>
-												</div>
-
-												<div className="flex items-center justify-between">
-													<div className="text-sm text-gray-600">
-														Baggage {firstSegment?.Baggage || "--"}
-													</div>
-													<div className="text-right">
-														<div className="text-xl font-bold text-purple-900">
-															{deal.Fare?.Currency ||
-																flightResult.Fare?.Currency ||
-																"INR"}{" "}
-															{deal.Fare?.PublishedFare?.toLocaleString() ||
-																"--"}
-														</div>
-														<div className="text-xs text-gray-500">
-															per itinerary
-														</div>
-													</div>
-												</div>
-
-												<Button asChild variant="secondary" className="w-full">
-													<Link href={href} prefetch={false}>
-														View Deal
-													</Link>
-												</Button>
-											</CardContent>
-										</Card>
-									);
-								})}
+														<Link href={href} prefetch={false}>
+															View Deal
+														</Link>
+													</Button>
+												</CardContent>
+											</Card>
+										);
+									})}
+								</div>
 							</div>
 						)}
 
@@ -826,6 +921,296 @@ export default async function BookingPage({ searchParams }: PageProps) {
 									<div className="text-center py-8 text-gray-500">
 										<ScrollText className="h-12 w-12 mx-auto mb-3 opacity-20" />
 										<p>No fare rules available for this flight.</p>
+									</div>
+								);
+							}
+						})()}
+					</CardContent>
+				</Card>
+
+				{/* SSR (Special Service Request) Options */}
+				<Card className="shadow-sm h-fit">
+					<CardHeader className="pb-2 border-b">
+						<CardTitle className="text-xl font-semibold flex items-center gap-2">
+							<CheckCircle2 className="h-5 w-5 text-indigo-600" />
+							Special Services
+						</CardTitle>
+					</CardHeader>
+					<CardContent className="pt-4">
+						{(() => {
+							if (!ssrResponse?.Response) {
+								return (
+									<div className="text-center py-8 text-gray-500">
+										<CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-20" />
+										<p>
+											Special service options are not available for this flight.
+										</p>
+									</div>
+								);
+							}
+
+							const ssrResult = ssrResponse.Response;
+
+							// Handle different response structures for LCC vs NON-LCC
+							const isLCC = flightResult.IsLCC;
+
+							if (isLCC) {
+								// LCC airlines: Baggage, MealDynamic, SeatDynamic, SpecialServices
+								const baggage = (ssrResult.Baggage || []).flat(); // Flatten the 2D array
+								const meals = (ssrResult.MealDynamic || []).flat(); // Flatten the 2D array
+								const seats = (ssrResult.SeatDynamic || []).flatMap((segment) =>
+									segment.SegmentSeat.flatMap((rowSeat) =>
+										rowSeat.RowSeats.flatMap((row) => row.Seats)
+									)
+								);
+								const specialServices = (
+									ssrResult.SpecialServices || []
+								).flatMap((segment) =>
+									segment.SegmentSpecialService.flatMap(
+										(specialService) => specialService.SSRService
+									)
+								);
+
+								if (
+									baggage.length === 0 &&
+									meals.length === 0 &&
+									seats.length === 0 &&
+									specialServices.length === 0
+								) {
+									return (
+										<div className="text-center py-8 text-gray-500">
+											<CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-20" />
+											<p>No special services available for this LCC flight.</p>
+										</div>
+									);
+								}
+
+								return (
+									<div className="space-y-6">
+										{/* Baggage Options */}
+										{baggage.length > 0 && (
+											<div>
+												<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+													<Plane className="h-4 w-4 text-indigo-600" />
+													Extra Baggage
+												</h3>
+												<div className="grid grid-cols-1 gap-3">
+													{baggage.map((bag, index) => (
+														<div
+															key={index}
+															className="border rounded-lg p-3 bg-indigo-50/30"
+														>
+															<div className="flex items-center justify-between">
+																<div>
+																	<div className="font-medium text-gray-900">
+																		{bag.Weight}kg
+																	</div>
+																	<div className="text-sm text-gray-600">
+																		{bag.Code}
+																	</div>
+																</div>
+																<div className="text-right">
+																	<div className="font-semibold text-indigo-900">
+																		{bag.Currency} {bag.Price.toLocaleString()}
+																	</div>
+																	<div className="text-xs text-gray-500">
+																		per passenger
+																	</div>
+																</div>
+															</div>
+														</div>
+													))}
+												</div>
+											</div>
+										)}
+
+										{/* Meal Options */}
+										{meals.length > 0 && (
+											<div>
+												<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+													<Plane className="h-4 w-4 text-indigo-600" />
+													Meal Options
+												</h3>
+												<div className="grid grid-cols-1 gap-3">
+													{meals.map((meal, index) => (
+														<div
+															key={index}
+															className="border rounded-lg p-3 bg-indigo-50/30"
+														>
+															<div className="flex items-center justify-between">
+																<div>
+																	<div className="font-medium text-gray-900">
+																		{meal.AirlineDescription}
+																	</div>
+																	<div className="text-sm text-gray-600">
+																		{meal.Code}
+																	</div>
+																</div>
+																<div className="text-right">
+																	<div className="font-semibold text-indigo-900">
+																		{meal.Currency}{" "}
+																		{meal.Price.toLocaleString()}
+																	</div>
+																	<div className="text-xs text-gray-500">
+																		per passenger
+																	</div>
+																</div>
+															</div>
+														</div>
+													))}
+												</div>
+											</div>
+										)}
+
+										{/* Seat Options */}
+										{seats.length > 0 && (
+											<div>
+												<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+													<Plane className="h-4 w-4 text-indigo-600" />
+													Seat Selection
+												</h3>
+												<div className="grid grid-cols-2 gap-3">
+													{seats.map((seat, index) => (
+														<div
+															key={index}
+															className="border rounded-lg p-3 bg-indigo-50/30"
+														>
+															<div className="text-center">
+																<div className="font-medium text-gray-900">
+																	{seat.RowNo}
+																	{seat.SeatNo}
+																</div>
+																<div className="text-sm text-gray-600">
+																	{seat.SeatType}
+																</div>
+																<div className="font-semibold text-indigo-900 mt-1">
+																	{seat.Currency} {seat.Price.toLocaleString()}
+																</div>
+															</div>
+														</div>
+													))}
+												</div>
+											</div>
+										)}
+
+										{/* Special Services */}
+										{specialServices.length > 0 && (
+											<div>
+												<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+													<Plane className="h-4 w-4 text-indigo-600" />
+													Special Services
+												</h3>
+												<div className="grid grid-cols-1 gap-3">
+													{specialServices.map((service, index) => (
+														<div
+															key={index}
+															className="border rounded-lg p-3 bg-indigo-50/30"
+														>
+															<div className="flex items-center justify-between">
+																<div>
+																	<div className="font-medium text-gray-900">
+																		{service.Text}
+																	</div>
+																	<div className="text-sm text-gray-600">
+																		{service.Code}
+																	</div>
+																</div>
+																<div className="text-right">
+																	<div className="font-semibold text-indigo-900">
+																		{service.Currency}{" "}
+																		{service.Price.toLocaleString()}
+																	</div>
+																	<div className="text-xs text-gray-500">
+																		per passenger
+																	</div>
+																</div>
+															</div>
+														</div>
+													))}
+												</div>
+											</div>
+										)}
+									</div>
+								);
+							} else {
+								// NON-LCC airlines: Meal, SeatPreference
+								const meals = ssrResult.Meal || [];
+								const seats = ssrResult.SeatPreference || [];
+
+								if (meals.length === 0 && seats.length === 0) {
+									return (
+										<div className="text-center py-8 text-gray-500">
+											<CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-20" />
+											<p>No special services available for this flight.</p>
+										</div>
+									);
+								}
+
+								return (
+									<div className="space-y-6">
+										{/* Meal Options */}
+										{meals.length > 0 && (
+											<div>
+												<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+													<Plane className="h-4 w-4 text-indigo-600" />
+													Meal Options
+												</h3>
+												<div className="grid grid-cols-1 gap-3">
+													{meals.map((meal, index) => (
+														<div
+															key={index}
+															className="border rounded-lg p-3 bg-indigo-50/30"
+														>
+															<div className="flex items-center justify-between">
+																<div>
+																	<div className="font-medium text-gray-900">
+																		{meal.Description}
+																	</div>
+																	<div className="text-sm text-gray-600">
+																		{meal.Code}
+																	</div>
+																</div>
+																<div className="text-right">
+																	<div className="text-xs text-gray-500">
+																		Available
+																	</div>
+																</div>
+															</div>
+														</div>
+													))}
+												</div>
+											</div>
+										)}
+
+										{/* Seat Preferences */}
+										{seats.length > 0 && (
+											<div>
+												<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+													<Plane className="h-4 w-4 text-indigo-600" />
+													Seat Preferences
+												</h3>
+												<div className="grid grid-cols-2 gap-3">
+													{seats.map((seat, index) => (
+														<div
+															key={index}
+															className="border rounded-lg p-3 bg-indigo-50/30"
+														>
+															<div className="text-center">
+																<div className="font-medium text-gray-900">
+																	{seat.Description}
+																</div>
+																<div className="text-sm text-gray-600">
+																	{seat.Code}
+																</div>
+																<div className="text-xs text-gray-500 mt-1">
+																	Available
+																</div>
+															</div>
+														</div>
+													))}
+												</div>
+											</div>
+										)}
 									</div>
 								);
 							}

@@ -383,6 +383,108 @@ export interface FareRuleResponse {
 }
 
 // SSR Types
+export interface SSRRequest {
+	EndUserIp: string;
+	TokenId?: string;
+	TraceId: string;
+	ResultIndex: string;
+}
+
+export interface SSRResponse {
+	Response: {
+		ResponseStatus: number;
+		Error: {
+			ErrorCode: number;
+			ErrorMessage: string;
+		};
+		TraceId: string;
+		// LCC Response fields
+		Baggage?: Array<
+			Array<{
+				AirlineCode: string;
+				FlightNumber: string;
+				WayType: number;
+				Code: string;
+				Description: number;
+				Weight: number;
+				Currency: string;
+				Price: number;
+				Origin: string;
+				Destination: string;
+			}>
+		>;
+		MealDynamic?: Array<
+			Array<{
+				AirlineCode: string;
+				FlightNumber: string;
+				WayType: number;
+				Code: string;
+				Description: number;
+				AirlineDescription: string;
+				Quantity: number;
+				Currency: string;
+				Price: number;
+				Origin: string;
+				Destination: string;
+			}>
+		>;
+		SeatDynamic?: Array<{
+			SegmentSeat: Array<{
+				RowSeats: Array<{
+					Seats: Array<{
+						AirlineCode: string;
+						FlightNumber: string;
+						CraftType: string;
+						Origin: string;
+						Destination: string;
+						AvailablityType: number;
+						Description: number;
+						Code: string;
+						RowNo: string;
+						SeatNo: string | null;
+						SeatType: number;
+						SeatWayType: number;
+						Compartment: number;
+						Deck: number;
+						Currency: string;
+						Price: number;
+					}>;
+				}>;
+			}>;
+		}>;
+		SpecialServices?: Array<{
+			SegmentSpecialService: Array<{
+				SSRService: Array<{
+					Origin: string;
+					Destination: string;
+					DepartureTime: string;
+					AirlineCode: string;
+					FlightNumber: string;
+					Code: string;
+					ServiceType: number;
+					Text: string;
+					WayType: number;
+					Currency: string;
+					Price: number;
+				}>;
+			}>;
+		}>;
+		// NON-LCC Response fields
+		Meal?: Array<{
+			Code: string;
+			Description: string;
+		}>;
+		SeatPreference?: Array<{
+			Code: string;
+			Description: string;
+		}>;
+	};
+	Error?: {
+		ErrorCode: number;
+		ErrorMessage: string;
+	};
+}
+
 export interface SeatMapRequest {
 	EndUserIp: string;
 	TokenId?: string;
