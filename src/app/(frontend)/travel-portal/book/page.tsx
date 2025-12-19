@@ -19,7 +19,6 @@ import {
 	ScrollText,
 	TrendingUp,
 	Tag,
-	ArrowRight,
 	Search,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import FareBreakdown from "@/components/travel-portal/FareBreakdown";
 import AirlineLogo from "@/components/travel-portal/AirlineLogo";
+import BookingClient from "./BookingClient";
 
 interface PageProps {
 	searchParams: Promise<{
@@ -310,6 +310,11 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		ssrPromise,
 	]);
 
+	// Log the SSR response for debugging
+	console.log("=== SSR Debug Info ===");
+	console.log("ssrResponse:", JSON.stringify(ssrResponse, null, 2));
+	console.log("ssrResponse?.Response:", ssrResponse?.Response);
+
 	// Log the fare rules response for debugging
 	console.log("=== Fare Rules Debug Info ===");
 	console.log("fareRules:", fareRules);
@@ -353,870 +358,588 @@ export default async function BookingPage({ searchParams }: PageProps) {
 			: [];
 
 	return (
-		<div className="container mx-auto p-4 space-y-8 max-w-7xl">
+		<div className="container mx-auto p-4 space-y-6 max-w-7xl pb-24">
 			<h1 className="text-3xl font-bold mb-6 flex items-center gap-2">
 				<Plane className="h-8 w-8 text-primary" />
 				Flight Booking Details
 			</h1>
 
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				{/* Flight Details */}
-				<Card className="shadow-sm">
-					<CardHeader className="pb-2 border-b">
-						<CardTitle className="text-xl font-semibold flex items-center justify-between">
-							<div className="flex items-center gap-2">
-								<Plane className="h-5 w-5 text-blue-600" />
-								Flight Details
-							</div>
-							<div className="flex items-center gap-2">
-								<span className="font-medium text-gray-900 text-lg">
-									{flightResult.AirlineCode}
-								</span>
-								<Badge variant={flightResult.IsLCC ? "secondary" : "default"}>
-									{flightResult.IsLCC ? "LCC" : "Full Service"}
-								</Badge>
-								{flightResult.IsRefundable ? (
-									<Badge
-										variant="outline"
-										className="text-green-600 border-green-200 bg-green-50"
-									>
-										<CheckCircle2 className="h-3 w-3 mr-1" /> Refundable
+			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+				{/* Left Column: Flight Details and Fare Rules */}
+				<div className="space-y-6">
+					{/* Flight Details */}
+					<Card className="shadow-sm">
+						<CardHeader className="pb-2 border-b">
+							<CardTitle className="text-xl font-semibold flex items-center justify-between">
+								<div className="flex items-center gap-2">
+									<Plane className="h-5 w-5 text-blue-600" />
+									Flight Details
+								</div>
+								<div className="flex items-center gap-2">
+									<span className="font-medium text-gray-900 text-lg">
+										{flightResult.AirlineCode}
+									</span>
+									<Badge variant={flightResult.IsLCC ? "secondary" : "default"}>
+										{flightResult.IsLCC ? "LCC" : "Full Service"}
 									</Badge>
-								) : (
-									<Badge
-										variant="outline"
-										className="text-red-600 border-red-200 bg-red-50"
-									>
-										<XCircle className="h-3 w-3 mr-1" /> Non-Refundable
-									</Badge>
-								)}
-							</div>
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div>
-							<FareBreakdown flight={flightResult} showValidation={false} />
-						</div>
-
-						<div>
-							<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-								<Clock className="h-4 w-4 text-gray-500" />
-								Itinerary
-							</h3>
-							<div className="space-y-4">
-								{flightResult.Segments.map((segmentGroup, groupIndex) => (
-									<div
-										key={groupIndex}
-										className="border rounded-lg p-4 space-y-4 bg-white"
-									>
-										{segmentGroup.map((segment, segIndex) => (
-											<div
-												key={segIndex}
-												className="relative pl-4 border-l-2 border-blue-100 last:border-l-0 last:pl-0 last:ml-[1px]"
-											>
-												<div className="mb-6 last:mb-0">
-													<div className="flex items-center justify-between mb-2">
-														<div className="flex items-center gap-2 text-sm text-gray-600">
-															<div className="h-6 w-6 rounded flex items-center justify-center overflow-hidden bg-gray-50">
-																<AirlineLogo
-																	airlineCode={segment.Airline.AirlineCode}
-																	airlineName={segment.Airline.AirlineName}
-																	size="sm"
-																/>
-															</div>
-															<span>{segment.Airline.AirlineName}</span>
-															<span className="text-gray-400">•</span>
-															<span className="font-medium">
-																{segment.Airline.AirlineCode}-
-																{segment.Airline.FlightNumber}
-															</span>
-														</div>
-														<div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-															{segment.Duration}m
-														</div>
-													</div>
-
-													<div className="flex justify-between items-center mb-4">
-														<div className="text-left">
-															<div className="text-sm font-medium text-gray-900">
-																{segment.Origin.Airport.AirportName}
-															</div>
-															<div className="text-xs text-gray-500">
-																{segment.Origin.Airport.CityName} (
-																{segment.Origin.Airport.CityCode})
-															</div>
-														</div>
-														<div className="text-right">
-															<div className="text-sm font-medium text-gray-900">
-																{segment.Destination.Airport.AirportName}
-															</div>
-															<div className="text-xs text-gray-500">
-																{segment.Destination.Airport.CityName} (
-																{segment.Destination.Airport.CityCode})
-															</div>
-														</div>
-													</div>
-
-													<div className="flex justify-between items-start">
-														<div className="text-left">
-															<div className="text-gray-500 text-xs mb-1">
-																Departure
-															</div>
-															<div className="font-medium text-lg">
-																{new Date(
-																	segment.Origin.DepTime
-																).toLocaleTimeString([], {
-																	hour: "2-digit",
-																	minute: "2-digit",
-																})}
-															</div>
-															<div className="text-gray-500 text-xs">
-																{new Date(
-																	segment.Origin.DepTime
-																).toLocaleDateString()}
-															</div>
-														</div>
-														<div className="text-right">
-															<div className="text-gray-500 text-xs mb-1">
-																Arrival
-															</div>
-															<div className="font-medium text-lg">
-																{new Date(
-																	segment.Destination.ArrTime
-																).toLocaleTimeString([], {
-																	hour: "2-digit",
-																	minute: "2-digit",
-																})}
-															</div>
-															<div className="text-gray-500 text-xs">
-																{new Date(
-																	segment.Destination.ArrTime
-																).toLocaleDateString()}
-															</div>
-														</div>
-													</div>
-												</div>
-											</div>
-										))}
-									</div>
-								))}
-							</div>
-						</div>
-
-						{/* Passenger Details */}
-						<div>
-							<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-								<CheckCircle2 className="h-4 w-4 text-gray-500" />
-								Passenger Details
-							</h3>
-							<div className="bg-gray-50 rounded-lg p-4 space-y-3">
-								<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-									<div className="flex items-center gap-3">
-										<div className="bg-blue-100 p-2 rounded-full flex items-center justify-center w-8 h-8">
-											<span className="text-sm font-semibold text-blue-800">
-												A
-											</span>
-										</div>
-										<div>
-											<div className="text-sm font-medium text-gray-900">
-												Adults
-											</div>
-											<div className="text-xs text-gray-600">
-												{adultCount} passenger{adultCount !== "1" ? "s" : ""}
-											</div>
-										</div>
-									</div>
-									{childCount !== "0" && (
-										<div className="flex items-center gap-3">
-											<div className="bg-green-100 p-2 rounded-full flex items-center justify-center w-8 h-8">
-												<span className="text-sm font-semibold text-green-800">
-													C
-												</span>
-											</div>
-											<div>
-												<div className="text-sm font-medium text-gray-900">
-													Children
-												</div>
-												<div className="text-xs text-gray-600">
-													{childCount} passenger{childCount !== "1" ? "s" : ""}
-												</div>
-											</div>
-										</div>
-									)}
-									{infantCount !== "0" && (
-										<div className="flex items-center gap-3">
-											<div className="bg-yellow-100 p-2 rounded-full flex items-center justify-center w-8 h-8">
-												<span className="text-sm font-semibold text-yellow-800">
-													I
-												</span>
-											</div>
-											<div>
-												<div className="text-sm font-medium text-gray-900">
-													Infants
-												</div>
-												<div className="text-xs text-gray-600">
-													{infantCount} passenger
-													{infantCount !== "1" ? "s" : ""}
-												</div>
-											</div>
-										</div>
+									{flightResult.IsRefundable ? (
+										<Badge
+											variant="outline"
+											className="text-green-600 border-green-200 bg-green-50"
+										>
+											<CheckCircle2 className="h-3 w-3 mr-1" /> Refundable
+										</Badge>
+									) : (
+										<Badge
+											variant="outline"
+											className="text-red-600 border-red-200 bg-red-50"
+										>
+											<XCircle className="h-3 w-3 mr-1" /> Non-Refundable
+										</Badge>
 									)}
 								</div>
-								<div className="pt-2 border-t border-gray-200">
-									<p className="text-xs text-gray-500">
-										Passenger names and contact details will be collected during
-										the booking process.
-									</p>
-								</div>
-							</div>
-						</div>
-
-						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
 							<div>
-								<div className="text-sm text-gray-600">Total fare</div>
-								<div className="text-2xl font-semibold text-gray-900">
-									{flightResult.Fare?.Currency || "INR"}{" "}
-									{flightResult.Fare?.PublishedFare?.toLocaleString() || "--"}
-								</div>
+								<FareBreakdown flight={flightResult} showValidation={false} />
 							</div>
-							<Button size="lg" className="w-full sm:w-auto" type="button">
-								Book Now <ArrowRight className="ml-2 h-4 w-4" />
-							</Button>
-						</div>
-					</CardContent>
-				</Card>
 
-				{/* Fare Upsell (replaces Fare Rules position) */}
-				<Card className="shadow-sm h-fit">
-					<CardHeader className="pb-2 border-b">
-						<CardTitle className="text-xl font-semibold flex items-center gap-2">
-							<TrendingUp className="h-5 w-5 text-purple-600" />
-							Fare Upsell Deals
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="pt-4">
-						{!isUpsellAllowed && (
-							<div className="text-center py-8 text-gray-500">
-								<TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-20" />
-								<p>Upsell options are not available for this selection.</p>
-							</div>
-						)}
-
-						{isUpsellAllowed && upsellOptions.length > 0 && (
-							<div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-								<div className="grid grid-cols-2 gap-4">
-									{upsellOptions.map((deal: FlightResult) => {
-										const firstSegment = deal.Segments?.[0]?.[0];
-										const lastGroup = deal.Segments?.[deal.Segments.length - 1];
-										const lastSegment = lastGroup?.[lastGroup.length - 1];
-										const totalDuration = deal.Segments?.reduce(
-											(sum, group) => {
-												return (
-													sum +
-													group.reduce(
-														(inner, seg) => inner + (seg.Duration || 0),
-														0
-													)
-												);
-											},
-											0
-										);
-										const totalLegs = deal.Segments?.reduce(
-											(count, group) => count + group.length,
-											0
-										);
-										const stops = Math.max(0, (totalLegs || 1) - 1);
-
-										const upsellParams = new URLSearchParams({
-											traceId,
-											resultIndex: deal.ResultIndex,
-											adultCount,
-											childCount,
-											infantCount,
-										});
-
-										// Check if this upsell option itself allows further upselling
-										if (deal.IsUpsellAllowed === true) {
-											upsellParams.set("isUpsellAllowed", "true");
-										}
-
-										if (returnResultIndex) {
-											upsellParams.set("returnResultIndex", returnResultIndex);
-										}
-
-										const href = `/travel-portal/book?${upsellParams.toString()}`;
-
-										return (
-											<Card
-												key={`${deal.ResultIndex}-${deal.ValidatingAirlineCode}`}
-												className="border border-purple-100 bg-purple-50/40"
-											>
-												<CardContent className="p-4 space-y-4">
-													<div className="flex items-center justify-between gap-2">
-														<div className="space-y-1">
-															<div className="flex items-center gap-2">
-																<div className="h-8 w-8 rounded flex items-center justify-center overflow-hidden bg-white">
+							<div>
+								<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+									<Clock className="h-4 w-4 text-gray-500" />
+									Itinerary
+								</h3>
+								<div className="space-y-4">
+									{flightResult.Segments.map((segmentGroup, groupIndex) => (
+										<div
+											key={groupIndex}
+											className="border rounded-lg p-4 space-y-4 bg-white"
+										>
+											{segmentGroup.map((segment, segIndex) => (
+												<div
+													key={segIndex}
+													className="relative pl-4 border-l-2 border-blue-100 last:border-l-0 last:pl-0 last:ml-[1px]"
+												>
+													<div className="mb-6 last:mb-0">
+														<div className="flex items-center justify-between mb-2">
+															<div className="flex items-center gap-2 text-sm text-gray-600">
+																<div className="h-6 w-6 rounded flex items-center justify-center overflow-hidden bg-gray-50">
 																	<AirlineLogo
-																		airlineCode={
-																			firstSegment?.Airline?.AirlineCode || ""
-																		}
-																		airlineName={
-																			firstSegment?.Airline?.AirlineName || ""
-																		}
-																		size="md"
+																		airlineCode={segment.Airline.AirlineCode}
+																		airlineName={segment.Airline.AirlineName}
+																		size="sm"
 																	/>
 																</div>
-																<div>
-																	<div className="text-sm font-semibold text-purple-900">
-																		{firstSegment?.Airline?.AirlineName ||
-																			"Upsell Fare"}
-																	</div>
-																	<div className="text-xs text-gray-600">
-																		{firstSegment?.Airline?.AirlineCode}
-																	</div>
+																<span>{segment.Airline.AirlineName}</span>
+																<span className="text-gray-400">•</span>
+																<span className="font-medium">
+																	{segment.Airline.AirlineCode}-
+																	{segment.Airline.FlightNumber}
+																</span>
+															</div>
+															<div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+																{segment.Duration}m
+															</div>
+														</div>
+
+														<div className="flex justify-between items-center mb-4">
+															<div className="text-left">
+																<div className="text-sm font-medium text-gray-900">
+																	{segment.Origin.Airport.AirportName}
+																</div>
+																<div className="text-xs text-gray-500">
+																	{segment.Origin.Airport.CityName} (
+																	{segment.Origin.Airport.CityCode})
+																</div>
+															</div>
+															<div className="text-right">
+																<div className="text-sm font-medium text-gray-900">
+																	{segment.Destination.Airport.AirportName}
+																</div>
+																<div className="text-xs text-gray-500">
+																	{segment.Destination.Airport.CityName} (
+																	{segment.Destination.Airport.CityCode})
 																</div>
 															</div>
 														</div>
-														<Badge
-															variant="outline"
-															className="border-purple-200 text-purple-800"
-														>
-															{stops === 0
-																? "Non-stop"
-																: `${stops} stop${stops > 1 ? "s" : ""}`}
-														</Badge>
-													</div>
 
-													<div className="flex items-center justify-between">
-														<div>
-															<div className="text-lg font-semibold text-gray-900">
-																{firstSegment?.Origin.Airport.CityCode}
+														<div className="flex justify-between items-start">
+															<div className="text-left">
+																<div className="text-gray-500 text-xs mb-1">
+																	Departure
+																</div>
+																<div className="font-medium text-lg">
+																	{new Date(
+																		segment.Origin.DepTime
+																	).toLocaleTimeString([], {
+																		hour: "2-digit",
+																		minute: "2-digit",
+																	})}
+																</div>
+																<div className="text-gray-500 text-xs">
+																	{new Date(
+																		segment.Origin.DepTime
+																	).toLocaleDateString()}
+																</div>
 															</div>
-															<div className="text-xs text-gray-600">
-																{firstSegment?.Origin.DepTime
-																	? new Date(
-																			firstSegment.Origin.DepTime
-																	  ).toLocaleTimeString([], {
-																			hour: "2-digit",
-																			minute: "2-digit",
-																	  })
-																	: "--"}
-															</div>
-														</div>
-														<div className="text-center text-gray-500 text-xs">
-															<div className="font-medium text-gray-700">
-																{totalDuration || 0}m
-															</div>
-															<div className="h-px w-16 bg-purple-200 mx-auto my-1" />
-															<div className="text-[10px]">Duration</div>
-														</div>
-														<div className="text-right">
-															<div className="text-lg font-semibold text-gray-900">
-																{lastSegment?.Destination.Airport.CityCode}
-															</div>
-															<div className="text-xs text-gray-600">
-																{lastSegment?.Destination.ArrTime
-																	? new Date(
-																			lastSegment.Destination.ArrTime
-																	  ).toLocaleTimeString([], {
-																			hour: "2-digit",
-																			minute: "2-digit",
-																	  })
-																	: "--"}
+															<div className="text-right">
+																<div className="text-gray-500 text-xs mb-1">
+																	Arrival
+																</div>
+																<div className="font-medium text-lg">
+																	{new Date(
+																		segment.Destination.ArrTime
+																	).toLocaleTimeString([], {
+																		hour: "2-digit",
+																		minute: "2-digit",
+																	})}
+																</div>
+																<div className="text-gray-500 text-xs">
+																	{new Date(
+																		segment.Destination.ArrTime
+																	).toLocaleDateString()}
+																</div>
 															</div>
 														</div>
 													</div>
-
-													<div className="flex items-center justify-between">
-														<div className="text-sm text-gray-600">
-															Baggage {firstSegment?.Baggage || "--"}
-														</div>
-														<div className="text-right">
-															<div className="text-xl font-bold text-purple-900">
-																{deal.Fare?.Currency ||
-																	flightResult.Fare?.Currency ||
-																	"INR"}{" "}
-																{deal.Fare?.PublishedFare?.toLocaleString() ||
-																	"--"}
-															</div>
-															<div className="text-xs text-gray-500">
-																per itinerary
-															</div>
-														</div>
-													</div>
-
-													<Button
-														asChild
-														variant="secondary"
-														className="w-full"
-													>
-														<Link href={href} prefetch={false}>
-															View Deal
-														</Link>
-													</Button>
-												</CardContent>
-											</Card>
-										);
-									})}
-								</div>
-							</div>
-						)}
-
-						{isUpsellAllowed && upsellOptions.length === 0 && (
-							<div className="text-center py-8">
-								<TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-20 text-gray-400" />
-								<p className="text-gray-600 font-medium mb-1">
-									Upsell Options Unavailable
-								</p>
-								<p className="text-sm text-gray-500 mb-2">
-									While this flight supports upgrades, the supplier could not
-									provide additional fare options at this time.
-								</p>
-								<div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3 text-left max-w-md mx-auto">
-									<p className="text-xs text-amber-800">
-										<strong>Technical Note:</strong> The TBO API returned an
-										error: &quot;FareUpsell failed from the Supplier end.&quot;
-										This typically means the airline/GDS does not have upsell
-										inventory available for this specific flight at this moment.
-									</p>
-								</div>
-							</div>
-						)}
-					</CardContent>
-				</Card>
-			</div>
-
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				{/* Fare Rules (moved down) */}
-				<Card className="shadow-sm h-fit">
-					<CardHeader className="pb-2 border-b">
-						<CardTitle className="text-xl font-semibold flex items-center gap-2">
-							<ScrollText className="h-5 w-5 text-orange-600" />
-							Fare Rules
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="pt-4">
-						{(() => {
-							// Handle different response structures
-							const miniFareRules =
-								fareRules?.Response?.Results?.MiniFareRules ||
-								fareRules?.Response?.MiniFareRules;
-							const fareRulesArray =
-								fareRules?.Response?.Results?.FareRules ||
-								fareRules?.Response?.FareRules;
-
-							if (miniFareRules && miniFareRules.length > 0) {
-								return (
-									<div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-										{miniFareRules.map((ruleGroup, groupIndex) => (
-											<div
-												key={groupIndex}
-												className="bg-orange-50/50 p-4 rounded-lg border border-orange-100"
-											>
-												<div className="font-medium mb-3 text-orange-900">
-													Fare Rules for{" "}
-													{ruleGroup[0]?.JourneyPoints || "Route"}
 												</div>
-												<div className="space-y-3">
-													{ruleGroup.map((rule, ruleIndex) => (
-														<div
-															key={ruleIndex}
-															className="bg-white p-3 rounded border border-orange-200"
-														>
-															<div className="flex items-center justify-between mb-2">
-																<div className="flex items-center gap-2">
-																	<Badge
-																		variant="outline"
-																		className={`${
-																			rule.Type === "Cancellation"
-																				? "bg-red-50 text-red-700 border-red-200"
-																				: rule.Type === "Reissue"
-																				? "bg-blue-50 text-blue-700 border-blue-200"
-																				: "bg-gray-50 text-gray-700 border-gray-200"
-																		}`}
-																	>
-																		{rule.Type}
-																	</Badge>
-																	{rule.OnlineReissueAllowed && (
+											))}
+										</div>
+									))}
+								</div>
+							</div>
+
+							{/* Passenger Details */}
+							<div>
+								<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+									<CheckCircle2 className="h-4 w-4 text-gray-500" />
+									Passenger Details
+								</h3>
+								<div className="bg-gray-50 rounded-lg p-4 space-y-3">
+									<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+										<div className="flex items-center gap-3">
+											<div className="bg-blue-100 p-2 rounded-full flex items-center justify-center w-8 h-8">
+												<span className="text-sm font-semibold text-blue-800">
+													A
+												</span>
+											</div>
+											<div>
+												<div className="text-sm font-medium text-gray-900">
+													Adults
+												</div>
+												<div className="text-xs text-gray-600">
+													{adultCount} passenger{adultCount !== "1" ? "s" : ""}
+												</div>
+											</div>
+										</div>
+										{childCount !== "0" && (
+											<div className="flex items-center gap-3">
+												<div className="bg-green-100 p-2 rounded-full flex items-center justify-center w-8 h-8">
+													<span className="text-sm font-semibold text-green-800">
+														C
+													</span>
+												</div>
+												<div>
+													<div className="text-sm font-medium text-gray-900">
+														Children
+													</div>
+													<div className="text-xs text-gray-600">
+														{childCount} passenger
+														{childCount !== "1" ? "s" : ""}
+													</div>
+												</div>
+											</div>
+										)}
+										{infantCount !== "0" && (
+											<div className="flex items-center gap-3">
+												<div className="bg-yellow-100 p-2 rounded-full flex items-center justify-center w-8 h-8">
+													<span className="text-sm font-semibold text-yellow-800">
+														I
+													</span>
+												</div>
+												<div>
+													<div className="text-sm font-medium text-gray-900">
+														Infants
+													</div>
+													<div className="text-xs text-gray-600">
+														{infantCount} passenger
+														{infantCount !== "1" ? "s" : ""}
+													</div>
+												</div>
+											</div>
+										)}
+									</div>
+									<div className="pt-2 border-t border-gray-200">
+										<p className="text-xs text-gray-500">
+											Passenger names and contact details will be collected
+											during the booking process.
+										</p>
+									</div>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					{/* Fare Rules */}
+					<Card className="shadow-sm h-fit">
+						<CardHeader className="pb-2 border-b">
+							<CardTitle className="text-xl font-semibold flex items-center gap-2">
+								<ScrollText className="h-5 w-5 text-orange-600" />
+								Fare Rules
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="pt-4">
+							{(() => {
+								// Handle different response structures
+								const miniFareRules =
+									fareRules?.Response?.Results?.MiniFareRules ||
+									fareRules?.Response?.MiniFareRules;
+								const fareRulesArray =
+									fareRules?.Response?.Results?.FareRules ||
+									fareRules?.Response?.FareRules;
+
+								if (miniFareRules && miniFareRules.length > 0) {
+									return (
+										<div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+											{miniFareRules.map((ruleGroup, groupIndex) => (
+												<div
+													key={groupIndex}
+													className="bg-orange-50/50 p-4 rounded-lg border border-orange-100"
+												>
+													<div className="font-medium mb-3 text-orange-900">
+														Fare Rules for{" "}
+														{ruleGroup[0]?.JourneyPoints || "Route"}
+													</div>
+													<div className="space-y-3">
+														{ruleGroup.map((rule, ruleIndex) => (
+															<div
+																key={ruleIndex}
+																className="bg-white p-3 rounded border border-orange-200"
+															>
+																<div className="flex items-center justify-between mb-2">
+																	<div className="flex items-center gap-2">
 																		<Badge
 																			variant="outline"
-																			className="bg-green-50 text-green-700 border-green-200"
+																			className={`${
+																				rule.Type === "Cancellation"
+																					? "bg-red-50 text-red-700 border-red-200"
+																					: rule.Type === "Reissue"
+																					? "bg-blue-50 text-blue-700 border-blue-200"
+																					: "bg-gray-50 text-gray-700 border-gray-200"
+																			}`}
 																		>
-																			Online Allowed
+																			{rule.Type}
 																		</Badge>
-																	)}
+																		{rule.OnlineReissueAllowed && (
+																			<Badge
+																				variant="outline"
+																				className="bg-green-50 text-green-700 border-green-200"
+																			>
+																				Online Allowed
+																			</Badge>
+																		)}
+																	</div>
+																	<div className="text-sm text-gray-600">
+																		{rule.From}-{rule.To} {rule.Unit}
+																	</div>
 																</div>
-																<div className="text-sm text-gray-600">
-																	{rule.From}-{rule.To} {rule.Unit}
+																<div className="text-sm font-medium text-gray-900">
+																	{rule.Details}
 																</div>
 															</div>
-															<div className="text-sm font-medium text-gray-900">
-																{rule.Details}
-															</div>
+														))}
+													</div>
+												</div>
+											))}
+										</div>
+									);
+								} else if (fareRulesArray && fareRulesArray.length > 0) {
+									return (
+										<div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+											{fareRulesArray.map((rule, index) => (
+												<div
+													key={index}
+													className="bg-orange-50/50 p-4 rounded-lg border border-orange-100"
+												>
+													<div className="font-medium mb-2 text-orange-900">
+														<div className="flex items-center gap-2">
+															<span className="text-sm">Airline:</span>
+															<span className="text-sm text-gray-700">
+																{rule.Airline}
+															</span>
 														</div>
-													))}
+														<div className="flex items-center gap-2 mt-1">
+															<span className="text-sm">Fare Basis Code:</span>
+															<span className="text-sm text-gray-700">
+																{rule.FareBasisCode}
+															</span>
+														</div>
+														<div className="flex items-center gap-2 mt-1">
+															<Badge
+																variant="outline"
+																className="bg-white text-orange-700 border-orange-200"
+															>
+																{rule.Origin} {"->"} {rule.Destination}
+															</Badge>
+														</div>
+													</div>
+													{rule.FareRuleDetail ? (
+														<div
+															className="text-sm text-gray-700 fare-rules-content"
+															dangerouslySetInnerHTML={{
+																__html: rule.FareRuleDetail,
+															}}
+														/>
+													) : (
+														<div className="text-sm text-gray-500 italic">
+															Detailed fare rules not available for this fare
+															basis.
+														</div>
+													)}
 												</div>
-											</div>
-										))}
-									</div>
-								);
-							} else if (fareRulesArray && fareRulesArray.length > 0) {
-								return (
-									<div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-										{fareRulesArray.map((rule, index) => (
-											<div
-												key={index}
-												className="bg-orange-50/50 p-4 rounded-lg border border-orange-100"
-											>
-												<div className="font-medium mb-2 text-orange-900">
-													<div className="flex items-center gap-2">
-														<span className="text-sm">Airline:</span>
-														<span className="text-sm text-gray-700">
-															{rule.Airline}
-														</span>
-													</div>
-													<div className="flex items-center gap-2 mt-1">
-														<span className="text-sm">Fare Basis Code:</span>
-														<span className="text-sm text-gray-700">
-															{rule.FareBasisCode}
-														</span>
-													</div>
-													<div className="flex items-center gap-2 mt-1">
-														<Badge
-															variant="outline"
-															className="bg-white text-orange-700 border-orange-200"
-														>
-															{rule.Origin} {"->"} {rule.Destination}
-														</Badge>
-													</div>
-												</div>
-												{rule.FareRuleDetail ? (
-													<div
-														className="text-sm text-gray-700 fare-rules-content"
-														dangerouslySetInnerHTML={{
-															__html: rule.FareRuleDetail,
-														}}
-													/>
-												) : (
-													<div className="text-sm text-gray-500 italic">
-														Detailed fare rules not available for this fare
-														basis.
-													</div>
-												)}
-											</div>
-										))}
-									</div>
-								);
-							} else if (fareRules === null) {
-								return (
-									<div className="text-center py-8 text-gray-500">
-										<ScrollText className="h-12 w-12 mx-auto mb-3 opacity-20" />
-										<p>
-											Unable to load fare rules. Please try refreshing the page.
-										</p>
-									</div>
-								);
-							} else {
-								return (
-									<div className="text-center py-8 text-gray-500">
-										<ScrollText className="h-12 w-12 mx-auto mb-3 opacity-20" />
-										<p>No fare rules available for this flight.</p>
-									</div>
-								);
-							}
-						})()}
-					</CardContent>
-				</Card>
-
-				{/* SSR (Special Service Request) Options */}
-				<Card className="shadow-sm h-fit">
-					<CardHeader className="pb-2 border-b">
-						<CardTitle className="text-xl font-semibold flex items-center gap-2">
-							<CheckCircle2 className="h-5 w-5 text-indigo-600" />
-							Special Services
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="pt-4">
-						{(() => {
-							if (!ssrResponse?.Response) {
-								return (
-									<div className="text-center py-8 text-gray-500">
-										<CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-20" />
-										<p>
-											Special service options are not available for this flight.
-										</p>
-									</div>
-								);
-							}
-
-							const ssrResult = ssrResponse.Response;
-
-							// Handle different response structures for LCC vs NON-LCC
-							const isLCC = flightResult.IsLCC;
-
-							if (isLCC) {
-								// LCC airlines: Baggage, MealDynamic, SeatDynamic, SpecialServices
-								const baggage = (ssrResult.Baggage || []).flat(); // Flatten the 2D array
-								const meals = (ssrResult.MealDynamic || []).flat(); // Flatten the 2D array
-								const seats = (ssrResult.SeatDynamic || []).flatMap((segment) =>
-									segment.SegmentSeat.flatMap((rowSeat) =>
-										rowSeat.RowSeats.flatMap((row) => row.Seats)
-									)
-								);
-								const specialServices = (
-									ssrResult.SpecialServices || []
-								).flatMap((segment) =>
-									segment.SegmentSpecialService.flatMap(
-										(specialService) => specialService.SSRService
-									)
-								);
-
-								if (
-									baggage.length === 0 &&
-									meals.length === 0 &&
-									seats.length === 0 &&
-									specialServices.length === 0
-								) {
+											))}
+										</div>
+									);
+								} else if (fareRules === null) {
 									return (
 										<div className="text-center py-8 text-gray-500">
-											<CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-20" />
-											<p>No special services available for this LCC flight.</p>
+											<ScrollText className="h-12 w-12 mx-auto mb-3 opacity-20" />
+											<p>
+												Unable to load fare rules. Please try refreshing the
+												page.
+											</p>
+										</div>
+									);
+								} else {
+									return (
+										<div className="text-center py-8 text-gray-500">
+											<ScrollText className="h-12 w-12 mx-auto mb-3 opacity-20" />
+											<p>No fare rules available for this flight.</p>
 										</div>
 									);
 								}
+							})()}
+						</CardContent>
+					</Card>
+				</div>
 
-								return (
-									<div className="space-y-6">
-										{/* Baggage Options */}
-										{baggage.length > 0 && (
-											<div>
-												<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-													<Plane className="h-4 w-4 text-indigo-600" />
-													Extra Baggage
-												</h3>
-												<div className="grid grid-cols-1 gap-3">
-													{baggage.map((bag, index) => (
-														<div
-															key={index}
-															className="border rounded-lg p-3 bg-indigo-50/30"
-														>
-															<div className="flex items-center justify-between">
-																<div>
-																	<div className="font-medium text-gray-900">
-																		{bag.Weight}kg
+				<div className="space-y-6">
+					{/* Passenger Details Form */}
+					<BookingClient
+						adultCount={parseInt(adultCount)}
+						childCount={parseInt(childCount)}
+						infantCount={parseInt(infantCount)}
+						traceId={traceId}
+						resultIndex={resultIndex}
+						flightResult={flightResult}
+					/>
+
+					{/* Fare Upsell (replaces Fare Rules position) */}
+					<Card className="shadow-sm h-fit">
+						<CardHeader className="pb-2 border-b">
+							<CardTitle className="text-xl font-semibold flex items-center gap-2">
+								<TrendingUp className="h-5 w-5 text-purple-600" />
+								Fare Upsell Deals
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="pt-4">
+							{!isUpsellAllowed && (
+								<div className="text-center py-8 text-gray-500">
+									<TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-20" />
+									<p>Upsell options are not available for this selection.</p>
+								</div>
+							)}
+
+							{isUpsellAllowed && upsellOptions.length > 0 && (
+								<div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+									<div className="grid grid-cols-2 gap-4">
+										{upsellOptions.map((deal: FlightResult) => {
+											const firstSegment = deal.Segments?.[0]?.[0];
+											const lastGroup =
+												deal.Segments?.[deal.Segments.length - 1];
+											const lastSegment = lastGroup?.[lastGroup.length - 1];
+											const totalDuration = deal.Segments?.reduce(
+												(sum, group) => {
+													return (
+														sum +
+														group.reduce(
+															(inner, seg) => inner + (seg.Duration || 0),
+															0
+														)
+													);
+												},
+												0
+											);
+											const totalLegs = deal.Segments?.reduce(
+												(count, group) => count + group.length,
+												0
+											);
+											const stops = Math.max(0, (totalLegs || 1) - 1);
+
+											const upsellParams = new URLSearchParams({
+												traceId,
+												resultIndex: deal.ResultIndex,
+												adultCount,
+												childCount,
+												infantCount,
+											});
+
+											// Check if this upsell option itself allows further upselling
+											if (deal.IsUpsellAllowed === true) {
+												upsellParams.set("isUpsellAllowed", "true");
+											}
+
+											if (returnResultIndex) {
+												upsellParams.set(
+													"returnResultIndex",
+													returnResultIndex
+												);
+											}
+
+											const href = `/travel-portal/book?${upsellParams.toString()}`;
+
+											return (
+												<Card
+													key={`${deal.ResultIndex}-${deal.ValidatingAirlineCode}`}
+													className="border border-purple-100 bg-purple-50/40"
+												>
+													<CardContent className="p-4 space-y-4">
+														<div className="flex items-center justify-between gap-2">
+															<div className="space-y-1">
+																<div className="flex items-center gap-2">
+																	<div className="h-8 w-8 rounded flex items-center justify-center overflow-hidden bg-white">
+																		<AirlineLogo
+																			airlineCode={
+																				firstSegment?.Airline?.AirlineCode || ""
+																			}
+																			airlineName={
+																				firstSegment?.Airline?.AirlineName || ""
+																			}
+																			size="md"
+																		/>
 																	</div>
-																	<div className="text-sm text-gray-600">
-																		{bag.Code}
-																	</div>
-																</div>
-																<div className="text-right">
-																	<div className="font-semibold text-indigo-900">
-																		{bag.Currency} {bag.Price.toLocaleString()}
-																	</div>
-																	<div className="text-xs text-gray-500">
-																		per passenger
+																	<div>
+																		<div className="text-sm font-semibold text-purple-900">
+																			{firstSegment?.Airline?.AirlineName ||
+																				"Upsell Fare"}
+																		</div>
+																		<div className="text-xs text-gray-600">
+																			{firstSegment?.Airline?.AirlineCode}
+																		</div>
 																	</div>
 																</div>
 															</div>
+															<Badge
+																variant="outline"
+																className="border-purple-200 text-purple-800"
+															>
+																{stops === 0
+																	? "Non-stop"
+																	: `${stops} stop${stops > 1 ? "s" : ""}`}
+															</Badge>
 														</div>
-													))}
-												</div>
-											</div>
-										)}
 
-										{/* Meal Options */}
-										{meals.length > 0 && (
-											<div>
-												<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-													<Plane className="h-4 w-4 text-indigo-600" />
-													Meal Options
-												</h3>
-												<div className="grid grid-cols-1 gap-3">
-													{meals.map((meal, index) => (
-														<div
-															key={index}
-															className="border rounded-lg p-3 bg-indigo-50/30"
-														>
-															<div className="flex items-center justify-between">
-																<div>
-																	<div className="font-medium text-gray-900">
-																		{meal.AirlineDescription}
-																	</div>
-																	<div className="text-sm text-gray-600">
-																		{meal.Code}
-																	</div>
+														<div className="flex items-center justify-between">
+															<div>
+																<div className="text-lg font-semibold text-gray-900">
+																	{firstSegment?.Origin.Airport.CityCode}
 																</div>
-																<div className="text-right">
-																	<div className="font-semibold text-indigo-900">
-																		{meal.Currency}{" "}
-																		{meal.Price.toLocaleString()}
-																	</div>
-																	<div className="text-xs text-gray-500">
-																		per passenger
-																	</div>
+																<div className="text-xs text-gray-600">
+																	{firstSegment?.Origin.DepTime
+																		? new Date(
+																				firstSegment.Origin.DepTime
+																		  ).toLocaleTimeString([], {
+																				hour: "2-digit",
+																				minute: "2-digit",
+																		  })
+																		: "--"}
+																</div>
+															</div>
+															<div className="text-center text-gray-500 text-xs">
+																<div className="font-medium text-gray-700">
+																	{totalDuration || 0}m
+																</div>
+																<div className="h-px w-16 bg-purple-200 mx-auto my-1" />
+																<div className="text-[10px]">Duration</div>
+															</div>
+															<div className="text-right">
+																<div className="text-lg font-semibold text-gray-900">
+																	{lastSegment?.Destination.Airport.CityCode}
+																</div>
+																<div className="text-xs text-gray-600">
+																	{lastSegment?.Destination.ArrTime
+																		? new Date(
+																				lastSegment.Destination.ArrTime
+																		  ).toLocaleTimeString([], {
+																				hour: "2-digit",
+																				minute: "2-digit",
+																		  })
+																		: "--"}
 																</div>
 															</div>
 														</div>
-													))}
-												</div>
-											</div>
-										)}
 
-										{/* Seat Options */}
-										{seats.length > 0 && (
-											<div>
-												<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-													<Plane className="h-4 w-4 text-indigo-600" />
-													Seat Selection
-												</h3>
-												<div className="grid grid-cols-2 gap-3">
-													{seats.map((seat, index) => (
-														<div
-															key={index}
-															className="border rounded-lg p-3 bg-indigo-50/30"
-														>
-															<div className="text-center">
-																<div className="font-medium text-gray-900">
-																	{seat.RowNo}
-																	{seat.SeatNo}
+														<div className="flex items-center justify-between">
+															<div className="text-sm text-gray-600">
+																Baggage {firstSegment?.Baggage || "--"}
+															</div>
+															<div className="text-right">
+																<div className="text-xl font-bold text-purple-900">
+																	{deal.Fare?.Currency ||
+																		flightResult.Fare?.Currency ||
+																		"INR"}{" "}
+																	{deal.Fare?.PublishedFare?.toLocaleString() ||
+																		"--"}
 																</div>
-																<div className="text-sm text-gray-600">
-																	{seat.SeatType}
-																</div>
-																<div className="font-semibold text-indigo-900 mt-1">
-																	{seat.Currency} {seat.Price.toLocaleString()}
+																<div className="text-xs text-gray-500">
+																	per itinerary
 																</div>
 															</div>
 														</div>
-													))}
-												</div>
-											</div>
-										)}
 
-										{/* Special Services */}
-										{specialServices.length > 0 && (
-											<div>
-												<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-													<Plane className="h-4 w-4 text-indigo-600" />
-													Special Services
-												</h3>
-												<div className="grid grid-cols-1 gap-3">
-													{specialServices.map((service, index) => (
-														<div
-															key={index}
-															className="border rounded-lg p-3 bg-indigo-50/30"
+														<Button
+															asChild
+															variant="secondary"
+															className="w-full"
 														>
-															<div className="flex items-center justify-between">
-																<div>
-																	<div className="font-medium text-gray-900">
-																		{service.Text}
-																	</div>
-																	<div className="text-sm text-gray-600">
-																		{service.Code}
-																	</div>
-																</div>
-																<div className="text-right">
-																	<div className="font-semibold text-indigo-900">
-																		{service.Currency}{" "}
-																		{service.Price.toLocaleString()}
-																	</div>
-																	<div className="text-xs text-gray-500">
-																		per passenger
-																	</div>
-																</div>
-															</div>
-														</div>
-													))}
-												</div>
-											</div>
-										)}
+															<Link href={href} prefetch={false}>
+																View Deal
+															</Link>
+														</Button>
+													</CardContent>
+												</Card>
+											);
+										})}
 									</div>
-								);
-							} else {
-								// NON-LCC airlines: Meal, SeatPreference
-								const meals = ssrResult.Meal || [];
-								const seats = ssrResult.SeatPreference || [];
+								</div>
+							)}
 
-								if (meals.length === 0 && seats.length === 0) {
-									return (
-										<div className="text-center py-8 text-gray-500">
-											<CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-20" />
-											<p>No special services available for this flight.</p>
-										</div>
-									);
-								}
-
-								return (
-									<div className="space-y-6">
-										{/* Meal Options */}
-										{meals.length > 0 && (
-											<div>
-												<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-													<Plane className="h-4 w-4 text-indigo-600" />
-													Meal Options
-												</h3>
-												<div className="grid grid-cols-1 gap-3">
-													{meals.map((meal, index) => (
-														<div
-															key={index}
-															className="border rounded-lg p-3 bg-indigo-50/30"
-														>
-															<div className="flex items-center justify-between">
-																<div>
-																	<div className="font-medium text-gray-900">
-																		{meal.Description}
-																	</div>
-																	<div className="text-sm text-gray-600">
-																		{meal.Code}
-																	</div>
-																</div>
-																<div className="text-right">
-																	<div className="text-xs text-gray-500">
-																		Available
-																	</div>
-																</div>
-															</div>
-														</div>
-													))}
-												</div>
-											</div>
-										)}
-
-										{/* Seat Preferences */}
-										{seats.length > 0 && (
-											<div>
-												<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-													<Plane className="h-4 w-4 text-indigo-600" />
-													Seat Preferences
-												</h3>
-												<div className="grid grid-cols-2 gap-3">
-													{seats.map((seat, index) => (
-														<div
-															key={index}
-															className="border rounded-lg p-3 bg-indigo-50/30"
-														>
-															<div className="text-center">
-																<div className="font-medium text-gray-900">
-																	{seat.Description}
-																</div>
-																<div className="text-sm text-gray-600">
-																	{seat.Code}
-																</div>
-																<div className="text-xs text-gray-500 mt-1">
-																	Available
-																</div>
-															</div>
-														</div>
-													))}
-												</div>
-											</div>
-										)}
+							{isUpsellAllowed && upsellOptions.length === 0 && (
+								<div className="text-center py-8">
+									<TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-20 text-gray-400" />
+									<p className="text-gray-600 font-medium mb-1">
+										Upsell Options Unavailable
+									</p>
+									<p className="text-sm text-gray-500 mb-2">
+										While this flight supports upgrades, the supplier could not
+										provide additional fare options at this time.
+									</p>
+									<div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3 text-left max-w-md mx-auto">
+										<p className="text-xs text-amber-800">
+											<strong>Technical Note:</strong> The TBO API returned an
+											error: &quot;FareUpsell failed from the Supplier
+											end.&quot; This typically means the airline/GDS does not
+											have upsell inventory available for this specific flight
+											at this moment.
+										</p>
 									</div>
-								);
-							}
-						})()}
-					</CardContent>
-				</Card>
+								</div>
+							)}
+						</CardContent>
+					</Card>
+				</div>
+				{/* SSR (Special Service Request) Options - Now handled by BookingClient SSRSelection component below */}
 
 				{/* Price RBD */}
 				<Card className="shadow-sm">
@@ -1275,36 +998,19 @@ export default async function BookingPage({ searchParams }: PageProps) {
 															</span>
 														</div>
 														<div className="flex justify-between">
-															<span>Taxes & Fees:</span>
+															<span>Tax:</span>
 															<span className="font-semibold">
 																{priceRBDResult.Fare.Currency}{" "}
 																{priceRBDResult.Fare.Tax.toLocaleString()}
 															</span>
 														</div>
-														<div className="border-t border-green-200 pt-2 mt-2 flex justify-between">
-															<span className="font-semibold">Total Fare:</span>
-															<span className="font-bold text-lg">
+														<div className="flex justify-between pt-2 border-t border-green-200">
+															<span className="font-semibold">Total:</span>
+															<span className="font-bold text-base">
 																{priceRBDResult.Fare.Currency}{" "}
 																{priceRBDResult.Fare.PublishedFare.toLocaleString()}
 															</span>
 														</div>
-														{priceRBDResult.IsRefundable !== undefined && (
-															<div className="flex items-center gap-2 mt-2 pt-2 border-t border-green-200">
-																{priceRBDResult.IsRefundable ? (
-																	<>
-																		<CheckCircle2 className="h-4 w-4 text-green-600" />
-																		<span className="text-xs">Refundable</span>
-																	</>
-																) : (
-																	<>
-																		<XCircle className="h-4 w-4 text-red-600" />
-																		<span className="text-xs">
-																			Non-Refundable
-																		</span>
-																	</>
-																)}
-															</div>
-														)}
 													</div>
 												</div>
 											</div>
