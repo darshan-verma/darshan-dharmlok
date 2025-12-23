@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { getFareBreakdown } from "@/lib/tboFareCalculations";
 
 interface PassengerDetailsProps {
 	adultCount: number;
@@ -395,7 +396,11 @@ export default function PassengerDetails({
 										{flightResult.Fare?.Currency || "INR"}
 									</span>
 									<span className="text-2xl font-bold text-blue-600">
-										{flightResult.Fare?.PublishedFare?.toLocaleString() || "--"}
+										{flightResult.Fare
+											? getFareBreakdown(
+													flightResult.Fare
+											  ).publishedFare.toLocaleString()
+											: "--"}
 									</span>
 								</div>
 							</div>

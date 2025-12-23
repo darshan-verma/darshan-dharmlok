@@ -142,10 +142,20 @@ export interface FlightResult {
 	Fare?: Fare;
 	ReturnResultIndex?: string; // Added for round-trip flights
 	FareBreakdown: Array<{
+		Currency?: string;
 		PassengerType: number;
 		PassengerCount: number;
 		BaseFare: number;
 		Tax: number;
+		TaxBreakUp?: Array<{
+			key: string;
+			value: number;
+		}>;
+		YQTax?: number;
+		AdditionalTxnFeeOfrd?: number;
+		AdditionalTxnFeePub?: number;
+		PGCharge?: number;
+		SupplierReissueCharges?: number;
 	}>;
 	Segments: Array<FlightSegmentDetail[]>;
 	FareClassification?: {

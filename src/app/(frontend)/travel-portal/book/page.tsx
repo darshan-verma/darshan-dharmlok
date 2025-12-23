@@ -20,6 +20,7 @@ import {
 	TrendingUp,
 	Tag,
 	Search,
+	Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -1029,6 +1030,90 @@ export default async function BookingPage({ searchParams }: PageProps) {
 													</div>
 												</div>
 											)}
+											{/* Fare Breakdown by Passenger Type */}
+											{priceRBDResult.FareBreakdown &&
+												priceRBDResult.FareBreakdown.length > 0 && (
+													<div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+														<div className="bg-purple-100 p-2 rounded-full w-fit mb-3">
+															<Users className="h-4 w-4 text-purple-700" />
+														</div>
+														<h3 className="font-medium text-purple-900 mb-3">
+															Fare Breakdown by Passenger Type
+														</h3>
+														<div className="space-y-3">
+															{priceRBDResult.FareBreakdown.map(
+																(breakdown, index) => {
+																	const passengerTypeMap: {
+																		[key: number]: string;
+																	} = {
+																		1: "Adult",
+																		2: "Child",
+																		3: "Infant",
+																	};
+																	const passengerType =
+																		passengerTypeMap[breakdown.PassengerType] ||
+																		"Unknown";
+
+																	return (
+																		<div
+																			key={index}
+																			className="bg-white p-3 rounded border border-purple-200"
+																		>
+																			<div className="flex items-center justify-between mb-2">
+																				<div className="flex items-center gap-2">
+																					<span className="font-medium text-purple-900">
+																						{passengerType}
+																					</span>
+																					<Badge
+																						variant="outline"
+																						className="text-purple-700 border-purple-300"
+																					>
+																						{breakdown.PassengerCount} passenger
+																						{breakdown.PassengerCount > 1
+																							? "s"
+																							: ""}
+																					</Badge>
+																				</div>
+																				<div className="text-sm text-gray-600">
+																					{breakdown.Currency || "INR"}{" "}
+																					{breakdown.BaseFare.toLocaleString()}{" "}
+																					+ {breakdown.Tax.toLocaleString()} tax
+																				</div>
+																			</div>
+																			<div className="text-sm text-gray-700">
+																				Base Fare: {breakdown.Currency || "INR"}{" "}
+																				{breakdown.BaseFare.toLocaleString()} |
+																				Tax: {breakdown.Currency || "INR"}{" "}
+																				{breakdown.Tax.toLocaleString()} |
+																				Total: {breakdown.Currency || "INR"}{" "}
+																				{(
+																					breakdown.BaseFare + breakdown.Tax
+																				).toLocaleString()}
+																			</div>
+																			{breakdown.TaxBreakUp &&
+																				breakdown.TaxBreakUp.length > 0 && (
+																					<div className="mt-2 text-xs text-gray-600">
+																						<span className="font-medium">
+																							Tax Breakdown:
+																						</span>{" "}
+																						{breakdown.TaxBreakUp.map(
+																							(tax: {
+																								key: string;
+																								value: number;
+																							}) =>
+																								`${tax.key}: ${
+																									breakdown.Currency || "INR"
+																								} ${tax.value}`
+																						).join(", ")}
+																					</div>
+																				)}
+																		</div>
+																	);
+																}
+															)}
+														</div>
+													</div>
+												)}
 										</div>
 									) : (
 										<div className="bg-gray-50 p-4 rounded-lg border">
@@ -1037,14 +1122,6 @@ export default async function BookingPage({ searchParams }: PageProps) {
 											</p>
 										</div>
 									)}
-									<details className="text-xs">
-										<summary className="cursor-pointer text-gray-600 hover:text-gray-900">
-											View Raw Response
-										</summary>
-										<pre className="mt-2 bg-gray-50 p-4 rounded-lg border overflow-auto max-h-60 font-mono text-gray-600">
-											{JSON.stringify(priceRBDResult, null, 2)}
-										</pre>
-									</details>
 								</div>
 							);
 						})()}

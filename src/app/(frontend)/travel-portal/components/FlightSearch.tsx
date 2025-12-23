@@ -760,6 +760,7 @@ export default function FlightSearch() {
 						console.log("Using exact cached results for:", cacheKey);
 						setFlights(cached.results);
 						setTraceId(cached.traceId);
+						setSearchPerformed(true);
 						setLoading(false);
 						if (cached.results.length === 0) {
 							toast.info("No flights found (cached)");

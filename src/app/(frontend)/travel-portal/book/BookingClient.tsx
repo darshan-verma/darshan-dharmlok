@@ -82,6 +82,7 @@ export default function BookingClient({
 
 				return {
 					...p,
+					Fare: flightResult.Fare, // Include fare details for each passenger as per TBO API
 					// We might need to attach SSR codes here or in a separate field
 				};
 			});
