@@ -323,24 +323,26 @@ export default function SeatSelection({
 											activeSegmentIndex
 										]?.SegmentSeat?.[0]?.RowSeats?.map(
 											(
-												row: { Seats: Array<{
-													AirlineCode: string;
-													FlightNumber: string;
-													CraftType: string;
-													Origin: string;
-													Destination: string;
-													AvailablityType: number;
-													Description: number;
-													Code: string;
-													RowNo: string;
-													SeatNo: string | null;
-													SeatType: number;
-													SeatWayType: number;
-													Compartment: number;
-													Deck: number;
-													Currency: string;
-													Price: number;
-												}> },
+												row: {
+													Seats: Array<{
+														AirlineCode: string;
+														FlightNumber: string;
+														CraftType: string;
+														Origin: string;
+														Destination: string;
+														AvailablityType: number;
+														Description: number;
+														Code: string;
+														RowNo: string;
+														SeatNo: string | null;
+														SeatType: number;
+														SeatWayType: number;
+														Compartment: number;
+														Deck: number;
+														Currency: string;
+														Price: number;
+													}>;
+												},
 												rowIndex: number
 											) => (
 												<div
