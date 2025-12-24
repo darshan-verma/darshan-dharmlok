@@ -133,37 +133,64 @@ export default function UpsellModal({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="w-[96vw] max-w-none">
+			<DialogContent className="sm:max-w-[60vw] w-full max-w-[60vw] max-h-[60vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>
 						Flight Details and Fare Options available for you!
 					</DialogTitle>
-					{flight && (
-						<div className="mt-2 text-sm text-gray-600 flex items-center gap-3">
-							<div className="flex items-center gap-2">
-								{flight?.Segments && flight.Segments[0] && (
+					{flight && flight.Segments && flight.Segments[0] && (
+						<div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+							{/* Route Info */}
+							<div className="flex items-center gap-3">
+								<div className="bg-white p-2 rounded-full shadow-sm border">
 									<AirlineLogo
-										airlineCode={
-											flight.Segments[0][0]?.Airline?.AirlineCode || ""
-										}
-										airlineName={
-											flight.Segments[0][0]?.Airline?.AirlineName || ""
-										}
-										size="sm"
+										airlineCode={flight.Segments[0][0]?.Airline?.AirlineCode}
+										airlineName={flight.Segments[0][0]?.Airline?.AirlineName}
+										size="md"
 									/>
-								)}
+								</div>
 								<div>
-									<div className="font-medium">{flight.AirlineCode || ""}</div>
-									<div className="text-xs text-gray-500">
-										{flight.Segments &&
-											flight.Segments[0] &&
-											`${
-												flight.Segments[0][0]?.Origin?.Airport?.CityCode || "--"
-											} → ${
+									<div className="flex items-center gap-2 text-lg font-bold text-slate-800">
+										<span>{flight.Segments[0][0]?.Origin?.Airport?.CityCode}</span>
+										<span className="text-slate-400">→</span>
+										<span>
+											{
 												flight.Segments[0][flight.Segments[0].length - 1]
-													?.Destination?.Airport?.CityCode || "--"
-											}`}
+													?.Destination?.Airport?.CityCode
+											}
+										</span>
 									</div>
+									<div className="text-sm text-slate-500 font-medium">
+										{flight.Segments[0][0]?.Airline?.AirlineName}
+										<span className="mx-2">•</span>
+										{flight.Segments[0][0]?.Airline?.AirlineCode}-
+										{flight.Segments[0][0]?.Airline?.FlightNumber}
+									</div>
+								</div>
+							</div>
+
+							{/* Date Info */}
+							<div className="text-left sm:text-right">
+								<div className="text-sm font-semibold text-slate-700">
+									{new Date(flight.Segments[0][0]?.Origin?.DepTime).toLocaleDateString(
+										"en-IN",
+										{
+											weekday: "short",
+											day: "numeric",
+											month: "short",
+											year: "numeric",
+										}
+									)}
+								</div>
+								<div className="text-xs text-slate-500">
+									Departs{" "}
+									{new Date(flight.Segments[0][0]?.Origin?.DepTime).toLocaleTimeString(
+										"en-IN",
+										{
+											hour: "2-digit",
+											minute: "2-digit",
+										}
+									)}
 								</div>
 							</div>
 						</div>

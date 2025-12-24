@@ -771,6 +771,63 @@ export default function FlightSearch() {
 		options?: { forceRefresh?: boolean }
 	) => {
 		const forceRefresh = options?.forceRefresh === true;
+
+		// Comprehensive validation for all journey types
+		if (searchData.journeyType === "1" || searchData.journeyType === "2") {
+			// One-way and Round-trip validation
+			if (!searchData.origin || searchData.origin.trim() === "") {
+				toast.error("Please select a departure city");
+				return;
+			}
+			if (!searchData.destination || searchData.destination.trim() === "") {
+				toast.error("Please select a destination city");
+				return;
+			}
+			if (searchData.origin === searchData.destination) {
+				toast.error("Departure and destination cities cannot be the same");
+				return;
+			}
+			if (!searchData.departureDate) {
+				toast.error("Please select a departure date");
+				return;
+			}
+			// Check if departure date is not in the past
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+			const departureDate = new Date(searchData.departureDate);
+			departureDate.setHours(0, 0, 0, 0);
+			if (departureDate < today) {
+				toast.error("Departure date cannot be in the past");
+				return;
+			}
+			if (searchData.journeyType === "2") {
+				if (!searchData.returnDate) {
+					toast.error("Please select a return date for round trip flights");
+					return;
+				}
+				const returnDate = new Date(searchData.returnDate);
+				returnDate.setHours(0, 0, 0, 0);
+				if (returnDate < departureDate) {
+					toast.error("Return date must be after departure date");
+					return;
+				}
+			}
+		}
+
+		// Validate traveller counts
+		if (searchData.adults < 1) {
+			toast.error("At least 1 adult is required");
+			return;
+		}
+		if (searchData.adults + searchData.children + searchData.infants > 9) {
+			toast.error("Maximum 9 passengers allowed (adults + children + infants)");
+			return;
+		}
+		if (searchData.infants > searchData.adults) {
+			toast.error("Number of infants cannot exceed number of adults");
+			return;
+		}
+
 		// Validate round trip requires return date
 		if (searchData.journeyType === "2" && !searchData.returnDate) {
 			toast.error("Please select a return date for round trip flights");
@@ -783,11 +840,51 @@ export default function FlightSearch() {
 				toast.error("Multi-city flights require at least 2 segments");
 				return;
 			}
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+
 			for (let i = 0; i < searchData.segments.length; i++) {
 				const segment = searchData.segments[i];
-				if (!segment.origin || !segment.destination || !segment.departureDate) {
+				if (!segment.origin || segment.origin.trim() === "") {
+					toast.error(`Segment ${i + 1}: Please select a departure city`);
+					return;
+				}
+				if (!segment.destination || segment.destination.trim() === "") {
+					toast.error(`Segment ${i + 1}: Please select a destination city`);
+					return;
+				}
+				if (segment.origin === segment.destination) {
 					toast.error(
-						`Segment ${i + 1} is incomplete. Please fill all fields.`
+						`Segment ${
+							i + 1
+						}: Departure and destination cities cannot be the same`
+					);
+					return;
+				}
+				if (!segment.departureDate) {
+					toast.error(`Segment ${i + 1}: Please select a departure date`);
+					return;
+				}
+				const segmentDate = new Date(segment.departureDate);
+				segmentDate.setHours(0, 0, 0, 0);
+				if (segmentDate < today) {
+					toast.error(`Segment ${i + 1}: Departure date cannot be in the past`);
+					return;
+				}
+			}
+
+			// Check for logical sequence in multi-city (optional but helpful)
+			for (let i = 1; i < searchData.segments.length; i++) {
+				const prevSegment = searchData.segments[i - 1];
+				const currentSegment = searchData.segments[i];
+				const prevDate = new Date(prevSegment.departureDate!);
+				const currentDate = new Date(currentSegment.departureDate!);
+
+				if (currentDate < prevDate) {
+					toast.error(
+						`Segment ${
+							i + 1
+						}: Departure date must be after segment ${i} departure date`
 					);
 					return;
 				}
@@ -883,10 +980,55 @@ export default function FlightSearch() {
 				body: JSON.stringify(searchParams),
 			});
 
+			if (!response.ok) {
+				// Handle HTTP errors
+				if (response.status === 400) {
+					throw new Error(
+						"Invalid search parameters. Please check your inputs and try again."
+					);
+				} else if (response.status === 401) {
+					throw new Error("Authentication failed. Please try again later.");
+				} else if (response.status === 403) {
+					throw new Error("Access denied. Please try again later.");
+				} else if (response.status === 404) {
+					throw new Error(
+						"Flight search service not available. Please try again later."
+					);
+				} else if (response.status === 429) {
+					throw new Error(
+						"Too many requests. Please wait a moment and try again."
+					);
+				} else if (response.status >= 500) {
+					throw new Error("Server error. Please try again later.");
+				} else {
+					throw new Error(
+						`Search failed with status ${response.status}. Please try again.`
+					);
+				}
+			}
+
 			const result = await response.json();
 
 			if (!result.success) {
-				throw new Error(result.error || "Search failed");
+				// Handle API-specific errors
+				const errorMessage = result.error || "Search failed";
+				if (errorMessage.toLowerCase().includes("no flights")) {
+					throw new Error(
+						"No flights found for the selected criteria. Try different dates or routes."
+					);
+				} else if (errorMessage.toLowerCase().includes("invalid")) {
+					throw new Error(
+						"Invalid search parameters. Please check your inputs."
+					);
+				} else if (errorMessage.toLowerCase().includes("timeout")) {
+					throw new Error("Search timed out. Please try again.");
+				} else if (errorMessage.toLowerCase().includes("network")) {
+					throw new Error(
+						"Network error. Please check your connection and try again."
+					);
+				} else {
+					throw new Error(errorMessage);
+				}
 			}
 
 			const newTraceId = result.data?.Response?.TraceId || "";
@@ -1071,7 +1213,42 @@ export default function FlightSearch() {
 			}
 		} catch (error) {
 			console.error("Flight search error:", error);
-			toast.error(error instanceof Error ? error.message : "Search failed");
+
+			// Handle different types of errors
+			let errorMessage = "Search failed. Please try again.";
+
+			if (error instanceof Error) {
+				errorMessage = error.message;
+			} else if (typeof error === "string") {
+				errorMessage = error;
+			}
+
+			// Show appropriate toast based on error type
+			if (
+				errorMessage.toLowerCase().includes("network") ||
+				errorMessage.toLowerCase().includes("connection") ||
+				errorMessage.toLowerCase().includes("fetch")
+			) {
+				toast.error(
+					"Network error. Please check your internet connection and try again."
+				);
+			} else if (errorMessage.toLowerCase().includes("timeout")) {
+				toast.error(
+					"Search timed out. The server is busy. Please try again in a few moments."
+				);
+			} else if (
+				errorMessage.toLowerCase().includes("server") ||
+				errorMessage.toLowerCase().includes("internal")
+			) {
+				toast.error(
+					"Server error. Our team has been notified. Please try again later."
+				);
+			} else if (errorMessage.toLowerCase().includes("no flights")) {
+				toast.info(errorMessage);
+			} else {
+				toast.error(errorMessage);
+			}
+
 			setFlights([]);
 		} finally {
 			setLoading(false);
@@ -1212,10 +1389,10 @@ export default function FlightSearch() {
 						: null
 				}
 			/>
-			<Card>
-				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
-						<Plane className="h-5 w-5" />
+			<Card className="shadow-md border-slate-200 overflow-hidden">
+				<CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4">
+					<CardTitle className="flex items-center gap-2 text-xl text-slate-800">
+						<Plane className="h-5 w-5 text-blue-600" />
 						Flight Search
 					</CardTitle>
 				</CardHeader>
@@ -1230,9 +1407,13 @@ export default function FlightSearch() {
 						</div>
 
 						{/* Main Booking Section - Horizontal Layout */}
-						<div className="flex flex-wrap gap-4 items-stretch">
+						<div className="flex flex-wrap gap-4 items-start">
 							{/* From/To Selector or Multi-City Selector */}
-							<div className="flex-1 min-w-[400px] h-24">
+							<div
+								className={`flex-1 min-w-[400px] ${
+									tripType === "multi-city" ? "h-auto min-h-24" : "h-24"
+								}`}
+							>
 								{tripType === "multi-city" ? (
 									<MultiCitySelector
 										legs={multiCityLegs}

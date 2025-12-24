@@ -17,6 +17,7 @@ import SpecialServiceSelection, {
 } from "./SpecialServiceSelection";
 import { SSRResponse } from "@/types/tbo";
 import { Loader2 } from "lucide-react";
+import { toast } from "@/lib/toast";
 
 interface SSRSelectionProps {
 	traceId: string;
@@ -80,7 +81,26 @@ export default function SSRSelection({
 				});
 
 				if (!response.ok) {
-					throw new Error("Failed to fetch SSR data");
+					// Handle HTTP errors
+					if (response.status === 400) {
+						throw new Error(
+							"Invalid request parameters for additional services"
+						);
+					} else if (response.status === 404) {
+						throw new Error("Flight not found for additional services");
+					} else if (response.status === 429) {
+						throw new Error(
+							"Too many requests. Please wait a moment before selecting services."
+						);
+					} else if (response.status >= 500) {
+						throw new Error(
+							"Server error loading additional services. Please try again later."
+						);
+					} else {
+						throw new Error(
+							`Failed to load additional services (Error ${response.status})`
+						);
+					}
 				}
 
 				const data = await response.json();
@@ -91,9 +111,43 @@ export default function SSRSelection({
 					console.log("SSRSelection: SSR data set successfully");
 				} else {
 					console.log("SSRSelection: No Response in API response");
+					toast.info("No additional services available for this flight");
 				}
 			} catch (error) {
 				console.error("SSRSelection: Failed to fetch SSRs:", error);
+
+				// Handle different types of errors
+				let errorMessage = "Failed to load additional services";
+
+				if (error instanceof Error) {
+					errorMessage = error.message;
+				} else if (typeof error === "string") {
+					errorMessage = error;
+				}
+
+				// Show appropriate toast based on error type
+				if (
+					errorMessage.toLowerCase().includes("network") ||
+					errorMessage.toLowerCase().includes("connection") ||
+					errorMessage.toLowerCase().includes("fetch")
+				) {
+					toast.error(
+						"Network error loading additional services. Please check your connection."
+					);
+				} else if (errorMessage.toLowerCase().includes("invalid")) {
+					toast.error(
+						"Unable to load additional services due to invalid flight data."
+					);
+				} else if (errorMessage.toLowerCase().includes("server")) {
+					toast.error(
+						"Server error loading additional services. Our team has been notified."
+					);
+				} else {
+					toast.error(
+						errorMessage +
+							". You can still proceed with booking without additional services."
+					);
+				}
 			} finally {
 				setLoading(false);
 			}

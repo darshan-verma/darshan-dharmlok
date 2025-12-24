@@ -222,43 +222,44 @@ function CitySelector({
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
 				<button
-					className={`w-full h-full ${compact ? "p-2" : "p-3"} ${
-						side === "from" ? "pr-12" : ""
-					} ${side === "to" ? "pl-12" : ""} ${
+					className={`w-full h-full ${compact ? "p-2" : "py-2 px-3"} ${
+						side === "from" ? "pr-10" : ""
+					} ${side === "to" ? "pl-10" : ""} ${
 						dark
 							? "bg-slate-800 text-white hover:bg-slate-700"
 							: "hover:bg-gray-100"
-					} cursor-pointer transition-colors text-left`}
+					} cursor-pointer transition-colors text-left flex flex-col justify-center`}
 				>
 					<div
 						className={`${
 							dark ? "text-[10px] text-slate-300" : "text-[10px] text-gray-500"
-						} mb-1 uppercase`}
+						} mb-0.5 uppercase tracking-wide font-medium`}
 					>
 						{label}
 					</div>
 					{selectedCity.city ? (
-						<>
+						<div className="w-full">
 							<div
-								className={`${compact ? "text-lg" : "text-2xl"} font-bold ${
+								className={`${compact ? "text-base" : "text-lg"} font-bold ${
 									dark ? "text-white" : "text-gray-900"
-								}`}
+								} truncate leading-tight`}
+								title={selectedCity.city}
 							>
 								{selectedCity.city}
 							</div>
 							<div
-								className={`${compact ? "text-xs" : "text-xs"} ${
+								className={`${compact ? "text-[10px]" : "text-[11px]"} ${
 									dark ? "text-slate-300" : "text-gray-500"
-								}`}
+								} truncate mt-0.5`}
 							>
 								{selectedCity.code}, {selectedCity.airport}
 							</div>
-						</>
+						</div>
 					) : (
 						<div
-							className={`${compact ? "text-sm" : "text-lg"} ${
+							className={`${compact ? "text-sm" : "text-base"} ${
 								dark ? "text-slate-400" : "text-gray-400"
-							}`}
+							} font-medium`}
 						>
 							Select city
 						</div>
@@ -343,7 +344,7 @@ export default function FromToSelector({
 			}`}
 		>
 			{/* From Section */}
-			<div className="flex-1 h-full">
+			<div className="flex-1 h-full min-w-0">
 				<CitySelector
 					selectedCity={from}
 					onSelect={handleFromChange}
@@ -375,7 +376,7 @@ export default function FromToSelector({
 			<div
 				className={`${
 					dark ? "border-l border-slate-700" : "border-l border-gray-200"
-				} flex-1 min-w-[200px] h-full`}
+				} flex-1 h-full min-w-0`}
 			>
 				<CitySelector
 					selectedCity={to}

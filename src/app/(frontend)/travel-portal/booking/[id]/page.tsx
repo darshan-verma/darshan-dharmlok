@@ -167,8 +167,59 @@ export default function BookingPage() {
 	}, [id, router]);
 
 	const onSubmit = async (data: BookingFormData) => {
+		// Validation
+		if (!data.name || !data.name.trim()) {
+			toast.error("Please enter your full name");
+			return;
+		}
+		if (!data.email || !data.email.trim()) {
+			toast.error("Please enter your email address");
+			return;
+		}
+		if (!data.phone || !data.phone.trim()) {
+			toast.error("Please enter your phone number");
+			return;
+		}
+		if (!data.fromLocation || !data.fromLocation.trim()) {
+			toast.error("Please enter your departure location");
+			return;
+		}
 		if (!data.transportType) {
 			toast.error("Please select a transportation mode");
+			return;
+		}
+		if (!data.travelDate) {
+			toast.error("Please select a travel date");
+			return;
+		}
+
+		// Validate travel date is not in the past
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const travelDate = new Date(data.travelDate);
+		travelDate.setHours(0, 0, 0, 0);
+		if (travelDate < today) {
+			toast.error("Travel date cannot be in the past");
+			return;
+		}
+
+		// Validate return date if provided
+		if (data.returnDate) {
+			const returnDate = new Date(data.returnDate);
+			returnDate.setHours(0, 0, 0, 0);
+			if (returnDate < travelDate) {
+				toast.error("Return date must be after travel date");
+				return;
+			}
+		}
+
+		// Validate travelers count
+		if (!data.travelers || data.travelers < 1) {
+			toast.error("At least 1 traveler is required");
+			return;
+		}
+		if (data.travelers > 20) {
+			toast.error("Maximum 20 travelers allowed");
 			return;
 		}
 
@@ -198,9 +249,38 @@ export default function BookingPage() {
 				body: JSON.stringify(bookingData),
 			});
 
+			if (!res.ok) {
+				// Handle HTTP errors
+				if (res.status === 400) {
+					const errorData = await res.json();
+					toast.error(
+						errorData.error || "Invalid booking data. Please check your inputs."
+					);
+					return;
+				} else if (res.status === 404) {
+					toast.error("Destination not found. Please try again.");
+					return;
+				} else if (res.status === 429) {
+					toast.error(
+						"Too many booking requests. Please wait a moment and try again."
+					);
+					return;
+				} else if (res.status >= 500) {
+					toast.error(
+						"Server error. Our team has been notified. Please try again later."
+					);
+					return;
+				} else {
+					toast.error(
+						`Booking failed with error ${res.status}. Please try again.`
+					);
+					return;
+				}
+			}
+
 			const result = await res.json();
 
-			if (res.ok) {
+			if (result.message && result.booking) {
 				setShowSuccessDialog(true);
 				form.reset();
 				toast.success("Booking confirmed successfully!");
@@ -209,7 +289,34 @@ export default function BookingPage() {
 			}
 		} catch (error) {
 			console.error("Booking error:", error);
-			toast.error("An error occurred. Please try again.");
+
+			// Handle different types of errors
+			let errorMessage = "An error occurred. Please try again.";
+
+			if (error instanceof Error) {
+				errorMessage = error.message;
+			} else if (typeof error === "string") {
+				errorMessage = error;
+			}
+
+			// Show appropriate toast based on error type
+			if (
+				errorMessage.toLowerCase().includes("network") ||
+				errorMessage.toLowerCase().includes("connection") ||
+				errorMessage.toLowerCase().includes("fetch")
+			) {
+				toast.error(
+					"Network error. Please check your internet connection and try again."
+				);
+			} else if (errorMessage.toLowerCase().includes("validation")) {
+				toast.error("Please check all required fields and try again.");
+			} else if (errorMessage.toLowerCase().includes("payment")) {
+				toast.error(
+					"Payment processing failed. Please try a different payment method."
+				);
+			} else {
+				toast.error(errorMessage);
+			}
 		} finally {
 			setSubmitting(false);
 		}

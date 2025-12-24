@@ -197,7 +197,7 @@ export default function FlightBookingUI() {
 							/>
 
 							{/* Travellers Only for Multi-City */}
-							<div className="w-full lg:w-1/3">
+							<div className="w-full lg:w-64">
 								<TravellerSelector
 									travellers={travellers}
 									travelClass={travelClass}

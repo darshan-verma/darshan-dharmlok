@@ -80,77 +80,90 @@ export default function MultiCitySelector({
 	return (
 		<div className="space-y-4">
 			{legs.map((leg, index) => (
-				<div key={leg.id} className="space-y-3">
-					{/* City Pair */}
-					<div className="flex items-start gap-3">
-						<div className="flex-1">
-							<div className="flex items-center gap-2 mb-2">
-								<span className="text-xs font-semibold text-gray-500 uppercase">
-									Flight {index + 1}
-								</span>
-								{index >= 2 && (
-									<button
-										onClick={() => removeLeg(leg.id)}
-										className="text-gray-400 hover:text-red-500 transition-colors"
-										aria-label="Remove flight"
-									>
-										<X className="h-4 w-4" />
-									</button>
-								)}
-							</div>
+				<div
+					key={leg.id}
+					className="relative bg-white rounded-xl border border-gray-200 p-4"
+				>
+					<div className="flex flex-col lg:flex-row items-stretch gap-4">
+						{/* City Pair */}
+						<div className="flex-1 min-w-0">
 							<FromToSelector
 								from={leg.from}
 								to={leg.to}
 								onSwap={() => swapCities(leg.id)}
 								onFromChange={(city) => updateLeg(leg.id, { from: city })}
 								onToChange={(city) => updateLeg(leg.id, { to: city })}
+								compact={true}
 							/>
 						</div>
-					</div>
 
-					{/* Date Selector */}
-					<div className="w-full lg:w-1/2">
-						<Popover
-							open={openPopoverId === leg.id}
-							onOpenChange={(open) => setOpenPopoverId(open ? leg.id : null)}
-						>
-							<PopoverTrigger asChild>
-								<button className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 cursor-pointer transition-colors text-left">
-									<div className="text-xs text-gray-500 mb-1 uppercase">
-										Departure
-									</div>
-									{leg.date ? (
-										<div className="flex flex-col">
-											<div className="flex items-baseline gap-2">
-												<span className="text-3xl font-bold text-blue-600">
-													{format(leg.date, "dd")}
-												</span>
-												<span className="text-sm font-medium text-blue-600">
-													{format(leg.date, "MMM''yy")}
-												</span>
-											</div>
-											<span className="text-xs text-gray-600 mt-0.5">
-												{format(leg.date, "EEEE")}
+						{/* Separator for mobile */}
+						<div className="h-px w-full bg-gray-100 lg:hidden"></div>
+						{/* Separator for desktop */}
+						<div className="hidden lg:block w-px bg-gray-100 h-auto self-stretch"></div>
+
+						{/* Date Selector */}
+						<div className="lg:w-[200px] flex-shrink-0 relative group">
+							<Popover
+								open={openPopoverId === leg.id}
+								onOpenChange={(open) => setOpenPopoverId(open ? leg.id : null)}
+							>
+								<PopoverTrigger asChild>
+									<button className="w-full h-full bg-transparent hover:bg-gray-50 rounded-lg px-4 py-3 text-left transition-colors flex flex-col justify-center min-h-[80px]">
+										<div className="flex items-center gap-2 mb-1">
+											<span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded uppercase tracking-wider font-semibold">
+												Departure
+											</span>
+											<span className="text-[10px] text-gray-400">
+												Leg {index + 1}
 											</span>
 										</div>
-									) : (
-										<span className="text-gray-400 text-sm">Select date</span>
-									)}
+										{leg.date ? (
+											<div>
+												<div className="flex items-baseline gap-1.5">
+													<span className="text-lg font-bold text-slate-900">
+														{format(leg.date, "dd")}
+													</span>
+													<span className="text-sm font-semibold text-slate-600">
+														{format(leg.date, "MMM''yy")}
+													</span>
+												</div>
+												<span className="text-[10px] text-gray-400 font-medium uppercase mt-0.5 block">
+													{format(leg.date, "EEEE")}
+												</span>
+											</div>
+										) : (
+											<span className="text-sm font-semibold text-gray-400 mt-1 block">
+												Select Date
+											</span>
+										)}
+									</button>
+								</PopoverTrigger>
+								<PopoverContent className="w-auto p-0" align="start">
+									<Calendar
+										mode="single"
+										selected={leg.date}
+										onSelect={(date) => {
+											updateLeg(leg.id, { date });
+											setOpenPopoverId(null);
+										}}
+										disabled={(date) => date < new Date()}
+										initialFocus
+									/>
+								</PopoverContent>
+							</Popover>
+
+							{/* Remove Button (Absolute positioned to top-right of the date block) */}
+							{index >= 2 && (
+								<button
+									onClick={() => removeLeg(leg.id)}
+									className="absolute top-1 right-1 p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+									title="Remove Flight"
+								>
+									<X className="h-4 w-4" />
 								</button>
-							</PopoverTrigger>
-							<PopoverContent className="w-auto p-0" align="start">
-								<Calendar
-									mode="single"
-									selected={leg.date}
-									onSelect={(date) => {
-										updateLeg(leg.id, { date });
-										setOpenPopoverId(null);
-									}}
-									disabled={(date) => date < new Date()}
-									initialFocus
-								/>
-							</PopoverContent>
-						</Popover>
+							)}
+						</div>
 					</div>
 				</div>
 			))}
