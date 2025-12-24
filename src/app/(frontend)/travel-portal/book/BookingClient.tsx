@@ -17,6 +17,8 @@ import { ArrowRight, Plane, Check, Loader2 } from "lucide-react";
 import { BaggageOption } from "../components/ssr/BaggageSelection";
 import { MealOption } from "../components/ssr/MealSelection";
 import { SeatOption } from "../components/ssr/SeatSelection";
+import { SpecialServiceOption } from "../components/ssr/SpecialServiceSelection";
+import FareBreakdown from "@/components/travel-portal/FareBreakdown";
 
 interface BookingClientProps {
 	adultCount: number;
@@ -42,10 +44,12 @@ export default function BookingClient({
 		baggage: Record<string, BaggageOption | null>;
 		meals: Record<string, MealOption | null>;
 		seats: Record<string, SeatOption | null>;
+		specialServices: Record<string, SpecialServiceOption[]>;
 	}>({
 		baggage: {},
 		meals: {},
 		seats: {},
+		specialServices: {},
 	});
 
 	const calculateTotalFare = () => {
@@ -129,7 +133,27 @@ export default function BookingClient({
 						onBookingSubmit={handleBookingSubmit}
 						onPassengersChange={setPassengers}
 						flightResult={flightResult}
+						ssrCharges={{
+							baggage: selectedSSRs.baggage,
+							meals: selectedSSRs.meals,
+							seats: selectedSSRs.seats,
+							specialServices: selectedSSRs.specialServices,
+						}}
 					/>
+
+					{/* Fare Breakdown */}
+					<div className="pt-4">
+						<FareBreakdown
+							flight={flightResult}
+							showValidation={false}
+							ssrCharges={{
+								baggage: selectedSSRs.baggage,
+								meals: selectedSSRs.meals,
+								seats: selectedSSRs.seats,
+								specialServices: selectedSSRs.specialServices,
+							}}
+						/>
+					</div>
 
 					{/* SSR Selection */}
 					<div className="pt-4">
@@ -138,6 +162,9 @@ export default function BookingClient({
 							traceId={traceId}
 							resultIndex={resultIndex}
 							passengers={passengers}
+							adultCount={adultCount}
+							childCount={childCount}
+							infantCount={infantCount}
 							onSSRChange={setSelectedSSRs}
 						/>
 					</div>

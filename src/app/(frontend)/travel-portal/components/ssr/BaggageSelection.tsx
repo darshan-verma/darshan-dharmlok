@@ -19,6 +19,9 @@ export interface BaggageOption {
 interface BaggageSelectionProps {
 	baggageData: BaggageOption[][];
 	passengers: any[];
+	adultCount: number;
+	childCount: number;
+	infantCount: number;
 	selectedBaggage: Record<string, BaggageOption | null>; // Key: `${passengerIndex}-${segmentIndex}`
 	onSelect: (
 		passengerIndex: number,
@@ -30,10 +33,56 @@ interface BaggageSelectionProps {
 export default function BaggageSelection({
 	baggageData,
 	passengers,
+	adultCount,
+	childCount,
+	infantCount,
 	selectedBaggage,
 	onSelect,
 }: BaggageSelectionProps) {
 	if (!baggageData || baggageData.length === 0) return null;
+
+	// Helper function to get passenger label
+	const getPassengerLabel = (passengerIndex: number) => {
+		let count = 0;
+		if (passengerIndex < adultCount) {
+			return `${passengerIndex + 1}${
+				passengerIndex === 0
+					? "st"
+					: passengerIndex === 1
+					? "nd"
+					: passengerIndex === 2
+					? "rd"
+					: "th"
+			} Adult`;
+		}
+		count += adultCount;
+		if (passengerIndex < count + childCount) {
+			const childIndex = passengerIndex - adultCount;
+			return `${childIndex + 1}${
+				childIndex === 0
+					? "st"
+					: childIndex === 1
+					? "nd"
+					: childIndex === 2
+					? "rd"
+					: "th"
+			} Child`;
+		}
+		count += childCount;
+		if (passengerIndex < count + infantCount) {
+			const infantIndex = passengerIndex - count;
+			return `${infantIndex + 1}${
+				infantIndex === 0
+					? "st"
+					: infantIndex === 1
+					? "nd"
+					: infantIndex === 2
+					? "rd"
+					: "th"
+			} Infant`;
+		}
+		return `Passenger ${passengerIndex + 1}`;
+	};
 
 	return (
 		<div className="space-y-6">
@@ -58,7 +107,7 @@ export default function BaggageSelection({
 							return (
 								<div key={passengerIndex} className="space-y-3">
 									<p className="text-sm font-semibold text-gray-700">
-										{passenger.firstName} {passenger.lastName}
+										{getPassengerLabel(passengerIndex)}
 									</p>
 									<div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar">
 										{/* No Extra Option */}

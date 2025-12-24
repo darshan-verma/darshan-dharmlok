@@ -31,6 +31,9 @@ export interface MealOption {
 interface MealSelectionProps {
 	mealData: MealOption[][];
 	passengers: any[];
+	adultCount: number;
+	childCount: number;
+	infantCount: number;
 	selectedMeals: Record<string, MealOption | null>; // Key: `${passengerIndex}-${segmentIndex}`
 	onSelect: (
 		passengerIndex: number,
@@ -42,6 +45,9 @@ interface MealSelectionProps {
 export default function MealSelection({
 	mealData,
 	passengers,
+	adultCount,
+	childCount,
+	infantCount,
 	selectedMeals,
 	onSelect,
 }: MealSelectionProps) {
@@ -51,6 +57,49 @@ export default function MealSelection({
 	const [activeSegmentIndex, setActiveSegmentIndex] = useState(0);
 
 	if (!mealData || mealData.length === 0) return null;
+
+	// Helper function to get passenger label
+	const getPassengerLabel = (passengerIndex: number) => {
+		let count = 0;
+		if (passengerIndex < adultCount) {
+			return `${passengerIndex + 1}${
+				passengerIndex === 0
+					? "st"
+					: passengerIndex === 1
+					? "nd"
+					: passengerIndex === 2
+					? "rd"
+					: "th"
+			} Adult`;
+		}
+		count += adultCount;
+		if (passengerIndex < count + childCount) {
+			const childIndex = passengerIndex - adultCount;
+			return `${childIndex + 1}${
+				childIndex === 0
+					? "st"
+					: childIndex === 1
+					? "nd"
+					: childIndex === 2
+					? "rd"
+					: "th"
+			} Child`;
+		}
+		count += childCount;
+		if (passengerIndex < count + infantCount) {
+			const infantIndex = passengerIndex - count;
+			return `${infantIndex + 1}${
+				infantIndex === 0
+					? "st"
+					: infantIndex === 1
+					? "nd"
+					: infantIndex === 2
+					? "rd"
+					: "th"
+			} Infant`;
+		}
+		return `Passenger ${passengerIndex + 1}`;
+	};
 
 	// Helper to categorize meals
 	const categorizeMeal = (description: string) => {
@@ -118,7 +167,7 @@ export default function MealSelection({
 							return (
 								<div key={passengerIndex} className="space-y-2">
 									<p className="text-sm font-semibold">
-										{passenger.firstName} {passenger.lastName}
+										{getPassengerLabel(passengerIndex)}
 									</p>
 
 									<div className="space-y-2">
@@ -198,7 +247,9 @@ export default function MealSelection({
 			<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
 				<DialogContent className="max-w-2xl h-[80vh] flex flex-col">
 					<DialogHeader>
-						<DialogTitle>Select Meal</DialogTitle>
+						<DialogTitle>
+							Select Meal for {getPassengerLabel(activePassengerIndex)}
+						</DialogTitle>
 					</DialogHeader>
 
 					<div className="relative">

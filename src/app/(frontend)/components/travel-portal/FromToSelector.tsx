@@ -1,4 +1,5 @@
 "use client";
+"use client";
 import { useState } from "react";
 import { ArrowLeftRight, Search } from "lucide-react";
 import {
@@ -19,9 +20,10 @@ interface FromToSelectorProps {
 	onSwap: () => void;
 	onFromChange?: (city: City) => void;
 	onToChange?: (city: City) => void;
+	compact?: boolean;
+	dark?: boolean;
 }
 
-// Comprehensive Indian cities with airport codes
 const cities: City[] = [
 	{
 		city: "Delhi",
@@ -195,10 +197,16 @@ function CitySelector({
 	selectedCity,
 	onSelect,
 	label,
+	compact = false,
+	dark = false,
+	side,
 }: {
 	selectedCity: City;
 	onSelect: (city: City) => void;
 	label: string;
+	compact?: boolean;
+	dark?: boolean;
+	side?: "from" | "to";
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState("");
@@ -213,23 +221,54 @@ function CitySelector({
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
-				<button className="w-full p-4 hover:bg-gray-100 cursor-pointer transition-colors text-left">
-					<div className="text-xs text-gray-500 mb-1 uppercase">{label}</div>
+				<button
+					className={`w-full h-full ${compact ? "p-2" : "p-3"} ${
+						side === "from" ? "pr-12" : ""
+					} ${side === "to" ? "pl-12" : ""} ${
+						dark
+							? "bg-slate-800 text-white hover:bg-slate-700"
+							: "hover:bg-gray-100"
+					} cursor-pointer transition-colors text-left`}
+				>
+					<div
+						className={`${
+							dark ? "text-[10px] text-slate-300" : "text-[10px] text-gray-500"
+						} mb-1 uppercase`}
+					>
+						{label}
+					</div>
 					{selectedCity.city ? (
 						<>
-							<div className="text-2xl font-bold text-gray-900">
+							<div
+								className={`${compact ? "text-lg" : "text-2xl"} font-bold ${
+									dark ? "text-white" : "text-gray-900"
+								}`}
+							>
 								{selectedCity.city}
 							</div>
-							<div className="text-xs text-gray-500">
+							<div
+								className={`${compact ? "text-xs" : "text-xs"} ${
+									dark ? "text-slate-300" : "text-gray-500"
+								}`}
+							>
 								{selectedCity.code}, {selectedCity.airport}
 							</div>
 						</>
 					) : (
-						<div className="text-lg text-gray-400">Select city</div>
+						<div
+							className={`${compact ? "text-sm" : "text-lg"} ${
+								dark ? "text-slate-400" : "text-gray-400"
+							}`}
+						>
+							Select city
+						</div>
 					)}
 				</button>
 			</PopoverTrigger>
-			<PopoverContent className="w-80 p-0" align="start">
+			<PopoverContent
+				className={`${compact ? "w-64" : "w-80"} p-0`}
+				align="start"
+			>
 				<div className="p-3 border-b">
 					<div className="relative">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -253,7 +292,7 @@ function CitySelector({
 									setSearch("");
 								}}
 								className={`w-full px-4 py-3 text-left hover:bg-gray-100 transition-colors border-b border-gray-100 ${
-									selectedCity.code === city.code ? "bg-blue-50" : ""
+									city.code === selectedCity.code ? "bg-blue-50" : ""
 								}`}
 							>
 								<div className="flex items-center justify-between">
@@ -286,6 +325,8 @@ export default function FromToSelector({
 	onSwap,
 	onFromChange,
 	onToChange,
+	compact = false,
+	dark = false,
 }: FromToSelectorProps) {
 	const handleFromChange = (city: City) => {
 		if (onFromChange) onFromChange(city);
@@ -296,31 +337,70 @@ export default function FromToSelector({
 	};
 
 	return (
-		<div className="flex items-center gap-0 bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+		<div
+			className={`relative flex items-center gap-0 rounded-lg overflow-hidden border h-full ${
+				dark ? "bg-slate-900 border-slate-700" : "bg-gray-50 border-gray-200"
+			}`}
+		>
 			{/* From Section */}
-			<div className="flex-1">
+			<div className="flex-1 h-full">
 				<CitySelector
 					selectedCity={from}
 					onSelect={handleFromChange}
 					label="From"
+					compact={compact}
+					dark={dark}
+					side="from"
 				/>
 			</div>
 
-			{/* Swap Button */}
+			{/* Swap Button (absolute to avoid taking layout width) */}
 			<button
 				onClick={onSwap}
-				className="p-3 hover:bg-gray-200 transition-colors flex items-center justify-center self-center"
 				aria-label="Swap cities"
+				className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 focus:outline-none ${
+					compact ? "p-1" : "p-2"
+				} rounded-full`}
 			>
-				<div className="w-8 h-8 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center shadow-sm hover:border-blue-600 hover:text-blue-600 transition-all">
-					<ArrowLeftRight className="h-4 w-4" />
+				<div
+					className={`${
+						compact ? "w-8 h-8" : "w-10 h-10"
+					} rounded-full bg-white border border-gray-300 flex items-center justify-center shadow-sm hover:border-blue-600 hover:text-blue-600 transition-all`}
+				>
+					<ArrowLeftRight className={`${compact ? "h-3 w-3" : "h-4 w-4"}`} />
 				</div>
 			</button>
 
 			{/* To Section */}
-			<div className="flex-1 border-l border-gray-200">
-				<CitySelector selectedCity={to} onSelect={handleToChange} label="To" />
+			<div
+				className={`${
+					dark ? "border-l border-slate-700" : "border-l border-gray-200"
+				} flex-1 min-w-[200px] h-full`}
+			>
+				<CitySelector
+					selectedCity={to}
+					onSelect={handleToChange}
+					label="To"
+					compact={compact}
+					dark={dark}
+					side="to"
+				/>
 			</div>
 		</div>
 	);
 }
+// >
+// 	<div className={`${compact ? "w-7 h-7" : "w-8 h-8"} rounded-full bg-white border-2 border-gray-300 flex items-center justify-center shadow-sm hover:border-blue-600 hover:text-blue-600 transition-all`}>
+// 		<ArrowLeftRight className={`${compact ? "h-3 w-3" : "h-4 w-4"}`} />
+// 	</div>
+// </button>
+
+{
+	/* To Section */
+}
+// 			<div className="flex-1 border-l border-gray-200">
+// 				<CitySelector selectedCity={to} onSelect={handleToChange} label="To" compact={compact} />
+// 			</div>
+// 		</div>
+// 	);
+// }

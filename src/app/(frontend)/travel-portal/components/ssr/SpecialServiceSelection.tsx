@@ -20,6 +20,9 @@ export interface SpecialServiceOption {
 interface SpecialServiceSelectionProps {
 	serviceData: any[]; // SpecialServices structure
 	passengers: any[];
+	adultCount: number;
+	childCount: number;
+	infantCount: number;
 	selectedServices: Record<string, SpecialServiceOption[]>; // Key: `${passengerIndex}-${segmentIndex}` -> Array of selected services
 	onSelect: (
 		passengerIndex: number,
@@ -32,10 +35,56 @@ interface SpecialServiceSelectionProps {
 export default function SpecialServiceSelection({
 	serviceData,
 	passengers,
+	adultCount,
+	childCount,
+	infantCount,
 	selectedServices,
 	onSelect,
 }: SpecialServiceSelectionProps) {
 	if (!serviceData || serviceData.length === 0) return null;
+
+	// Helper function to get passenger label
+	const getPassengerLabel = (passengerIndex: number) => {
+		let count = 0;
+		if (passengerIndex < adultCount) {
+			return `${passengerIndex + 1}${
+				passengerIndex === 0
+					? "st"
+					: passengerIndex === 1
+					? "nd"
+					: passengerIndex === 2
+					? "rd"
+					: "th"
+			} Adult`;
+		}
+		count += adultCount;
+		if (passengerIndex < count + childCount) {
+			const childIndex = passengerIndex - adultCount;
+			return `${childIndex + 1}${
+				childIndex === 0
+					? "st"
+					: childIndex === 1
+					? "nd"
+					: childIndex === 2
+					? "rd"
+					: "th"
+			} Child`;
+		}
+		count += childCount;
+		if (passengerIndex < count + infantCount) {
+			const infantIndex = passengerIndex - count;
+			return `${infantIndex + 1}${
+				infantIndex === 0
+					? "st"
+					: infantIndex === 1
+					? "nd"
+					: infantIndex === 2
+					? "rd"
+					: "th"
+			} Infant`;
+		}
+		return `Passenger ${passengerIndex + 1}`;
+	};
 
 	return (
 		<div className="space-y-6">
@@ -65,7 +114,7 @@ export default function SpecialServiceSelection({
 								return (
 									<div key={passengerIndex} className="space-y-3">
 										<p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-											{passenger.firstName} {passenger.lastName}
+											{getPassengerLabel(passengerIndex)}
 										</p>
 
 										<div className="space-y-3">

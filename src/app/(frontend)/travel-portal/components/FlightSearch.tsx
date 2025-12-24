@@ -1086,7 +1086,7 @@ export default function FlightSearch() {
 	};
 
 	return (
-		<div className="max-w-6xl mx-auto p-6 space-y-6">
+		<div className="max-w-7xl mx-auto p-6 space-y-6">
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
@@ -1104,9 +1104,10 @@ export default function FlightSearch() {
 							/>
 						</div>
 
-						<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+						{/* Main Booking Section - Horizontal Layout */}
+						<div className="flex flex-wrap gap-4 items-stretch">
 							{/* From/To Selector or Multi-City Selector */}
-							<div className="lg:col-span-2">
+							<div className="flex-1 min-w-[400px] h-24">
 								{tripType === "multi-city" ? (
 									<MultiCitySelector
 										legs={multiCityLegs}
@@ -1125,7 +1126,7 @@ export default function FlightSearch() {
 
 							{/* Dates */}
 							{tripType !== "multi-city" && (
-								<div className="lg:col-span-2">
+								<div className="flex-1 min-w-[200px] h-24">
 									<DateSelector
 										departureDate={departureDate}
 										returnDate={returnDate}
@@ -1141,11 +1142,9 @@ export default function FlightSearch() {
 									/>
 								</div>
 							)}
-						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 							{/* Travellers & Class */}
-							<div className="space-y-2">
+							<div className="flex-1 min-w-[200px] h-24">
 								<TravellerSelector
 									travellers={travellers}
 									travelClass={travelClass}
@@ -1162,43 +1161,14 @@ export default function FlightSearch() {
 								/>
 							</div>
 
-							{/* Flight Preferences */}
-							<div className="space-y-2">
-								<Label>Flight Preferences</Label>
-								<div className="space-y-2">
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="directFlight"
-											checked={form.watch("directFlight")}
-											onCheckedChange={(checked) =>
-												form.setValue("directFlight", checked as boolean)
-											}
-										/>
-										<Label htmlFor="directFlight" className="text-sm">
-											Direct Flights
-										</Label>
-									</div>
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="oneStopFlight"
-											checked={form.watch("oneStopFlight")}
-											onCheckedChange={(checked) =>
-												form.setValue("oneStopFlight", checked as boolean)
-											}
-										/>
-										<Label htmlFor="oneStopFlight" className="text-sm">
-											One Stop
-										</Label>
-									</div>
-								</div>
+							{/* Search Button */}
+							<div className="flex-shrink-0 h-24 flex items-center">
+								<SearchButton
+									onSearch={form.handleSubmit(onSubmit)}
+									loading={loading}
+								/>
 							</div>
 						</div>
-
-						{/* Search Button */}
-						<SearchButton
-							onSearch={form.handleSubmit(onSubmit)}
-							loading={loading}
-						/>
 					</form>
 				</CardContent>
 			</Card>

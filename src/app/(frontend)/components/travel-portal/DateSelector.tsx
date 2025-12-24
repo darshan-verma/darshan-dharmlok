@@ -28,12 +28,12 @@ export default function DateSelector({
 	const [returnOpen, setReturnOpen] = useState(false);
 
 	return (
-		<div className="flex gap-0 bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+		<div className="flex gap-0 bg-gray-50 rounded-lg overflow-hidden border border-gray-200 h-full">
 			{/* Departure Date */}
 			<div className="flex-1">
 				<Popover open={departureOpen} onOpenChange={setDepartureOpen}>
 					<PopoverTrigger asChild>
-						<button className="w-full p-4 hover:bg-gray-100 cursor-pointer transition-colors text-left">
+						<button className="w-full p-4 hover:bg-gray-100 cursor-pointer transition-colors text-left h-full">
 							<div className="text-xs text-gray-500 mb-1 uppercase">
 								Departure
 							</div>
@@ -76,7 +76,7 @@ export default function DateSelector({
 				<Popover open={returnOpen} onOpenChange={setReturnOpen}>
 					<PopoverTrigger asChild>
 						<button
-							className={`w-full p-4 hover:bg-gray-100 cursor-pointer transition-colors text-left relative ${
+							className={`w-full p-4 hover:bg-gray-100 cursor-pointer transition-colors text-left relative h-full ${
 								!isRoundTrip ? "opacity-50 cursor-not-allowed" : ""
 							}`}
 							disabled={!isRoundTrip}

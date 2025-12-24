@@ -21,6 +21,9 @@ interface SSRSelectionProps {
 	traceId: string;
 	resultIndex: string;
 	passengers: any[];
+	adultCount: number;
+	childCount: number;
+	infantCount: number;
 	onSSRChange: (ssrs: {
 		baggage: Record<string, BaggageOption | null>;
 		meals: Record<string, MealOption | null>;
@@ -33,6 +36,9 @@ export default function SSRSelection({
 	traceId,
 	resultIndex,
 	passengers,
+	adultCount,
+	childCount,
+	infantCount,
 	onSSRChange,
 }: SSRSelectionProps) {
 	const [loading, setLoading] = useState(true);
@@ -277,6 +283,9 @@ export default function SSRSelection({
 							<BaggageSelection
 								baggageData={baggageData}
 								passengers={passengers}
+								adultCount={adultCount}
+								childCount={childCount}
+								infantCount={infantCount}
 								selectedBaggage={selectedBaggage}
 								onSelect={handleBaggageSelect}
 							/>
@@ -323,6 +332,9 @@ export default function SSRSelection({
 							<MealSelection
 								mealData={mealData}
 								passengers={passengers}
+								adultCount={adultCount}
+								childCount={childCount}
+								infantCount={infantCount}
 								selectedMeals={selectedMeals}
 								onSelect={handleMealSelect}
 							/>
@@ -369,6 +381,9 @@ export default function SSRSelection({
 							<SeatSelection
 								seatData={seatData}
 								passengers={passengers}
+								adultCount={adultCount}
+								childCount={childCount}
+								infantCount={infantCount}
 								selectedSeats={selectedSeats}
 								onSelect={handleSeatSelect}
 							/>
@@ -416,6 +431,9 @@ export default function SSRSelection({
 							<SpecialServiceSelection
 								serviceData={specialServicesData}
 								passengers={passengers}
+								adultCount={adultCount}
+								childCount={childCount}
+								infantCount={infantCount}
 								selectedServices={selectedServices}
 								onSelect={handleServiceSelect}
 							/>

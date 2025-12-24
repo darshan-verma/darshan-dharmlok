@@ -15,11 +15,20 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-
+import { BaggageOption } from "@/app/(frontend)/travel-portal/components/ssr/BaggageSelection";
+import { MealOption } from "@/app/(frontend)/travel-portal/components/ssr/MealSelection";
+import { SeatOption } from "@/app/(frontend)/travel-portal/components/ssr/SeatSelection";
+import { SpecialServiceOption } from "@/app/(frontend)/travel-portal/components/ssr/SpecialServiceSelection";
 interface FareBreakdownProps {
 	flight: FlightResult;
 	agencyMarkup?: number;
 	showValidation?: boolean;
+	ssrCharges?: {
+		baggage: Record<string, BaggageOption | null>;
+		meals: Record<string, MealOption | null>;
+		seats: Record<string, SeatOption | null>;
+		specialServices: Record<string, SpecialServiceOption[]>;
+	};
 }
 
 const InfoTooltip = ({ content }: { content: string }) => (
@@ -63,6 +72,7 @@ export default function FareBreakdown({
 	flight,
 	agencyMarkup = 0,
 	showValidation = false,
+	ssrCharges,
 }: FareBreakdownProps) {
 	const fare = flight.Fare;
 
@@ -71,6 +81,7 @@ export default function FareBreakdown({
 	>({
 		summary: true,
 		priceComponents: false,
+		additionalServices: false,
 		agencyFees: false,
 		commission: false,
 		tds: false,
@@ -105,6 +116,57 @@ export default function FareBreakdown({
 	const validation = showValidation
 		? validateFareCalculations(fare, agencyMarkup)
 		: null;
+
+	// Calculate SSR charges
+	const calculateSSRCharges = () => {
+		let baggageTotal = 0;
+		let mealsTotal = 0;
+		let seatsTotal = 0;
+		let specialServicesTotal = 0;
+
+		if (ssrCharges) {
+			// Add Baggage
+			if (ssrCharges.baggage) {
+				Object.values(ssrCharges.baggage).forEach((item) => {
+					if (item) baggageTotal += item.Price;
+				});
+			}
+
+			// Add Meals
+			if (ssrCharges.meals) {
+				Object.values(ssrCharges.meals).forEach((item) => {
+					if (item) mealsTotal += item.Price;
+				});
+			}
+
+			// Add Seats
+			if (ssrCharges.seats) {
+				Object.values(ssrCharges.seats).forEach((item) => {
+					if (item) seatsTotal += item.Price;
+				});
+			}
+
+			// Add Special Services
+			if (ssrCharges.specialServices) {
+				Object.values(ssrCharges.specialServices).forEach((services) => {
+					services.forEach((service) => {
+						if (service) specialServicesTotal += service.Price;
+					});
+				});
+			}
+		}
+
+		return {
+			baggage: baggageTotal,
+			meals: mealsTotal,
+			seats: seatsTotal,
+			specialServices: specialServicesTotal,
+			total: baggageTotal + mealsTotal + seatsTotal + specialServicesTotal,
+		};
+	};
+
+	const ssrTotals = calculateSSRCharges();
+	const totalFareWithSSR = breakdown.publishedFare + ssrTotals.total;
 
 	// Helper for Cabin Class
 	const getCabinClass = (code: string | undefined) => {
@@ -163,7 +225,7 @@ export default function FareBreakdown({
 								<InfoTooltip content="Total amount payable by customer (Published Fare)" />
 							</div>
 							<div className="text-3xl font-bold text-blue-700">
-								₹{breakdown.publishedFare.toLocaleString()}
+								₹{totalFareWithSSR.toLocaleString()}
 							</div>
 						</div>
 					</div>
@@ -178,7 +240,7 @@ export default function FareBreakdown({
 										<InfoTooltip content="Total amount payable by customer (Published Fare)" />
 									</div>
 									<div className="text-3xl font-bold text-blue-700">
-										₹{breakdown.publishedFare.toLocaleString()}
+										₹{totalFareWithSSR.toLocaleString()}
 									</div>
 								</div>
 							</div>
@@ -227,6 +289,60 @@ export default function FareBreakdown({
 								</div>
 							)}
 						</div>
+						{/* 2.5. Additional Services */}
+						{ssrTotals.total > 0 && (
+							<div className="border-b pb-2">
+								<SectionHeader
+									title="Additional Services"
+									isOpen={expandedSections.additionalServices || false}
+									onToggle={() => toggleSection("additionalServices")}
+								/>
+								{expandedSections.additionalServices && (
+									<div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm py-2 animate-in slide-in-from-top-2 duration-200">
+										{ssrTotals.baggage > 0 && (
+											<div className="flex justify-between">
+												<span className="text-gray-600">Extra Baggage</span>
+												<span className="font-medium">
+													₹{ssrTotals.baggage.toLocaleString()}
+												</span>
+											</div>
+										)}
+										{ssrTotals.meals > 0 && (
+											<div className="flex justify-between">
+												<span className="text-gray-600">Meals</span>
+												<span className="font-medium">
+													₹{ssrTotals.meals.toLocaleString()}
+												</span>
+											</div>
+										)}
+										{ssrTotals.seats > 0 && (
+											<div className="flex justify-between">
+												<span className="text-gray-600">Seat Selection</span>
+												<span className="font-medium">
+													₹{ssrTotals.seats.toLocaleString()}
+												</span>
+											</div>
+										)}
+										{ssrTotals.specialServices > 0 && (
+											<div className="flex justify-between">
+												<span className="text-gray-600">Special Services</span>
+												<span className="font-medium">
+													₹{ssrTotals.specialServices.toLocaleString()}
+												</span>
+											</div>
+										)}
+										<div className="flex justify-between border-t pt-1 mt-1 col-span-2">
+											<span className="font-medium text-gray-700">
+												Total Additional Services
+											</span>
+											<span className="font-bold text-blue-600">
+												₹{ssrTotals.total.toLocaleString()}
+											</span>
+										</div>
+									</div>
+								)}
+							</div>
+						)}
 						{/* 3. Agency Fees */}
 						<div className="border-b pb-2">
 							<SectionHeader
@@ -359,7 +475,7 @@ export default function FareBreakdown({
 							<div className="bg-gray-50 p-4 rounded-lg space-y-2 text-sm">
 								<div className="flex justify-between text-gray-600">
 									<span>Gross Fare</span>
-									<span>₹{breakdown.publishedFare.toLocaleString()}</span>
+									<span>₹{totalFareWithSSR.toLocaleString()}</span>
 								</div>
 								<div className="flex justify-between text-green-600">
 									<span>– Commission & Incentives</span>

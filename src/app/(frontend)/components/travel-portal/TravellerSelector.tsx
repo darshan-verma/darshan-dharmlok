@@ -86,7 +86,7 @@ export default function TravellerSelector({
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
 			<PopoverTrigger asChild>
-				<button className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 cursor-pointer transition-colors text-left w-full">
+				<button className="bg-gray-50 border border-gray-200 rounded-lg p-3 hover:bg-gray-100 cursor-pointer transition-colors text-left w-full h-full">
 					<div className="flex items-center justify-between">
 						<div>
 							<div className="text-xs text-gray-500 mb-1 uppercase">

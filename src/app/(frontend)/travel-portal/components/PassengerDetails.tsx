@@ -34,6 +34,12 @@ interface PassengerDetailsProps {
 	onBookingSubmit: (data: any) => void;
 	onPassengersChange?: (passengers: any[]) => void;
 	flightResult: any;
+	ssrCharges?: {
+		baggage?: Record<string, { Price: number } | null>;
+		meals?: Record<string, { Price: number } | null>;
+		seats?: Record<string, { Price: number } | null>;
+		specialServices?: Record<string, { Price: number }[]>;
+	};
 }
 
 export default function PassengerDetails({
@@ -43,6 +49,7 @@ export default function PassengerDetails({
 	onBookingSubmit,
 	onPassengersChange,
 	flightResult,
+	ssrCharges,
 }: PassengerDetailsProps) {
 	const {
 		register,
@@ -107,6 +114,47 @@ export default function PassengerDetails({
 			onPassengersChange(watchedPassengers);
 		}
 	}, [watchedPassengers, onPassengersChange]);
+
+	const calculateTotalFare = () => {
+		let total = flightResult.Fare
+			? getFareBreakdown(flightResult.Fare).publishedFare
+			: 0;
+
+		// Add SSR charges
+		if (ssrCharges) {
+			// Add Baggage
+			if (ssrCharges.baggage) {
+				Object.values(ssrCharges.baggage).forEach((item) => {
+					if (item) total += item.Price;
+				});
+			}
+
+			// Add Meals
+			if (ssrCharges.meals) {
+				Object.values(ssrCharges.meals).forEach((item) => {
+					if (item) total += item.Price;
+				});
+			}
+
+			// Add Seats
+			if (ssrCharges.seats) {
+				Object.values(ssrCharges.seats).forEach((item) => {
+					if (item) total += item.Price;
+				});
+			}
+
+			// Add Special Services
+			if (ssrCharges.specialServices) {
+				Object.values(ssrCharges.specialServices).forEach((services) => {
+					services.forEach((service) => {
+						if (service) total += service.Price;
+					});
+				});
+			}
+		}
+
+		return total;
+	};
 
 	// Flight route helpers
 	const firstSegment = flightResult?.Segments?.[0]?.[0];
@@ -396,11 +444,7 @@ export default function PassengerDetails({
 										{flightResult.Fare?.Currency || "INR"}
 									</span>
 									<span className="text-2xl font-bold text-blue-600">
-										{flightResult.Fare
-											? getFareBreakdown(
-													flightResult.Fare
-											  ).publishedFare.toLocaleString()
-											: "--"}
+										{calculateTotalFare().toLocaleString()}
 									</span>
 								</div>
 							</div>

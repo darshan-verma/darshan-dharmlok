@@ -25,8 +25,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import FareBreakdown from "@/components/travel-portal/FareBreakdown";
 import AirlineLogo from "@/components/travel-portal/AirlineLogo";
+import FareBreakdown from "@/components/travel-portal/FareBreakdown";
 import BookingClient from "./BookingClient";
 
 interface PageProps {
@@ -402,10 +402,6 @@ export default async function BookingPage({ searchParams }: PageProps) {
 							</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div>
-								<FareBreakdown flight={flightResult} showValidation={false} />
-							</div>
-
 							<div>
 								<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
 									<Clock className="h-4 w-4 text-gray-500" />
