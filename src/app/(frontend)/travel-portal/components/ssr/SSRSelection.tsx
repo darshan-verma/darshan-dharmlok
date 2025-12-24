@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import type { PassengerDetail } from "@/types/tbo";
 import {
 	Accordion,
 	AccordionContent,
@@ -20,7 +21,7 @@ import { Loader2 } from "lucide-react";
 interface SSRSelectionProps {
 	traceId: string;
 	resultIndex: string;
-	passengers: any[];
+	passengers: PassengerDetail[];
 	adultCount: number;
 	childCount: number;
 	infantCount: number;

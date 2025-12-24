@@ -32,6 +32,7 @@ import FromToSelector from "../../components/travel-portal/FromToSelector";
 import TripTypeSelector from "../../components/travel-portal/TripTypeSelector";
 import SearchButton from "../../components/travel-portal/SearchButton";
 import MultiCitySelector from "../../components/travel-portal/MultiCitySelector";
+import UpsellModal from "./UpsellModal";
 import { Separator } from "@/components/ui/separator";
 import { getFareBreakdown } from "@/lib/tboFareCalculations";
 import AirlineLogo from "@/components/travel-portal/AirlineLogo";
@@ -203,6 +204,15 @@ export default function FlightSearch() {
 	const [traceId, setTraceId] = useState<string>("");
 	const [searchPerformed, setSearchPerformed] = useState(false);
 	const [selectingFlight, setSelectingFlight] = useState<string | null>(null);
+
+	// Upsell modal state
+	const [isUpsellOpen, setIsUpsellOpen] = useState(false);
+	const [upsellFlight, setUpsellFlight] = useState<FlightResult | null>(null);
+
+	// Preloaded upsell data: Map<ResultIndex, upsell data>
+	const [preloadedUpsell, setPreloadedUpsell] = useState<
+		Map<string, FlightResult[]>
+	>(new Map());
 
 	// Cache for search results with timestamp
 	const searchCache = useRef<
@@ -668,6 +678,94 @@ export default function FlightSearch() {
 		}
 	}, [multiCityLegs, tripType, form]);
 
+	// Function to preload upsell data for flights
+	const preloadUpsellData = async (
+		flights: FlightResult[],
+		traceId: string,
+		adultCount: number,
+		childCount: number,
+		infantCount: number
+	) => {
+		if (!traceId || flights.length === 0) return;
+
+		// Clear previous preloaded data
+		setPreloadedUpsell(new Map());
+
+		// Also clear sessionStorage
+		try {
+			sessionStorage.removeItem("preloadedUpsellData");
+		} catch (e) {
+			console.warn("Failed to clear preloaded upsell data:", e);
+		}
+
+		const upsellData: Record<string, FlightResult[]> = {};
+
+		// Preload upsell for each flight in the background
+		const promises = flights.map(async (flight) => {
+			try {
+				const body: {
+					TraceId: string;
+					ResultIndex: string;
+					EndUserIp: string;
+					ReturnResultIndex?: string;
+					AdultCount?: number;
+					ChildCount?: number;
+					InfantCount?: number;
+				} = {
+					TraceId: traceId,
+					ResultIndex: flight.ResultIndex,
+					EndUserIp: "",
+				};
+				if (flight.ReturnResultIndex) {
+					body.ReturnResultIndex = flight.ReturnResultIndex;
+				}
+				if (adultCount) body.AdultCount = adultCount;
+				if (childCount) body.ChildCount = childCount;
+				if (infantCount) body.InfantCount = infantCount;
+
+				const response = await fetch("/api/travel/fare-upsell", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(body),
+				});
+				const json = await response.json();
+				if (response.ok && json?.success) {
+					const results = json.data?.Response?.Results || [];
+					upsellData[flight.ResultIndex] = results;
+					setPreloadedUpsell(
+						(prev) => new Map(prev.set(flight.ResultIndex, results))
+					);
+				}
+			} catch (error) {
+				console.warn(
+					`Failed to preload upsell for flight ${flight.ResultIndex}:`,
+					error
+				);
+			}
+		});
+
+		// Wait for all preloading to complete, then store in sessionStorage
+		await Promise.all(promises);
+
+		try {
+			sessionStorage.setItem(
+				"preloadedUpsellData",
+				JSON.stringify({
+					data: upsellData,
+					traceId,
+					timestamp: Date.now(),
+				})
+			);
+			console.log(
+				`Stored preloaded upsell data for ${
+					Object.keys(upsellData).length
+				} flights`
+			);
+		} catch (e) {
+			console.warn("Failed to store preloaded upsell data:", e);
+		}
+	};
+
 	const handleAutoSearch = async (
 		searchData: FlightSearchForm,
 		options?: { forceRefresh?: boolean }
@@ -957,6 +1055,15 @@ export default function FlightSearch() {
 
 			setFlights(flightResults);
 
+			// Preload upsell data in the background
+			preloadUpsellData(
+				flightResults,
+				traceId,
+				searchData.adults,
+				searchData.children,
+				searchData.infants
+			);
+
 			if (flightResults.length === 0) {
 				toast.info("No flights found for the selected criteria");
 			} else {
@@ -1087,6 +1194,24 @@ export default function FlightSearch() {
 
 	return (
 		<div className="max-w-7xl mx-auto p-6 space-y-6">
+			{/* Upsell modal - rendered at top-level of this component */}
+			<UpsellModal
+				open={isUpsellOpen}
+				onOpenChange={setIsUpsellOpen}
+				traceId={traceId}
+				resultIndex={upsellFlight?.ResultIndex ?? ""}
+				returnResultIndex={upsellFlight?.ReturnResultIndex}
+				journeyType={parseInt(tripTypeMapping[tripType])}
+				adultCount={form.getValues().adults}
+				childCount={form.getValues().children}
+				infantCount={form.getValues().infants}
+				flight={upsellFlight}
+				preloadedUpsell={
+					upsellFlight
+						? preloadedUpsell.get(upsellFlight.ResultIndex) || null
+						: null
+				}
+			/>
 			<Card>
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
@@ -1636,29 +1761,38 @@ export default function FlightSearch() {
 																	selectingFlight === flight.ResultIndex
 																}
 																onClick={() => {
-																	setSelectingFlight(flight.ResultIndex);
 																	const values = form.getValues();
-																	const params = new URLSearchParams({
-																		traceId: traceId,
-																		resultIndex: flight.ResultIndex,
-																		adultCount: String(values.adults),
-																		childCount: String(values.children),
-																		infantCount: String(values.infants),
-																	});
-
-																	if (flight.IsUpsellAllowed === true) {
-																		params.append("isUpsellAllowed", "true");
-																	}
-
-																	if (flight.ReturnResultIndex) {
-																		params.append(
-																			"returnResultIndex",
-																			flight.ReturnResultIndex
+																	// If multicity or no upsell available - go straight to booking
+																	if (
+																		tripType === "multi-city" ||
+																		flight.IsUpsellAllowed !== true
+																	) {
+																		setSelectingFlight(flight.ResultIndex);
+																		const params = new URLSearchParams({
+																			traceId: traceId,
+																			resultIndex: flight.ResultIndex,
+																			adultCount: String(values.adults),
+																			childCount: String(values.children),
+																			infantCount: String(values.infants),
+																		});
+																		if (flight.IsUpsellAllowed === true) {
+																			params.append("isUpsellAllowed", "true");
+																		}
+																		if (flight.ReturnResultIndex) {
+																			params.append(
+																				"returnResultIndex",
+																				flight.ReturnResultIndex
+																			);
+																		}
+																		router.push(
+																			`/travel-portal/book?${params.toString()}`
 																		);
+																		return;
 																	}
-																	router.push(
-																		`/travel-portal/book?${params.toString()}`
-																	);
+
+																	// Else show upsell modal so user can pick an upsell option first
+																	setUpsellFlight(flight);
+																	setIsUpsellOpen(true);
 																}}
 															>
 																{selectingFlight === flight.ResultIndex ? (

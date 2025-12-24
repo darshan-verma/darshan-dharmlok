@@ -6,18 +6,13 @@ import {
 	getPriceRBD,
 	getSSR,
 } from "@/lib/tboClient";
-import {
-	PriceRBDResponse,
-	FareUpsellResponse,
-	FlightResult,
-} from "@/types/tbo";
+import { PriceRBDResponse, FareUpsellResponse } from "@/types/tbo";
 import {
 	Plane,
 	CheckCircle2,
 	XCircle,
 	Clock,
 	ScrollText,
-	TrendingUp,
 	Tag,
 	Search,
 	Users,
@@ -26,7 +21,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AirlineLogo from "@/components/travel-portal/AirlineLogo";
-import FareBreakdown from "@/components/travel-portal/FareBreakdown";
 import BookingClient from "./BookingClient";
 
 interface PageProps {
@@ -53,7 +47,6 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		isUpsellAllowed: isUpsellAllowedParam,
 	} = params;
 
-	// Check if upsell is available from the search response (IsUpsellAllowed flag)
 	const isUpsellAllowed = isUpsellAllowedParam === "true";
 
 	if (!traceId || !resultIndex) {
@@ -64,20 +57,12 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		);
 	}
 
-	// Fire fare rules and upsell in parallel
-	// If IsUpsellAllowed is true in search response, fetch upsell data from /FareUpsell endpoint
 	const fareRulePromise = getFareRules({
 		TraceId: traceId,
 		ResultIndex: resultIndex,
 		EndUserIp: "192.168.1.1",
 	}).catch((e) => {
 		console.error("Error fetching fare rules", e);
-		console.error("Fare rules error details:", {
-			traceId,
-			resultIndex,
-			error: e.message,
-			stack: e.stack,
-		});
 		return null;
 	});
 
@@ -93,31 +78,21 @@ export default async function BookingPage({ searchParams }: PageProps) {
 					return result;
 				})
 				.catch((e) => {
-					console.error("=== Error fetching fare upsell ===");
-					console.error("Error details:", e);
-					console.error("Error message:", e.message);
-					console.error("Error stack:", e.stack);
+					console.error("=== Error fetching fare upsell ===", e);
 					return null;
 				})
 		: Promise.resolve(null);
 
-	// Fetch SSR (Special Service Request) options
 	const ssrPromise = getSSR({
 		TraceId: traceId,
 		ResultIndex: resultIndex,
 		EndUserIp: "192.168.1.1",
 	}).catch((e) => {
 		console.error("Error fetching SSR", e);
-		console.error("SSR error details:", {
-			traceId,
-			resultIndex,
-			error: e.message,
-			stack: e.stack,
-		});
 		return null;
 	});
 
-	// Fetch fare quote (outbound + optional return)
+	// Fetch fare quote(s)
 	let fareQuoteResponse;
 	let returnFareQuoteResponse;
 	try {
@@ -136,8 +111,6 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		}
 	} catch (e) {
 		console.error("Error fetching fare quote", e);
-
-		// Check if the error is due to invalid/expired ResultIndex
 		const errorMessage = e instanceof Error ? e.message : String(e);
 		if (
 			errorMessage.includes("Invalid Outbound Result Index") ||
@@ -154,13 +127,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 						</CardHeader>
 						<CardContent className="text-center space-y-4">
 							<p className="text-gray-600">
-								The flight search session has expired. Flight prices and
-								availability change frequently, so search results are only valid
-								for a limited time.
-							</p>
-							<p className="text-sm text-gray-500">
-								Please search for flights again to get current prices and
-								availability.
+								The flight search session has expired. Please search again.
 							</p>
 							<Button asChild className="w-full">
 								<Link href="/travel-portal">
@@ -193,12 +160,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 					</CardHeader>
 					<CardContent className="text-center space-y-4">
 						<p className="text-gray-600">
-							The selected flight is no longer available. This can happen when
-							flights sell out quickly or prices change.
-						</p>
-						<p className="text-sm text-gray-500">
-							Please search for alternative flights with similar dates and
-							routes.
+							The selected flight is no longer available.
 						</p>
 						<Button asChild className="w-full">
 							<Link href="/travel-portal">
@@ -730,399 +692,203 @@ export default async function BookingPage({ searchParams }: PageProps) {
 						traceId={traceId}
 						resultIndex={resultIndex}
 						flightResult={flightResult}
+						upsellOptions={upsellOptions}
+						isUpsellAllowed={isUpsellAllowed}
 					/>
 
-					{/* Fare Upsell (replaces Fare Rules position) */}
-					<Card className="shadow-sm h-fit">
+					{/* SSR (Special Service Request) Options - Now handled by BookingClient SSRSelection component below */}
+					{/* SSR (Special Service Request) Options - Now handled by BookingClient SSRSelection component below */}
+
+					{/* Price RBD */}
+					<Card className="shadow-sm">
 						<CardHeader className="pb-2 border-b">
 							<CardTitle className="text-xl font-semibold flex items-center gap-2">
-								<TrendingUp className="h-5 w-5 text-purple-600" />
-								Fare Upsell Deals
+								<Tag className="h-5 w-5 text-green-600" />
+								Price RBD
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="pt-4">
-							{!isUpsellAllowed && (
-								<div className="text-center py-8 text-gray-500">
-									<TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-20" />
-									<p>Upsell options are not available for this selection.</p>
-								</div>
-							)}
+							{(() => {
+								if (!priceRBDResponse?.Response?.Results) {
+									return (
+										<div className="text-center py-8 text-gray-500">
+											<Tag className="h-12 w-12 mx-auto mb-3 opacity-20" />
+											<p>No RBD pricing available.</p>
+										</div>
+									);
+								}
 
-							{isUpsellAllowed && upsellOptions.length > 0 && (
-								<div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-									<div className="grid grid-cols-2 gap-4">
-										{upsellOptions.map((deal: FlightResult) => {
-											const firstSegment = deal.Segments?.[0]?.[0];
-											const lastGroup =
-												deal.Segments?.[deal.Segments.length - 1];
-											const lastSegment = lastGroup?.[lastGroup.length - 1];
-											const totalDuration = deal.Segments?.reduce(
-												(sum, group) => {
-													return (
-														sum +
-														group.reduce(
-															(inner, seg) => inner + (seg.Duration || 0),
-															0
-														)
-													);
-												},
-												0
-											);
-											const totalLegs = deal.Segments?.reduce(
-												(count, group) => count + group.length,
-												0
-											);
-											const stops = Math.max(0, (totalLegs || 1) - 1);
+								// Handle array of arrays structure
+								let priceRBDResult;
+								if (Array.isArray(priceRBDResponse.Response.Results)) {
+									priceRBDResult = priceRBDResponse.Response.Results[0]?.[0];
+								} else {
+									priceRBDResult = priceRBDResponse.Response.Results;
+								}
 
-											const upsellParams = new URLSearchParams({
-												traceId,
-												resultIndex: deal.ResultIndex,
-												adultCount,
-												childCount,
-												infantCount,
-											});
+								if (!priceRBDResult) {
+									return (
+										<div className="text-center py-8 text-gray-500">
+											<Tag className="h-12 w-12 mx-auto mb-3 opacity-20" />
+											<p>No RBD pricing data available.</p>
+										</div>
+									);
+								}
 
-											// Check if this upsell option itself allows further upselling
-											if (deal.IsUpsellAllowed === true) {
-												upsellParams.set("isUpsellAllowed", "true");
-											}
-
-											if (returnResultIndex) {
-												upsellParams.set(
-													"returnResultIndex",
-													returnResultIndex
-												);
-											}
-
-											const href = `/travel-portal/book?${upsellParams.toString()}`;
-
-											return (
-												<Card
-													key={`${deal.ResultIndex}-${deal.ValidatingAirlineCode}`}
-													className="border border-purple-100 bg-purple-50/40"
-												>
-													<CardContent className="p-4 space-y-4">
-														<div className="flex items-center justify-between gap-2">
-															<div className="space-y-1">
-																<div className="flex items-center gap-2">
-																	<div className="h-8 w-8 rounded flex items-center justify-center overflow-hidden bg-white">
-																		<AirlineLogo
-																			airlineCode={
-																				firstSegment?.Airline?.AirlineCode || ""
-																			}
-																			airlineName={
-																				firstSegment?.Airline?.AirlineName || ""
-																			}
-																			size="md"
-																		/>
-																	</div>
-																	<div>
-																		<div className="text-sm font-semibold text-purple-900">
-																			{firstSegment?.Airline?.AirlineName ||
-																				"Upsell Fare"}
-																		</div>
-																		<div className="text-xs text-gray-600">
-																			{firstSegment?.Airline?.AirlineCode}
-																		</div>
-																	</div>
-																</div>
-															</div>
-															<Badge
-																variant="outline"
-																className="border-purple-200 text-purple-800"
-															>
-																{stops === 0
-																	? "Non-stop"
-																	: `${stops} stop${stops > 1 ? "s" : ""}`}
-															</Badge>
-														</div>
-
-														<div className="flex items-center justify-between">
-															<div>
-																<div className="text-lg font-semibold text-gray-900">
-																	{firstSegment?.Origin.Airport.CityCode}
-																</div>
-																<div className="text-xs text-gray-600">
-																	{firstSegment?.Origin.DepTime
-																		? new Date(
-																				firstSegment.Origin.DepTime
-																		  ).toLocaleTimeString([], {
-																				hour: "2-digit",
-																				minute: "2-digit",
-																		  })
-																		: "--"}
-																</div>
-															</div>
-															<div className="text-center text-gray-500 text-xs">
-																<div className="font-medium text-gray-700">
-																	{totalDuration || 0}m
-																</div>
-																<div className="h-px w-16 bg-purple-200 mx-auto my-1" />
-																<div className="text-[10px]">Duration</div>
-															</div>
-															<div className="text-right">
-																<div className="text-lg font-semibold text-gray-900">
-																	{lastSegment?.Destination.Airport.CityCode}
-																</div>
-																<div className="text-xs text-gray-600">
-																	{lastSegment?.Destination.ArrTime
-																		? new Date(
-																				lastSegment.Destination.ArrTime
-																		  ).toLocaleTimeString([], {
-																				hour: "2-digit",
-																				minute: "2-digit",
-																		  })
-																		: "--"}
-																</div>
-															</div>
-														</div>
-
-														<div className="flex items-center justify-between">
-															<div className="text-sm text-gray-600">
-																Baggage {firstSegment?.Baggage || "--"}
-															</div>
-															<div className="text-right">
-																<div className="text-xl font-bold text-purple-900">
-																	{deal.Fare?.Currency ||
-																		flightResult.Fare?.Currency ||
-																		"INR"}{" "}
-																	{deal.Fare?.PublishedFare?.toLocaleString() ||
-																		"--"}
-																</div>
-																<div className="text-xs text-gray-500">
-																	per itinerary
-																</div>
-															</div>
-														</div>
-
-														<Button
-															asChild
-															variant="secondary"
-															className="w-full"
-														>
-															<Link href={href} prefetch={false}>
-																View Deal
-															</Link>
-														</Button>
-													</CardContent>
-												</Card>
-											);
-										})}
-									</div>
-								</div>
-							)}
-
-							{isUpsellAllowed && upsellOptions.length === 0 && (
-								<div className="text-center py-8">
-									<TrendingUp className="h-12 w-12 mx-auto mb-3 opacity-20 text-gray-400" />
-									<p className="text-gray-600 font-medium mb-1">
-										Upsell Options Unavailable
-									</p>
-									<p className="text-sm text-gray-500 mb-2">
-										While this flight supports upgrades, the supplier could not
-										provide additional fare options at this time.
-									</p>
-									<div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3 text-left max-w-md mx-auto">
-										<p className="text-xs text-amber-800">
-											<strong>Technical Note:</strong> The TBO API returned an
-											error: &quot;FareUpsell failed from the Supplier
-											end.&quot; This typically means the airline/GDS does not
-											have upsell inventory available for this specific flight
-											at this moment.
-										</p>
-									</div>
-								</div>
-							)}
-						</CardContent>
-					</Card>
-				</div>
-				{/* SSR (Special Service Request) Options - Now handled by BookingClient SSRSelection component below */}
-
-				{/* Price RBD */}
-				<Card className="shadow-sm">
-					<CardHeader className="pb-2 border-b">
-						<CardTitle className="text-xl font-semibold flex items-center gap-2">
-							<Tag className="h-5 w-5 text-green-600" />
-							Price RBD
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="pt-4">
-						{(() => {
-							if (!priceRBDResponse?.Response?.Results) {
 								return (
-									<div className="text-center py-8 text-gray-500">
-										<Tag className="h-12 w-12 mx-auto mb-3 opacity-20" />
-										<p>No RBD pricing available.</p>
-									</div>
-								);
-							}
-
-							// Handle array of arrays structure
-							let priceRBDResult;
-							if (Array.isArray(priceRBDResponse.Response.Results)) {
-								priceRBDResult = priceRBDResponse.Response.Results[0]?.[0];
-							} else {
-								priceRBDResult = priceRBDResponse.Response.Results;
-							}
-
-							if (!priceRBDResult) {
-								return (
-									<div className="text-center py-8 text-gray-500">
-										<Tag className="h-12 w-12 mx-auto mb-3 opacity-20" />
-										<p>No RBD pricing data available.</p>
-									</div>
-								);
-							}
-
-							return (
-								<div className="space-y-4">
-									{priceRBDResult.Fare ? (
-										<div className="space-y-3">
-											<div className="bg-green-50 p-4 rounded-lg border border-green-100 flex items-start gap-3">
-												<div className="bg-green-100 p-2 rounded-full">
-													<Tag className="h-4 w-4 text-green-700" />
-												</div>
-												<div className="flex-1">
-													<h3 className="font-medium text-green-900 mb-2">
-														Fare Pricing Details
-													</h3>
-													<div className="space-y-2 text-sm text-green-800">
-														<div className="flex justify-between">
-															<span>Base Fare:</span>
-															<span className="font-semibold">
-																{priceRBDResult.Fare.Currency}{" "}
-																{priceRBDResult.Fare.BaseFare.toLocaleString()}
-															</span>
-														</div>
-														<div className="flex justify-between">
-															<span>Tax:</span>
-															<span className="font-semibold">
-																{priceRBDResult.Fare.Currency}{" "}
-																{priceRBDResult.Fare.Tax.toLocaleString()}
-															</span>
-														</div>
-														<div className="flex justify-between pt-2 border-t border-green-200">
-															<span className="font-semibold">Total:</span>
-															<span className="font-bold text-base">
-																{priceRBDResult.Fare.Currency}{" "}
-																{priceRBDResult.Fare.PublishedFare.toLocaleString()}
-															</span>
-														</div>
+									<div className="space-y-4">
+										{priceRBDResult.Fare ? (
+											<div className="space-y-3">
+												<div className="bg-green-50 p-4 rounded-lg border border-green-100 flex items-start gap-3">
+													<div className="bg-green-100 p-2 rounded-full">
+														<Tag className="h-4 w-4 text-green-700" />
 													</div>
-												</div>
-											</div>
-											{priceRBDResult.FareClassification && (
-												<div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-													<div className="text-sm">
-														<span className="text-gray-600">Fare Type: </span>
-														<Badge
-															style={{
-																backgroundColor:
-																	priceRBDResult.FareClassification.Color,
-															}}
-														>
-															{priceRBDResult.FareClassification.Type}
-														</Badge>
-													</div>
-												</div>
-											)}
-											{/* Fare Breakdown by Passenger Type */}
-											{priceRBDResult.FareBreakdown &&
-												priceRBDResult.FareBreakdown.length > 0 && (
-													<div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-														<div className="bg-purple-100 p-2 rounded-full w-fit mb-3">
-															<Users className="h-4 w-4 text-purple-700" />
-														</div>
-														<h3 className="font-medium text-purple-900 mb-3">
-															Fare Breakdown by Passenger Type
+													<div className="flex-1">
+														<h3 className="font-medium text-green-900 mb-2">
+															Fare Pricing Details
 														</h3>
-														<div className="space-y-3">
-															{priceRBDResult.FareBreakdown.map(
-																(breakdown, index) => {
-																	const passengerTypeMap: {
-																		[key: number]: string;
-																	} = {
-																		1: "Adult",
-																		2: "Child",
-																		3: "Infant",
-																	};
-																	const passengerType =
-																		passengerTypeMap[breakdown.PassengerType] ||
-																		"Unknown";
-
-																	return (
-																		<div
-																			key={index}
-																			className="bg-white p-3 rounded border border-purple-200"
-																		>
-																			<div className="flex items-center justify-between mb-2">
-																				<div className="flex items-center gap-2">
-																					<span className="font-medium text-purple-900">
-																						{passengerType}
-																					</span>
-																					<Badge
-																						variant="outline"
-																						className="text-purple-700 border-purple-300"
-																					>
-																						{breakdown.PassengerCount} passenger
-																						{breakdown.PassengerCount > 1
-																							? "s"
-																							: ""}
-																					</Badge>
-																				</div>
-																				<div className="text-sm text-gray-600">
-																					{breakdown.Currency || "INR"}{" "}
-																					{breakdown.BaseFare.toLocaleString()}{" "}
-																					+ {breakdown.Tax.toLocaleString()} tax
-																				</div>
-																			</div>
-																			<div className="text-sm text-gray-700">
-																				Base Fare: {breakdown.Currency || "INR"}{" "}
-																				{breakdown.BaseFare.toLocaleString()} |
-																				Tax: {breakdown.Currency || "INR"}{" "}
-																				{breakdown.Tax.toLocaleString()} |
-																				Total: {breakdown.Currency || "INR"}{" "}
-																				{(
-																					breakdown.BaseFare + breakdown.Tax
-																				).toLocaleString()}
-																			</div>
-																			{breakdown.TaxBreakUp &&
-																				breakdown.TaxBreakUp.length > 0 && (
-																					<div className="mt-2 text-xs text-gray-600">
-																						<span className="font-medium">
-																							Tax Breakdown:
-																						</span>{" "}
-																						{breakdown.TaxBreakUp.map(
-																							(tax: {
-																								key: string;
-																								value: number;
-																							}) =>
-																								`${tax.key}: ${
-																									breakdown.Currency || "INR"
-																								} ${tax.value}`
-																						).join(", ")}
-																					</div>
-																				)}
-																		</div>
-																	);
-																}
-															)}
+														<div className="space-y-2 text-sm text-green-800">
+															<div className="flex justify-between">
+																<span>Base Fare:</span>
+																<span className="font-semibold">
+																	{priceRBDResult.Fare.Currency}{" "}
+																	{priceRBDResult.Fare.BaseFare.toLocaleString()}
+																</span>
+															</div>
+															<div className="flex justify-between">
+																<span>Tax:</span>
+																<span className="font-semibold">
+																	{priceRBDResult.Fare.Currency}{" "}
+																	{priceRBDResult.Fare.Tax.toLocaleString()}
+																</span>
+															</div>
+															<div className="flex justify-between pt-2 border-t border-green-200">
+																<span className="font-semibold">Total:</span>
+																<span className="font-bold text-base">
+																	{priceRBDResult.Fare.Currency}{" "}
+																	{priceRBDResult.Fare.PublishedFare.toLocaleString()}
+																</span>
+															</div>
+														</div>
+													</div>
+												</div>
+												{priceRBDResult.FareClassification && (
+													<div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+														<div className="text-sm">
+															<span className="text-gray-600">Fare Type: </span>
+															<Badge
+																style={{
+																	backgroundColor:
+																		priceRBDResult.FareClassification.Color,
+																}}
+															>
+																{priceRBDResult.FareClassification.Type}
+															</Badge>
 														</div>
 													</div>
 												)}
-										</div>
-									) : (
-										<div className="bg-gray-50 p-4 rounded-lg border">
-											<p className="text-sm text-gray-600">
-												Fare information not available in response.
-											</p>
-										</div>
-									)}
-								</div>
-							);
-						})()}
-					</CardContent>
-				</Card>
+												{/* Fare Breakdown by Passenger Type */}
+												{priceRBDResult.FareBreakdown &&
+													priceRBDResult.FareBreakdown.length > 0 && (
+														<div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+															<div className="bg-purple-100 p-2 rounded-full w-fit mb-3">
+																<Users className="h-4 w-4 text-purple-700" />
+															</div>
+															<h3 className="font-medium text-purple-900 mb-3">
+																Fare Breakdown by Passenger Type
+															</h3>
+															<div className="space-y-3">
+																{priceRBDResult.FareBreakdown.map(
+																	(breakdown, index) => {
+																		const passengerTypeMap: {
+																			[key: number]: string;
+																		} = {
+																			1: "Adult",
+																			2: "Child",
+																			3: "Infant",
+																		};
+																		const passengerType =
+																			passengerTypeMap[
+																				breakdown.PassengerType
+																			] || "Unknown";
+
+																		return (
+																			<div
+																				key={index}
+																				className="bg-white p-3 rounded border border-purple-200"
+																			>
+																				<div className="flex items-center justify-between mb-2">
+																					<div className="flex items-center gap-2">
+																						<span className="font-medium text-purple-900">
+																							{passengerType}
+																						</span>
+																						<Badge
+																							variant="outline"
+																							className="text-purple-700 border-purple-300"
+																						>
+																							{breakdown.PassengerCount}{" "}
+																							passenger
+																							{breakdown.PassengerCount > 1
+																								? "s"
+																								: ""}
+																						</Badge>
+																					</div>
+																					<div className="text-sm text-gray-600">
+																						{breakdown.Currency || "INR"}{" "}
+																						{breakdown.BaseFare.toLocaleString()}{" "}
+																						+ {breakdown.Tax.toLocaleString()}{" "}
+																						tax
+																					</div>
+																				</div>
+																				<div className="text-sm text-gray-700">
+																					Base Fare:{" "}
+																					{breakdown.Currency || "INR"}{" "}
+																					{breakdown.BaseFare.toLocaleString()}{" "}
+																					| Tax: {breakdown.Currency || "INR"}{" "}
+																					{breakdown.Tax.toLocaleString()} |
+																					Total: {breakdown.Currency || "INR"}{" "}
+																					{(
+																						breakdown.BaseFare + breakdown.Tax
+																					).toLocaleString()}
+																				</div>
+																				{breakdown.TaxBreakUp &&
+																					breakdown.TaxBreakUp.length > 0 && (
+																						<div className="mt-2 text-xs text-gray-600">
+																							<span className="font-medium">
+																								Tax Breakdown:
+																							</span>{" "}
+																							{breakdown.TaxBreakUp.map(
+																								(tax: {
+																									key: string;
+																									value: number;
+																								}) =>
+																									`${tax.key}: ${
+																										breakdown.Currency || "INR"
+																									} ${tax.value}`
+																							).join(", ")}
+																						</div>
+																					)}
+																			</div>
+																		);
+																	}
+																)}
+															</div>
+														</div>
+													)}
+											</div>
+										) : (
+											<div className="bg-gray-50 p-4 rounded-lg border">
+												<p className="text-sm text-gray-600">
+													Fare information not available in response.
+												</p>
+											</div>
+										)}
+									</div>
+								);
+							})()}
+						</CardContent>
+					</Card>
+				</div>
 			</div>
 		</div>
 	);

@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { CheckCircle2 } from "lucide-react";
+import type { PassengerDetail } from "@/types/tbo";
 
 export interface BaggageOption {
 	AirlineCode: string;
@@ -18,7 +19,7 @@ export interface BaggageOption {
 
 interface BaggageSelectionProps {
 	baggageData: BaggageOption[][];
-	passengers: any[];
+	passengers: PassengerDetail[];
 	adultCount: number;
 	childCount: number;
 	infantCount: number;
@@ -100,7 +101,7 @@ export default function BaggageSelection({
 							</span>
 						</h4>
 
-						{passengers.map((passenger, passengerIndex) => {
+						{passengers.map((_, passengerIndex) => {
 							const key = `${passengerIndex}-${segmentIndex}`;
 							const selected = selectedBaggage[key];
 

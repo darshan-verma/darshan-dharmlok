@@ -5,6 +5,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { FlightResult, PassengerDetail } from "@/types/tbo";
 import {
 	Select,
 	SelectContent,
@@ -27,13 +28,32 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { getFareBreakdown } from "@/lib/tboFareCalculations";
 
+interface FormPassenger {
+	type: string;
+	title: string;
+	firstName: string;
+	lastName: string;
+	gender: string;
+	dob: string;
+	passportNo?: string;
+	passportExpiry?: string;
+	addressLine1?: string;
+	addressLine2?: string;
+	city?: string;
+	countryCode?: string;
+	cellCountryCode?: string;
+	contactNo?: string;
+	email?: string;
+	isLeadPax?: boolean;
+}
+
 interface PassengerDetailsProps {
 	adultCount: number;
 	childCount: number;
 	infantCount: number;
-	onBookingSubmit: (data: any) => void;
-	onPassengersChange?: (passengers: any[]) => void;
-	flightResult: any;
+	onBookingSubmit: (data: PassengerDetail[]) => void;
+	onPassengersChange?: (passengers: PassengerDetail[]) => void;
+	flightResult: FlightResult;
 	ssrCharges?: {
 		baggage?: Record<string, { Price: number } | null>;
 		meals?: Record<string, { Price: number } | null>;
@@ -111,7 +131,31 @@ export default function PassengerDetails({
 
 	useEffect(() => {
 		if (onPassengersChange) {
-			onPassengersChange(watchedPassengers);
+			// Transform form data to PassengerDetail format for SSR selection
+			const transformedPassengers = watchedPassengers.map((p, index) => ({
+				Title: p.title,
+				FirstName: p.firstName,
+				LastName: p.lastName,
+				PaxType: (p.type === "Adult" ? 1 : p.type === "Child" ? 2 : 3) as
+					| 1
+					| 2
+					| 3,
+				DateOfBirth: `${p.dob}T00:00:00`,
+				Gender: parseInt(p.gender) as 1 | 2,
+				PassportNo: p.passportNo || "",
+				PassportExpiry: p.passportExpiry ? `${p.passportExpiry}T00:00:00` : "",
+				AddressLine1: p.addressLine1 || "",
+				AddressLine2: p.addressLine2 || "",
+				City: p.city || "",
+				CountryCode: p.countryCode || "IN",
+				CountryName: "India",
+				ContactNo: p.contactNo || "",
+				Email: p.email || "",
+				IsLeadPax: index === 0,
+				FFAirlineCode: undefined,
+				FFNumber: "",
+			}));
+			onPassengersChange(transformedPassengers);
 		}
 	}, [watchedPassengers, onPassengersChange]);
 
@@ -183,38 +227,39 @@ export default function PassengerDetails({
 		}));
 	};
 
-	const onSubmit = (data: any) => {
+	const onSubmit = (data: { passengers: FormPassenger[] }) => {
 		// Transform data to match API requirements
-		const formattedPassengers = data.passengers.map((p: any, index: number) => {
-			const basePassenger = {
-				Title: p.title,
-				FirstName: p.firstName,
-				LastName: p.lastName,
-				PaxType: p.type === "Adult" ? 1 : p.type === "Child" ? 2 : 3,
-				DateOfBirth: `${p.dob}T00:00:00`,
-				Gender: parseInt(p.gender),
-				PassportNo: p.passportNo || "",
-				PassportExpiry: p.passportExpiry ? `${p.passportExpiry}T00:00:00` : "",
-				AddressLine1: p.addressLine1 || "",
-				AddressLine2: p.addressLine2 || "",
-				City: p.city || "",
-				CountryCode: p.countryCode || "IN",
-				CellCountryCode: p.cellCountryCode || "+91",
-				ContactNo: p.contactNo || "",
-				Nationality: "IN", // Defaulting to IN for now
-				Email: p.email || "",
-				IsLeadPax: index === 0, // First passenger is lead pax
-				FFAirlineCode: null,
-				FFNumber: "",
-				GSTCompanyAddress: "",
-				GSTCompanyContactNumber: "",
-				GSTCompanyName: "",
-				GSTNumber: "",
-				GSTCompanyEmail: "",
-			};
+		const formattedPassengers = data.passengers.map(
+			(p: FormPassenger, index: number) => {
+				const basePassenger: PassengerDetail = {
+					Title: p.title,
+					FirstName: p.firstName,
+					LastName: p.lastName,
+					PaxType: (p.type === "Adult" ? 1 : p.type === "Child" ? 2 : 3) as
+						| 1
+						| 2
+						| 3,
+					DateOfBirth: `${p.dob}T00:00:00`,
+					Gender: parseInt(p.gender) as 1 | 2,
+					PassportNo: p.passportNo || "",
+					PassportExpiry: p.passportExpiry
+						? `${p.passportExpiry}T00:00:00`
+						: "",
+					AddressLine1: p.addressLine1 || "",
+					AddressLine2: p.addressLine2 || "",
+					City: p.city || "",
+					CountryCode: p.countryCode || "IN",
+					CountryName: "India", // Default country name
+					ContactNo: p.contactNo || "",
+					Email: p.email || "",
+					IsLeadPax: index === 0, // First passenger is lead pax
+					FFAirlineCode: undefined,
+					FFNumber: "",
+				};
 
-			return basePassenger;
-		});
+				return basePassenger;
+			}
+		);
 
 		onBookingSubmit(formattedPassengers);
 	};

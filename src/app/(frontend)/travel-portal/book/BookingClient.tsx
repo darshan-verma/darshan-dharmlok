@@ -1,24 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import PassengerDetails from "../components/PassengerDetails";
 import SSRSelection from "../components/ssr/SSRSelection";
-import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-	CardFooter,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { ArrowRight, Plane, Check, Loader2 } from "lucide-react";
 import { BaggageOption } from "../components/ssr/BaggageSelection";
 import { MealOption } from "../components/ssr/MealSelection";
 import { SeatOption } from "../components/ssr/SeatSelection";
 import { SpecialServiceOption } from "../components/ssr/SpecialServiceSelection";
 import FareBreakdown from "@/components/travel-portal/FareBreakdown";
+import FareUpsellList from "../components/FareUpsellList";
+import type { FlightResult, PassengerDetail } from "@/types/tbo";
 
 interface BookingClientProps {
 	adultCount: number;
@@ -26,7 +17,9 @@ interface BookingClientProps {
 	infantCount: number;
 	traceId: string;
 	resultIndex: string;
-	flightResult: any;
+	flightResult: FlightResult;
+	upsellOptions?: FlightResult[];
+	isUpsellAllowed?: boolean;
 }
 
 export default function BookingClient({
@@ -36,10 +29,10 @@ export default function BookingClient({
 	traceId,
 	resultIndex,
 	flightResult,
+	upsellOptions = [],
+	isUpsellAllowed = false,
 }: BookingClientProps) {
-	const router = useRouter();
-	const [isBooking, setIsBooking] = useState(false);
-	const [passengers, setPassengers] = useState<any[]>([]);
+	const [passengers, setPassengers] = useState<PassengerDetail[]>([]);
 	const [selectedSSRs, setSelectedSSRs] = useState<{
 		baggage: Record<string, BaggageOption | null>;
 		meals: Record<string, MealOption | null>;
@@ -52,33 +45,11 @@ export default function BookingClient({
 		specialServices: {},
 	});
 
-	const calculateTotalFare = () => {
-		let total = flightResult.Fare.PublishedFare;
-
-		// Add Baggage
-		Object.values(selectedSSRs.baggage).forEach((item) => {
-			if (item) total += item.Price;
-		});
-
-		// Add Meals
-		Object.values(selectedSSRs.meals).forEach((item) => {
-			if (item) total += item.Price;
-		});
-
-		// Add Seats
-		Object.values(selectedSSRs.seats).forEach((item) => {
-			if (item) total += item.Price;
-		});
-
-		return total;
-	};
-
-	const handleBookingSubmit = async (passengerData: any[]) => {
-		setIsBooking(true);
+	const handleBookingSubmit = async (passengerData: PassengerDetail[]) => {
 		try {
 			// Construct the booking request payload
 			// We need to map SSRs to passengers
-			const passengersWithSSR = passengerData.map((p, index) => {
+			const passengersWithSSR = passengerData.map((p) => {
 				// Collect SSRs for this passenger
 				// Note: This logic assumes simple mapping.
 				// In reality, we need to format it according to TBO API requirements for SSRs.
@@ -107,16 +78,6 @@ export default function BookingClient({
 		} catch (error) {
 			console.error("Booking failed:", error);
 			alert("Booking failed. Please try again.");
-		} finally {
-			setIsBooking(false);
-		}
-	};
-
-	// Trigger form submission from outside
-	const handleProceedToPay = () => {
-		const form = document.getElementById("passenger-form") as HTMLFormElement;
-		if (form) {
-			form.requestSubmit();
 		}
 	};
 
@@ -155,23 +116,32 @@ export default function BookingClient({
 						/>
 					</div>
 
-					{/* SSR Selection */}
-					<div className="pt-4">
-						<h3 className="text-xl font-semibold mb-4">Add-ons & Services</h3>
-						<SSRSelection
-							traceId={traceId}
-							resultIndex={resultIndex}
-							passengers={passengers}
-							adultCount={adultCount}
-							childCount={childCount}
-							infantCount={infantCount}
-							onSSRChange={setSelectedSSRs}
-						/>
-					</div>
-				</div>
+					{/* Fare Upsell Options */}
+					<FareUpsellList
+						upsellOptions={upsellOptions}
+						isUpsellAllowed={isUpsellAllowed}
+						traceId={traceId}
+						returnResultIndex={undefined}
+						adultCount={adultCount}
+						childCount={childCount}
+						infantCount={infantCount}
+						fallbackFareCurrency={flightResult.Fare?.Currency}
+					/>
 
-				{/* Right Column removed as per UX request: Fare Summary moved/hidden */}
+					{/* SSR Selection */}
+					<SSRSelection
+						traceId={traceId}
+						resultIndex={resultIndex}
+						passengers={passengers}
+						adultCount={adultCount}
+						childCount={childCount}
+						infantCount={infantCount}
+						onSSRChange={setSelectedSSRs}
+					/>
+				</div>
 			</div>
+
+			{/* Right Column removed as per UX request: Fare Summary moved/hidden */}
 		</div>
 	);
 }

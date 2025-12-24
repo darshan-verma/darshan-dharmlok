@@ -2,6 +2,7 @@
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import type { PassengerDetail } from "@/types/tbo";
 
 export interface SpecialServiceOption {
 	Origin: string;
@@ -18,8 +19,8 @@ export interface SpecialServiceOption {
 }
 
 interface SpecialServiceSelectionProps {
-	serviceData: any[]; // SpecialServices structure
-	passengers: any[];
+	serviceData: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any -- SpecialServices structure from TBO API
+	passengers: PassengerDetail[];
 	adultCount: number;
 	childCount: number;
 	infantCount: number;
@@ -107,7 +108,7 @@ export default function SpecialServiceSelection({
 						</h4>
 
 						<div className="space-y-4">
-							{passengers.map((passenger, passengerIndex) => {
+							{passengers.map((_, passengerIndex) => {
 								const key = `${passengerIndex}-${segmentIndex}`;
 								const selectedForPassenger = selectedServices[key] || [];
 

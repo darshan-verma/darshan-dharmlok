@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import type { PassengerDetail } from "@/types/tbo";
 import {
 	Dialog,
 	DialogContent,
@@ -30,7 +31,7 @@ export interface MealOption {
 
 interface MealSelectionProps {
 	mealData: MealOption[][];
-	passengers: any[];
+	passengers: PassengerDetail[];
 	adultCount: number;
 	childCount: number;
 	infantCount: number;
@@ -157,11 +158,9 @@ export default function MealSelection({
 							{origin} → {destination}
 						</h4>
 
-						{passengers.map((passenger, passengerIndex) => {
-							const key = `${passengerIndex}-${segmentIndex}`;
-							const selected = selectedMeals[key];
-
-							// Get top 3 meals (e.g., 1 Veg, 1 Non-Veg, 1 Snack)
+                                                {passengers.map((_, passengerIndex) => {
+                                                        const key = `${passengerIndex}-${segmentIndex}`;
+                                                        const selected = selectedMeals[key];							// Get top 3 meals (e.g., 1 Veg, 1 Non-Veg, 1 Snack)
 							const topMeals = segmentMeals.slice(0, 3);
 
 							return (

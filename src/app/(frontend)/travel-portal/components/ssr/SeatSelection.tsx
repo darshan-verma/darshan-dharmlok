@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import type { PassengerDetail } from "@/types/tbo";
 import {
 	Dialog,
 	DialogContent,
@@ -37,8 +38,8 @@ export interface SeatOption {
 }
 
 interface SeatSelectionProps {
-	seatData: any[]; // SeatDynamic structure
-	passengers: any[];
+	seatData: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any -- SeatDynamic structure from TBO API
+	passengers: PassengerDetail[];
 	adultCount: number;
 	childCount: number;
 	infantCount: number;
@@ -321,15 +322,37 @@ export default function SeatSelection({
 										{seatData[
 											activeSegmentIndex
 										]?.SegmentSeat?.[0]?.RowSeats?.map(
-											(row: any, rowIndex: number) => (
+											(
+												row: { Seats: Array<{
+													AirlineCode: string;
+													FlightNumber: string;
+													CraftType: string;
+													Origin: string;
+													Destination: string;
+													AvailablityType: number;
+													Description: number;
+													Code: string;
+													RowNo: string;
+													SeatNo: string | null;
+													SeatType: number;
+													SeatWayType: number;
+													Compartment: number;
+													Deck: number;
+													Currency: string;
+													Price: number;
+												}> },
+												rowIndex: number
+											) => (
 												<div
 													key={rowIndex}
 													className="flex items-center gap-6 justify-center w-full"
 												>
 													{/* Left Group */}
 													<div className="flex gap-2 items-center">
-														{row.Seats.filter((s: any) =>
-															s.SeatNo?.match(/[A-C]/)
+														{row.Seats.filter(
+															(
+																s: any // eslint-disable-line @typescript-eslint/no-explicit-any -- Seat structure from TBO API
+															) => s.SeatNo?.match(/[A-C]/)
 														).map((seat: SeatOption) => (
 															<SeatButton
 																key={seat.Code}
@@ -365,7 +388,7 @@ export default function SeatSelection({
 													{/* Right Group */}
 													<div className="flex gap-2 items-center">
 														{row.Seats.filter(
-															(s: any) => !s.SeatNo?.match(/[A-C]/)
+															(s: any) => !s.SeatNo?.match(/[A-C]/) // eslint-disable-line @typescript-eslint/no-explicit-any -- Seat structure from TBO API
 														).map((seat: SeatOption) => (
 															<SeatButton
 																key={seat.Code}
