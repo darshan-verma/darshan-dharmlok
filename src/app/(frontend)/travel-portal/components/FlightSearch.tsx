@@ -1666,11 +1666,42 @@ export default function FlightSearch() {
 					<div className="lg:col-span-3">
 						<Card>
 							<CardHeader>
-								<div className="flex items-center justify-between">
-									<CardTitle>
-										Flight Results ({filteredFlights.length} of {flights.length}
-										)
-									</CardTitle>
+								<div className="flex items-center justify-between flex-wrap gap-3">
+									<div className="flex flex-col gap-2">
+										<CardTitle>
+											Flight Results ({filteredFlights.length} of{" "}
+											{flights.length})
+										</CardTitle>
+										{/* API Source Breakdown */}
+										{flights.length > 0 && (
+											<div className="flex gap-2 items-center text-xs">
+												{(() => {
+													const tboCount = flights.filter(
+														(f) => (f as any).ApiSource === "TBO"
+													).length;
+													const airiqCount = flights.filter(
+														(f) => (f as any).ApiSource === "AIRiQ"
+													).length;
+													return (
+														<>
+															{tboCount > 0 && (
+																<div className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded border border-blue-300 font-medium">
+																	<span className="w-2 h-2 rounded-full bg-blue-500"></span>
+																	TBO: {tboCount}
+																</div>
+															)}
+															{airiqCount > 0 && (
+																<div className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded border border-green-300 font-medium">
+																	<span className="w-2 h-2 rounded-full bg-green-500"></span>
+																	AIRiQ: {airiqCount}
+																</div>
+															)}
+														</>
+													);
+												})()}
+											</div>
+										)}
+									</div>
 									<div>
 										<Button
 											size="sm"
@@ -1742,6 +1773,18 @@ export default function FlightSearch() {
 																			<div className="text-[10px] text-gray-500 font-medium truncate">
 																				{airlineName}
 																			</div>
+																			{/* API Source Badge */}
+																			{(flight as any).ApiSource && (
+																				<div
+																					className={`mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded text-center ${
+																						(flight as any).ApiSource === "TBO"
+																							? "bg-blue-100 text-blue-700 border border-blue-300"
+																							: "bg-green-100 text-green-700 border border-green-300"
+																					}`}
+																				>
+																					{(flight as any).ApiSource}
+																				</div>
+																			)}
 																		</div>
 
 																		{/* Departure */}

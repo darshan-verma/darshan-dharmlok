@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchFlights } from "@/lib/tboClient";
+import {
+	searchFlights as searchAiriqFlights,
+	convertTboToAiriqParams,
+	convertAiriqToTboFormat,
+} from "@/lib/airiqClient";
 import { calculateNetPayable } from "@/lib/tboFareCalculations";
-import type { FlightSegment } from "@/types/tbo";
+import type { FlightSegment, FlightSearchResponse } from "@/types/tbo";
+import type { AiriqFlightSearchResponse } from "@/types/airiq";
 
 interface RequestSegment {
 	Origin: string;
@@ -140,22 +146,175 @@ export async function POST(request: NextRequest) {
 			JSON.stringify(searchParams, null, 2)
 		);
 
-		const result = await searchFlights(searchParams);
+		// Call both TBO and AIRiQ APIs simultaneously
+		const [tboResult, airiqResult] = await Promise.allSettled([
+			searchFlights(searchParams),
+			searchAiriqFlights(convertTboToAiriqParams(searchParams)).catch((err) => {
+				console.error("AIRiQ search error:", err);
+				return null;
+			}),
+		]);
+
+		// Process TBO results
+		let tboFlights: FlightSearchResponse | null = null;
+		if (tboResult.status === "fulfilled") {
+			tboFlights = tboResult.value;
+
+			// Calculate NetPayable for each TBO flight result
+			if (tboFlights?.Response?.Results) {
+				for (const resultArray of tboFlights.Response.Results) {
+					if (resultArray && Array.isArray(resultArray)) {
+						for (const flight of resultArray) {
+							if (flight?.Fare) {
+								flight.Fare.NetPayable = calculateNetPayable(flight.Fare);
+								// Mark as TBO source
+								(flight as any).ApiSource = "TBO";
+							}
+						}
+					}
+				}
+			}
+		} else {
+			console.error("TBO search failed:", tboResult.reason);
+		}
+
+		// Process AIRiQ results
+		let airiqFlights: FlightSearchResponse | null = null;
+		if (airiqResult.status === "fulfilled" && airiqResult.value) {
+			const rawAiriqResponse = airiqResult.value as AiriqFlightSearchResponse;
+			console.log("📦 Raw AIRiQ Response Structure:", {
+				hasTrackid: !!rawAiriqResponse.Trackid,
+				hasItineraryFlightList: !!rawAiriqResponse.ItineraryFlightList,
+				flightListCount: rawAiriqResponse.ItineraryFlightList?.length || 0,
+			});
+
+			// Convert AIRiQ format to TBO-compatible format
+			airiqFlights = convertAiriqToTboFormat(
+				rawAiriqResponse
+			) as FlightSearchResponse;
+
+			// Calculate NetPayable for each AIRiQ flight result
+			if (airiqFlights?.Response?.Results) {
+				for (const resultArray of airiqFlights.Response.Results) {
+					if (resultArray && Array.isArray(resultArray)) {
+						for (const flight of resultArray) {
+							if (flight?.Fare) {
+								// Use same calculation method or adjust if AIRiQ has different structure
+								flight.Fare.NetPayable = calculateNetPayable(
+									flight.Fare as any
+								);
+								// Mark as AIRiQ source
+								(flight as any).ApiSource = "AIRiQ";
+							}
+						}
+					}
+				}
+			}
+		} else if (airiqResult.status === "rejected") {
+			console.error("AIRiQ search failed:", airiqResult.reason);
+		}
+
+		// Merge results from both APIs
+		const mergedResults: {
+			Response: {
+				TraceId: string;
+				Results: any[][];
+				TboResults: any[][];
+				AiriqResults: any[][];
+				Error?: any;
+			};
+		} = {
+			Response: {
+				TraceId: tboFlights?.Response?.TraceId || "",
+				Results: [],
+				TboResults: tboFlights?.Response?.Results || [],
+				AiriqResults: airiqFlights?.Response?.Results || [],
+				Error:
+					(tboFlights as any)?.Response?.Error ||
+					(airiqFlights as any)?.Response?.Error,
+			},
+		};
+
+		// Combine results arrays
+		if (
+			tboFlights?.Response?.Results &&
+			Array.isArray(tboFlights.Response.Results)
+		) {
+			mergedResults.Response.Results = [...tboFlights.Response.Results];
+		}
+
+		if (
+			airiqFlights?.Response?.Results &&
+			Array.isArray(airiqFlights.Response.Results)
+		) {
+			if (mergedResults.Response.Results.length === 0) {
+				mergedResults.Response.Results = [...airiqFlights.Response.Results];
+			} else {
+				// Merge each result array (for multi-segment flights)
+				for (let i = 0; i < airiqFlights.Response.Results.length; i++) {
+					if (mergedResults.Response.Results[i]) {
+						mergedResults.Response.Results[i] = [
+							...mergedResults.Response.Results[i],
+							...airiqFlights.Response.Results[i],
+						];
+					} else {
+						mergedResults.Response.Results[i] =
+							airiqFlights.Response.Results[i];
+					}
+				}
+			}
+		}
+
+		console.log("Search Results Summary:", {
+			tboCount: tboFlights?.Response?.Results?.[0]?.length || 0,
+			airiqCount: airiqFlights?.Response?.Results?.[0]?.length || 0,
+			totalCount: mergedResults.Response.Results?.[0]?.length || 0,
+		});
+
+		// Count flights from each API source
+		let tboFlightCount = 0;
+		let airiqFlightCount = 0;
+
+		if (mergedResults?.Response?.Results) {
+			for (const resultArray of mergedResults.Response.Results) {
+				if (resultArray && Array.isArray(resultArray)) {
+					for (const flight of resultArray) {
+						if ((flight as any).ApiSource === "TBO") {
+							tboFlightCount++;
+						} else if ((flight as any).ApiSource === "AIRiQ") {
+							airiqFlightCount++;
+						}
+					}
+				}
+			}
+		}
+
+		console.log("📊 Flight Distribution by API:");
+		console.log(`   🔵 TBO: ${tboFlightCount} flights`);
+		console.log(`   🟢 AIRiQ: ${airiqFlightCount} flights`);
+		console.log(`   📈 Total: ${tboFlightCount + airiqFlightCount} flights`);
 
 		// Log the number of results returned
 		console.log("TBO API Response Results count:", {
-			hasResults: !!result?.Response?.Results,
-			resultsLength: result?.Response?.Results?.length,
-			firstArrayLength: result?.Response?.Results?.[0]?.length,
-			secondArrayLength: result?.Response?.Results?.[1]?.length,
+			hasResults: !!tboFlights?.Response?.Results,
+			resultsLength: tboFlights?.Response?.Results?.length,
+			firstArrayLength: tboFlights?.Response?.Results?.[0]?.length,
+			secondArrayLength: tboFlights?.Response?.Results?.[1]?.length,
+		});
+
+		console.log("AIRiQ API Response Results count:", {
+			hasResults: !!airiqFlights?.Response?.Results,
+			resultsLength: airiqFlights?.Response?.Results?.length,
+			firstArrayLength: airiqFlights?.Response?.Results?.[0]?.length,
+			secondArrayLength: airiqFlights?.Response?.Results?.[1]?.length,
 		});
 
 		// Calculate NetPayable for each flight result
-		if (result?.Response?.Results) {
-			for (const resultArray of result.Response.Results) {
+		if (mergedResults?.Response?.Results) {
+			for (const resultArray of mergedResults.Response.Results) {
 				if (resultArray && Array.isArray(resultArray)) {
 					for (const flight of resultArray) {
-						if (flight?.Fare) {
+						if (flight?.Fare && !flight.Fare.NetPayable) {
 							flight.Fare.NetPayable = calculateNetPayable(flight.Fare);
 						}
 					}
@@ -164,8 +323,8 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Log the first flight's date format for debugging
-		if (result?.Response?.Results?.[0]?.[0]) {
-			const firstFlight = result.Response.Results[0][0];
+		if (mergedResults?.Response?.Results?.[0]?.[0]) {
+			const firstFlight = mergedResults.Response.Results[0][0];
 			console.log("Sample flight data structure:", {
 				resultIndex: firstFlight.ResultIndex,
 				isUpsellAllowed: firstFlight.IsUpsellAllowed,
@@ -192,7 +351,16 @@ export async function POST(request: NextRequest) {
 
 		return NextResponse.json({
 			success: true,
-			data: result,
+			data: mergedResults,
+			sources: {
+				tbo: tboResult.status === "fulfilled",
+				airiq: airiqResult.status === "fulfilled" && !!airiqResult.value,
+			},
+			stats: {
+				tboFlightCount,
+				airiqFlightCount,
+				totalFlightCount: tboFlightCount + airiqFlightCount,
+			},
 		});
 	} catch (error) {
 		console.error("Flight search error:", error);
