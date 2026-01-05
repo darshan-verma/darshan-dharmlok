@@ -16,6 +16,7 @@ import type {
 	AiriqSSRRequest,
 	AiriqSSRResponse,
 } from "@/types/airiq";
+import type { FlightSearchResponse, FlightSegment } from "@/types/tbo";
 
 const API_BASE_URL = process.env.AIRIQ_API_URL || "";
 const AUTH_HEADER = process.env.AIRIQ_AUTH_HEADER || "";
@@ -160,7 +161,8 @@ export async function airiqRequest<T = unknown>(
 				);
 			} else {
 				const totalItems = data.ItineraryFlightList.reduce(
-					(sum: number, itinerary: any) => sum + (itinerary.Items?.length || 0),
+					(sum: number, itinerary: { Items?: unknown[] }) =>
+						sum + (itinerary.Items?.length || 0),
 					0
 				);
 				console.log(
@@ -271,7 +273,7 @@ export async function cancelBooking(cancelParams: Record<string, unknown>) {
  */
 export function convertAiriqToTboFormat(
 	airiqResponse: AiriqFlightSearchResponse
-): any {
+): FlightSearchResponse {
 	if (
 		!airiqResponse.ItineraryFlightList ||
 		airiqResponse.ItineraryFlightList.length === 0
@@ -287,128 +289,191 @@ export function convertAiriqToTboFormat(
 		};
 	}
 
-	const tboFlights: any[] = [];
+	// Determine if this is a roundtrip based on having 2 ItineraryFlightList items
+	const isRoundtrip = airiqResponse.ItineraryFlightList.length === 2;
 
-	// Convert each AIRiQ flight item to TBO format
-	for (const itinerary of airiqResponse.ItineraryFlightList) {
-		for (const item of itinerary.Items) {
-			const flightDetails = item.FlightDetails;
-			const fares = item.Fares[0]; // Take first fare
-			const fareDesc = fares?.Faredescription[0]; // Take first passenger type
+	if (isRoundtrip) {
+		console.log("🔄 Converting AIRiQ Roundtrip Flight Response");
+		// For roundtrip, separate outbound and return flights
+		const outboundItinerary = airiqResponse.ItineraryFlightList[0];
+		const returnItinerary = airiqResponse.ItineraryFlightList[1];
 
-			if (!flightDetails || flightDetails.length === 0) continue;
+		const outboundFlights: Array<Record<string, unknown>> = [];
+		const returnFlights: Array<Record<string, unknown>> = [];
 
-			const firstSegment = flightDetails[0];
-
-			// Convert segments to TBO format
-			const tboSegments = flightDetails.map((seg) => ({
-				Airline: {
-					AirlineCode: seg.AirlineDescription,
-					AirlineName: seg.AirlineDescription,
-					FlightNumber: seg.FlightNumber,
-					FareClass: seg.Class,
-				},
-				Origin: {
-					Airport: {
-						AirportCode: seg.Origin,
-						AirportName: seg.Origin,
-						Terminal: seg.DepartureTerminal,
-						CityCode: seg.Origin,
-						CityName: seg.Origin,
-						CountryCode: "IN",
-						CountryName: "India",
-					},
-					DepTime: new Date(seg.DepartureDateTime).toISOString(),
-				},
-				Destination: {
-					Airport: {
-						AirportCode: seg.Destination,
-						AirportName: seg.Destination,
-						Terminal: seg.ArrivalTerminal,
-						CityCode: seg.Destination,
-						CityName: seg.Destination,
-						CountryCode: "IN",
-						CountryName: "India",
-					},
-					ArrTime: new Date(seg.ArrivalDateTime).toISOString(),
-				},
-				Duration: parseInt(seg.FlyingTime) || 0,
-				GroundTime: 0,
-				Mile: 0,
-				StopOver: false,
-				FlightStatus: "",
-				StopPoint: seg.Via,
-				Craft: "",
-				Remark: seg.SegmentDetails,
-				IsETicketEligible: true,
-				Baggage: seg.Baggage,
-				CabinBaggage: seg.CabinBaggage,
-			}));
-
-			// Convert fare to TBO format
-			const baseFare = parseFloat(fareDesc?.BaseAmount || "0");
-			const tax = parseFloat(fareDesc?.TotalTaxAmount || "0");
-			const publishedFare = parseFloat(fareDesc?.GrossAmount || "0");
-
-			const tboFlight = {
-				ResultIndex: firstSegment.ReferenceToken,
-				Source: 2, // AIRiQ source identifier
-				IsLCC: firstSegment.AirlineCategory === "LCC",
-				IsRefundable:
-					firstSegment.Refundable === "Y" || firstSegment.Refundable === "Yes",
-				IsUpsellAllowed: false,
-				AirlineCode: firstSegment.AirlineDescription,
-				ValidatingAirlineCode: firstSegment.PlatingCarrier,
-				AirlineRemark: "",
-				Segments: [tboSegments],
-				Fare: {
-					Currency: fares.Currency,
-					BaseFare: baseFare,
-					Tax: tax,
-					TaxBreakup:
-						fareDesc?.Taxes?.map((t: any) => ({
-							key: t.Code,
-							value: parseFloat(t.Amount),
-						})) || [],
-					YQTax: 0,
-					AdditionalTxnFeeOfrd: 0,
-					AdditionalTxnFeePub: 0,
-					PGCharge: 0,
-					OtherCharges: 0,
-					ChargeBU: [],
-					Discount: parseFloat(fareDesc?.Discount || "0"),
-					PublishedFare: publishedFare,
-					CommissionEarned: 0,
-					PLBEarned: parseFloat(fareDesc?.PLBAmount || "0"),
-					IncentiveEarned: parseFloat(fareDesc?.Incentive || "0"),
-					OfferedFare: publishedFare,
-					TdsOnCommission: parseFloat(fareDesc?.TDS || "0"),
-					TdsOnPLB: 0,
-					TdsOnIncentive: 0,
-					ServiceFee: parseFloat(fareDesc?.Servicecharge || "0"),
-					TotalBaggageCharges: 0,
-					TotalMealCharges: 0,
-					TotalSeatCharges: 0,
-					TotalSpecialServiceCharges: 0,
-					NetPayable: parseFloat(fareDesc?.NetAmount || "0"),
-				},
-				FareBreakdown: [],
-			};
-
-			tboFlights.push(tboFlight);
+		// Convert outbound flights
+		for (const item of outboundItinerary.Items) {
+			const flight = convertAiriqItemToTboFlight(item);
+			if (flight) {
+				outboundFlights.push(flight);
+			}
 		}
+
+		// Convert return flights
+		for (const item of returnItinerary.Items) {
+			const flight = convertAiriqItemToTboFlight(item);
+			if (flight) {
+				returnFlights.push(flight);
+			}
+		}
+
+		console.log(
+			`✅ Converted ${outboundFlights.length} outbound and ${returnFlights.length} return AIRiQ flights`
+		);
+
+		return {
+			Response: {
+				TraceId: airiqResponse.Trackid,
+				Results: [
+					outboundFlights as unknown as FlightSearchResponse["Response"]["Results"][0],
+					returnFlights as unknown as FlightSearchResponse["Response"]["Results"][0],
+				],
+				Origin: "",
+				Destination: "",
+				FlightCabinClass: 1,
+			},
+		};
+	} else {
+		// For one-way or multi-city, keep existing behavior
+		console.log("➡️ Converting AIRiQ One-way Flight Response");
+		const tboFlights: Array<Record<string, unknown>> = [];
+
+		for (const itinerary of airiqResponse.ItineraryFlightList) {
+			for (const item of itinerary.Items) {
+				const flight = convertAiriqItemToTboFlight(item);
+				if (flight) {
+					tboFlights.push(flight);
+				}
+			}
+		}
+
+		console.log(`✅ Converted ${tboFlights.length} AIRiQ flights`);
+
+		return {
+			Response: {
+				TraceId: airiqResponse.Trackid,
+				Results: [
+					tboFlights as unknown as FlightSearchResponse["Response"]["Results"][0],
+				],
+				Origin: "",
+				Destination: "",
+				FlightCabinClass: 1,
+			},
+		};
 	}
+}
+
+/**
+ * Helper function to convert a single AIRiQ item to TBO flight format
+ */
+function convertAiriqItemToTboFlight(
+	item: AiriqFlightSearchResponse["ItineraryFlightList"][0]["Items"][0]
+): Record<string, unknown> | null {
+	const flightDetails = item.FlightDetails;
+	const fares = item.Fares[0]; // Take first fare
+	const fareDesc = fares?.Faredescription[0]; // Take first passenger type
+
+	if (!flightDetails || flightDetails.length === 0) return null;
+
+	const firstSegment = flightDetails[0];
+
+	// Convert segments to TBO format
+	const tboSegments = flightDetails.map(
+		(
+			seg: AiriqFlightSearchResponse["ItineraryFlightList"][0]["Items"][0]["FlightDetails"][0]
+		) => ({
+			Airline: {
+				AirlineCode: seg.AirlineDescription,
+				AirlineName: seg.AirlineDescription,
+				FlightNumber: seg.FlightNumber,
+				FareClass: seg.Class,
+			},
+			Origin: {
+				Airport: {
+					AirportCode: seg.Origin,
+					AirportName: seg.Origin,
+					Terminal: seg.DepartureTerminal,
+					CityCode: seg.Origin,
+					CityName: seg.Origin,
+					CountryCode: "IN",
+					CountryName: "India",
+				},
+				DepTime: new Date(seg.DepartureDateTime).toISOString(),
+			},
+			Destination: {
+				Airport: {
+					AirportCode: seg.Destination,
+					AirportName: seg.Destination,
+					Terminal: seg.ArrivalTerminal,
+					CityCode: seg.Destination,
+					CityName: seg.Destination,
+					CountryCode: "IN",
+					CountryName: "India",
+				},
+				ArrTime: new Date(seg.ArrivalDateTime).toISOString(),
+			},
+			Duration: parseInt(seg.FlyingTime) || 0,
+			GroundTime: 0,
+			Mile: 0,
+			StopOver: false,
+			FlightStatus: "",
+			StopPoint: seg.Via,
+			Craft: "",
+			Remark: seg.SegmentDetails,
+			IsETicketEligible: true,
+			Baggage: seg.Baggage,
+			CabinBaggage: seg.CabinBaggage,
+		})
+	);
+
+	// Convert fare to TBO format
+	const baseFare = parseFloat(fareDesc?.BaseAmount || "0");
+	const tax = parseFloat(fareDesc?.TotalTaxAmount || "0");
+	const publishedFare = parseFloat(fareDesc?.GrossAmount || "0");
 
 	return {
-		Response: {
-			TraceId: airiqResponse.Trackid,
-			Results: [tboFlights],
-			Origin: tboFlights[0]?.Segments[0][0]?.Origin?.Airport?.AirportCode || "",
-			Destination:
-				tboFlights[0]?.Segments[0][tboFlights[0].Segments[0].length - 1]
-					?.Destination?.Airport?.AirportCode || "",
-			FlightCabinClass: 1,
+		ResultIndex: firstSegment.ReferenceToken,
+		Source: 2, // AIRiQ source identifier
+		IsLCC: firstSegment.AirlineCategory === "LCC",
+		IsRefundable:
+			firstSegment.Refundable === "Y" || firstSegment.Refundable === "Yes",
+		IsUpsellAllowed: false,
+		AirlineCode: firstSegment.AirlineDescription,
+		ValidatingAirlineCode: firstSegment.PlatingCarrier,
+		AirlineRemark: "",
+		Segments: [tboSegments],
+		Fare: {
+			Currency: fares.Currency,
+			BaseFare: baseFare,
+			Tax: tax,
+			TaxBreakup:
+				fareDesc?.Taxes?.map((t: { Code: string; Amount: string }) => ({
+					key: t.Code,
+					value: parseFloat(t.Amount),
+				})) || [],
+			YQTax: 0,
+			AdditionalTxnFeeOfrd: 0,
+			AdditionalTxnFeePub: 0,
+			PGCharge: 0,
+			OtherCharges: 0,
+			ChargeBU: [],
+			Discount: parseFloat(fareDesc?.Discount || "0"),
+			PublishedFare: publishedFare,
+			CommissionEarned: 0,
+			PLBEarned: parseFloat(fareDesc?.PLBAmount || "0"),
+			IncentiveEarned: parseFloat(fareDesc?.Incentive || "0"),
+			OfferedFare: publishedFare,
+			TdsOnCommission: parseFloat(fareDesc?.TDS || "0"),
+			TdsOnPLB: 0,
+			TdsOnIncentive: 0,
+			ServiceFee: parseFloat(fareDesc?.Servicecharge || "0"),
+			TotalBaggageCharges: 0,
+			TotalMealCharges: 0,
+			TotalSeatCharges: 0,
+			TotalSpecialServiceCharges: 0,
+			NetPayable: parseFloat(fareDesc?.NetAmount || "0"),
 		},
+		FareBreakdown: [],
 	};
 }
 
@@ -426,13 +491,13 @@ export function convertTboToAiriqParams(
 	const tripType = journeyType === "2" ? "R" : journeyType === "3" ? "M" : "O";
 
 	// Convert cabin class: "1" = Economy (E), "4" = Business (B), "6" = First (F)
-	const segments = (tboParams.Segments as any[]) || [];
+	const segments = (tboParams.Segments as FlightSegment[]) || [];
 	const cabinClass = segments[0]?.FlightCabinClass || "1";
 	const farecabinOption =
 		cabinClass === "4" ? "B" : cabinClass === "6" ? "F" : "E";
 
 	// Convert segments to AIRiQ AvailInfo format
-	const availInfo = segments.map((segment: any) => {
+	const availInfo = segments.map((segment) => {
 		// Convert date from "2026-01-14T00:00:00" to "20260114"
 		const dateStr = segment.PreferredDepartureTime;
 		const date = new Date(dateStr);

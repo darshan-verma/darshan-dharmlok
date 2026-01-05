@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
 							if (flight?.Fare) {
 								flight.Fare.NetPayable = calculateNetPayable(flight.Fare);
 								// Mark as TBO source
-								(flight as any).ApiSource = "TBO";
+								flight.ApiSource = "TBO";
 							}
 						}
 					}
@@ -200,11 +200,9 @@ export async function POST(request: NextRequest) {
 						for (const flight of resultArray) {
 							if (flight?.Fare) {
 								// Use same calculation method or adjust if AIRiQ has different structure
-								flight.Fare.NetPayable = calculateNetPayable(
-									flight.Fare as any
-								);
+								flight.Fare.NetPayable = calculateNetPayable(flight.Fare);
 								// Mark as AIRiQ source
-								(flight as any).ApiSource = "AIRiQ";
+								flight.ApiSource = "AIRiQ";
 							}
 						}
 					}
@@ -215,23 +213,25 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Merge results from both APIs
-		const mergedResults: {
+		interface MergedResponse {
 			Response: {
 				TraceId: string;
-				Results: any[][];
-				TboResults: any[][];
-				AiriqResults: any[][];
-				Error?: any;
+				Results: FlightSearchResponse["Response"]["Results"];
+				TboResults: FlightSearchResponse["Response"]["Results"];
+				AiriqResults: FlightSearchResponse["Response"]["Results"];
+				Error?: unknown;
 			};
-		} = {
+		}
+
+		const mergedResults: MergedResponse = {
 			Response: {
 				TraceId: tboFlights?.Response?.TraceId || "",
 				Results: [],
 				TboResults: tboFlights?.Response?.Results || [],
 				AiriqResults: airiqFlights?.Response?.Results || [],
 				Error:
-					(tboFlights as any)?.Response?.Error ||
-					(airiqFlights as any)?.Response?.Error,
+					(tboFlights as { Response?: { Error?: unknown } })?.Response?.Error ||
+					(airiqFlights as { Response?: { Error?: unknown } })?.Response?.Error,
 			},
 		};
 
@@ -279,9 +279,10 @@ export async function POST(request: NextRequest) {
 			for (const resultArray of mergedResults.Response.Results) {
 				if (resultArray && Array.isArray(resultArray)) {
 					for (const flight of resultArray) {
-						if ((flight as any).ApiSource === "TBO") {
+						const flightWithSource = flight as { ApiSource?: string };
+						if (flightWithSource.ApiSource === "TBO") {
 							tboFlightCount++;
-						} else if ((flight as any).ApiSource === "AIRiQ") {
+						} else if (flightWithSource.ApiSource === "AIRiQ") {
 							airiqFlightCount++;
 						}
 					}

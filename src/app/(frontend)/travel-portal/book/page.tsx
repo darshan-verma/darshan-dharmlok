@@ -5,11 +5,8 @@ import {
 	getFareUpsell,
 	getSSR,
 } from "@/lib/tboClient";
-import { FareUpsellResponse } from "@/types/tbo";
-import {
-	XCircle,
-	Search,
-} from "lucide-react";
+import { FareUpsellResponse, FlightResult } from "@/types/tbo";
+import { XCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import BookingClient from "./BookingClient";
@@ -52,9 +49,6 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		TraceId: traceId,
 		ResultIndex: resultIndex,
 		EndUserIp: "192.168.1.1",
-	}).catch((e) => {
-		console.error("Error fetching fare rules", e);
-		return null;
 	});
 
 	const fareUpsellPromise = isUpsellAllowed
@@ -62,25 +56,18 @@ export default async function BookingPage({ searchParams }: PageProps) {
 				TraceId: traceId,
 				ResultIndex: resultIndex,
 				EndUserIp: "192.168.1.1",
+				...(returnResultIndex && { ReturnResultIndex: returnResultIndex }),
+		  }).then((result) => {
+				console.log("=== Fare Upsell API Success ===");
+				console.log("Raw API response:", JSON.stringify(result, null, 2));
+				return result;
 		  })
-				.then((result) => {
-					console.log("=== Fare Upsell API Success ===");
-					console.log("Raw API response:", JSON.stringify(result, null, 2));
-					return result;
-				})
-				.catch((e) => {
-					console.error("=== Error fetching fare upsell ===", e);
-					return null;
-				})
 		: Promise.resolve(null);
 
 	const ssrPromise = getSSR({
 		TraceId: traceId,
 		ResultIndex: resultIndex,
 		EndUserIp: "192.168.1.1",
-	}).catch((e) => {
-		console.error("Error fetching SSR", e);
-		return null;
 	});
 
 	// Fetch fare quote(s)
@@ -165,7 +152,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		);
 	}
 
-	let flightResult = fareQuoteResponse.Response.Results;
+	let flightResult: FlightResult = fareQuoteResponse.Response.Results;
 
 	// Merge return fares if present
 	if (returnFareQuoteResponse?.Response?.Results) {
@@ -223,15 +210,59 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		}
 	}
 
-	const [fareRules, fareUpsell, ssrResponse] = await Promise.all([
-		fareRulePromise,
-		fareUpsellPromise,
-		ssrPromise,
-	]);
-
-	// Log the SSR response for debugging
-	console.log("=== SSR Debug Info ===");
-	console.log("ssrResponse:", JSON.stringify(ssrResponse, null, 2));
+	// Fetch additional data with error handling for invalid result index
+	let fareRules, fareUpsell, ssrResponse;
+	try {
+		[fareRules, fareUpsell, ssrResponse] = await Promise.all([
+			fareRulePromise.catch((e) => {
+				console.error("Error fetching fare rules", e);
+				return null;
+			}),
+			fareUpsellPromise.catch((e) => {
+				console.error("Error fetching fare upsell", e);
+				return null;
+			}),
+			ssrPromise.catch((e) => {
+				console.error("Error fetching SSR", e);
+				return null;
+			}),
+		]);
+	} catch (e) {
+		console.error("Error fetching additional booking data", e);
+		const errorMessage = e instanceof Error ? e.message : String(e);
+		if (
+			errorMessage.includes("Invalid Outbound Result Index") ||
+			errorMessage.includes("Invalid Result Index")
+		) {
+			return (
+				<div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+					<Card className="max-w-md w-full">
+						<CardHeader>
+							<CardTitle className="text-center text-red-600 flex items-center justify-center gap-2">
+								<XCircle className="h-6 w-6" />
+								Session Expired
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="text-center space-y-4">
+							<p className="text-gray-600">
+								The flight search session has expired. Please search again.
+							</p>
+							<Button asChild className="w-full">
+								<Link href="/travel-portal">
+									<Search className="mr-2 h-4 w-4" />
+									Search Flights Again
+								</Link>
+							</Button>
+						</CardContent>
+					</Card>
+				</div>
+			);
+		}
+		// For other errors, continue with null values
+		fareRules = null;
+		fareUpsell = null;
+		ssrResponse = null;
+	}
 	console.log("ssrResponse?.Response:", ssrResponse?.Response);
 
 	// Log the fare rules response for debugging

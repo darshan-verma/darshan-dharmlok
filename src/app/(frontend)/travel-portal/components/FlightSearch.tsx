@@ -210,7 +210,8 @@ export default function FlightSearch() {
 	const [upsellFlight, setUpsellFlight] = useState<FlightResult | null>(null);
 
 	// Preloaded upsell data: Map<ResultIndex, upsell data>
-	const [preloadedUpsell, setPreloadedUpsell] = useState<
+
+	const [preloadedUpsell, _setPreloadedUpsell] = useState<
 		Map<string, FlightResult[]>
 	>(new Map());
 
@@ -680,16 +681,22 @@ export default function FlightSearch() {
 
 	// Function to preload upsell data for flights
 	const preloadUpsellData = async (
-		flights: FlightResult[],
-		traceId: string,
-		adultCount: number,
-		childCount: number,
-		infantCount: number
+		_flights: FlightResult[],
+		_traceId: string,
+		_adultCount: number,
+		_childCount: number,
+		_infantCount: number
 	) => {
+		// Temporarily disabled to prevent infinite loops with invalid result indices
+		// This can be re-enabled once we have better session management
+		console.log("Upsell preloading disabled to prevent infinite loops");
+		return;
+
+		/* Original code disabled
 		if (!traceId || flights.length === 0) return;
 
 		// Clear previous preloaded data
-		setPreloadedUpsell(new Map());
+		_setPreloadedUpsell(new Map());
 
 		// Also clear sessionStorage
 		try {
@@ -732,7 +739,7 @@ export default function FlightSearch() {
 				if (response.ok && json?.success) {
 					const results = json.data?.Response?.Results || [];
 					upsellData[flight.ResultIndex] = results;
-					setPreloadedUpsell(
+					_setPreloadedUpsell(
 						(prev) => new Map(prev.set(flight.ResultIndex, results))
 					);
 				}
@@ -764,6 +771,7 @@ export default function FlightSearch() {
 		} catch (e) {
 			console.warn("Failed to store preloaded upsell data:", e);
 		}
+		*/
 	};
 
 	const handleAutoSearch = async (
@@ -1055,13 +1063,33 @@ export default function FlightSearch() {
 				// We manually combine all fare components to ensure consistency with pricing formulas
 				flightResults = outboundFlights.map(
 					(outboundFlight: FlightResult, index: number) => {
-						const returnFlight = returnFlights[index] || returnFlights[0];
+						// Filter return flights to match the same API source
+						const apiSource = outboundFlight.ApiSource;
+
+						console.log(`Processing outbound flight ${index}:`, {
+							apiSource,
+							hasApiSource: !!apiSource,
+							totalReturnFlights: returnFlights.length,
+						});
+
+						// Find matching return flight from same API source
+						let returnFlight = returnFlights.find(
+							(rf: FlightResult) => rf.ApiSource === apiSource
+						);
+
+						// Fallback to index-based pairing if no API source match
+						if (!returnFlight) {
+							console.log(
+								`No API source match for ${apiSource}, using index fallback`
+							);
+							returnFlight = returnFlights[index] || returnFlights[0];
+						}
 
 						let combinedFare = outboundFlight.Fare;
 						let returnResultIndex = undefined;
 
 						if (returnFlight && outboundFlight.Fare && returnFlight.Fare) {
-							console.log(`Combining fares for index ${index}:`, {
+							console.log(`Combining fares for ${apiSource} flights:`, {
 								outbound: outboundFlight.Fare.OfferedFare,
 								return: returnFlight.Fare.OfferedFare,
 							});
@@ -1139,6 +1167,10 @@ export default function FlightSearch() {
 						};
 					}
 				);
+
+				console.log(
+					`Created ${flightResults.length} combined round-trip flights`
+				);
 			} else {
 				// One-way and Multi-city
 				// For multi-city, TBO API returns flights with all segments already combined in one flight object
@@ -1196,11 +1228,12 @@ export default function FlightSearch() {
 			}
 
 			setFlights(flightResults);
+			setSearchPerformed(true);
 
 			// Preload upsell data in the background
 			preloadUpsellData(
 				flightResults,
-				traceId,
+				newTraceId,
 				searchData.adults,
 				searchData.children,
 				searchData.infants
@@ -1677,10 +1710,10 @@ export default function FlightSearch() {
 											<div className="flex gap-2 items-center text-xs">
 												{(() => {
 													const tboCount = flights.filter(
-														(f) => (f as any).ApiSource === "TBO"
+														(f) => f.ApiSource === "TBO"
 													).length;
 													const airiqCount = flights.filter(
-														(f) => (f as any).ApiSource === "AIRiQ"
+														(f) => f.ApiSource === "AIRiQ"
 													).length;
 													return (
 														<>
@@ -1745,14 +1778,20 @@ export default function FlightSearch() {
 																const firstSegment = legSegments[0];
 																const lastSegment =
 																	legSegments[legSegments.length - 1];
+
+																// Safely get airline info with fallback
 																const airlineName =
-																	firstSegment.Airline.AirlineName;
+																	firstSegment?.Airline?.AirlineName ||
+																	flight.AirlineCode ||
+																	"Unknown Airline";
 																const airlineCode =
-																	firstSegment.Airline.AirlineCode;
+																	firstSegment?.Airline?.AirlineCode ||
+																	flight.AirlineCode ||
+																	"XX";
 
 																// Calculate total duration for this leg
 																const totalDuration = legSegments.reduce(
-																	(acc, seg) => acc + seg.Duration,
+																	(acc, seg) => acc + (seg?.Duration || 0),
 																	0
 																);
 
@@ -1774,15 +1813,15 @@ export default function FlightSearch() {
 																				{airlineName}
 																			</div>
 																			{/* API Source Badge */}
-																			{(flight as any).ApiSource && (
+																			{flight.ApiSource && (
 																				<div
 																					className={`mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded text-center ${
-																						(flight as any).ApiSource === "TBO"
+																						flight.ApiSource === "TBO"
 																							? "bg-blue-100 text-blue-700 border border-blue-300"
 																							: "bg-green-100 text-green-700 border border-green-300"
 																					}`}
 																				>
-																					{(flight as any).ApiSource}
+																					{flight.ApiSource}
 																				</div>
 																			)}
 																		</div>
@@ -1791,13 +1830,16 @@ export default function FlightSearch() {
 																		<div className="text-right min-w-[80px]">
 																			<div className="text-2xl font-bold text-gray-900 leading-none">
 																				{formatTime(
-																					firstSegment.Origin.DepTime
+																					firstSegment?.Origin?.DepTime ||
+																						firstSegment?.DepartureTime
 																				)}
 																			</div>
 																			<div className="text-sm font-medium text-gray-600 mt-1">
-																				{firstSegment.Origin.Airport
-																					.AirportCode ||
-																					firstSegment.Origin.Airport.CityCode}
+																				{firstSegment?.Origin?.Airport
+																					?.AirportCode ||
+																					firstSegment?.Origin?.Airport
+																						?.CityCode ||
+																					"N/A"}
 																			</div>
 																		</div>
 
@@ -1822,26 +1864,30 @@ export default function FlightSearch() {
 																		<div className="text-left min-w-[80px]">
 																			<div className="text-2xl font-bold text-gray-900 leading-none">
 																				{formatTime(
-																					lastSegment.Destination.ArrTime
+																					lastSegment?.Destination?.ArrTime ||
+																						lastSegment?.ArrivalTime
 																				)}
 																			</div>
 																			<div className="text-sm font-medium text-gray-600 mt-1">
-																				{lastSegment.Destination.Airport
-																					.AirportCode ||
-																					lastSegment.Destination.Airport
-																						.CityCode}
+																				{lastSegment?.Destination?.Airport
+																					?.AirportCode ||
+																					lastSegment?.Destination?.Airport
+																						?.CityCode ||
+																					"N/A"}
 																			</div>
 																			{/* Show +1 day if needed - simplified check */}
-																			{new Date(
-																				lastSegment.Destination.ArrTime
-																			).getDate() !==
+																			{firstSegment?.Origin?.DepTime &&
+																				lastSegment?.Destination?.ArrTime &&
 																				new Date(
-																					firstSegment.Origin.DepTime
-																				).getDate() && (
-																				<span className="text-[10px] text-red-500 absolute ml-1">
-																					+1
-																				</span>
-																			)}
+																					lastSegment.Destination.ArrTime
+																				).getDate() !==
+																					new Date(
+																						firstSegment.Origin.DepTime
+																					).getDate() && (
+																					<span className="text-[10px] text-red-500 absolute ml-1">
+																						+1
+																					</span>
+																				)}
 																		</div>
 																	</div>
 																);
@@ -1850,10 +1896,10 @@ export default function FlightSearch() {
 															{/* SSR Information */}
 															{(() => {
 																// Get SSR info from the first segment (typically represents the flight's SSR availability)
-																const firstSegment = flight.Segments[0][0];
-																const hasBaggage = firstSegment.Baggage;
+																const firstSegment = flight.Segments?.[0]?.[0];
+																const hasBaggage = firstSegment?.Baggage;
 																const hasCabinBaggage =
-																	firstSegment.CabinBaggage;
+																	firstSegment?.CabinBaggage;
 
 																// Check if any SSR is available
 																if (hasBaggage || hasCabinBaggage) {
