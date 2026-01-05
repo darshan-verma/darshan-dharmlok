@@ -147,12 +147,34 @@ export async function POST(request: NextRequest) {
 		);
 
 		// Call both TBO and AIRiQ APIs simultaneously
+		console.log("🔍 Calling APIs with JourneyType:", searchParams.JourneyType);
+		console.log("🔍 Full searchParams:", JSON.stringify(searchParams, null, 2));
+
+		let airiqParams;
+		try {
+			airiqParams = convertTboToAiriqParams(searchParams);
+			console.log("✅ AIRiQ params conversion successful");
+
+			// AIRiQ doesn't support multi-city (TripType "M")
+			// Skip AIRiQ for multi-city searches
+			if (searchParams.JourneyType === "3") {
+				console.log("⚠️ Skipping AIRiQ for multi-city search (not supported)");
+				airiqParams = null;
+			}
+		} catch (err) {
+			console.error("❌ AIRiQ params conversion failed:", err);
+			airiqParams = null;
+		}
+
 		const [tboResult, airiqResult] = await Promise.allSettled([
 			searchFlights(searchParams),
-			searchAiriqFlights(convertTboToAiriqParams(searchParams)).catch((err) => {
-				console.error("AIRiQ search error:", err);
-				return null;
-			}),
+			airiqParams
+				? searchAiriqFlights(airiqParams).catch((err) => {
+						// Silently handle AIRiQ errors - don't log to avoid authentication attempts on errors
+						console.warn("⚠️ AIRiQ search unavailable (skipping)");
+						return null;
+				  })
+				: Promise.resolve(null),
 		]);
 
 		// Process TBO results
@@ -186,12 +208,31 @@ export async function POST(request: NextRequest) {
 				hasTrackid: !!rawAiriqResponse.Trackid,
 				hasItineraryFlightList: !!rawAiriqResponse.ItineraryFlightList,
 				flightListCount: rawAiriqResponse.ItineraryFlightList?.length || 0,
+				journeyType: body.JourneyType,
+				hasStatus: !!rawAiriqResponse.Status,
+				statusError: rawAiriqResponse.Status?.Error || "none",
 			});
+
+			// Check if AIRiQ returned an error
+			if (
+				rawAiriqResponse.Status &&
+				rawAiriqResponse.Status.Error &&
+				rawAiriqResponse.Status.Error !== "Success"
+			) {
+				console.error("❌ AIRiQ API returned error:", rawAiriqResponse.Status);
+			}
 
 			// Convert AIRiQ format to TBO-compatible format
 			airiqFlights = convertAiriqToTboFormat(
-				rawAiriqResponse
+				rawAiriqResponse,
+				body.JourneyType
 			) as FlightSearchResponse;
+
+			console.log("✅ AIRiQ Conversion Result:", {
+				hasResults: !!airiqFlights?.Response?.Results,
+				resultsLength: airiqFlights?.Response?.Results?.length || 0,
+				firstResultCount: airiqFlights?.Response?.Results?.[0]?.length || 0,
+			});
 
 			// Calculate NetPayable for each AIRiQ flight result
 			if (airiqFlights?.Response?.Results) {
@@ -209,7 +250,9 @@ export async function POST(request: NextRequest) {
 				}
 			}
 		} else if (airiqResult.status === "rejected") {
-			console.error("AIRiQ search failed:", airiqResult.reason);
+			console.error("❌ AIRiQ search rejected:", airiqResult.reason);
+		} else {
+			console.log("⚠️ AIRiQ search returned null or no value");
 		}
 
 		// Merge results from both APIs

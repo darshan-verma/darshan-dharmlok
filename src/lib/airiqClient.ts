@@ -15,6 +15,10 @@ import type {
 	AiriqBookingResponse,
 	AiriqSSRRequest,
 	AiriqSSRResponse,
+	AiriqPricingRequest,
+	AiriqPricingResponse,
+	AiriqSeatMapRequest,
+	AiriqSeatMapResponse,
 } from "@/types/airiq";
 import type { FlightSearchResponse, FlightSegment } from "@/types/tbo";
 
@@ -143,7 +147,7 @@ export async function airiqRequest<T = unknown>(
 					console.log(
 						"🔄 Token issue detected, clearing cache and retrying..."
 					);
-					clearTokenCache();
+					await clearTokenCache();
 					return await airiqRequest<T>(config, true);
 				}
 
@@ -196,10 +200,10 @@ export async function searchFlights(
  * Get fare rules for a flight
  */
 export async function getFareRules(
-	fareRuleParams: Omit<AiriqFareRuleRequest, "Token">
+	fareRuleParams: AiriqFareRuleRequest
 ): Promise<AiriqFareRuleResponse> {
 	return airiqRequest<AiriqFareRuleResponse>({
-		endpoint: "FareRule",
+		endpoint: "GetFareRule",
 		method: "POST",
 		body: fareRuleParams,
 	});
@@ -228,6 +232,35 @@ export async function getSSR(
 		endpoint: "SSR",
 		method: "POST",
 		body: ssrParams,
+	});
+}
+
+/**
+ * Get detailed pricing for selected flight
+ * Re-prices the chosen route and returns full fare breakdown, baggage allowance,
+ * mandatory booking details, and available SSRs (meals, baggage, seats, etc.)
+ */
+export async function getPricing(
+	pricingParams: AiriqPricingRequest
+): Promise<AiriqPricingResponse> {
+	return airiqRequest<AiriqPricingResponse>({
+		endpoint: "Pricing",
+		method: "POST",
+		body: pricingParams,
+	});
+}
+
+/**
+ * Get seat map for selected flight
+ * Returns seat layout, availability, and pricing for each seat
+ */
+export async function getSeatMap(
+	seatMapParams: AiriqSeatMapRequest
+): Promise<AiriqSeatMapResponse> {
+	return airiqRequest<AiriqSeatMapResponse>({
+		endpoint: "GetAvailSeatMap",
+		method: "POST",
+		body: seatMapParams,
 	});
 }
 
@@ -272,12 +305,19 @@ export async function cancelBooking(cancelParams: Record<string, unknown>) {
  * Convert AIRiQ flight response to TBO-compatible format
  */
 export function convertAiriqToTboFormat(
-	airiqResponse: AiriqFlightSearchResponse
+	airiqResponse: AiriqFlightSearchResponse,
+	journeyType?: string
 ): FlightSearchResponse {
+	console.log(
+		"🔄 convertAiriqToTboFormat called with journeyType:",
+		journeyType
+	);
+
 	if (
 		!airiqResponse.ItineraryFlightList ||
 		airiqResponse.ItineraryFlightList.length === 0
 	) {
+		console.log("⚠️ No ItineraryFlightList in AIRiQ response");
 		return {
 			Response: {
 				TraceId: airiqResponse.Trackid,
@@ -289,8 +329,23 @@ export function convertAiriqToTboFormat(
 		};
 	}
 
-	// Determine if this is a roundtrip based on having 2 ItineraryFlightList items
-	const isRoundtrip = airiqResponse.ItineraryFlightList.length === 2;
+	console.log("📊 AIRiQ Response Analysis:", {
+		itineraryCount: airiqResponse.ItineraryFlightList.length,
+		itemsPerItinerary: airiqResponse.ItineraryFlightList.map(
+			(it) => it.Items.length
+		),
+		journeyType,
+	});
+
+	// Determine journey type handling
+	// Roundtrip: 2 ItineraryFlightList items
+	// Multi-city: Could be multiple items or single item with multi-segment flights
+	// One-way: 1 ItineraryFlightList item
+	const isRoundtrip =
+		airiqResponse.ItineraryFlightList.length === 2 && journeyType === "2";
+	const isMultiCity = journeyType === "3";
+
+	console.log("🎯 Flight Type Detection:", { isRoundtrip, isMultiCity });
 
 	if (isRoundtrip) {
 		console.log("🔄 Converting AIRiQ Roundtrip Flight Response");
@@ -333,9 +388,130 @@ export function convertAiriqToTboFormat(
 				FlightCabinClass: 1,
 			},
 		};
+	} else if (isMultiCity) {
+		// Multi-city flights
+		console.log(
+			`🔄 Converting AIRiQ Multi-city Flight Response with ${airiqResponse.ItineraryFlightList.length} leg(s)`
+		);
+
+		// For multi-city, AIRiQ may return:
+		// Option 1: Multiple ItineraryFlightList items (one per leg) - need to combine them
+		// Option 2: Single ItineraryFlightList with items containing all segments
+
+		if (airiqResponse.ItineraryFlightList.length > 1) {
+			// Option 1: Multiple legs - create flight combinations
+			// Each flight should have segments from all legs combined
+			const legFlights: Array<Array<Record<string, unknown>>> = [];
+
+			// Convert flights from each leg
+			for (const itinerary of airiqResponse.ItineraryFlightList) {
+				const flights: Array<Record<string, unknown>> = [];
+				for (const item of itinerary.Items) {
+					const flight = convertAiriqItemToTboFlight(item);
+					if (flight) {
+						flights.push(flight);
+					}
+				}
+				legFlights.push(flights);
+			}
+
+			// Combine flights from all legs (each combination represents one complete journey)
+			const combinedFlights: Array<Record<string, unknown>> = [];
+
+			// Generate all combinations recursively
+			function generateCombinations(
+				legIndex: number,
+				currentSegments: any[],
+				currentFare: number
+			) {
+				if (legIndex === legFlights.length) {
+					// All legs processed, create combined flight
+					if (currentSegments.length > 0) {
+						const firstFlight = legFlights[0][0];
+						combinedFlights.push({
+							...firstFlight,
+							ResultIndex: `${(firstFlight as any).ResultIndex}_MULTI_${
+								combinedFlights.length
+							}`,
+							Segments: currentSegments,
+							Fare: {
+								...(firstFlight as any).Fare,
+								OfferedFare: currentFare,
+								PublishedFare: currentFare,
+								NetPayable: currentFare,
+							},
+						});
+					}
+					return;
+				}
+
+				// Process current leg
+				const currentLegFlights = legFlights[legIndex];
+				for (const flight of currentLegFlights) {
+					const flightSegments = (flight as any).Segments || [];
+					const flightFare = (flight as any).Fare?.OfferedFare || 0;
+					generateCombinations(
+						legIndex + 1,
+						[...currentSegments, ...flightSegments],
+						currentFare + flightFare
+					);
+				}
+			}
+
+			generateCombinations(0, [], 0);
+
+			console.log(
+				`✅ Created ${combinedFlights.length} AIRiQ multi-city flight combinations`
+			);
+
+			return {
+				Response: {
+					TraceId: airiqResponse.Trackid,
+					Results: [
+						combinedFlights as unknown as FlightSearchResponse["Response"]["Results"][0],
+					],
+					Origin: "",
+					Destination: "",
+					FlightCabinClass: 1,
+				},
+			};
+		} else {
+			// Option 2: Single list with multi-segment flights - already combined by AIRiQ
+			console.log(
+				`➡️ Converting AIRiQ Multi-city Flight Response (pre-combined)`
+			);
+			const tboFlights: Array<Record<string, unknown>> = [];
+
+			for (const itinerary of airiqResponse.ItineraryFlightList) {
+				for (const item of itinerary.Items) {
+					const flight = convertAiriqItemToTboFlight(item);
+					if (flight) {
+						tboFlights.push(flight);
+					}
+				}
+			}
+
+			console.log(`✅ Converted ${tboFlights.length} AIRiQ multi-city flights`);
+
+			return {
+				Response: {
+					TraceId: airiqResponse.Trackid,
+					Results: [
+						tboFlights as unknown as FlightSearchResponse["Response"]["Results"][0],
+					],
+					Origin: "",
+					Destination: "",
+					FlightCabinClass: 1,
+				},
+			};
+		}
 	} else {
-		// For one-way or multi-city, keep existing behavior
-		console.log("➡️ Converting AIRiQ One-way Flight Response");
+		// One-way or multi-city (single list)
+		console.log(
+			`➡️ Converting AIRiQ ${
+				isMultiCity ? "Multi-city" : "One-way"
+			} Flight Response`
+		);
 		const tboFlights: Array<Record<string, unknown>> = [];
 
 		for (const itinerary of airiqResponse.ItineraryFlightList) {
@@ -490,6 +666,12 @@ export function convertTboToAiriqParams(
 	const journeyType = tboParams.JourneyType as string;
 	const tripType = journeyType === "2" ? "R" : journeyType === "3" ? "M" : "O";
 
+	console.log("🔄 Converting TBO to AIRiQ params:", {
+		journeyType,
+		tripType,
+		segmentsCount: (tboParams.Segments as FlightSegment[])?.length || 0,
+	});
+
 	// Convert cabin class: "1" = Economy (E), "4" = Business (B), "6" = First (F)
 	const segments = (tboParams.Segments as FlightSegment[]) || [];
 	const cabinClass = segments[0]?.FlightCabinClass || "1";
@@ -497,13 +679,19 @@ export function convertTboToAiriqParams(
 		cabinClass === "4" ? "B" : cabinClass === "6" ? "F" : "E";
 
 	// Convert segments to AIRiQ AvailInfo format
-	const availInfo = segments.map((segment) => {
+	const availInfo = segments.map((segment, index) => {
 		// Convert date from "2026-01-14T00:00:00" to "20260114"
 		const dateStr = segment.PreferredDepartureTime;
 		const date = new Date(dateStr);
 		const flightDate = `${date.getFullYear()}${String(
 			date.getMonth() + 1
 		).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+
+		console.log(
+			`  Segment ${index + 1}: ${segment.Origin} → ${
+				segment.Destination
+			} on ${flightDate}`
+		);
 
 		return {
 			DepartureStation: segment.Origin,
@@ -515,7 +703,7 @@ export function convertTboToAiriqParams(
 		};
 	});
 
-	return {
+	const airiqParams = {
 		AgentInfo: {
 			AgentId: agentId,
 			UserName: username,
@@ -531,4 +719,8 @@ export function convertTboToAiriqParams(
 			InfantCount: tboParams.InfantCount as string,
 		},
 	};
+
+	console.log("✅ AIRiQ params created:", JSON.stringify(airiqParams, null, 2));
+
+	return airiqParams;
 }

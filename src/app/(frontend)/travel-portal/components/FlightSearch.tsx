@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
 	Plane,
 	Sunrise,
@@ -1512,6 +1513,125 @@ export default function FlightSearch() {
 				</CardContent>
 			</Card>
 
+			{/* Loading Skeleton */}
+			{loading && (
+				<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+					{/* Filters Skeleton */}
+					<div className="lg:col-span-1">
+						<Card>
+							<CardHeader>
+								<Skeleton className="h-6 w-20" />
+							</CardHeader>
+							<CardContent>
+								<div className="space-y-6">
+									{/* Price Range Skeleton */}
+									<div className="space-y-3">
+										<Skeleton className="h-4 w-24" />
+										<Skeleton className="h-6 w-full" />
+										<div className="flex justify-between">
+											<Skeleton className="h-3 w-12" />
+											<Skeleton className="h-3 w-12" />
+										</div>
+									</div>
+
+									{/* Airlines Skeleton */}
+									<div className="space-y-3">
+										<Skeleton className="h-4 w-16" />
+										<div className="space-y-2">
+											{Array.from({ length: 5 }).map((_, i) => (
+												<div key={i} className="flex items-center space-x-2">
+													<Skeleton className="h-4 w-4" />
+													<Skeleton className="h-4 w-20" />
+												</div>
+											))}
+										</div>
+									</div>
+
+									{/* Departure Time Skeleton */}
+									<div className="space-y-3">
+										<Skeleton className="h-4 w-28" />
+										<div className="space-y-2">
+											{Array.from({ length: 4 }).map((_, i) => (
+												<div key={i} className="flex items-center space-x-2">
+													<Skeleton className="h-4 w-4" />
+													<Skeleton className="h-4 w-4" />
+													<Skeleton className="h-4 w-16" />
+												</div>
+											))}
+										</div>
+									</div>
+								</div>
+							</CardContent>
+						</Card>
+					</div>
+
+					{/* Flight Results Skeleton */}
+					<div className="lg:col-span-3">
+						<Card>
+							<CardHeader>
+								<div className="flex items-center justify-between">
+									<Skeleton className="h-6 w-32" />
+									<Skeleton className="h-8 w-24" />
+								</div>
+							</CardHeader>
+							<CardContent>
+								<div className="space-y-4">
+									{/* Flight Cards Skeleton */}
+									{Array.from({ length: 5 }).map((_, i) => (
+										<Card key={i} className="shadow-sm">
+											<CardContent className="p-0">
+												<div className="flex flex-col lg:flex-row items-stretch">
+													{/* Flight Details Skeleton */}
+													<div className="flex-1 p-4 lg:p-6">
+														<div className="flex items-center gap-4">
+															{/* Airline Logo Skeleton */}
+															<div className="w-16 flex-shrink-0">
+																<Skeleton className="h-10 w-10 rounded-full mb-1" />
+																<Skeleton className="h-3 w-12 mb-1" />
+																<Skeleton className="h-2 w-8" />
+															</div>
+
+															{/* Departure Skeleton */}
+															<div className="text-right min-w-[80px]">
+																<Skeleton className="h-8 w-16 mb-1" />
+																<Skeleton className="h-4 w-12" />
+															</div>
+
+															{/* Duration & Stops Skeleton */}
+															<div className="flex-1 flex flex-col items-center px-2">
+																<Skeleton className="h-3 w-16 mb-1" />
+																<div className="flex items-center gap-1">
+																	<Skeleton className="h-3 w-8" />
+																	<Skeleton className="h-3 w-12" />
+																	<Skeleton className="h-3 w-8" />
+																</div>
+															</div>
+
+															{/* Arrival Skeleton */}
+															<div className="text-left min-w-[80px]">
+																<Skeleton className="h-8 w-16 mb-1" />
+																<Skeleton className="h-4 w-12" />
+															</div>
+														</div>
+													</div>
+
+													{/* Price & Book Button Skeleton */}
+													<div className="lg:w-48 p-4 lg:p-6 border-t lg:border-t-0 lg:border-l border-gray-100 flex flex-col justify-center items-center gap-2">
+														<Skeleton className="h-6 w-20" />
+														<Skeleton className="h-4 w-16" />
+														<Skeleton className="h-10 w-24" />
+													</div>
+												</div>
+											</CardContent>
+										</Card>
+									))}
+								</div>
+							</CardContent>
+						</Card>
+					</div>
+				</div>
+			)}
+
 			{/* Flight Results */}
 			{searchPerformed && flights.length > 0 && (
 				<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -2044,6 +2164,7 @@ export default function FlightSearch() {
 																			adultCount: String(values.adults),
 																			childCount: String(values.children),
 																			infantCount: String(values.infants),
+																			apiSource: flight.ApiSource || "TBO",
 																		});
 																		if (flight.IsUpsellAllowed === true) {
 																			params.append("isUpsellAllowed", "true");

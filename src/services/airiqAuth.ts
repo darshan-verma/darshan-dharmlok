@@ -8,6 +8,15 @@
  * - When token expires, login must be called again
  */
 
+import fs from "fs";
+import path from "path";
+import { promisify } from "util";
+
+const writeFile = promisify(fs.writeFile);
+const readFile = promisify(fs.readFile);
+const unlink = promisify(fs.unlink);
+const mkdir = promisify(fs.mkdir);
+
 interface AiriqAuthResponse {
 	AgentID: string;
 	Status: {
@@ -23,10 +32,18 @@ interface AiriqAuthResponse {
 interface TokenCache {
 	token: string;
 	expiresAt: number;
+	createdAt: number;
 }
 
-// In-memory token cache
-let tokenCache: TokenCache | null = null;
+// File-based token cache (persists across server restarts)
+const TOKEN_CACHE_DIR = path.join(process.cwd(), ".cache");
+const TOKEN_CACHE_FILE = path.join(TOKEN_CACHE_DIR, "airiq-token.json");
+
+// In-memory cache for faster access (but not the source of truth)
+let memoryCache: TokenCache | null = null;
+
+// Prevent concurrent authentication attempts (race condition protection)
+let authenticationPromise: Promise<string> | null = null;
 
 /**
  * Get authentication credentials from environment variables
@@ -48,15 +65,73 @@ function getAuthCredentials() {
 }
 
 /**
+ * Ensure cache directory exists
+ */
+async function ensureCacheDir(): Promise<void> {
+	try {
+		await mkdir(TOKEN_CACHE_DIR, { recursive: true });
+	} catch (error: any) {
+		// Ignore if directory already exists
+		if (error.code !== "EEXIST") {
+			console.error("Error creating cache directory:", error);
+		}
+	}
+}
+
+/**
+ * Read token from file cache
+ */
+async function readTokenFromFile(): Promise<TokenCache | null> {
+	try {
+		const data = await readFile(TOKEN_CACHE_FILE, "utf-8");
+		const cache: TokenCache = JSON.parse(data);
+		return cache;
+	} catch (error: any) {
+		// File doesn't exist or is invalid
+		if (error.code !== "ENOENT") {
+			console.warn("Error reading token cache file:", error);
+		}
+		return null;
+	}
+}
+
+/**
+ * Write token to file cache
+ */
+async function writeTokenToFile(cache: TokenCache): Promise<void> {
+	try {
+		await ensureCacheDir();
+		await writeFile(TOKEN_CACHE_FILE, JSON.stringify(cache, null, 2), "utf-8");
+		console.log("✓ Token saved to persistent cache");
+	} catch (error) {
+		console.error("Error writing token cache file:", error);
+	}
+}
+
+/**
+ * Delete token cache file
+ */
+async function deleteTokenFile(): Promise<void> {
+	try {
+		await unlink(TOKEN_CACHE_FILE);
+		console.log("✓ Token cache file deleted");
+	} catch (error: any) {
+		if (error.code !== "ENOENT") {
+			console.warn("Error deleting token cache file:", error);
+		}
+	}
+}
+
+/**
  * Check if cached token is still valid
  */
-function isTokenValid(): boolean {
-	if (!tokenCache) return false;
+function isTokenValid(cache: TokenCache | null): boolean {
+	if (!cache) return false;
 
 	// Check if token expires in less than 5 minutes (buffer time)
 	// This ensures we refresh the token before midnight to avoid edge cases
 	const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
-	return Date.now() < tokenCache.expiresAt - bufferTime;
+	return Date.now() < cache.expiresAt - bufferTime;
 }
 
 /**
@@ -147,15 +222,20 @@ async function authenticateAPI(): Promise<string> {
 		endOfDay.setHours(23, 59, 59, 999); // Set to 11:59:59.999 PM today
 
 		const expiresAt = endOfDay.getTime();
-		tokenCache = {
+		const cache: TokenCache = {
 			token,
 			expiresAt,
+			createdAt: Date.now(),
 		};
+
+		// Store in both memory and file for persistence
+		memoryCache = cache;
+		await writeTokenToFile(cache);
 
 		const hoursUntilExpiry =
 			Math.round(((expiresAt - Date.now()) / (1000 * 60 * 60)) * 10) / 10;
 		console.log(
-			`✓ AIRiQ authentication successful. Token cached until end of day (expires in ${hoursUntilExpiry} hours).`
+			`✓ AIRiQ authentication successful. Token cached persistently until end of day (expires in ${hoursUntilExpiry} hours).`
 		);
 		return token;
 	} catch (error) {
@@ -169,34 +249,69 @@ async function authenticateAPI(): Promise<string> {
  * This is the main function to be used throughout the application
  */
 export async function getAiriqToken(): Promise<string> {
-	if (isTokenValid() && tokenCache) {
-		console.log("✓ Using cached AIRiQ token");
-		return tokenCache.token;
+	// Check memory cache first (fastest)
+	if (isTokenValid(memoryCache)) {
+		console.log("✓ Using cached AIRiQ token (from memory)");
+		return memoryCache!.token;
 	}
 
-	console.log("⟳ Fetching new AIRiQ token...");
-	return await authenticateAPI();
+	// Check file cache (persists across server restarts)
+	const fileCache = await readTokenFromFile();
+	if (isTokenValid(fileCache)) {
+		console.log("✓ Using cached AIRiQ token (from file)");
+		memoryCache = fileCache; // Update memory cache
+		return fileCache!.token;
+	}
+
+	// If authentication is already in progress, wait for it (prevents race conditions)
+	if (authenticationPromise) {
+		console.log("⏳ Authentication in progress, waiting...");
+		return await authenticationPromise;
+	}
+
+	// Start new authentication and store the promise
+	console.log("⟳ Fetching new AIRiQ token (cache expired or not found)...");
+	authenticationPromise = authenticateAPI()
+		.then((token) => {
+			authenticationPromise = null; // Clear after completion
+			return token;
+		})
+		.catch((error) => {
+			authenticationPromise = null; // Clear on error
+			throw error;
+		});
+
+	return await authenticationPromise;
 }
 
 /**
  * Clear cached token (useful for testing or manual refresh)
  */
-export function clearTokenCache(): void {
-	tokenCache = null;
-	console.log("✓ AIRiQ token cache cleared");
+export async function clearTokenCache(): Promise<void> {
+	memoryCache = null;
+	await deleteTokenFile();
+	console.log("✓ AIRiQ token cache cleared (memory and file)");
 }
 
 /**
  * Get token expiration time (for debugging/monitoring)
  */
-export function getTokenExpiration(): Date | null {
-	if (!tokenCache) return null;
-	return new Date(tokenCache.expiresAt);
+export async function getTokenExpiration(): Promise<Date | null> {
+	// Check memory first
+	if (memoryCache) return new Date(memoryCache.expiresAt);
+
+	// Check file
+	const fileCache = await readTokenFromFile();
+	if (fileCache) return new Date(fileCache.expiresAt);
+
+	return null;
 }
 
 /**
  * Check if a token is currently cached
  */
-export function hasValidToken(): boolean {
-	return isTokenValid();
+export async function hasValidToken(): Promise<boolean> {
+	if (isTokenValid(memoryCache)) return true;
+	const fileCache = await readTokenFromFile();
+	return isTokenValid(fileCache);
 }

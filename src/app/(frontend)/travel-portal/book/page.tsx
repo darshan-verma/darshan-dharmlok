@@ -20,6 +20,7 @@ interface PageProps {
 		childCount?: string;
 		infantCount?: string;
 		isUpsellAllowed?: string;
+		apiSource?: string; // "TBO" or "AIRiQ"
 	}>;
 }
 
@@ -33,6 +34,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		childCount = "0",
 		infantCount = "0",
 		isUpsellAllowed: isUpsellAllowedParam,
+		apiSource = "TBO",
 	} = params;
 
 	const isUpsellAllowed = isUpsellAllowedParam === "true";
@@ -44,6 +46,25 @@ export default async function BookingPage({ searchParams }: PageProps) {
 			</div>
 		);
 	}
+
+	// Route to AIRiQ booking page if using AIRiQ API
+	if (apiSource === "AIRiQ") {
+		// Import dynamically to avoid circular dependencies
+		const { default: AiriqBookingPage } = await import("./airiq-page.js");
+		return (
+			<AiriqBookingPage
+				traceId={traceId}
+				resultIndex={resultIndex}
+				returnResultIndex={returnResultIndex}
+				adultCount={adultCount}
+				childCount={childCount}
+				infantCount={infantCount}
+				isUpsellAllowed={isUpsellAllowed}
+			/>
+		);
+	}
+
+	// Continue with TBO booking flow
 
 	const fareRulePromise = getFareRules({
 		TraceId: traceId,

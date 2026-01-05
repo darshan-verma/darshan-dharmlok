@@ -246,26 +246,30 @@ export interface AiriqFlightSearchResponse {
 
 // Additional types for other AIRiQ operations (similar to TBO)
 export interface AiriqFareRuleRequest {
-	Token?: string;
-	TokenId?: string;
-	EndUserIp: string;
-	ResultIndex: string;
-	TraceId: string;
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: number;
+	};
+	FlightsInfo: Array<{
+		FlightID: string;
+	}>;
+	Trackid: string;
 }
 
 export interface AiriqFareRuleResponse {
-	Response: {
-		FareRules: Array<{
-			Origin: string;
-			Destination: string;
-			Airline: string;
-			FareRuleDetail: string;
-		}>;
-		TraceId: string;
-		Error?: {
-			ErrorCode: number;
-			ErrorMessage: string;
-		};
+	FareRuleInfo: Array<{
+		FlightID: string;
+		FareRuleDetail: string;
+		Origin?: string;
+		Destination?: string;
+		Airline?: string;
+	}> | null;
+	Status: {
+		Error: string;
+		ResultCode: string; // "1" = success, "0" = failure, "-1" = exception
+		SequenceID: string;
 	};
 }
 
@@ -383,5 +387,154 @@ export interface AiriqSSRResponse {
 			ErrorCode: number;
 			ErrorMessage: string;
 		};
+	};
+}
+
+// AIRiQ Pricing Request/Response Types (Based on section 6 of documentation)
+export interface AiriqPricingRequest {
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: number;
+	};
+	SegmentInfo: {
+		BaseOrigin: string;
+		BaseDestination: string;
+		TripType: string; // "O" = One-way, "R" = Round-trip, "Y" = Round-trip Special
+		AdultCount: string;
+		ChildCount: string;
+		InfantCount: string;
+	};
+	Trackid: string;
+	ItineraryInfo: Array<{
+		FlightDetails: Array<{
+			FlightID: string;
+			FlightNumber: string;
+			Origin: string;
+			Destination: string;
+			DepartureDateTime: string; // Format: "DD MMM YYYY HH:MM"
+			ArrivalDateTime: string; // Format: "DD MMM YYYY HH:MM"
+		}>;
+		BaseAmount: string;
+		GrossAmount: string;
+	}>;
+}
+
+export interface AiriqPricingResponse {
+	PriceItenaryInfo: {
+		AdultCount: number;
+		ChildCount: number;
+		InfantCount: number;
+		TotalPax: number;
+		CabinClass: string;
+		BaseAmount: number;
+		TaxAmount: number;
+		GrossAmount: number;
+		SSR?: {
+			Baggage?: Array<{
+				Code: string;
+				Description: string;
+				Weight: number;
+				Price: number;
+				Origin: string;
+				Destination: string;
+			}>;
+			Meal?: Array<{
+				Code: string;
+				Description: string;
+				Price: number;
+				Origin: string;
+				Destination: string;
+			}>;
+		};
+		FlightDetails: Array<{
+			FlightID: string;
+			FlightNumber: string;
+			Origin: string;
+			Destination: string;
+			DepartureDateTime: string;
+			ArrivalDateTime: string;
+			Duration: string;
+			StopsCount: number;
+			Baggage?: string;
+			CabinBaggage?: string;
+		}>;
+		MandatoryBookingDetails?: {
+			PassportRequired?: boolean;
+			DateOfBirthRequired?: boolean;
+			FrequentFlyerRequired?: boolean;
+		};
+	} | null;
+	ResponseStatus: {
+		Error: string;
+		ResultCode: string; // "1" = success, "0" = failure, "-1" = exception
+		SequenceID: string;
+	};
+}
+
+// AIRiQ Seat Map Request/Response Types (Based on section 7 of documentation)
+export interface AiriqSeatMapRequest {
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: number;
+	};
+	SegmentInfo: {
+		BaseOrigin: string;
+		BaseDestination: string;
+		TripType: string;
+	};
+	FlightsInfo: Array<{
+		FlightID: string;
+		FlightNumber: string;
+		Origin: string;
+		Destination: string;
+		DepartureDateTime: string; // Format: "DD MMM YYYY HH:MM"
+		ArrivalDateTime: string; // Format: "DD MMM YYYY HH:MM"
+	}>;
+	APIPaxDetails: Array<{
+		PaxRefNumber: string;
+		Title: string;
+		PaxType: string; // "ADT" = Adult, "CHD" = Child, "INF" = Infant
+		FirstName: string;
+		LastName: string;
+	}>;
+	TrackId: string;
+}
+
+export interface AiriqSeatMapResponse {
+	FlightSeat: Array<{
+		SeatMap: Array<{
+			Destination: string;
+			ItinRef: string;
+			MaxHeight: string;
+			MaxWidth: string;
+			Origin: string;
+			SeatAmount: string;
+			SeatAvailability: string; // "Available" | "Closed"
+			SeatCategory: string;
+			SeatCharacterstic: string;
+			SeatGroup: string; // Premium seat indicator
+			SeatID: string;
+			SeatMessage: string;
+			SeatName: string; // e.g., "1A", "12F"
+			SeatPosition: string; // "Window", "Middle", "Aisle"
+			SeatRef: string;
+			SeatReferenceAPI: string;
+			SeatStatus: string; // "true" = available, "false" = not available
+			SeatType: string;
+			Seatcharacteristics: string | null;
+			SegRef: string;
+			WingSeat: string;
+			XAxis: string; // Horizontal position
+			YAxis: string; // Vertical position (row)
+		}>;
+	}> | null;
+	ResponseStatus: {
+		Error: string;
+		ResultCode: string; // "1" = success, "0" = failure, "-1" = exception
+		SequenceID: string;
 	};
 }
