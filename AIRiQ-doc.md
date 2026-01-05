@@ -2442,3 +2442,297 @@ Refer to the sample JSON request and response that is attached
                                                         "Trackid": null
                                                         }
                                                     
+
+5 Fare Rules
+5.1 Method: GetFareRule
+5.2 Description
+GetFarerule To obtain the terms and conditions of a specific flight option's fare, use the GetFarerule method. It includes the fare base code as well as other pertinent information.
+
+5.3 Data Format and Details
+Field Name	Data Type	Description
+AgentID	String	Your Agent ID
+Username	String	Your Username
+AppType	String	Default Value API
+Version	String	API version
+FlightID	String	Pass the same value from Availability response.
+TrackId	String	Unique reference Id from Availability response.
+5.4 Request
+Copy Code
+                                                        {
+                                                        "AgentInfo": {
+                                                        "AgentId": "XXXXXXXXXX",
+                                                        "UserName": "XXXXXXXXXX",
+                                                        "AppType": "API",
+                                                        "Version": 2.0
+                                                        },
+                                                        "FlightsInfo": [
+                                                        {
+                                                        "FlightID": "7368"
+                                                        },
+                                                        {
+                                                        "FlightID": "7369"
+                                                        }
+                                                        ],
+                                                        "Trackid": "AQ130816280740263181308249563236LAHRK1IJE3F"
+                                                        }
+                                                    
+5.5 Response
+5.5.1 Success
+Refer to the sample JSON request and response that is attached
+
+5.5.2 Failure
+Copy Code
+                                                        {
+                                                        "FareRuleInfo": null,
+                                                        "Status": {
+                                                        "Error": "The requested token was timed out.",
+                                                        "ResultCode": "0",
+                                                        "SequenceID": "11112771818929"
+                                                        }
+                                                        }
+                                                    
+5.5.3 Exception
+Copy Code
+                                                        {
+                                                        "FareRuleInfo": null,
+                                                        "Status": {
+                                                        "Error": "EX-Unable to get FareRule for the requested flight",
+                                                        "ResultCode": "-1",
+                                                        "SequenceID": "11205467465130"
+                                                        }
+                                                        }
+                                                    
+6 Pricing
+6.1 Method: Pricing
+6.2 Description
+The chosen route must be re-priced using a pricing technique. If the selected fare is available, it will answer with a full fare breakdown, check-in baggage , mandatory booking details, and a list of any available SSRs, meal, baggage, and other services.
+
+6.3 Data Format and Details
+Field Name	Data Type	Description
+AgentID	String	Your Agent ID
+Username	String	Your Username
+AppType	String	Default Value API
+Version	String	API version
+BaseOrigin	String	3 Letter IATA Departure Airport code.
+BaseDestination	String	3 Letter IATA Arrival Airport code.
+TripType	String	Trip Type shows the type of booking. It may be an O-Oneway or R-Roundtrip or Y-Roundtrip Special.
+AdultCount	Integer	Minimum of 1 and Maximum up to 9
+ChildCount	Integer	Total no of Adults and child can be maximum 9
+InfantCount	Integer	Minimum of 1 and Maximum up to 4. Infant alone not allowed to travel
+TrackId	String	Unique reference Id from Availability response.
+FlightID	String	Pass the same value from Availability response.
+FlightNumber	String	Booking Flight Number.
+Origin	String	3 Letter IATA Departure Airport code.
+Destination	String	3 Letter IATA Arrival Airport code.
+DepartureDateTime	DateTime	Flight Departure Date and Time. [DD MMM YYYY HH:MM]
+ArrivalDateTime	DateTime	Flight Arrival Date and Time. [DD MMM YYYY HH:MM]
+BaseAmount	Decimal	Flight Basic Fare
+GrossAmount	Decimal	Flight Gross fare
+6.4 Request
+Copy Code
+                                                        {
+                                                        "AgentInfo": {
+                                                        "AgentId": "XXXXXXXX",
+                                                        "UserName": "XXXXXXXXX",
+                                                        "AppType": "API",
+                                                        "Version": 2.0
+                                                        },
+                                                        "SegmentInfo": {
+                                                        "BaseOrigin": "IXB",
+                                                        "BaseDestination": "DEL",
+                                                        "TripType": "O",
+                                                        "AdultCount": "1",
+                                                        "ChildCount": "0",
+                                                        "InfantCount": "0"
+                                                        },
+                                                        "Trackid": "AQ130816280740263181308249563236LAHRK1IJE3F",
+                                                        "ItineraryInfo": [
+                                                        {
+                                                        "FlightDetails": [
+                                                        {
+                                                        "FlightID": "7368",
+                                                        "FlightNumber": "6E 292",
+                                                        "Origin": "IXB",
+                                                        "Destination": "CCU",
+                                                        "DepartureDateTime": "14 Nov 2023 14:20",
+                                                        "ArrivalDateTime": "14 Nov 2023 15:25"
+                                                        },
+                                                        {
+                                                        "FlightID": "7369",
+                                                        "FlightNumber": "6E 2516",
+                                                        "Origin": "CCU",
+                                                        "Destination": "DEL",
+                                                        "DepartureDateTime": "14 Nov 2023 16:50",
+                                                        "ArrivalDateTime": "14 Nov 2023 19:25"
+                                                        }
+                                                        ],
+                                                        "BaseAmount": "15900.00",
+                                                        "GrossAmount": "19873"
+                                                        }
+                                                        ]
+                                                        }
+                                                    
+6.5 Response
+6.5.1 Success
+Refer to the sample JSON request and response that is attached
+
+6.5.2 Failure
+The seatmap for a certain flight option can be obtained using the GetAvailSeatMap function. It includes the seat information and other pertinent information related to it, such as seat restrictions and amount
+
+Copy Code
+                                                        {
+                                                        "PriceItenaryInfo": null,
+                                                        "ResponseStatus": {
+                                                        "Error": "The requested token was timed out.",
+                                                        "ResultCode": "0",
+                                                        "SequenceID": "14571588578522"
+                                                        }
+                                                        }
+                                                    
+6.5.3 Exception
+Copy Code
+                                                        {
+                                                        "PriceItenaryInfo": null,
+                                                        "ResponseStatus": {
+                                                        "Error": "EX-Unable to price the requested flights.",
+                                                        "ResultCode": "-1",
+                                                        "SequenceID": "14781588535522"
+                                                        }
+                                                        }
+                                                    
+7 Seat Map
+7.1 Method: GetAvailSeatMap
+7.2 Description
+GetAvailSeatMap method is used to get the seatmap of a specific flight option. It contains the seat details and relevant details associated with it, such as seat restrictions and amount.
+
+7.3 Data Format and Details
+Field Name	Data Type	Description
+AgentID	String	Your Agent ID
+Username	String	Your Username
+AppType	String	Default Value API
+Version	String	API version
+BaseOrigin	String	3 Letter IATA Departure Airport code.
+BaseDestination	String	3 Letter IATA Arrival Airport code.
+FlightID	String	Flight ID from from Pricing response.
+FlightNumber	Integer	Flight Number from Pricing response.
+Origin	Integer	3 Letter IATA Departure Airport code.
+Destination	Integer	3 Letter IATA Arrival Airport code.
+DepartureDateTime	DateTime	Flight Departure Date and Time. [DD MMM YYYY HH:MM]
+ArrivalDateTime	DateTime	Flight Arrival Date and Time. [DD MMM YYYY HH:MM]
+PaxRefNumber	Integer	Passenger wise unique serial reference number.
+Title	String	Passenger Salutation / Title [Mr, Mrs, Miss, Ms, Mstr and Dr]
+PaxType	String	Indicates booking passenger type (ADT/CHD/INF)
+FirstName	String	First Name of the booking Passenger.
+LastName	String	Last Name of the booking Passenger
+TrackId	String	Unique reference Id from Pricing response.
+7.4 Request
+Copy Code
+                                                        {
+                                                        "AgentInfo": {
+                                                        "AgentId": "XXXXXXX",
+                                                        "UserName": "XXXXXXXXX",
+                                                        "AppType": "API",
+                                                        "Version": 2.0
+                                                        },
+                                                        "SegmentInfo": {
+                                                        "BaseOrigin": "IXB",
+                                                        "BaseDestination": "DEL",
+                                                        "TripType": "O"
+                                                        },
+                                                        "FlightsInfo": [
+                                                        {
+                                                        "FlightID": "7368",
+                                                        "FlightNumber": "6E 292",
+                                                        "Origin": "IXB",
+                                                        "Destination": "CCU",
+                                                        "DepartureDateTime": "14 Nov 2023 14:20",
+                                                        "ArrivalDateTime": "14 Nov 2023 15:25"
+                                                        },
+                                                        {
+                                                        "FlightID": "7369",
+                                                        "FlightNumber": "6E 2516",
+                                                        "Origin": "CCU",
+                                                        "Destination": "DEL",
+                                                        "DepartureDateTime": "14 Nov 2023 16:50",
+                                                        "ArrivalDateTime": "14 Nov 2023 19:25"
+                                                        }
+                                                        ],
+                                                        "APIPaxDetails": [
+                                                        {
+                                                        "PaxRefNumber": "1",
+                                                        "Title": "Mr",
+                                                        "PaxType": "ADT",
+                                                        "FirstName": "TESTA",
+                                                        "LastName": "TEST"
+                                                        }
+                                                        ],
+                                                        "TrackId": "AQ131620651068521731316232989362MDJAYW12CHN"
+                                                        }
+                                                    
+7.5 Response
+Field Name	Data Type	Description
+Seat Group	String	If passenger selects any premium seat or window/aisle seat, then charges will be applied on the same and will be reflected in AssignSeats response. You can identify the seat charges as well as Seat Groupfrom the tag namely ‘SeatGroup’ in GetAvailSeatMap Response.
+Seat Position	String	A seat position in an airline refers to the positioning of a seat on an aircraft. Ex :- A row seats are window seats, B row seats are middle seats, and C row seats are aisle seats.
+Seat Status	String	The availability of a seat on an aircraft is referred to as seat status in the airline. A code, such as "true" for availability or "false" for lack of availability.
+XAxis	String	X-axis" would represent the horizontal axis. It helps in identifying the location of seats from side to side within the aircraft.
+YAxis	String	Y-axis" would represent the vertical axis, It helps in identifying the location of seats from side to side within the aircraft.
+Copy Code
+                                                        {
+                                                        "FlightSeat": [
+                                                        {
+                                                        "SeatMap": [
+                                                        {
+                                                        "Destination": "CCU",
+                                                        "ItinRef": "0",
+                                                        "MaxHeight": "69",
+                                                        "MaxWidth": "14",
+                                                        "Origin": "IXB",
+                                                        "SeatAmount": "0",
+                                                        "SeatAvailability": "Closed",
+                                                        "SeatCategory": "",
+                                                        "SeatCharacterstic": "",
+                                                        "SeatGroup": "98",
+                                                        "SeatID": "AQ132051322175817861320538751323B63WSHXSZQY|1640",
+                                                        "SeatMessage": "",
+                                                        "SeatName": "1A",
+                                                        "SeatPosition": "",
+                                                        "SeatRef": "1A",
+                                                        "SeatReferenceAPI": "",
+                                                        "SeatStatus": "true",
+                                                        "SeatType": "NS",
+                                                        "Seatcharacteristics": null,
+                                                        "SegRef": "1",
+                                                        "WingSeat": "",
+                                                        "XAxis": "1",
+                                                        "YAxis": "6"
+                                                        }
+                                                        ]
+                                                        }
+                                                        ]
+                                                        }
+                                                    
+7.5.1 Success
+Refer to the sample JSON request and response that is attached
+
+7.5.2 Failure
+Copy Code
+                                                        {
+                                                        "FlightSeat": null,
+                                                        "ResponseStatus": {
+                                                        "Error": "The requested token was timed out.",
+                                                        "ResultCode": "0",
+                                                        "SequenceID": "85433868698134"
+                                                        }
+                                                        }
+                                                    
+7.5.3 Exception
+Copy Code
+                                                        {
+                                                        "FlightSeat": null,
+                                                        "ResponseStatus": {
+                                                        "Error": "EX-Unable to fetch seat for the requested segments.",
+                                                        "ResultCode": "-1",
+                                                        "SequenceID": "174533868988134"
+                                                        }
+                                                        }
+                                                    
