@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import DestinationCard from "../components/travel-portal/DestinationCard";
-import FlightBookingUI from "../components/travel-portal/FlightBookingUI";
+import TravelBookingWrapper from "../components/travel-portal/TravelBookingWrapper";
 import {
 	ArrowRight,
 	MapPin,
@@ -141,7 +141,7 @@ export default function TravelHomePage() {
 
 			{/* Page content (kept above background) */}
 			<div className="relative z-10">
-				{/* Flight Booking UI */}
+				{/* Travel Booking UI */}
 				<section className="relative py-16 bg-gradient-to-b from-orange-100/30 via-transparent to-transparent">
 					{/* Decorative Elements */}
 					<div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
@@ -154,7 +154,7 @@ export default function TravelHomePage() {
 						</div>
 					</div>
 
-					<FlightBookingUI />
+					<TravelBookingWrapper />
 				</section>
 			</div>
 

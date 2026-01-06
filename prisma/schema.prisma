@@ -725,3 +725,77 @@ model TravelBooking {
   destination   Destination @relation(fields: [destinationId], references: [id])
   user          User        @relation(fields: [userId], references: [id])
 }
+
+// TBO Hotel Search System Models
+// Country model - Master list of countries from TBO
+model TboCountry {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  countryCode String   @unique
+  countryName String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([countryName])
+}
+
+// City model - Cities from TBO mapped to countries
+model TboCity {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  cityCode    String   @unique
+  cityName    String
+  countryCode String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([cityName])
+  @@index([countryCode])
+  @@index([countryCode, cityName])
+}
+
+// Hotel model - Hotels from TBO with full details
+model TboHotel {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  hotelCode    String   @unique
+  hotelName    String
+  cityCode     String
+  cityName     String
+  countryCode  String
+  countryName  String
+  latitude     String?
+  longitude    String?
+  hotelRating  String?
+  address      String?
+  description  String?
+  facilities   String[] // Array of facilities
+  images       String[] // Array of image URLs
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([hotelName])
+  @@index([cityCode])
+  @@index([countryCode])
+  @@index([cityCode, hotelName])
+  @@index([countryCode, cityName])
+}
+
+// Unified search index for fast autocomplete searches
+model TboSearchIndex {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  type        String   // 'country' | 'city' | 'hotel'
+  displayName String
+  countryCode String
+  cityCode    String?
+  hotelCode   String?
+  searchText  String   // Normalized searchable text
+  priority    Int      // hotel=3 > city=2 > country=1
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([searchText])
+  @@index([type])
+  @@index([priority])
+  @@index([type, priority])
+  @@index([countryCode])
+  @@index([cityCode])
+  @@index([hotelCode])
+}
