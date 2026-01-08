@@ -1,4 +1,4 @@
-import AiriqBookingClient from "./AiriqBookingClient.js";
+import AiriqBookingClient from "./AiriqBookingClient";
 
 interface AiriqBookingPageProps {
 	traceId: string;

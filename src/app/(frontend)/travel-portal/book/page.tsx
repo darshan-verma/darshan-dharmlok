@@ -50,7 +50,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 	// Route to AIRiQ booking page if using AIRiQ API
 	if (apiSource === "AIRiQ") {
 		// Import dynamically to avoid circular dependencies
-		const { default: AiriqBookingPage } = await import("./airiq-page.js");
+		const { default: AiriqBookingPage } = await import("./airiq-page");
 		return (
 			<AiriqBookingPage
 				traceId={traceId}

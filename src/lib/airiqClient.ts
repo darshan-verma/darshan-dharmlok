@@ -15,6 +15,8 @@ import type {
 	AiriqBookingResponse,
 	AiriqSSRRequest,
 	AiriqSSRResponse,
+	AiriqPostBookingSSRRequest,
+	AiriqPostBookingSSRResponse,
 	AiriqPricingRequest,
 	AiriqPricingResponse,
 	AiriqSeatMapRequest,
@@ -61,29 +63,10 @@ export async function airiqRequest<T = unknown>(
 			},
 		};
 
-		console.log(
-			`🔍 AIRiQ ${endpoint} Headers:`,
-			JSON.stringify(
-				{
-					"Content-Type": "application/json",
-					Authorization: AUTH_HEADER.substring(0, 20) + "...",
-					TOKEN: token.substring(0, 30) + "...",
-				},
-				null,
-				2
-			)
-		);
-
 		// Add body for POST/PUT requests (Token is in header, not body)
 		if (body && (method === "POST" || method === "PUT")) {
-			console.log(
-				`🔍 AIRiQ ${endpoint} Request Body:`,
-				JSON.stringify(body, null, 2)
-			);
 			requestOptions.body = JSON.stringify(body);
 		}
-
-		console.log(`📡 AIRiQ Request to: ${url}`);
 		const response = await fetch(url, requestOptions);
 
 		console.log(
@@ -101,14 +84,6 @@ export async function airiqRequest<T = unknown>(
 		}
 
 		const responseText = await response.text();
-		const preview =
-			responseText.length > 500
-				? responseText.substring(0, 500) + "..."
-				: responseText;
-		console.log(
-			`📦 AIRiQ ${endpoint} Raw Response (first 500 chars):`,
-			preview
-		);
 
 		let data;
 		try {
@@ -151,6 +126,8 @@ export async function airiqRequest<T = unknown>(
 					return await airiqRequest<T>(config, true);
 				}
 
+				// For IP validation errors, still throw but let route handlers catch and handle gracefully
+				// This allows different endpoints to handle IP errors differently
 				throw new Error(
 					`AIRiQ ${endpoint} Error (Code ${ResultCode}): ${errorMessage}`
 				);
@@ -223,13 +200,26 @@ export async function getFareQuote(
 }
 
 /**
- * Get SSR (Special Service Request) options
+ * Get SSR (Special Service Request) options (pre-booking)
  */
 export async function getSSR(
 	ssrParams: Omit<AiriqSSRRequest, "Token">
 ): Promise<AiriqSSRResponse> {
 	return airiqRequest<AiriqSSRResponse>({
 		endpoint: "SSR",
+		method: "POST",
+		body: ssrParams,
+	});
+}
+
+/**
+ * Get post-booking SSR (PostAncillary Avail) - uses PNRs
+ */
+export async function getPostBookingSSR(
+	ssrParams: Omit<AiriqPostBookingSSRRequest, "Token">
+): Promise<AiriqPostBookingSSRResponse> {
+	return airiqRequest<AiriqPostBookingSSRResponse>({
+		endpoint: "PostAncillary Avail",
 		method: "POST",
 		body: ssrParams,
 	});
@@ -358,7 +348,7 @@ export function convertAiriqToTboFormat(
 
 		// Convert outbound flights
 		for (const item of outboundItinerary.Items) {
-			const flight = convertAiriqItemToTboFlight(item);
+			const flight = convertAiriqItemToTboFlight(item, airiqResponse.Trackid);
 			if (flight) {
 				outboundFlights.push(flight);
 			}
@@ -366,7 +356,7 @@ export function convertAiriqToTboFormat(
 
 		// Convert return flights
 		for (const item of returnItinerary.Items) {
-			const flight = convertAiriqItemToTboFlight(item);
+			const flight = convertAiriqItemToTboFlight(item, airiqResponse.Trackid);
 			if (flight) {
 				returnFlights.push(flight);
 			}
@@ -403,39 +393,40 @@ export function convertAiriqToTboFormat(
 			// Each flight should have segments from all legs combined
 			const legFlights: Array<Array<Record<string, unknown>>> = [];
 
-			// Convert flights from each leg
-			for (const itinerary of airiqResponse.ItineraryFlightList) {
-				const flights: Array<Record<string, unknown>> = [];
-				for (const item of itinerary.Items) {
-					const flight = convertAiriqItemToTboFlight(item);
-					if (flight) {
-						flights.push(flight);
-					}
+		// Convert flights from each leg
+		for (const itinerary of airiqResponse.ItineraryFlightList) {
+			const flights: Array<Record<string, unknown>> = [];
+			for (const item of itinerary.Items) {
+				const flight = convertAiriqItemToTboFlight(item, airiqResponse.Trackid);
+				if (flight) {
+					flights.push(flight);
 				}
-				legFlights.push(flights);
 			}
+			legFlights.push(flights);
+		}
 
 			// Combine flights from all legs (each combination represents one complete journey)
 			const combinedFlights: Array<Record<string, unknown>> = [];
 
 			// Generate all combinations recursively
+			type FlightSegment = Record<string, unknown>;
 			function generateCombinations(
 				legIndex: number,
-				currentSegments: any[],
+				currentSegments: FlightSegment[],
 				currentFare: number
 			) {
 				if (legIndex === legFlights.length) {
 					// All legs processed, create combined flight
 					if (currentSegments.length > 0) {
-						const firstFlight = legFlights[0][0];
+						const firstFlight = legFlights[0][0] as { ResultIndex?: string; Fare?: Record<string, unknown> };
 						combinedFlights.push({
 							...firstFlight,
-							ResultIndex: `${(firstFlight as any).ResultIndex}_MULTI_${
+							ResultIndex: `${firstFlight.ResultIndex || "UNKNOWN"}_MULTI_${
 								combinedFlights.length
 							}`,
 							Segments: currentSegments,
 							Fare: {
-								...(firstFlight as any).Fare,
+								...(firstFlight.Fare || {}),
 								OfferedFare: currentFare,
 								PublishedFare: currentFare,
 								NetPayable: currentFare,
@@ -445,51 +436,52 @@ export function convertAiriqToTboFormat(
 					return;
 				}
 
-				// Process current leg
-				const currentLegFlights = legFlights[legIndex];
-				for (const flight of currentLegFlights) {
-					const flightSegments = (flight as any).Segments || [];
-					const flightFare = (flight as any).Fare?.OfferedFare || 0;
-					generateCombinations(
-						legIndex + 1,
-						[...currentSegments, ...flightSegments],
-						currentFare + flightFare
-					);
+			// Process current leg
+			const currentLegFlights = legFlights[legIndex];
+			for (const flight of currentLegFlights) {
+				const flightWithSegments = flight as { Segments?: FlightSegment[]; Fare?: { OfferedFare?: number } };
+				const flightSegments = flightWithSegments.Segments || [];
+				const flightFare = flightWithSegments.Fare?.OfferedFare || 0;
+				generateCombinations(
+					legIndex + 1,
+					[...currentSegments, ...flightSegments],
+					currentFare + flightFare
+				);
+			}
+		}
+
+		generateCombinations(0, [], 0);
+
+		console.log(
+			`✅ Created ${combinedFlights.length} AIRiQ multi-city flight combinations`
+		);
+
+		return {
+			Response: {
+				TraceId: airiqResponse.Trackid,
+				Results: [
+					combinedFlights as unknown as FlightSearchResponse["Response"]["Results"][0],
+				],
+				Origin: "",
+				Destination: "",
+				FlightCabinClass: 1,
+			},
+		};
+	} else {
+		// Option 2: Single list with multi-segment flights - already combined by AIRiQ
+		console.log(
+			`➡️ Converting AIRiQ Multi-city Flight Response (pre-combined)`
+		);
+		const tboFlights: Array<Record<string, unknown>> = [];
+
+		for (const itinerary of airiqResponse.ItineraryFlightList) {
+			for (const item of itinerary.Items) {
+				const flight = convertAiriqItemToTboFlight(item, airiqResponse.Trackid);
+				if (flight) {
+					tboFlights.push(flight);
 				}
 			}
-
-			generateCombinations(0, [], 0);
-
-			console.log(
-				`✅ Created ${combinedFlights.length} AIRiQ multi-city flight combinations`
-			);
-
-			return {
-				Response: {
-					TraceId: airiqResponse.Trackid,
-					Results: [
-						combinedFlights as unknown as FlightSearchResponse["Response"]["Results"][0],
-					],
-					Origin: "",
-					Destination: "",
-					FlightCabinClass: 1,
-				},
-			};
-		} else {
-			// Option 2: Single list with multi-segment flights - already combined by AIRiQ
-			console.log(
-				`➡️ Converting AIRiQ Multi-city Flight Response (pre-combined)`
-			);
-			const tboFlights: Array<Record<string, unknown>> = [];
-
-			for (const itinerary of airiqResponse.ItineraryFlightList) {
-				for (const item of itinerary.Items) {
-					const flight = convertAiriqItemToTboFlight(item);
-					if (flight) {
-						tboFlights.push(flight);
-					}
-				}
-			}
+		}
 
 			console.log(`✅ Converted ${tboFlights.length} AIRiQ multi-city flights`);
 
@@ -516,7 +508,7 @@ export function convertAiriqToTboFormat(
 
 		for (const itinerary of airiqResponse.ItineraryFlightList) {
 			for (const item of itinerary.Items) {
-				const flight = convertAiriqItemToTboFlight(item);
+				const flight = convertAiriqItemToTboFlight(item, airiqResponse.Trackid);
 				if (flight) {
 					tboFlights.push(flight);
 				}
@@ -543,7 +535,8 @@ export function convertAiriqToTboFormat(
  * Helper function to convert a single AIRiQ item to TBO flight format
  */
 function convertAiriqItemToTboFlight(
-	item: AiriqFlightSearchResponse["ItineraryFlightList"][0]["Items"][0]
+	item: AiriqFlightSearchResponse["ItineraryFlightList"][0]["Items"][0],
+	trackid: string
 ): Record<string, unknown> | null {
 	const flightDetails = item.FlightDetails;
 	const fares = item.Fares[0]; // Take first fare
@@ -618,6 +611,16 @@ function convertAiriqItemToTboFlight(
 		ValidatingAirlineCode: firstSegment.PlatingCarrier,
 		AirlineRemark: "",
 		Segments: [tboSegments],
+		// Store original AIRiQ data for Pricing API
+		_airiqOriginal: {
+			Trackid: trackid, // Store AirIQ Trackid for Pricing API
+			FlightDetails: flightDetails,
+			Fares: item.Fares,
+		},
+		// Store seat map availability from AIRiQ response
+		_airiqSeatMapAvailable: flightDetails.some(
+			(seg) => seg.AvailSeat && seg.AvailSeat.trim() !== ""
+		),
 		Fare: {
 			Currency: fares.Currency,
 			BaseFare: baseFare,

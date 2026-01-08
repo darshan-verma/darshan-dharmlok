@@ -21,17 +21,26 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		const searchText = query.toLowerCase().trim();
+		// Normalize the search text: lowercase, trim, and replace multiple spaces with single space
+		const searchText = query.toLowerCase().trim().replace(/\s+/g, " ");
 
 		console.log(
 			`Searching for: "${searchText}" with type filter: ${type || "all"}`
 		);
 
-		// Build search filter
-		const whereClause: any = {
-			searchText: {
-				contains: searchText,
-			},
+		// Build search filter - split search into words and search each
+		const searchWords = searchText.split(" ").filter((word) => word.length > 0);
+
+		type WhereClause = {
+			AND: Array<{ searchText: { contains: string } }>;
+			type?: string;
+		};
+		const whereClause: WhereClause = {
+			AND: searchWords.map((word) => ({
+				searchText: {
+					contains: word,
+				},
+			})),
 		};
 
 		// Apply type filter if provided
@@ -118,7 +127,7 @@ export async function POST(request: NextRequest) {
 						take: 10,
 						orderBy: { cityName: "asc" },
 					});
-					(result as any).cities = cities;
+					(result as { cities?: unknown }).cities = cities;
 				}
 				break;
 
@@ -129,13 +138,12 @@ export async function POST(request: NextRequest) {
 
 				// Get country and hotels for this city
 				if (result) {
-					const city = result as any;
+					const city = result as { countryCode: string; country?: unknown; hotels?: unknown };
 					const country = await prisma.tboCountry.findUnique({
 						where: { countryCode: city.countryCode },
 					});
 					const hotels = await prisma.tboHotel.findMany({
 						where: { cityCode: code },
-						take: 50,
 						orderBy: { hotelName: "asc" },
 					});
 					city.country = country;
@@ -150,7 +158,7 @@ export async function POST(request: NextRequest) {
 
 				// Get country and city for this hotel
 				if (result) {
-					const hotel = result as any;
+					const hotel = result as { countryCode: string; cityCode: string; country?: unknown; city?: unknown };
 					const country = await prisma.tboCountry.findUnique({
 						where: { countryCode: hotel.countryCode },
 					});

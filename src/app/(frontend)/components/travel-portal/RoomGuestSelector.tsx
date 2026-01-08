@@ -65,9 +65,14 @@ export default function RoomGuestSelector({
 		}
 	};
 
-	const updateRoom = (index: number, field: keyof RoomConfig, value: any) => {
+	const updateRoom = (index: number, field: keyof RoomConfig, value: number | number[]) => {
 		const newRooms = [...localRooms];
 		if (field === "children") {
+			// Type guard: when field is "children", value must be a number
+			if (typeof value !== "number") {
+				console.error("Invalid value type for children field");
+				return;
+			}
 			const prevChildrenCount = newRooms[index].children;
 			newRooms[index].children = value;
 			// Adjust childrenAges array
@@ -85,8 +90,20 @@ export default function RoomGuestSelector({
 					value
 				);
 			}
-		} else {
-			newRooms[index][field] = value;
+		} else if (field === "adults") {
+			// Type guard: when field is "adults", value must be a number
+			if (typeof value !== "number") {
+				console.error("Invalid value type for adults field");
+				return;
+			}
+			newRooms[index].adults = value;
+		} else if (field === "childrenAges") {
+			// Type guard: when field is "childrenAges", value must be an array
+			if (!Array.isArray(value)) {
+				console.error("Invalid value type for childrenAges field");
+				return;
+			}
+			newRooms[index].childrenAges = value;
 		}
 		setLocalRooms(newRooms);
 	};

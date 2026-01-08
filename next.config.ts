@@ -34,14 +34,17 @@ const nextConfig: NextConfig = {
 				port: "",
 				pathname: "/**",
 			},
-			// Add other existing remote patterns here if you have any
-			// For example:
-			// {
-			//   protocol: 'https',
-			//   hostname: 'another-domain.com',
-			//   port: '',
-			//   pathname: '/**',
-			// },
+			// TBO Hotel Images - common image hosting domains
+			{
+				protocol: "https",
+				hostname: "*.tbotechnology.in",
+				pathname: "/**",
+			},
+			{
+				protocol: "http",
+				hostname: "*.tbotechnology.in",
+				pathname: "/**",
+			},
 		],
 	},
 	// ... any other existing configurations

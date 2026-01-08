@@ -45,11 +45,11 @@ export function useTboHotelAuth() {
 					tokenExpiry: null,
 				});
 			}
-		} catch (error: any) {
+		} catch (error) {
 			setAuthStatus({
 				isAuthenticated: false,
 				isLoading: false,
-				error: error.message || "Failed to check authentication",
+				error: error instanceof Error ? error.message : "Failed to check authentication",
 				tokenExpiry: null,
 			});
 		}
@@ -84,11 +84,11 @@ export function useTboHotelAuth() {
 				});
 				return false;
 			}
-		} catch (error: any) {
+		} catch (error) {
 			setAuthStatus({
 				isAuthenticated: false,
 				isLoading: false,
-				error: error.message || "Failed to refresh token",
+				error: error instanceof Error ? error.message : "Failed to refresh token",
 				tokenExpiry: null,
 			});
 			return false;
@@ -162,7 +162,7 @@ export async function searchHotelsWithAuth(params: {
 		}
 
 		return data;
-	} catch (error: any) {
+	} catch (error) {
 		console.error("Hotel search error:", error);
 		throw error;
 	}

@@ -5,12 +5,13 @@ import PassengerDetails from "../components/PassengerDetails";
 import FareBreakdown from "@/components/travel-portal/FareBreakdown";
 import FlightDetails from "./components/FlightDetails";
 import FareRulesView from "./components/FareRulesView";
+import AiriqSSRSelection from "../components/ssr/AiriqSSRSelection";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { Search, Loader2 } from "lucide-react";
 import Link from "next/link";
-import type { PassengerDetail, FlightResult } from "@/types/tbo";
+import type { PassengerDetail, FlightResult, FareRuleResponse } from "@/types/tbo";
 
 interface AiriqBookingClientProps {
 	adultCount: number;
@@ -31,7 +32,18 @@ export default function AiriqBookingClient({
 AiriqBookingClientProps) {
 	const [loading, setLoading] = useState(true);
 	const [flightResult, setFlightResult] = useState<FlightResult | null>(null);
-	const [fareRules, setFareRules] = useState<any>(null);
+	const [fareRules, setFareRules] = useState<FareRuleResponse | null>(null);
+	const [pricingData, setPricingData] = useState<any>(null);
+	const [passengers, setPassengers] = useState<PassengerDetail[]>([]);
+	const [selectedSSRs, setSelectedSSRs] = useState<{
+		baggage: Record<string, { Id: string; Price: number } | null>;
+		meals: Record<string, { Id: string; Price: number } | null>;
+		seats: Record<string, { SeatID: string; Price: number } | null>;
+	}>({
+		baggage: {},
+		meals: {},
+		seats: {},
+	});
 
 	// Load flight data from sessionStorage cache
 	useEffect(() => {
@@ -44,26 +56,25 @@ AiriqBookingClientProps) {
 			}
 
 			const cache = JSON.parse(stored);
-			console.log("Loaded cache:", cache);
 
-			// Find the flight with matching resultIndex and traceId
+			// Optimized: Find the flight with matching resultIndex and traceId
 			let foundFlight: FlightResult | null = null;
-			Object.values(cache).forEach((entry: any) => {
+			for (const entry of Object.values(cache) as Array<{ traceId: string; results?: FlightResult[] }>) {
 				if (entry.traceId === traceId && entry.results) {
-					const flight = entry.results.find(
+					foundFlight = entry.results.find(
 						(f: FlightResult) => f.ResultIndex === resultIndex
-					);
-					if (flight) {
-						foundFlight = flight;
+					) ?? null;
+					if (foundFlight) {
+						break; // Found it, exit early
 					}
 				}
-			});
+			}
 
 			if (foundFlight) {
-				console.log("Found flight in cache:", foundFlight);
 				setFlightResult(foundFlight);
-
-				// Fetch pricing and fare rules for AIRiQ flight
+				// Show UI immediately, fetch additional data in background
+				setLoading(false);
+				// Fetch pricing and fare rules in background (non-blocking)
 				fetchAiriqBookingData(foundFlight);
 			} else {
 				console.error("Flight not found in cache");
@@ -73,49 +84,111 @@ AiriqBookingClientProps) {
 			console.error("Error loading flight data from cache:", e);
 			setLoading(false);
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [traceId, resultIndex]);
 
 	const fetchAiriqBookingData = async (flight: FlightResult) => {
 		try {
-			// Fetch pricing and fare rules SEQUENTIALLY to avoid race conditions
-			// First fetch pricing
-			const pricingResponse = await fetch("/api/travel/airiq/pricing", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					traceId,
-					resultIndex,
-					flight,
-					adultCount,
-					childCount,
-					infantCount,
-				}),
-			});
+			// Check if this is a round-trip and fetch return flight
+			let returnFlight = null;
+			const returnResultIndex = flight.ReturnResultIndex;
 
-			if (!pricingResponse.ok) {
-				throw new Error("Failed to fetch pricing");
+			if (returnResultIndex) {
+				// Get the flightSearchCache from sessionStorage
+				const cacheData = sessionStorage.getItem("flightSearchCache");
+				if (cacheData) {
+					try {
+						const cache = JSON.parse(cacheData);
+
+						// Optimized: Find matching cache entry directly
+						for (const cacheKey of Object.keys(cache)) {
+							const entry = cache[cacheKey];
+							
+							// Quick check: match traceId first
+							if (entry.traceId === traceId && entry.results) {
+								// Search for return flight by ResultIndex
+								const found = entry.results.find(
+									(r: FlightResult) => r.ResultIndex === returnResultIndex
+								);
+								returnFlight = found ?? null;
+								
+								if (returnFlight) {
+									break; // Found it, exit early
+								}
+							}
+						}
+					} catch (e) {
+						console.error("Error parsing flight search cache:", e);
+					}
+				}
+
+				if (!returnFlight) {
+					console.warn("⚠️ Return flight not found in cache for ResultIndex:", returnResultIndex);
+				}
 			}
 
-			const pricingData = await pricingResponse.json();
-			console.log("Pricing data:", pricingData);
+			// Check if airline supports SSR before fetching pricing
+			const airlineCode = flightResult?.AirlineCode || flightResult?.ValidatingAirlineCode || "";
+			const ssrSupportedAirlines = ["AI", "UK"]; // AI = Air India, UK = Vistara
+			const isSSRSupported = ssrSupportedAirlines.includes(airlineCode);
 
-			// Then fetch fare rules (using the same token from cache)
-			const fareRulesResponse = await fetch("/api/travel/airiq/fare-rules", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					traceId,
-					resultIndex,
-					flight,
-				}),
-			});
+			// Only fetch pricing data for SSR if airline supports it
+			if (isSSRSupported) {
+				try {
+					const pricingResponse = await fetch("/api/travel/airiq/pricing", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							traceId,
+							resultIndex,
+							flight,
+							returnFlight,
+							adultCount,
+							childCount,
+							infantCount,
+						}),
+					});
 
-			if (fareRulesResponse.ok) {
-				const fareRulesData = await fareRulesResponse.json();
-				setFareRules(fareRulesData);
+					if (pricingResponse.ok) {
+						const pricingData = await pricingResponse.json();
+						console.log("📦 AIRiQ Pricing Response for SSR:", {
+							hasPriceItenaryInfo: !!pricingData?.PriceItenaryInfo,
+							hasSSR: !!pricingData?.PriceItenaryInfo?.SSR,
+							ssrBaggage: pricingData?.PriceItenaryInfo?.SSR?.Baggage?.length || 0,
+							ssrMeals: pricingData?.PriceItenaryInfo?.SSR?.Meal?.length || 0,
+							fullSSR: pricingData?.PriceItenaryInfo?.SSR,
+						});
+						setPricingData(pricingData);
+					}
+				} catch (error) {
+					console.warn("⚠️ Pricing fetch failed:", error);
+				}
+			} else {
+				console.log(`⚠️ Airline ${airlineCode} does not support SSR - skipping pricing fetch`);
+				// Set pricing data to null so SSR component knows SSR is not available
+				setPricingData(null);
 			}
 
-			setLoading(false);
+			// Fetch fare rules
+			try {
+				const fareRulesResponse = await fetch("/api/travel/airiq/fare-rules", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						traceId,
+						resultIndex,
+						flight,
+					}),
+				});
+
+				if (fareRulesResponse.ok) {
+					const fareRulesData = await fareRulesResponse.json();
+					setFareRules(fareRulesData);
+				}
+			} catch (error) {
+				console.warn("⚠️ Fare rules fetch failed:", error);
+				// Don't block UI if fare rules fail
+			}
 		} catch (error) {
 			console.error("Error fetching AIRiQ booking data:", error);
 			toast.error("Failed to load booking details");
@@ -254,18 +327,50 @@ AiriqBookingClientProps) {
 							childCount={childCount}
 							infantCount={infantCount}
 							onBookingSubmit={handleBookingSubmit}
-							onPassengersChange={() => {}}
+							onPassengersChange={setPassengers}
 							flightResult={flightResult}
 							ssrCharges={{
-								baggage: {},
-								meals: {},
-								seats: {},
+								baggage: Object.fromEntries(
+									Object.entries(selectedSSRs.baggage).map(([key, value]) => [
+										key,
+										value ? { Price: value.Price } : null,
+									])
+								) as Record<string, { Price: number } | null>,
+								meals: Object.fromEntries(
+									Object.entries(selectedSSRs.meals).map(([key, value]) => [
+										key,
+										value ? { Price: value.Price } : null,
+									])
+								) as Record<string, { Price: number } | null>,
+								seats: Object.fromEntries(
+									Object.entries(selectedSSRs.seats).map(([key, value]) => [
+										key,
+										value ? { Price: value.Price } : null,
+									])
+								) as Record<string, { Price: number } | null>,
 								specialServices: {},
 							}}
 						/>
 					</section>
 
-					{/* 3. Fare Rules (Accordion) */}
+					{/* 3. Add-ons (SSR) - Show even if no passengers yet, so users can see options */}
+					{pricingData && (
+						<section>
+							<AiriqSSRSelection
+								traceId={traceId}
+								resultIndex={resultIndex}
+								flight={flightResult}
+								passengers={passengers}
+								adultCount={adultCount}
+								childCount={childCount}
+								infantCount={infantCount}
+								pricingData={pricingData}
+								onSSRChange={setSelectedSSRs}
+							/>
+						</section>
+					)}
+
+					{/* 4. Fare Rules (Accordion) */}
 					{fareRules && (
 						<section>
 							<FareRulesView fareRules={fareRules} />
@@ -280,9 +385,24 @@ AiriqBookingClientProps) {
 							flight={flightResult}
 							showValidation={false}
 							ssrCharges={{
-								baggage: {},
-								meals: {},
-								seats: {},
+								baggage: Object.fromEntries(
+									Object.entries(selectedSSRs.baggage).map(([key, value]) => [
+										key,
+										value ? ({ Price: value.Price } as any) : null,
+									])
+								) as any,
+								meals: Object.fromEntries(
+									Object.entries(selectedSSRs.meals).map(([key, value]) => [
+										key,
+										value ? ({ Price: value.Price } as any) : null,
+									])
+								) as any,
+								seats: Object.fromEntries(
+									Object.entries(selectedSSRs.seats).map(([key, value]) => [
+										key,
+										value ? ({ Price: value.Price } as any) : null,
+									])
+								) as any,
 								specialServices: {},
 							}}
 						/>

@@ -70,9 +70,10 @@ function getAuthCredentials() {
 async function ensureCacheDir(): Promise<void> {
 	try {
 		await mkdir(TOKEN_CACHE_DIR, { recursive: true });
-	} catch (error: any) {
+	} catch (error) {
 		// Ignore if directory already exists
-		if (error.code !== "EEXIST") {
+		const nodeError = error as { code?: string };
+		if (nodeError.code !== "EEXIST") {
 			console.error("Error creating cache directory:", error);
 		}
 	}
@@ -86,9 +87,10 @@ async function readTokenFromFile(): Promise<TokenCache | null> {
 		const data = await readFile(TOKEN_CACHE_FILE, "utf-8");
 		const cache: TokenCache = JSON.parse(data);
 		return cache;
-	} catch (error: any) {
+	} catch (error) {
 		// File doesn't exist or is invalid
-		if (error.code !== "ENOENT") {
+		const nodeError = error as { code?: string };
+		if (nodeError.code !== "ENOENT") {
 			console.warn("Error reading token cache file:", error);
 		}
 		return null;
@@ -115,8 +117,9 @@ async function deleteTokenFile(): Promise<void> {
 	try {
 		await unlink(TOKEN_CACHE_FILE);
 		console.log("✓ Token cache file deleted");
-	} catch (error: any) {
-		if (error.code !== "ENOENT") {
+	} catch (error) {
+		const nodeError = error as { code?: string };
+		if (nodeError.code !== "ENOENT") {
 			console.warn("Error deleting token cache file:", error);
 		}
 	}

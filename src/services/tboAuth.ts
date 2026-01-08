@@ -60,7 +60,7 @@ async function authenticateAPI(): Promise<string> {
 		ClientId: clientId,
 		UserName: userId,
 		Password: password,
-		EndUserIp: "192.168.11.58", // You may want to make this dynamic
+		EndUserIp: "192.168.11.120", // End user IP address
 	};
 
 	try {

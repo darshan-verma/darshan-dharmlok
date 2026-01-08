@@ -15,6 +15,14 @@ function getStaticAuthHeader(): string {
 	const credentials = Buffer.from(
 		`${STATIC_API_USERNAME}:${STATIC_API_PASSWORD}`
 	).toString("base64");
+	
+	// Log credentials being used (for debugging)
+	console.log(`🔐 Static API Credentials:`, {
+		username: STATIC_API_USERNAME,
+		passwordLength: STATIC_API_PASSWORD.length,
+		basicAuth: `Basic ${credentials}`,
+	});
+	
 	return `Basic ${credentials}`;
 }
 
@@ -24,7 +32,7 @@ function getStaticAuthHeader(): string {
 async function makeStaticRequest<T>(
 	endpoint: string,
 	method: "GET" | "POST" = "GET",
-	body?: any
+	body?: Record<string, unknown>
 ): Promise<T> {
 	const url = `${STATIC_API_BASE_URL}/${endpoint}`;
 
@@ -51,6 +59,25 @@ async function makeStaticRequest<T>(
 		}
 
 		const data = await response.json();
+		
+		// Log the response for debugging (only for HotelDetails endpoint)
+		if (endpoint === "HotelDetails") {
+			console.log(`📡 HotelDetails API raw response:`, JSON.stringify(data, null, 2));
+			console.log(`📡 Response keys:`, Object.keys(data));
+			if (data.Status) {
+				console.log(`📡 Status:`, data.Status);
+				// Check if Status indicates an error
+				if (data.Status.Code !== 1 && data.Status.Code !== 0 && data.Status.Code !== 200) {
+					throw new Error(`Hotel Details API Error: ${data.Status.Description || `Code ${data.Status.Code}`}`);
+				}
+			}
+			if (data.HotelDetails) {
+				console.log(`📡 HotelDetails keys:`, Object.keys(data.HotelDetails));
+			} else {
+				console.log(`⚠️ No HotelDetails in response! Response structure:`, JSON.stringify(data, null, 2));
+			}
+		}
+		
 		return data as T;
 	} catch (error) {
 		console.error(`TBO Static API error (${endpoint}):`, error);
@@ -179,6 +206,17 @@ export async function getHotelDetails(
 	language: string = "EN",
 	isRoomDetailRequired: boolean = true
 ): Promise<TboHotelDetailsResponse> {
+	console.log(`🔍 HotelDetails request:`, {
+		hotelCode,
+		language,
+		isRoomDetailRequired,
+		requestBody: {
+			Hotelcodes: hotelCode,
+			Language: language,
+			IsRoomDetailRequired: isRoomDetailRequired,
+		},
+	});
+	
 	return await makeStaticRequest<TboHotelDetailsResponse>(
 		"HotelDetails",
 		"POST",

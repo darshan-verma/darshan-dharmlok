@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 			"base64"
 		);
 
-		let url = `http://api.tbotechnology.in/TBOHolidays_HotelAPI/${endpoint}`;
+		const url = `http://api.tbotechnology.in/TBOHolidays_HotelAPI/${endpoint}`;
 		let method = "GET";
 		let body = null;
 
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 		let data;
 		try {
 			data = JSON.parse(text);
-		} catch (e) {
+		} catch (_e) {
 			return NextResponse.json({
 				error: "Failed to parse JSON",
 				status: response.status,

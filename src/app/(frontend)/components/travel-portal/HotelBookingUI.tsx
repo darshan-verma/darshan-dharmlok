@@ -236,7 +236,7 @@ export default function HotelBookingUI() {
 								Best Price Guarantee
 							</h3>
 							<p className="text-sm text-gray-600">
-								Find lower price? We'll refund the difference
+								Find lower price? We&apos;ll refund the difference
 							</p>
 						</div>
 					</div>

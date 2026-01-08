@@ -64,9 +64,9 @@ async function testHotelSearch(token) {
 	console.log("\n\n🏨 Testing Hotel Search API...\n");
 
 	const searchRequest = {
-		CheckIn: "2026-01-15",
-		CheckOut: "2026-01-17",
-		HotelCodes: "215869,215870", // Example hotel codes
+		CheckIn: "2026-01-10",
+		CheckOut: "2026-01-12",
+		HotelCodes: "215869,215870", // Known working hotel codes
 		GuestNationality: "IN",
 		NoOfRooms: 1,
 		PaxRooms: [
@@ -114,8 +114,8 @@ async function runTests() {
 	const token = await testAuthentication();
 
 	if (token) {
-		// Uncomment to test hotel search
-		// await testHotelSearch(token);
+		// Test hotel search with Agra hotel codes
+		await testHotelSearch(token);
 	}
 
 	console.log("\n✨ Test completed!\n");

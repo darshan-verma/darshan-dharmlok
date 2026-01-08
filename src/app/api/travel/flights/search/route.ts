@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
 		const [tboResult, airiqResult] = await Promise.allSettled([
 			searchFlights(searchParams),
 			airiqParams
-				? searchAiriqFlights(airiqParams).catch((err) => {
+				? searchAiriqFlights(airiqParams).catch((_err) => {
 						// Silently handle AIRiQ errors - don't log to avoid authentication attempts on errors
 						console.warn("⚠️ AIRiQ search unavailable (skipping)");
 						return null;

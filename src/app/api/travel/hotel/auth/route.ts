@@ -38,12 +38,12 @@ export async function GET(request: NextRequest) {
 				? "Token refreshed successfully"
 				: "Token retrieved successfully",
 		});
-	} catch (error: any) {
+	} catch (error) {
 		console.error("Hotel auth error:", error);
 		return NextResponse.json(
 			{
 				success: false,
-				error: error.message || "Failed to authenticate with TBO Hotel API",
+				error: error instanceof Error ? error.message : "Failed to authenticate with TBO Hotel API",
 			},
 			{ status: 500 }
 		);
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
  * POST /api/travel/hotel/auth
  * Force refresh the authentication token
  */
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
 	try {
 		// Clear existing token cache
 		clearTokenCache();
@@ -71,12 +71,12 @@ export async function POST(request: NextRequest) {
 			tokenLength: token.length,
 			expiresAt: expiration?.toISOString(),
 		});
-	} catch (error: any) {
+	} catch (error) {
 		console.error("Hotel auth force refresh error:", error);
 		return NextResponse.json(
 			{
 				success: false,
-				error: error.message || "Failed to force refresh TBO Hotel API token",
+				error: error instanceof Error ? error.message : "Failed to force refresh TBO Hotel API token",
 			},
 			{ status: 500 }
 		);

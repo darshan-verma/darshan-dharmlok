@@ -25,7 +25,30 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Transform passengers to AIRiQ format
-		const airiqPassengers = passengers.map((passenger: any) => ({
+		const airiqPassengers = passengers.map((passenger: {
+			Title: string;
+			FirstName: string;
+			LastName: string;
+			DateOfBirth: string;
+			Gender: number;
+			PassportNo?: string;
+			PassportExpiry?: string;
+			AddressLine1: string;
+			City: string;
+			CountryCode: string;
+			CountryName: string;
+			Nationality?: string;
+			ContactNo: string;
+			Email: string;
+			IsLeadPax?: boolean;
+			FFAirlineCode?: string;
+			FFNumber?: string;
+			GSTCompanyAddress?: string;
+			GSTCompanyContactNumber?: string;
+			GSTCompanyName?: string;
+			GSTNumber?: string;
+			GSTCompanyEmail?: string;
+		}) => ({
 			Title: passenger.Title,
 			FirstName: passenger.FirstName,
 			LastName: passenger.LastName,

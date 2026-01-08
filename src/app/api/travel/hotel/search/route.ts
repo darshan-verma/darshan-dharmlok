@@ -103,6 +103,18 @@ export async function POST(request: NextRequest) {
 
 		const results = await searchHotels(searchParams);
 
+		// Log the response structure for debugging
+		console.log("🔍 TBO API Response structure:", JSON.stringify(results, null, 2));
+		console.log("🔍 Response keys:", Object.keys(results || {}));
+		console.log(
+			"🔍 HotelResult exists?",
+			typeof results === "object" && results !== null && "HotelResult" in results
+		);
+		type ResultsWithHotelResult = {
+			HotelResult?: unknown;
+		};
+		console.log("🔍 HotelResult value:", (results as ResultsWithHotelResult)?.HotelResult);
+
 		return NextResponse.json({
 			success: true,
 			data: results,
@@ -113,12 +125,12 @@ export async function POST(request: NextRequest) {
 				guestNationality: body.guestNationality,
 			},
 		});
-	} catch (error: any) {
+	} catch (error) {
 		console.error("Hotel search error:", error);
 		return NextResponse.json(
 			{
 				success: false,
-				error: error.message || "Failed to search hotels",
+				error: error instanceof Error ? error.message : "Failed to search hotels",
 			},
 			{ status: 500 }
 		);

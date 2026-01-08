@@ -9,11 +9,18 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(request: NextRequest) {
 	try {
 		const body = await request.json().catch(() => ({}));
-		const { countryCodes, cityLimit, hotelLimit, enrichHotelDetails } = body;
+		const { countryCodes, cityLimit, enrichHotelDetails } = body;
 
 		console.log("Starting full TBO sync process...");
 
-		const results: any = {
+		type SyncResults = {
+			countries: unknown;
+			cities: unknown;
+			hotels: unknown;
+			searchIndex: unknown;
+			errors: string[];
+		};
+		const results: SyncResults = {
 			countries: null,
 			cities: null,
 			hotels: null,
@@ -55,7 +62,6 @@ export async function POST(request: NextRequest) {
 		// Step 2: Sync Cities
 		console.log("Step 2/4: Syncing cities...");
 		try {
-			const cityPayload: any = {};
 			if (countryCodes && Array.isArray(countryCodes)) {
 				// Sync specific countries
 				for (const countryCode of countryCodes) {
@@ -112,7 +118,11 @@ export async function POST(request: NextRequest) {
 		// Step 3: Sync Hotels
 		console.log("Step 3/4: Syncing hotels...");
 		try {
-			const hotelPayload: any = {};
+			type HotelPayload = {
+				limit?: number;
+				enrichDetails?: boolean;
+			};
+			const hotelPayload: HotelPayload = {};
 			if (cityLimit) hotelPayload.limit = cityLimit;
 			if (enrichHotelDetails) hotelPayload.enrichDetails = true;
 

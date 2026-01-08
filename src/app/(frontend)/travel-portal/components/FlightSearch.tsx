@@ -19,6 +19,8 @@ import {
 	IndianRupee,
 	RefreshCw,
 	TrendingUp,
+	MapPin,
+	ShoppingBag,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import type {
@@ -2013,65 +2015,55 @@ export default function FlightSearch() {
 																);
 															})}
 
-															{/* SSR Information */}
+															{/* Features Available: Seat Map & SSR */}
 															{(() => {
-																// Get SSR info from the first segment (typically represents the flight's SSR availability)
+																// Get SSR info from the first segment
 																const firstSegment = flight.Segments?.[0]?.[0];
 																const hasBaggage = firstSegment?.Baggage;
 																const hasCabinBaggage =
 																	firstSegment?.CabinBaggage;
-
-																// Check if any SSR is available
-																if (hasBaggage || hasCabinBaggage) {
+																
+																// Check seat map availability for AIRiQ flights
+																const hasSeatMap = (flight as any)?._airiqSeatMapAvailable === true;
+																
+																// Check if any features are available
+																if (hasSeatMap || hasBaggage || hasCabinBaggage) {
 																	return (
 																		<div className="mt-3 pt-3 border-t border-gray-200">
 																			<div className="flex flex-wrap gap-2 items-center">
 																				<span className="text-xs text-gray-500 font-medium">
-																					SSR Available:
+																					Available:
 																				</span>
-																				{hasBaggage && (
-																					<div className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs">
-																						<svg
-																							xmlns="http://www.w3.org/2000/svg"
-																							width="12"
-																							height="12"
-																							viewBox="0 0 24 24"
-																							fill="none"
-																							stroke="currentColor"
-																							strokeWidth="2"
-																							strokeLinecap="round"
-																							strokeLinejoin="round"
-																						>
-																							<path d="M12 2v20M2 7h20M2 17h20M7 7v10M17 7v10" />
-																						</svg>
-																						<span>Baggage: {hasBaggage}</span>
+																				
+																				{/* Seat Map Indicator */}
+																				{hasSeatMap && (
+																					<div 
+																						className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs border border-purple-200"
+																						title="Seat map available"
+																					>
+																						<MapPin className="h-3 w-3" />
+																						<span>Seat Map</span>
 																					</div>
 																				)}
-																				{hasCabinBaggage && (
-																					<div className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md text-xs">
-																						<svg
-																							xmlns="http://www.w3.org/2000/svg"
-																							width="12"
-																							height="12"
-																							viewBox="0 0 24 24"
-																							fill="none"
-																							stroke="currentColor"
-																							strokeWidth="2"
-																							strokeLinecap="round"
-																							strokeLinejoin="round"
-																						>
-																							<rect
-																								x="8"
-																								y="6"
-																								width="8"
-																								height="12"
-																								rx="1"
-																							/>
-																							<path d="M10 6V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2" />
-																						</svg>
-																						<span>
-																							Cabin: {hasCabinBaggage}
-																						</span>
+																				
+																				{/* SSR Indicators */}
+																				{hasBaggage && (
+																					<div 
+																						className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs border border-blue-200"
+																						title="Baggage options available"
+																					>
+																						<ShoppingBag className="h-3 w-3" />
+																						<span>SSR</span>
+																					</div>
+																				)}
+																				
+																				{hasCabinBaggage && !hasBaggage && (
+																					<div 
+																						className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md text-xs border border-green-200"
+																						title="Cabin baggage info available"
+																					>
+																						<ShoppingBag className="h-3 w-3" />
+																						<span>Baggage Info</span>
 																					</div>
 																				)}
 																			</div>

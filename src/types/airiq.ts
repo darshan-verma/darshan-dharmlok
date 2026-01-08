@@ -390,6 +390,74 @@ export interface AiriqSSRResponse {
 	};
 }
 
+// Post-booking SSR (PostAncillary Avail) - uses PNRs
+export interface AiriqPostBookingSSRRequest {
+	Token?: string;
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: number;
+	};
+	AirIqPNR: string;
+	AirlinePNR: string;
+}
+
+export interface AiriqPostBookingSSRResponse {
+	TrackId: string;
+	SsrDetails: {
+		Baggages?: Array<{
+			Id: string;
+			Code: string;
+			Description: string;
+			Amount: string;
+			Origin: string;
+			Destination: string;
+			ItinRef: string;
+			SegRef: string;
+		}>;
+		Meals?: Array<{
+			Id: string;
+			Code: string;
+			Description: string;
+			Amount: string;
+			Origin: string;
+			Destination: string;
+			ItinRef: string;
+			SegRef: string;
+		}>;
+		Seats?: Array<{
+			Id: string;
+			SeatName: string;
+			SeatAmount: string;
+			SeatStatus: boolean;
+			SeatType: string;
+			Origin: string;
+			Destination: string;
+			ItinRef: string;
+			SegRef: string;
+			XAxis: string;
+			YAxis: string;
+		}>;
+		OtherSSR?: Array<{
+			Id: string;
+			Code: string;
+			Description: string;
+			Amount: string;
+			Origin: string;
+			Destination: string;
+			ItinRef: string;
+			SegRef: string;
+			category: string;
+		}>;
+	};
+	Status: {
+		Error: string;
+		ResultCode: string;
+		SequenceID: string;
+	};
+}
+
 // AIRiQ Pricing Request/Response Types (Based on section 6 of documentation)
 export interface AiriqPricingRequest {
 	AgentInfo: {

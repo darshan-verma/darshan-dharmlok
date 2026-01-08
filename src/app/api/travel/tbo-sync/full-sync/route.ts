@@ -19,7 +19,17 @@ export async function POST(request: NextRequest) {
 		} = body;
 
 		const baseUrl = request.nextUrl.origin;
-		const results: any = {
+		type SyncStep = {
+			step: string;
+			success: boolean;
+			data: unknown;
+		};
+		type SyncResults = {
+			success: boolean;
+			steps: SyncStep[];
+			errors: string[];
+		};
+		const results: SyncResults = {
 			success: true,
 			steps: [],
 			errors: [],
@@ -78,7 +88,10 @@ export async function POST(request: NextRequest) {
 		if (syncHotels) {
 			console.log("Step 3: Syncing hotels...");
 			try {
-				const payload: any = {};
+				type HotelPayload = {
+					limit?: number;
+				};
+				const payload: HotelPayload = {};
 				if (cityLimit) payload.limit = cityLimit;
 				if (countryCode) {
 					// If country code specified, we need to get cities first
@@ -130,7 +143,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Summary
-		const successCount = results.steps.filter((s: any) => s.success).length;
+		const successCount = results.steps.filter((s) => s.success).length;
 		const totalSteps = results.steps.length;
 
 		return NextResponse.json({
