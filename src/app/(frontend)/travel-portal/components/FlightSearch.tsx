@@ -264,11 +264,6 @@ export default function FlightSearch() {
 				});
 
 				searchCache.current = validCache;
-				console.log(
-					"Loaded flight search cache from sessionStorage",
-					Object.keys(validCache).length,
-					"valid entries"
-				);
 			}
 		} catch (e) {
 			console.warn("Failed to load flight search cache:", e);
@@ -367,14 +362,6 @@ export default function FlightSearch() {
 		const journeyType = searchParams.get("journeyType");
 		const cabinClass = searchParams.get("cabinClass");
 
-		console.log("FlightSearch Params:", {
-			origin,
-			destination,
-			adults,
-			children,
-			infants,
-			journeyType,
-		});
 
 		// Check for multi-city parameters
 		const leg1From = searchParams.get("leg1From");
@@ -396,9 +383,6 @@ export default function FlightSearch() {
 			leg1To ||
 			leg1Date
 		) {
-			console.log(
-				"URL search parameters detected, clearing cache for fresh search"
-			);
 			searchCache.current = {};
 			try {
 				sessionStorage.setItem("flightSearchCache", JSON.stringify({}));
@@ -459,7 +443,6 @@ export default function FlightSearch() {
 				});
 			}
 
-			console.log("Setting multi-city legs:", newLegs);
 			setMultiCityLegs(newLegs);
 
 			// Update form segments
@@ -491,7 +474,6 @@ export default function FlightSearch() {
 			form.setValue("destination", destination);
 			const fromCity = getCityFromCode(origin);
 			const toCity = getCityFromCode(destination);
-			console.log("Setting from/to cities:", { fromCity, toCity });
 			setFrom(fromCity);
 			setTo(toCity);
 			const depDate = new Date(departureDate);
@@ -566,10 +548,6 @@ export default function FlightSearch() {
 	// Clear flights and cache when trip type changes
 	useEffect(() => {
 		if (prevTripTypeRef.current !== tripType) {
-			console.log(
-				`Trip type changed from ${prevTripTypeRef.current} to ${tripType}, clearing all cache and flights`
-			);
-
 			// Clear displayed flights
 			setFlights([]);
 			setSearchPerformed(false);
@@ -580,7 +558,6 @@ export default function FlightSearch() {
 			// Update sessionStorage
 			try {
 				sessionStorage.setItem("flightSearchCache", JSON.stringify({}));
-				console.log("Cleared entire flight search cache");
 			} catch (e) {
 				console.warn("Failed to clear flight search cache:", e);
 			}
@@ -766,7 +743,7 @@ export default function FlightSearch() {
 					timestamp: Date.now(),
 				})
 			);
-			console.log(
+			// Removed excessive logging
 				`Stored preloaded upsell data for ${
 					Object.keys(upsellData).length
 				} flights`
@@ -963,7 +940,6 @@ export default function FlightSearch() {
 
 					// Check if cache is still valid
 					if (now - cached.timestamp < CACHE_EXPIRY) {
-						console.log("Using exact cached results for:", cacheKey);
 						setFlights(cached.results);
 						setTraceId(cached.traceId);
 						setSearchPerformed(true);
@@ -977,7 +953,6 @@ export default function FlightSearch() {
 						}
 						return;
 					} else {
-						console.log("Cache expired for:", cacheKey);
 						delete searchCache.current[cacheKey];
 					}
 				}
@@ -1019,6 +994,9 @@ export default function FlightSearch() {
 			}
 
 			const result = await response.json();
+			
+			// Show results immediately - don't wait for full processing
+			setLoading(false);
 
 			if (!result.success) {
 				// Handle API-specific errors
@@ -1055,12 +1033,6 @@ export default function FlightSearch() {
 				const outboundFlights = result.data?.Response?.Results?.[0] || [];
 				const returnFlights = result.data?.Response?.Results?.[1] || [];
 
-				console.log("Round trip search results processing:", {
-					outboundCount: outboundFlights.length,
-					returnCount: returnFlights.length,
-					journeyType: searchParams.JourneyType,
-				});
-
 				// For round trips, create combined flight results
 				// Each result will have both outbound and return segments
 				// We manually combine all fare components to ensure consistency with pricing formulas
@@ -1069,11 +1041,6 @@ export default function FlightSearch() {
 						// Filter return flights to match the same API source
 						const apiSource = outboundFlight.ApiSource;
 
-						console.log(`Processing outbound flight ${index}:`, {
-							apiSource,
-							hasApiSource: !!apiSource,
-							totalReturnFlights: returnFlights.length,
-						});
 
 						// Find matching return flight from same API source
 						let returnFlight = returnFlights.find(
@@ -1082,9 +1049,6 @@ export default function FlightSearch() {
 
 						// Fallback to index-based pairing if no API source match
 						if (!returnFlight) {
-							console.log(
-								`No API source match for ${apiSource}, using index fallback`
-							);
 							returnFlight = returnFlights[index] || returnFlights[0];
 						}
 
@@ -1092,11 +1056,6 @@ export default function FlightSearch() {
 						let returnResultIndex = undefined;
 
 						if (returnFlight && outboundFlight.Fare && returnFlight.Fare) {
-							console.log(`Combining fares for ${apiSource} flights:`, {
-								outbound: outboundFlight.Fare.OfferedFare,
-								return: returnFlight.Fare.OfferedFare,
-							});
-
 							returnResultIndex = returnFlight.ResultIndex;
 							const f1 = outboundFlight.Fare;
 							const f2 = returnFlight.Fare;
@@ -1152,11 +1111,6 @@ export default function FlightSearch() {
 									(Number(f1.AirlineTransFee) || 0) +
 									(Number(f2.AirlineTransFee) || 0),
 							};
-							console.log(`Combined Fare Result:`, {
-								BaseFare: combinedFare.BaseFare,
-								PublishedFare: combinedFare.PublishedFare,
-								OfferedFare: combinedFare.OfferedFare,
-							});
 						}
 
 						return {
@@ -1169,10 +1123,6 @@ export default function FlightSearch() {
 							],
 						};
 					}
-				);
-
-				console.log(
-					`Created ${flightResults.length} combined round-trip flights`
 				);
 			} else {
 				// One-way and Multi-city
@@ -1219,15 +1169,8 @@ export default function FlightSearch() {
 					"flightSearchCache",
 					JSON.stringify(searchCache.current)
 				);
-				console.log(
-					"Updated cache for journey type",
-					searchParams.JourneyType,
-					"with",
-					flightResults.length,
-					"results"
-				);
-			} catch (e) {
-				console.warn("Failed to persist flight search cache:", e);
+			} catch (err) {
+				console.warn("Failed to persist flight search cache:", err);
 			}
 
 			setFlights(flightResults);
@@ -1325,7 +1268,6 @@ export default function FlightSearch() {
 			// If it's already a valid date string, parse it
 			date = new Date(dateString);
 			if (!isNaN(date.getTime())) {
-				console.log("Parsed with direct Date constructor:", date.toISOString());
 				return date.toLocaleTimeString("en-IN", {
 					hour: "2-digit",
 					minute: "2-digit",
@@ -1334,10 +1276,8 @@ export default function FlightSearch() {
 
 			// Try removing milliseconds if present (TBO sometimes includes them)
 			const withoutMs = dateString.replace(/\.\d+/, "");
-			console.log("After removing milliseconds:", withoutMs);
 			date = new Date(withoutMs);
 			if (!isNaN(date.getTime())) {
-				console.log("Parsed after removing milliseconds:", date.toISOString());
 				return date.toLocaleTimeString("en-IN", {
 					hour: "2-digit",
 					minute: "2-digit",
@@ -1346,10 +1286,8 @@ export default function FlightSearch() {
 
 			// Try replacing space with T for ISO format
 			const isoString = dateString.replace(" ", "T");
-			console.log("After replacing space with T:", isoString);
 			date = new Date(isoString);
 			if (!isNaN(date.getTime())) {
-				console.log("Parsed with ISO format:", date.toISOString());
 				return date.toLocaleTimeString("en-IN", {
 					hour: "2-digit",
 					minute: "2-digit",
@@ -1360,7 +1298,6 @@ export default function FlightSearch() {
 			if (dateString.endsWith("Z")) {
 				date = new Date(dateString + (dateString.includes("Z") ? "" : "Z"));
 				if (!isNaN(date.getTime())) {
-					console.log("Parsed as UTC:", date.toISOString());
 					return date.toLocaleTimeString("en-IN", {
 						hour: "2-digit",
 						minute: "2-digit",
@@ -1390,17 +1327,14 @@ export default function FlightSearch() {
 
 			date = manualParse(dateString);
 			if (date && !isNaN(date.getTime())) {
-				console.log("Parsed with manual parsing:", date.toISOString());
 				return date.toLocaleTimeString("en-IN", {
 					hour: "2-digit",
 					minute: "2-digit",
 				});
 			}
 
-			console.log("Could not parse date string:", dateString);
 			return "Invalid Date";
 		} catch (error) {
-			console.log("Error parsing date:", dateString, error);
 			return "Invalid Date";
 		}
 	};

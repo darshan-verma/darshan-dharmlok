@@ -17,7 +17,30 @@ export async function POST(req: NextRequest) {
 			pricingData, // Optional: pricing response data
 		} = body;
 
+		console.log("🛫 Seat Map API: Request received:", {
+			traceId,
+			resultIndex,
+			hasFlight: !!flight,
+			hasPassengers: !!passengers,
+			passengerCount: passengers?.length || 0,
+			hasPricingData: !!pricingData,
+			pricingDataType: typeof pricingData,
+			pricingDataValue: pricingData,
+			pricingDataKeys: pricingData ? Object.keys(pricingData) : [],
+			hasPriceItenaryInfo: !!pricingData?.PriceItenaryInfo,
+			hasFlightDetails: !!pricingData?.PriceItenaryInfo?.FlightDetails,
+			flightDetailsLength: pricingData?.PriceItenaryInfo?.FlightDetails?.length || 0,
+			airlineCode: flight?.AirlineCode || flight?.ValidatingAirlineCode,
+			hasSeatMapAvailable: (flight as any)?._airiqSeatMapAvailable,
+		});
+
 		if (!traceId || !resultIndex || !flight || !passengers) {
+			console.error("❌ Seat Map API: Missing required parameters:", {
+				traceId: !!traceId,
+				resultIndex: !!resultIndex,
+				flight: !!flight,
+				passengers: !!passengers,
+			});
 			return NextResponse.json(
 				{ error: "Missing required parameters" },
 				{ status: 400 }
@@ -49,71 +72,177 @@ export async function POST(req: NextRequest) {
 		};
 		const originalData = (flight as { _airiqOriginal?: AiriqOriginalData })?._airiqOriginal;
 
+		console.log("🔍 Seat Map API: Original data check:", {
+			hasOriginalData: !!originalData,
+			hasFlightDetails: !!originalData?.FlightDetails,
+			flightDetailsCount: originalData?.FlightDetails?.length || 0,
+			trackId: originalData?.Trackid,
+			originalFlightDetails: originalData?.FlightDetails,
+		});
+
 		if (!originalData || !originalData.FlightDetails) {
+			console.error("❌ Seat Map API: Missing original AIRiQ flight data");
 			return NextResponse.json(
 				{ error: "Missing original AIRiQ flight data" },
 				{ status: 400 }
 			);
 		}
 
-		// Prefer TrackId from pricing response if available, otherwise use search TrackId
-		// The seat map API might need the pricing TrackId
-		let airiqTrackid = originalData.Trackid || traceId;
+		// IMPORTANT: According to AIRiQ documentation and Postman testing:
+		// - TrackId MUST come from Pricing RESPONSE (not the one sent to Pricing)
+		// - FlightID MUST come from Pricing RESPONSE (different from search response)
+		// The Pricing endpoint returns NEW TrackId and FlightID that must be used for seat map
+		if (!pricingData?.PriceItenaryInfo || !Array.isArray(pricingData.PriceItenaryInfo) || pricingData.PriceItenaryInfo.length === 0) {
+			console.error("❌ Seat Map API: Pricing data with PriceItenaryInfo array is REQUIRED for seat map");
+			console.error("   Current status:", {
+				hasPricingData: !!pricingData,
+				hasPriceItenaryInfo: !!pricingData?.PriceItenaryInfo,
+				isArray: Array.isArray(pricingData?.PriceItenaryInfo),
+				priceItenaryInfoLength: Array.isArray(pricingData?.PriceItenaryInfo) ? pricingData.PriceItenaryInfo.length : 0,
+			});
+			return NextResponse.json({
+				FlightSeat: null,
+				ResponseStatus: {
+					ResultCode: "0",
+					Error: "Pricing data is required for seat map. Please ensure pricing API call succeeds first.",
+					SequenceID: "",
+				},
+				message: "Seat map requires pricing data. Please retry the booking or contact support if pricing fails.",
+			}, { status: 200 }); // Return 200 so frontend can handle gracefully
+		}
+
+		// Extract TrackId from Pricing response (first element of PriceItenaryInfo array)
+		const priceInfo = pricingData.PriceItenaryInfo[0];
+		const airiqTrackid = priceInfo?.Trackid;
 		
-		// Try to get TrackId from pricing response if available
-		if (pricingData?.PriceItenaryInfo) {
-			// Pricing response doesn't directly have TrackId, but we can use the original TrackId
-			// The key is to use the correct FlightDetails format
-			console.log("Using pricing data for seat map - TrackId:", airiqTrackid);
+		if (!airiqTrackid) {
+			console.error("❌ Seat Map API: TrackId not found in Pricing response");
+			console.error("   PriceItenaryInfo[0]:", JSON.stringify(priceInfo, null, 2));
+			return NextResponse.json({
+				FlightSeat: null,
+				ResponseStatus: {
+					ResultCode: "0",
+					Error: "TrackId not found in pricing response",
+					SequenceID: "",
+				},
+				message: "Seat map requires TrackId from pricing response. Please retry.",
+			}, { status: 200 });
 		}
 
-		// Extract flight details - use FlightDetails from pricing response if available
-		// Otherwise use from original search data
-		let flightsInfo;
-		if (pricingData?.PriceItenaryInfo?.FlightDetails && pricingData.PriceItenaryInfo.FlightDetails.length > 0) {
-			// Use FlightDetails from pricing response (more accurate)
-			flightsInfo = pricingData.PriceItenaryInfo.FlightDetails.map((segment: {
-				FlightID: string;
-				FlightNumber: string;
-				Origin: string;
-				Destination: string;
-				DepartureDateTime: string;
-				ArrivalDateTime: string;
-			}) => ({
-				FlightID: segment.FlightID,
-				FlightNumber: segment.FlightNumber,
-				Origin: segment.Origin,
-				Destination: segment.Destination,
-				DepartureDateTime: segment.DepartureDateTime,
-				ArrivalDateTime: segment.ArrivalDateTime,
-			}));
-			console.log("Using FlightDetails from pricing response");
-		} else {
-			// Fallback to original search data
-			flightsInfo = originalData.FlightDetails.map((segment) => ({
-				FlightID: segment.FlightID,
-				FlightNumber: segment.FlightNumber,
-				Origin: segment.Origin,
-				Destination: segment.Destination,
-				DepartureDateTime: segment.DepartureDateTime,
-				ArrivalDateTime: segment.ArrivalDateTime,
-			}));
-			console.log("Using FlightDetails from original search data");
+		console.log("🔍 Seat Map API: TrackId from Pricing response:", {
+			pricingTrackId: airiqTrackid,
+			originalTrackId: originalData.Trackid,
+			note: "Using NEW TrackId from Pricing response (different from the one sent to Pricing)",
+		});
+
+		// Extract FlightDetails from Pricing response
+		// The response can have FlightDetails directly, or nested in AvailabilityResponse[0].Flights
+		let flightDetailsArray: Array<{
+			FlightID: string;
+			FlightNumber: string;
+			Origin: string;
+			Destination: string;
+			DepartureDateTime: string;
+			ArrivalDateTime: string;
+		}> = [];
+
+		// Try direct FlightDetails first (if response is transformed)
+		if (priceInfo.FlightDetails && Array.isArray(priceInfo.FlightDetails) && priceInfo.FlightDetails.length > 0) {
+			flightDetailsArray = priceInfo.FlightDetails;
+			console.log("📋 Seat Map API: Using FlightDetails from transformed Pricing response");
+		}
+		// Try nested structure from raw API response
+		else if (priceInfo.AvailabilityResponse && Array.isArray(priceInfo.AvailabilityResponse) && priceInfo.AvailabilityResponse.length > 0) {
+			const availResponse = priceInfo.AvailabilityResponse[0];
+			if (availResponse.Flights && Array.isArray(availResponse.Flights) && availResponse.Flights.length > 0) {
+				flightDetailsArray = availResponse.Flights.map((flight: any) => ({
+					FlightID: flight.FlightID,
+					FlightNumber: flight.FlightNumber,
+					Origin: flight.Origin,
+					Destination: flight.Destination,
+					DepartureDateTime: flight.DepartureDateTime,
+					ArrivalDateTime: flight.ArrivalDateTime,
+				}));
+				console.log("📋 Seat Map API: Using FlightDetails from AvailabilityResponse[0].Flights (raw API structure)");
+			}
 		}
 
-		// Determine trip type
+		if (flightDetailsArray.length === 0) {
+			console.error("❌ Seat Map API: FlightDetails not found in Pricing response");
+			console.error("   PriceItenaryInfo[0] structure:", JSON.stringify(priceInfo, null, 2));
+			return NextResponse.json({
+				FlightSeat: null,
+				ResponseStatus: {
+					ResultCode: "0",
+					Error: "FlightDetails not found in pricing response",
+					SequenceID: "",
+				},
+				message: "Seat map requires FlightDetails from pricing response. Please retry.",
+			}, { status: 200 });
+		}
+
+		// Map flight details to seat map request format
+		const flightsInfo = flightDetailsArray.map((segment, index: number) => {
+			// Map exactly as per AIRiQ documentation format (Section 7.4, lines 372-388)
+			const flightInfo = {
+				FlightID: segment.FlightID, // NEW FlightID from Pricing response (required)
+				FlightNumber: segment.FlightNumber, // From Pricing response (required)
+				Origin: segment.Origin,
+				Destination: segment.Destination,
+				DepartureDateTime: segment.DepartureDateTime, // Format: "DD MMM YYYY HH:MM"
+				ArrivalDateTime: segment.ArrivalDateTime, // Format: "DD MMM YYYY HH:MM"
+			};
+			console.log(`📋 Segment ${index + 1} (${flightInfo.Origin} -> ${flightInfo.Destination}):`, {
+				FlightID: flightInfo.FlightID,
+				FlightNumber: flightInfo.FlightNumber,
+				DepartureDateTime: flightInfo.DepartureDateTime,
+				ArrivalDateTime: flightInfo.ArrivalDateTime,
+				note: "Using NEW FlightID from Pricing response (different from search response)",
+			});
+			return flightInfo;
+		});
+		
+		console.log("✅ Seat Map API: Mapped FlightDetails from Pricing response:", {
+			segmentCount: flightsInfo.length,
+			flightsInfo: JSON.stringify(flightsInfo, null, 2),
+			pricingTrackId: airiqTrackid,
+		});
+
+		// Determine trip type and base origin/destination
+		// According to AIRiQ docs Section 7.4 (lines 367-370)
 		const baseOrigin = flightsInfo[0]?.Origin || "";
 		const baseDestination =
 			flightsInfo[flightsInfo.length - 1]?.Destination || "";
-		const tripType = "O"; // Default to one-way, can be enhanced for round-trip
+		// TripType should match what was used in Pricing request
+		// For now, defaulting to "O" (One-way), can be enhanced for round-trip
+		const tripType = "O";
+		
+		console.log("📍 Seat Map API: Segment info:", {
+			baseOrigin,
+			baseDestination,
+			tripType,
+		});
 
 		// Validate that passengers are provided
 		if (!passengers || passengers.length === 0) {
+			console.error("❌ Seat Map API: No passengers provided");
 			return NextResponse.json(
 				{ error: "No passengers provided" },
 				{ status: 400 }
 			);
 		}
+
+		console.log("👥 Seat Map API: Processing passengers:", {
+			passengerCount: passengers.length,
+			passengerNames: passengers.map((p: any) => `${p.FirstName || 'N/A'} ${p.LastName || 'N/A'}`),
+			passengerDetails: passengers.map((p: any, idx: number) => ({
+				index: idx,
+				firstName: p.FirstName,
+				lastName: p.LastName,
+				title: p.Title,
+				paxType: p.PaxType,
+			})),
+		});
 
 		// Use passengers as-is (they should have names or placeholder names from frontend)
 		// Transform passengers to AIRiQ format
@@ -130,14 +259,18 @@ export async function POST(req: NextRequest) {
 				3: "INF",
 			};
 
-			return {
+			const paxDetail = {
 				PaxRefNumber: String(index + 1),
 				Title: p.Title || "Mr",
 				PaxType: paxTypeMap[p.PaxType] || "ADT",
-				FirstName: p.FirstName.trim(),
-				LastName: p.LastName.trim(),
+				FirstName: (p.FirstName || `PASSENGER${index + 1}`).trim(),
+				LastName: (p.LastName || "TEST").trim(),
 			};
+			console.log(`👤 Seat Map API: Passenger ${index + 1}:`, paxDetail);
+			return paxDetail;
 		});
+
+		console.log("👥 Seat Map API: Final passenger details for AIRiQ:", apiPaxDetails);
 
 		// Construct seat map request
 		const seatMapRequest = {
@@ -157,12 +290,26 @@ export async function POST(req: NextRequest) {
 			TrackId: airiqTrackid,
 		};
 
-		console.log("AIRiQ Seat Map Request:", JSON.stringify(seatMapRequest, null, 2));
+		console.log("🛫 Seat Map API: Calling AIRiQ Seat Map API with request:", {
+			trackId: seatMapRequest.TrackId,
+			baseOrigin: seatMapRequest.SegmentInfo.BaseOrigin,
+			baseDestination: seatMapRequest.SegmentInfo.BaseDestination,
+			tripType: seatMapRequest.SegmentInfo.TripType,
+			flightsCount: seatMapRequest.FlightsInfo.length,
+			passengerCount: seatMapRequest.APIPaxDetails.length,
+			fullRequest: JSON.stringify(seatMapRequest, null, 2),
+		});
 
 		// Call AIRiQ Seat Map API
 		const seatMapResponse = await getSeatMap(seatMapRequest);
 
-		console.log("AIRiQ Seat Map Response:", JSON.stringify(seatMapResponse, null, 2));
+		console.log("📥 Seat Map API: AIRiQ Seat Map Response received:", {
+			hasFlightSeat: !!seatMapResponse.FlightSeat,
+			flightSeatLength: seatMapResponse.FlightSeat?.length || 0,
+			resultCode: seatMapResponse.ResponseStatus?.ResultCode,
+			error: seatMapResponse.ResponseStatus?.Error,
+			fullResponse: JSON.stringify(seatMapResponse, null, 2),
+		});
 
 		// Check for errors
 		if (seatMapResponse.ResponseStatus?.ResultCode !== "1") {

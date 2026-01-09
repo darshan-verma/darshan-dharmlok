@@ -141,39 +141,22 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
-		console.log(
-			"Search params being sent:",
-			JSON.stringify(searchParams, null, 2)
-		);
-
-		// Call both TBO and AIRiQ APIs simultaneously
-		console.log("🔍 Calling APIs with JourneyType:", searchParams.JourneyType);
-		console.log("🔍 Full searchParams:", JSON.stringify(searchParams, null, 2));
-
 		let airiqParams;
 		try {
 			airiqParams = convertTboToAiriqParams(searchParams);
-			console.log("✅ AIRiQ params conversion successful");
-
 			// AIRiQ doesn't support multi-city (TripType "M")
 			// Skip AIRiQ for multi-city searches
 			if (searchParams.JourneyType === "3") {
-				console.log("⚠️ Skipping AIRiQ for multi-city search (not supported)");
 				airiqParams = null;
 			}
 		} catch (err) {
-			console.error("❌ AIRiQ params conversion failed:", err);
 			airiqParams = null;
 		}
 
 		const [tboResult, airiqResult] = await Promise.allSettled([
 			searchFlights(searchParams),
 			airiqParams
-				? searchAiriqFlights(airiqParams).catch((_err) => {
-						// Silently handle AIRiQ errors - don't log to avoid authentication attempts on errors
-						console.warn("⚠️ AIRiQ search unavailable (skipping)");
-						return null;
-				  })
+				? searchAiriqFlights(airiqParams).catch(() => null)
 				: Promise.resolve(null),
 		]);
 
@@ -204,35 +187,12 @@ export async function POST(request: NextRequest) {
 		let airiqFlights: FlightSearchResponse | null = null;
 		if (airiqResult.status === "fulfilled" && airiqResult.value) {
 			const rawAiriqResponse = airiqResult.value as AiriqFlightSearchResponse;
-			console.log("📦 Raw AIRiQ Response Structure:", {
-				hasTrackid: !!rawAiriqResponse.Trackid,
-				hasItineraryFlightList: !!rawAiriqResponse.ItineraryFlightList,
-				flightListCount: rawAiriqResponse.ItineraryFlightList?.length || 0,
-				journeyType: body.JourneyType,
-				hasStatus: !!rawAiriqResponse.Status,
-				statusError: rawAiriqResponse.Status?.Error || "none",
-			});
-
-			// Check if AIRiQ returned an error
-			if (
-				rawAiriqResponse.Status &&
-				rawAiriqResponse.Status.Error &&
-				rawAiriqResponse.Status.Error !== "Success"
-			) {
-				console.error("❌ AIRiQ API returned error:", rawAiriqResponse.Status);
-			}
 
 			// Convert AIRiQ format to TBO-compatible format
 			airiqFlights = convertAiriqToTboFormat(
 				rawAiriqResponse,
 				body.JourneyType
 			) as FlightSearchResponse;
-
-			console.log("✅ AIRiQ Conversion Result:", {
-				hasResults: !!airiqFlights?.Response?.Results,
-				resultsLength: airiqFlights?.Response?.Results?.length || 0,
-				firstResultCount: airiqFlights?.Response?.Results?.[0]?.length || 0,
-			});
 
 			// Calculate NetPayable for each AIRiQ flight result
 			if (airiqFlights?.Response?.Results) {
@@ -249,10 +209,6 @@ export async function POST(request: NextRequest) {
 					}
 				}
 			}
-		} else if (airiqResult.status === "rejected") {
-			console.error("❌ AIRiQ search rejected:", airiqResult.reason);
-		} else {
-			console.log("⚠️ AIRiQ search returned null or no value");
 		}
 
 		// Merge results from both APIs
@@ -308,12 +264,6 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
-		console.log("Search Results Summary:", {
-			tboCount: tboFlights?.Response?.Results?.[0]?.length || 0,
-			airiqCount: airiqFlights?.Response?.Results?.[0]?.length || 0,
-			totalCount: mergedResults.Response.Results?.[0]?.length || 0,
-		});
-
 		// Count flights from each API source
 		let tboFlightCount = 0;
 		let airiqFlightCount = 0;
@@ -333,26 +283,6 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
-		console.log("📊 Flight Distribution by API:");
-		console.log(`   🔵 TBO: ${tboFlightCount} flights`);
-		console.log(`   🟢 AIRiQ: ${airiqFlightCount} flights`);
-		console.log(`   📈 Total: ${tboFlightCount + airiqFlightCount} flights`);
-
-		// Log the number of results returned
-		console.log("TBO API Response Results count:", {
-			hasResults: !!tboFlights?.Response?.Results,
-			resultsLength: tboFlights?.Response?.Results?.length,
-			firstArrayLength: tboFlights?.Response?.Results?.[0]?.length,
-			secondArrayLength: tboFlights?.Response?.Results?.[1]?.length,
-		});
-
-		console.log("AIRiQ API Response Results count:", {
-			hasResults: !!airiqFlights?.Response?.Results,
-			resultsLength: airiqFlights?.Response?.Results?.length,
-			firstArrayLength: airiqFlights?.Response?.Results?.[0]?.length,
-			secondArrayLength: airiqFlights?.Response?.Results?.[1]?.length,
-		});
-
 		// Calculate NetPayable for each flight result
 		if (mergedResults?.Response?.Results) {
 			for (const resultArray of mergedResults.Response.Results) {
@@ -366,32 +296,6 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
-		// Log the first flight's date format for debugging
-		if (mergedResults?.Response?.Results?.[0]?.[0]) {
-			const firstFlight = mergedResults.Response.Results[0][0];
-			console.log("Sample flight data structure:", {
-				resultIndex: firstFlight.ResultIndex,
-				isUpsellAllowed: firstFlight.IsUpsellAllowed,
-				isLCC: firstFlight.IsLCC,
-				isRefundable: firstFlight.IsRefundable,
-				airlineCode: firstFlight.AirlineCode,
-				segments: firstFlight.Segments,
-				segmentLength: firstFlight.Segments?.[0]?.length,
-				firstSegment: firstFlight.Segments?.[0]?.[0],
-				lastSegment:
-					firstFlight.Segments?.[0]?.[firstFlight.Segments[0].length - 1],
-				departure:
-					firstFlight.Segments?.[0]?.[0]?.Origin?.DepTime ||
-					firstFlight.Segments?.[0]?.[0]?.DepartureTime,
-				arrival:
-					firstFlight.Segments?.[0]?.[firstFlight.Segments[0].length - 1]
-						?.Destination?.ArrTime ||
-					firstFlight.Segments?.[0]?.[firstFlight.Segments[0].length - 1]
-						?.ArrivalTime,
-				fullFlight:
-					JSON.stringify(firstFlight, null, 2).substring(0, 500) + "...",
-			});
-		}
 
 		return NextResponse.json({
 			success: true,

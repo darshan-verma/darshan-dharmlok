@@ -404,6 +404,22 @@ export async function getHotelRooms(params: {
 }
 
 /**
+ * PreBook a hotel room
+ * This method is used to block a room before final booking
+ */
+export async function preBookHotel(params: {
+	bookingCode: string;
+	paymentMode?: string;
+}): Promise<any> {
+	const request = {
+		BookingCode: params.bookingCode,
+		PaymentMode: params.paymentMode || "Limit",
+	};
+
+	return makeAuthenticatedRequest("PreBook", request);
+}
+
+/**
  * Block a hotel room before booking
  */
 export async function blockHotelRoom(_params: {
@@ -451,6 +467,7 @@ const tboHotelClient = {
 	searchHotels,
 	getHotelDetails,
 	getHotelRooms,
+	preBookHotel,
 	blockHotelRoom,
 	searchCityForHotels,
 	getHotelDestinations,

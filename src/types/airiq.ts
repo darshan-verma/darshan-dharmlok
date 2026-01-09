@@ -490,15 +490,85 @@ export interface AiriqPricingRequest {
 }
 
 export interface AiriqPricingResponse {
-	PriceItenaryInfo: {
-		AdultCount: number;
-		ChildCount: number;
-		InfantCount: number;
-		TotalPax: number;
-		CabinClass: string;
-		BaseAmount: number;
-		TaxAmount: number;
-		GrossAmount: number;
+	// PriceItenaryInfo is an array in actual API response
+	// Each element contains Trackid (different from the Trackid sent to Pricing)
+	PriceItenaryInfo: Array<{
+		Trackid: string; // NEW Trackid from Pricing response - MUST be used for seat map
+		AdultCount?: number;
+		ChildCount?: number;
+		InfantCount?: number;
+		TotalPax?: number;
+		CabinClass?: string;
+		BaseAmount?: number;
+		TaxAmount?: number;
+		GrossAmount?: number;
+		// Raw API response structure
+		AvailabilityResponse?: Array<{
+			Token?: string;
+			Flights?: Array<{
+				FlightID: string; // NEW FlightID from Pricing response - MUST be used for seat map
+				FlightNumber: string;
+				Origin: string;
+				Destination: string;
+				DepartureDateTime: string;
+				ArrivalDateTime: string;
+				[key: string]: unknown;
+			}>;
+			Fares?: Array<{
+				FlightId?: string; // This is the FareId (e.g., "6E_N_1"), different from FlightID
+				[key: string]: unknown;
+			}>;
+			Meal?: Array<{
+				MealID: string;
+				Code: string;
+				Description: string;
+				Amount: string;
+				Origin: string;
+				Destination: string;
+				SegRef: string;
+				Itinref: string;
+				IsBundleServiceMeal?: boolean;
+				Url?: string;
+			}>;
+			Bagg?: Array<{
+				BaggageID: string;
+				Code: string;
+				Description: string;
+				Amount: string;
+				Origin: string;
+				Destination: string;
+				SegRef: string;
+				Itinref: string;
+				BaggageText?: string;
+			}>;
+			OtherService?: Array<{
+				OtherID: string;
+				SSRCode: string;
+				Description: string;
+				Amount: string;
+				SSRType: string;
+				Origin: string;
+				Destination: string;
+				SegRef: string;
+				Itinref: string;
+				OtherSSRtext?: string | null;
+				SSRRef?: string | null;
+			}>;
+			[key: string]: unknown;
+		}>;
+		// Transformed/flattened structure (if response is transformed)
+		FlightDetails?: Array<{
+			FlightID: string;
+			FlightNumber: string;
+			Origin: string;
+			Destination: string;
+			DepartureDateTime: string;
+			ArrivalDateTime: string;
+			Duration?: string;
+			StopsCount?: number;
+			Baggage?: string;
+			CabinBaggage?: string;
+		}>;
 		SSR?: {
 			Baggage?: Array<{
 				Code: string;
@@ -516,24 +586,12 @@ export interface AiriqPricingResponse {
 				Destination: string;
 			}>;
 		};
-		FlightDetails: Array<{
-			FlightID: string;
-			FlightNumber: string;
-			Origin: string;
-			Destination: string;
-			DepartureDateTime: string;
-			ArrivalDateTime: string;
-			Duration: string;
-			StopsCount: number;
-			Baggage?: string;
-			CabinBaggage?: string;
-		}>;
 		MandatoryBookingDetails?: {
 			PassportRequired?: boolean;
 			DateOfBirthRequired?: boolean;
 			FrequentFlyerRequired?: boolean;
 		};
-	} | null;
+	}> | null;
 	ResponseStatus: {
 		Error: string;
 		ResultCode: string; // "1" = success, "0" = failure, "-1" = exception

@@ -9,8 +9,9 @@ import {
 	AccordionItem,
 	AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Briefcase, Utensils, Armchair } from "lucide-react";
+import { Briefcase, Utensils, Armchair, Sparkles, Info } from "lucide-react";
 import { Loader2 } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import AiriqSeatSelection from "./AiriqSeatSelection";
 import type { FlightResult } from "@/types/tbo";
 
@@ -27,6 +28,7 @@ interface AiriqSSRSelectionProps {
 		baggage: Record<string, { Id: string; Price: number } | null>;
 		meals: Record<string, { Id: string; Price: number } | null>;
 		seats: Record<string, { SeatID: string; Price: number } | null>;
+		otherServices?: Record<string, { Id: string; Price: number } | null>;
 	}) => void;
 }
 
@@ -46,10 +48,14 @@ export default function AiriqSSRSelection({
 }: AiriqSSRSelectionProps) {
 	const [loading, setLoading] = useState(false);
 	const [seatMapData, setSeatMapData] = useState<any>(null);
+	const [loadingServices, setLoadingServices] = useState<boolean>(true);
 	const [selectedBaggage, setSelectedBaggage] = useState<
 		Record<string, { Id: string; Price: number } | null>
 	>({});
 	const [selectedMeals, setSelectedMeals] = useState<
+		Record<string, { Id: string; Price: number } | null>
+	>({});
+	const [selectedServices, setSelectedServices] = useState<
 		Record<string, { Id: string; Price: number } | null>
 	>({});
 	const [selectedSeats, setSelectedSeats] = useState<
@@ -62,12 +68,63 @@ export default function AiriqSSRSelection({
 
 	// Fetch seat map - use placeholder names if passengers don't have names yet
 	// This allows users to see seat map before filling passenger details
-	// Only fetch if airline supports SSR
+	// Fetch if airline supports SSR OR if seat map is available from search
 	useEffect(() => {
-		// Don't fetch seat map for unsupported airlines
-		if (!isSSRSupported) {
+		// Check if seat map is available from flight search
+		const hasSeatMapAvailable = (flight as any)?._airiqSeatMapAvailable === true;
+		
+		// Allow seat map fetch if SSR is supported OR seat map is available
+		// (Seat map API can work independently of SSR support)
+		if (!isSSRSupported && !hasSeatMapAvailable) {
+			console.log("🚫 AiriqSSRSelection: Skipping seat map fetch - airline not supported and no seat map available:", airlineCode);
 			return;
 		}
+
+		// CRITICAL: Seat map API requires pricing data with FlightDetails
+		// According to AIRiQ docs, FlightID must come from Pricing response
+		// PriceItenaryInfo is an array - access first element
+		const priceInfo = pricingData?.PriceItenaryInfo && Array.isArray(pricingData.PriceItenaryInfo) && pricingData.PriceItenaryInfo.length > 0
+			? pricingData.PriceItenaryInfo[0]
+			: pricingData?.PriceItenaryInfo; // Fallback for transformed structure
+		const hasValidPricingData = (
+			(priceInfo?.FlightDetails && Array.isArray(priceInfo.FlightDetails) && priceInfo.FlightDetails.length > 0) ||
+			(priceInfo?.AvailabilityResponse && Array.isArray(priceInfo.AvailabilityResponse) && priceInfo.AvailabilityResponse.length > 0 &&
+				priceInfo.AvailabilityResponse[0]?.Flights && Array.isArray(priceInfo.AvailabilityResponse[0].Flights) && priceInfo.AvailabilityResponse[0].Flights.length > 0)
+		);
+		
+		if (hasSeatMapAvailable && !hasValidPricingData) {
+			console.warn("⚠️ AiriqSSRSelection: Seat map is available but pricing data is missing or invalid");
+			console.warn("   Seat map requires pricing data with FlightDetails");
+			console.warn("   Current pricingData:", {
+				hasPricingData: !!pricingData,
+				hasPriceItenaryInfo: !!pricingData?.PriceItenaryInfo,
+				isArray: Array.isArray(pricingData?.PriceItenaryInfo),
+				priceItenaryInfoLength: Array.isArray(pricingData?.PriceItenaryInfo) ? pricingData.PriceItenaryInfo.length : 0,
+				hasFlightDetails: !!priceInfo?.FlightDetails,
+				flightDetailsLength: priceInfo?.FlightDetails?.length || 0,
+				pricingDataKeys: pricingData ? Object.keys(pricingData) : [],
+			});
+			console.warn("   Waiting for pricing data to be available...");
+			return; // Don't fetch yet, wait for pricing data
+		}
+
+		console.log("🔍 AiriqSSRSelection: Starting seat map fetch check:", {
+			airlineCode,
+			isSSRSupported,
+			hasSeatMapAvailable,
+			hasPricingData: !!pricingData,
+			hasValidPricingData,
+			hasPriceItenaryInfo: !!pricingData?.PriceItenaryInfo,
+			isArray: Array.isArray(pricingData?.PriceItenaryInfo),
+			priceItenaryInfoLength: Array.isArray(pricingData?.PriceItenaryInfo) ? pricingData.PriceItenaryInfo.length : 0,
+			hasFlightDetails: !!priceInfo?.FlightDetails,
+			flightDetailsLength: priceInfo?.FlightDetails?.length || 0,
+			passengerCount: passengers.length,
+			adultCount,
+			childCount,
+			infantCount,
+			willFetch: (isSSRSupported || hasSeatMapAvailable) && (isSSRSupported || hasValidPricingData),
+		});
 
 		const fetchSeatMap = async () => {
 			// Create passenger list with actual names or placeholder names
@@ -108,7 +165,29 @@ export default function AiriqSSRSelection({
 
 			try {
 				setLoading(true);
-				console.log("AiriqSSRSelection: Fetching seat map with", passengersForSeatMap.length, "passengers");
+				console.log("🛫 AiriqSSRSelection: Fetching seat map with", passengersForSeatMap.length, "passengers");
+				console.log("🛫 Seat map request params:", {
+					traceId,
+					resultIndex,
+					airlineCode: flight?.AirlineCode || flight?.ValidatingAirlineCode,
+					passengerCount: passengersForSeatMap.length,
+					hasPricingData: !!pricingData,
+					pricingDataType: typeof pricingData,
+					pricingDataKeys: pricingData ? Object.keys(pricingData) : [],
+					hasPriceItenaryInfo: !!pricingData?.PriceItenaryInfo,
+					isArray: Array.isArray(pricingData?.PriceItenaryInfo),
+					priceItenaryInfoLength: Array.isArray(pricingData?.PriceItenaryInfo) ? pricingData.PriceItenaryInfo.length : 0,
+					hasFlightDetails: !!priceInfo?.FlightDetails,
+					flightDetailsLength: priceInfo?.FlightDetails?.length || 0,
+					flightHasSeatMapAvailable: hasSeatMapAvailable,
+					passengerNames: passengersForSeatMap.map(p => `${p.FirstName} ${p.LastName}`),
+					pricingDataPreview: pricingData ? {
+						hasPriceItenaryInfo: !!pricingData.PriceItenaryInfo,
+						isArray: Array.isArray(pricingData.PriceItenaryInfo),
+						priceItenaryInfoKeys: priceInfo ? Object.keys(priceInfo) : [],
+						flightDetailsCount: priceInfo?.FlightDetails?.length || 0,
+					} : null,
+				});
 				const response = await fetch("/api/travel/airiq/seat-map", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -124,43 +203,80 @@ export default function AiriqSSRSelection({
 					}),
 				});
 
+				console.log("🛫 Seat map API response status:", response.status, response.statusText);
+				
 				if (response.ok) {
 					const data = await response.json();
-					console.log("AiriqSSRSelection: Seat map response:", data);
+					console.log("✅ AiriqSSRSelection: Seat map response received:", {
+						hasFlightSeat: !!data.FlightSeat,
+						flightSeatLength: data.FlightSeat?.length || 0,
+						resultCode: data.ResponseStatus?.ResultCode,
+						error: data.ResponseStatus?.Error,
+						message: data.message,
+						fullResponse: data,
+					});
 					
 					// Check if seat map is actually available
 					if (data.FlightSeat && data.FlightSeat.length > 0) {
+						console.log("✅ Seat map data available! Setting seat map data:", {
+							segmentCount: data.FlightSeat.length,
+							firstSegment: data.FlightSeat[0],
+						});
 						setSeatMapData(data.FlightSeat);
 					} else {
-						// Check if it's an IP validation error
-						if (data.message && data.message.includes("IP address")) {
-							console.warn("AiriqSSRSelection: Seat map unavailable due to IP validation");
+						// Check for specific error messages
+						if (data.requiresPricing) {
+							console.error("❌ AiriqSSRSelection: Seat map requires pricing data but pricing failed or timed out");
+							console.error("   According to AIRiQ docs, FlightID must come from Pricing response");
+							console.error("   Please ensure pricing API succeeds first");
+						} else if (data.message && data.message.includes("IP address")) {
+							console.warn("⚠️ AiriqSSRSelection: Seat map unavailable due to IP validation");
+						} else if (data.ResponseStatus?.Error) {
+							const errorMsg = data.ResponseStatus.Error;
+							console.warn("⚠️ AiriqSSRSelection: Seat map API returned error:", {
+								error: errorMsg,
+								resultCode: data.ResponseStatus.ResultCode,
+								message: data.message,
+							});
+							
+							// Check if error is about FlightDetails (likely means pricing is needed)
+							if (errorMsg.includes("Unable to retrieve the FlightDetails") || errorMsg.includes("FlightDetails")) {
+								console.error("❌ This error typically means pricing data is required. FlightID must come from Pricing response.");
+							}
 						} else {
-							console.log("AiriqSSRSelection: Seat map not available for this flight");
+							console.log("ℹ️ AiriqSSRSelection: Seat map not available for this flight (empty response)");
 						}
 						setSeatMapData(null);
 					}
 				} else {
 					const errorData = await response.json().catch(() => ({}));
-					console.warn(
-						"AiriqSSRSelection: Failed to fetch seat map:",
-						errorData.error || errorData.message || errorData.code || "Unknown error",
-						"Status:",
-						response.status
-					);
+					console.error("❌ AiriqSSRSelection: Failed to fetch seat map:", {
+						status: response.status,
+						statusText: response.statusText,
+						error: errorData.error || errorData.message || errorData.code || "Unknown error",
+						errorData,
+					});
 					// Don't show error to user, seat map is optional
 					setSeatMapData(null);
 				}
 			} catch (error) {
-				console.error("AiriqSSRSelection: Error fetching seat map:", error);
+				console.error("❌ AiriqSSRSelection: Error fetching seat map:", error);
+				if (error instanceof Error) {
+					console.error("Error details:", {
+						message: error.message,
+						stack: error.stack,
+					});
+				}
 				// Don't show error to user, seat map is optional
 				setSeatMapData(null);
 			} finally {
 				setLoading(false);
+				console.log("🏁 AiriqSSRSelection: Seat map fetch completed, loading:", false);
 			}
 		};
 
 		fetchSeatMap();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [traceId, resultIndex, flight, passengers, adultCount, childCount, infantCount, pricingData, isSSRSupported]);
 
 	// Update parent when selections change
@@ -169,38 +285,112 @@ export default function AiriqSSRSelection({
 			baggage: selectedBaggage,
 			meals: selectedMeals,
 			seats: selectedSeats,
+			otherServices: selectedServices,
 		});
-	}, [selectedBaggage, selectedMeals, selectedSeats, onSSRChange]);
+	}, [selectedBaggage, selectedMeals, selectedSeats, selectedServices, onSSRChange]);
 
 	// Get SSR data from pricing response
-	const ssrData = pricingData?.PriceItenaryInfo?.SSR;
-	const baggageOptions = ssrData?.Baggage || [];
-	const mealOptions = ssrData?.Meal || [];
+	// PriceItenaryInfo is an array - access first element
+	const priceInfoForSSR = pricingData?.PriceItenaryInfo && Array.isArray(pricingData.PriceItenaryInfo) && pricingData.PriceItenaryInfo.length > 0
+		? pricingData.PriceItenaryInfo[0]
+		: pricingData?.PriceItenaryInfo; // Fallback for transformed structure
+	
+	// Extract services from AvailabilityResponse[0] as per AIRiQ API structure
+	const availResponse = priceInfoForSSR?.AvailabilityResponse?.[0];
+	const mealOptions = availResponse?.Meal || [];
+	const baggageOptions = availResponse?.Bagg || []; // Note: AIRiQ uses "Bagg" not "Baggage"
+	const otherServiceOptions = availResponse?.OtherService || [];
+	
+	// Also check transformed SSR structure for backward compatibility
+	const ssrData = priceInfoForSSR?.SSR;
+	const transformedBaggage = ssrData?.Baggage || [];
+	const transformedMeals = ssrData?.Meal || [];
+	
+	// Use AvailabilityResponse data if available, otherwise fallback to transformed SSR
+	const finalBaggageOptions = baggageOptions.length > 0 ? baggageOptions : transformedBaggage;
+	const finalMealOptions = mealOptions.length > 0 ? mealOptions : transformedMeals;
+	
+	// Debug: Log service extraction
+	if (pricingData) {
+		console.log("🔍 AiriqSSRSelection: Service extraction:", {
+			hasPriceInfo: !!priceInfoForSSR,
+			hasAvailabilityResponse: !!availResponse,
+			hasMealArray: !!availResponse?.Meal,
+			hasBaggArray: !!availResponse?.Bagg,
+			hasOtherServiceArray: !!availResponse?.OtherService,
+			mealCount: mealOptions.length,
+			baggageCount: baggageOptions.length,
+			otherServiceCount: otherServiceOptions.length,
+			finalMealCount: finalMealOptions.length,
+			finalBaggageCount: finalBaggageOptions.length,
+			availResponseKeys: availResponse ? Object.keys(availResponse) : [],
+		});
+	}
 
-	// Debug logging (only log once to avoid spam)
+	// Update loading state when pricing data is available or after timeout
 	useEffect(() => {
+		// Set loading to false once we have pricing data (services are in pricing response)
 		if (pricingData) {
-			console.log("AiriqSSRSelection - Pricing Data:", {
+			setLoadingServices(false);
+			console.log("AiriqSSRSelection - Services loaded:", {
 				hasPricingData: !!pricingData,
-				hasPriceItenaryInfo: !!pricingData?.PriceItenaryInfo,
-				hasSSR: !!ssrData,
-				baggageCount: baggageOptions.length,
-				mealCount: mealOptions.length,
-				ssrData: ssrData,
-				fullPriceItenaryInfo: pricingData?.PriceItenaryInfo,
-				// Log the entire pricing response structure to debug
-				pricingResponseKeys: pricingData ? Object.keys(pricingData) : [],
-				priceItenaryInfoKeys: pricingData?.PriceItenaryInfo ? Object.keys(pricingData.PriceItenaryInfo) : [],
+				hasAvailabilityResponse: !!availResponse,
+				baggageCount: finalBaggageOptions.length,
+				mealCount: finalMealOptions.length,
+				otherServiceCount: otherServiceOptions.length,
+				hasSeatMap: !!seatMapData,
+				loadingSeatMap: loading,
 			});
 		}
-	}, [pricingData]);
+	}, [pricingData, availResponse, finalBaggageOptions.length, finalMealOptions.length, otherServiceOptions.length, seatMapData, loading]);
 
-	const hasBaggage = isSSRSupported && baggageOptions.length > 0;
-	const hasMeals = isSSRSupported && mealOptions.length > 0;
-	const hasSeats = isSSRSupported && seatMapData && seatMapData.length > 0;
+	// Show services if they exist in pricing response, regardless of isSSRSupported flag
+	// Pricing API always returns available services (Meal, Bagg, OtherService) if they exist
+	const hasBaggage = finalBaggageOptions.length > 0;
+	const hasMeals = finalMealOptions.length > 0;
+	const hasOtherServices = otherServiceOptions.length > 0;
+	const hasSeatMapAvailable = (flight as any)?._airiqSeatMapAvailable === true;
+	// Allow seats if SSR is supported OR if seat map is available (even without SSR)
+	const hasSeats = (isSSRSupported || hasSeatMapAvailable) && seatMapData && seatMapData.length > 0;
+	
+	// Check if we have any services from pricing response
+	const hasServicesFromPricing = hasBaggage || hasMeals || hasOtherServices;
+	
+	console.log("🔍 AiriqSSRSelection: Rendering check:", {
+		isSSRSupported,
+		hasBaggage,
+		hasMeals,
+		hasOtherServices,
+		hasServicesFromPricing,
+		hasSeats,
+		hasSeatMapAvailable,
+		seatMapDataLength: seatMapData?.length || 0,
+		loading,
+		loadingServices,
+		pricingDataExists: !!pricingData,
+		airlineCode,
+		baggageCount: finalBaggageOptions.length,
+		mealCount: finalMealOptions.length,
+		otherServiceCount: otherServiceOptions.length,
+	});
 
-	// If airline doesn't support SSR, show message
-	if (!isSSRSupported) {
+	// Show loader if services are being fetched (waiting for pricing data)
+	if (loadingServices || (pricingData === null && (isSSRSupported || hasSeatMapAvailable))) {
+		return (
+			<div className="flex flex-col items-center justify-center p-12 border rounded-lg bg-gray-50">
+				<Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
+				<p className="text-gray-600 font-medium">Fetching services for you...</p>
+				<p className="text-sm text-gray-500 mt-2">Please wait while we load available options</p>
+			</div>
+		);
+	}
+
+	// Only show "not available" message if:
+	// - No services in pricing response AND
+	// - Airline doesn't support SSR AND
+	// - No seat map available
+	// If we have services from pricing, show them regardless of SSR support status
+	if (!hasServicesFromPricing && !isSSRSupported && !hasSeatMapAvailable) {
 		return (
 			<div className="border rounded-lg p-6 bg-blue-50 border-blue-200">
 				<div className="flex items-start gap-3">
@@ -224,8 +414,7 @@ export default function AiriqSSRSelection({
 							Add-on Services Not Available
 						</h3>
 						<p className="text-sm text-blue-700">
-							SSR (Special Service Requests) for {airlineCode} flights are not
-							available during booking. You can add baggage, meals, and select
+							No additional services are available for this flight. You can add baggage, meals, and select
 							seats during airline web check-in.
 						</p>
 					</div>
@@ -256,6 +445,17 @@ export default function AiriqSSRSelection({
 		}));
 	};
 
+	const handleServiceSelect = (
+		pIndex: number,
+		sIndex: number,
+		option: { Id: string; Price: number } | null
+	) => {
+		setSelectedServices((prev) => ({
+			...prev,
+			[`${pIndex}-${sIndex}`]: option,
+		}));
+	};
+
 	const handleSeatSelect = (
 		pIndex: number,
 		sIndex: number,
@@ -267,7 +467,47 @@ export default function AiriqSSRSelection({
 		}));
 	};
 
-	if (!hasBaggage && !hasMeals && !hasSeats) {
+	if (!hasBaggage && !hasMeals && !hasOtherServices && !hasSeats && !loadingServices) {
+		// Show helpful message if seat map was expected but not available
+		if (isSSRSupported && hasSeatMapAvailable && !seatMapData) {
+			return (
+				<div className="border rounded-lg p-6 bg-yellow-50 border-yellow-200">
+					<div className="flex items-start gap-3">
+						<div className="flex-shrink-0">
+							<svg
+								className="h-5 w-5 text-yellow-600 mt-0.5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									strokeLinecap="round"
+									strokeLinejoin="round"
+									strokeWidth={2}
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+								/>
+							</svg>
+						</div>
+						<div className="flex-1">
+							<h3 className="text-sm font-semibold text-yellow-900 mb-1">
+								Seat Map Loading
+							</h3>
+							<p className="text-sm text-yellow-700">
+								{loading
+									? "Loading seat map data... Please wait."
+									: "Seat map was expected for this flight but is not currently available. This may be due to API limitations or flight availability."}
+							</p>
+							{!loading && (
+								<p className="text-xs text-yellow-600 mt-2">
+									Check the browser console for more details.
+								</p>
+							)}
+						</div>
+					</div>
+				</div>
+			);
+		}
+		
 		return (
 			<div className="text-center py-8 text-gray-500 border rounded-lg bg-gray-50">
 				<p>No add-on services available for this flight.</p>
@@ -315,36 +555,78 @@ export default function AiriqSSRSelection({
 						</AccordionTrigger>
 						<AccordionContent className="pt-2 pb-6">
 							<div className="space-y-4">
-								{baggageOptions.map((baggage: any, index: number) => (
-									<div
-										key={index}
-										className="flex items-center justify-between p-4 border rounded-lg hover:border-blue-300 transition-colors"
-									>
-										<div>
-											<p className="font-medium">{baggage.Description}</p>
-											<p className="text-sm text-gray-500">
-												{baggage.Weight} kg • {baggage.Origin} → {baggage.Destination}
-											</p>
+								{finalBaggageOptions.map((baggage: any, index: number) => {
+									// AIRiQ structure: Bagg array has BaggageID, Code, Description, Amount
+									const baggageId = baggage.BaggageID || baggage.Id || String(index);
+									const price = parseFloat(baggage.Amount || baggage.Price || "0");
+									const description = baggage.Description || "";
+									const origin = baggage.Origin || baggage.Orgin || "";
+									const destination = baggage.Destination || "";
+									const isSelected = selectedBaggage["0-0"]?.Id === baggageId;
+									
+									return (
+										<div
+											key={baggageId}
+											className={`flex items-center justify-between p-4 border-2 rounded-lg transition-colors ${
+												isSelected
+													? "border-blue-600 bg-blue-50"
+													: "border-gray-200 hover:border-blue-300"
+											}`}
+										>
+											<div className="flex-1">
+												<div className="flex items-center gap-2">
+													<p className="font-medium">{description}</p>
+													{baggage.BaggageText && (
+														<Tooltip>
+															<TooltipTrigger asChild>
+																<button
+																	type="button"
+																	className="text-blue-600 hover:text-blue-800 focus:outline-none"
+																	onClick={(e) => e.stopPropagation()}
+																>
+																	<Info className="h-4 w-4" />
+																</button>
+															</TooltipTrigger>
+															<TooltipContent
+																className="max-w-md bg-gray-900 text-white p-3 text-xs whitespace-pre-wrap"
+																side="right"
+															>
+																<div className="font-semibold mb-2">Terms & Conditions:</div>
+																<div className="whitespace-pre-wrap">
+																	{baggage.BaggageText}
+																</div>
+															</TooltipContent>
+														</Tooltip>
+													)}
+												</div>
+												<p className="text-sm text-gray-500">
+													{origin} → {destination}
+												</p>
+											</div>
+											<div className="flex items-center gap-4">
+												<span className="font-semibold">
+													₹{price.toLocaleString()}
+												</span>
+												<button
+													onClick={() => {
+														const newSelection = isSelected ? null : {
+															Id: baggageId,
+															Price: price,
+														};
+														handleBaggageSelect(0, 0, newSelection);
+													}}
+													className={`px-4 py-2 rounded-lg transition-colors ${
+														isSelected
+															? "bg-red-600 text-white hover:bg-red-700"
+															: "bg-blue-600 text-white hover:bg-blue-700"
+													}`}
+												>
+													{isSelected ? "Remove" : "Select"}
+												</button>
+											</div>
 										</div>
-										<div className="flex items-center gap-4">
-											<span className="font-semibold">
-												₹{parseFloat(baggage.Price || "0").toLocaleString()}
-											</span>
-											<button
-												onClick={() => {
-													// For now, select for first passenger, first segment
-													handleBaggageSelect(0, 0, {
-														Id: baggage.Code || String(index),
-														Price: parseFloat(baggage.Price || "0"),
-													});
-												}}
-												className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-											>
-												Select
-											</button>
-										</div>
-									</div>
-								))}
+									);
+								})}
 							</div>
 						</AccordionContent>
 					</AccordionItem>
@@ -387,36 +669,178 @@ export default function AiriqSSRSelection({
 						</AccordionTrigger>
 						<AccordionContent className="pt-2 pb-6">
 							<div className="space-y-4">
-								{mealOptions.map((meal: any, index: number) => (
-									<div
-										key={index}
-										className="flex items-center justify-between p-4 border rounded-lg hover:border-orange-300 transition-colors"
-									>
-										<div>
-											<p className="font-medium">{meal.Description}</p>
-											<p className="text-sm text-gray-500">
-												{meal.Origin} → {meal.Destination}
-											</p>
+								{finalMealOptions.map((meal: any, index: number) => {
+									// AIRiQ structure: Meal array has MealID, Code, Description, Amount
+									const mealId = meal.MealID || meal.Id || String(index);
+									const price = parseFloat(meal.Amount || meal.Price || "0");
+									const description = meal.Description || "";
+									const origin = meal.Origin || meal.Orgin || "";
+									const destination = meal.Destination || "";
+									const isSelected = selectedMeals["0-0"]?.Id === mealId;
+									
+									return (
+										<div
+											key={mealId}
+											className={`flex items-center justify-between p-4 border-2 rounded-lg transition-colors ${
+												isSelected
+													? "border-orange-600 bg-orange-50"
+													: "border-gray-200 hover:border-orange-300"
+											}`}
+										>
+											<div className="flex-1">
+												<p className="font-medium">{description}</p>
+												<p className="text-sm text-gray-500">
+													{origin} → {destination}
+												</p>
+												{meal.Code && (
+													<p className="text-xs text-gray-400 mt-1">
+														Code: {meal.Code.split('|')[0]}
+													</p>
+												)}
+											</div>
+											<div className="flex items-center gap-4">
+												<span className="font-semibold">
+													₹{price.toLocaleString()}
+												</span>
+												<button
+													onClick={() => {
+														const newSelection = isSelected ? null : {
+															Id: mealId,
+															Price: price,
+														};
+														handleMealSelect(0, 0, newSelection);
+													}}
+													className={`px-4 py-2 rounded-lg transition-colors ${
+														isSelected
+															? "bg-red-600 text-white hover:bg-red-700"
+															: "bg-orange-600 text-white hover:bg-orange-700"
+													}`}
+												>
+													{isSelected ? "Remove" : "Select"}
+												</button>
+											</div>
 										</div>
-										<div className="flex items-center gap-4">
-											<span className="font-semibold">
-												₹{parseFloat(meal.Price || "0").toLocaleString()}
-											</span>
-											<button
-												onClick={() => {
-													// For now, select for first passenger, first segment
-													handleMealSelect(0, 0, {
-														Id: meal.Code || String(index),
-														Price: parseFloat(meal.Price || "0"),
-													});
-												}}
-												className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-											>
-												Select
-											</button>
-										</div>
+									);
+								})}
+							</div>
+						</AccordionContent>
+					</AccordionItem>
+				)}
+
+				{/* Other Services Card */}
+				{hasOtherServices && (
+					<AccordionItem
+						value="other-services"
+						className="border rounded-lg px-4 bg-white shadow-sm"
+					>
+						<AccordionTrigger className="hover:no-underline py-4">
+							<div className="flex items-center gap-4 w-full">
+								<div className="bg-green-100 p-2 rounded-full">
+									<Sparkles className="h-5 w-5 text-green-600" />
+								</div>
+								<div className="flex flex-col items-start flex-1">
+									<div className="font-semibold text-base">
+										Other Services{" "}
+										<span className="text-muted-foreground font-normal">
+											(Optional)
+										</span>
 									</div>
-								))}
+									<div className="text-sm text-muted-foreground font-normal">
+										{Object.values(selectedServices).filter(Boolean).length > 0 ? (
+											<span className="text-blue-600 font-medium">
+												{Object.values(selectedServices).filter(Boolean).length}{" "}
+												services selected (₹
+												{Object.values(selectedServices)
+													.reduce((acc, curr) => acc + (curr?.Price || 0), 0)
+													.toLocaleString()}
+												)
+											</span>
+										) : (
+											"Add special services"
+										)}
+									</div>
+								</div>
+							</div>
+						</AccordionTrigger>
+						<AccordionContent className="pt-2 pb-6">
+							<div className="space-y-4">
+								{otherServiceOptions.map((service: any, index: number) => {
+									// AIRiQ structure: OtherService array has OtherID, SSRCode, Description, Amount
+									// Use OtherID first, then SSRCode as fallback, then index
+									const serviceId = service.OtherID || service.SSRCode || `service-${index}`;
+									const price = parseFloat(service.Amount || "0");
+									const description = service.Description || "";
+									const origin = service.Origin || "";
+									const destination = service.Destination || "";
+									const serviceType = service.SSRType || "";
+									// Check if this service is selected - compare by ID
+									const isSelected = selectedServices["0-0"]?.Id === serviceId;
+									
+									return (
+										<div
+											key={serviceId}
+											className={`flex items-center justify-between p-4 border-2 rounded-lg transition-colors ${
+												isSelected
+													? "border-green-600 bg-green-50"
+													: "border-gray-200 hover:border-green-300"
+											}`}
+										>
+											<div className="flex-1">
+												<div className="flex items-center gap-2">
+													<p className="font-medium">{description}</p>
+													{service.OtherSSRtext && (
+														<Tooltip>
+															<TooltipTrigger asChild>
+																<button
+																	type="button"
+																	className="text-green-600 hover:text-green-800 focus:outline-none"
+																	onClick={(e) => e.stopPropagation()}
+																>
+																	<Info className="h-4 w-4" />
+																</button>
+															</TooltipTrigger>
+															<TooltipContent
+																className="max-w-md bg-gray-900 text-white p-3 text-xs whitespace-pre-wrap"
+																side="right"
+															>
+																<div className="font-semibold mb-2">Details:</div>
+																<div className="whitespace-pre-wrap">
+																	{service.OtherSSRtext}
+																</div>
+															</TooltipContent>
+														</Tooltip>
+													)}
+												</div>
+												{serviceType && (
+													<p className="text-sm text-gray-500">
+														{serviceType} • {origin} → {destination}
+													</p>
+												)}
+											</div>
+											<div className="flex items-center gap-4">
+												<span className="font-semibold">
+													₹{price.toLocaleString()}
+												</span>
+												<button
+													onClick={() => {
+														const newSelection = isSelected ? null : {
+															Id: serviceId,
+															Price: price,
+														};
+														handleServiceSelect(0, 0, newSelection);
+													}}
+													className={`px-4 py-2 rounded-lg transition-colors ${
+														isSelected
+															? "bg-red-600 text-white hover:bg-red-700"
+															: "bg-green-600 text-white hover:bg-green-700"
+													}`}
+												>
+													{isSelected ? "Remove" : "Select"}
+												</button>
+											</div>
+										</div>
+									);
+								})}
 							</div>
 						</AccordionContent>
 					</AccordionItem>
@@ -459,8 +883,9 @@ export default function AiriqSSRSelection({
 						</AccordionTrigger>
 						<AccordionContent className="pt-4">
 							{loading ? (
-								<div className="flex justify-center p-8">
-									<Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+								<div className="flex flex-col items-center justify-center p-8">
+									<Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-3" />
+									<p className="text-sm text-gray-600">Fetching services for you...</p>
 								</div>
 							) : (
 								<AiriqSeatSelection

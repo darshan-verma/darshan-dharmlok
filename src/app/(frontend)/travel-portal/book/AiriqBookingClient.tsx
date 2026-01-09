@@ -12,6 +12,7 @@ import { toast } from "@/lib/toast";
 import { Search, Loader2 } from "lucide-react";
 import Link from "next/link";
 import type { PassengerDetail, FlightResult, FareRuleResponse } from "@/types/tbo";
+import type { SpecialServiceOption } from "../components/ssr/SpecialServiceSelection";
 
 interface AiriqBookingClientProps {
 	adultCount: number;
@@ -39,10 +40,12 @@ AiriqBookingClientProps) {
 		baggage: Record<string, { Id: string; Price: number } | null>;
 		meals: Record<string, { Id: string; Price: number } | null>;
 		seats: Record<string, { SeatID: string; Price: number } | null>;
+		otherServices?: Record<string, { Id: string; Price: number } | null>;
 	}>({
 		baggage: {},
 		meals: {},
 		seats: {},
+		otherServices: {},
 	});
 
 	// Load flight data from sessionStorage cache
@@ -128,13 +131,22 @@ AiriqBookingClientProps) {
 			}
 
 			// Check if airline supports SSR before fetching pricing
-			const airlineCode = flightResult?.AirlineCode || flightResult?.ValidatingAirlineCode || "";
+			const airlineCode = flight?.AirlineCode || flight?.ValidatingAirlineCode || "";
 			const ssrSupportedAirlines = ["AI", "UK"]; // AI = Air India, UK = Vistara
 			const isSSRSupported = ssrSupportedAirlines.includes(airlineCode);
+			const hasSeatMapAvailable = (flight as any)?._airiqSeatMapAvailable === true;
+			
+			console.log("🔍 AiriqBookingClient - Checking SSR support:", {
+				airlineCode,
+				isSSRSupported,
+				hasSeatMapAvailable,
+			});
 
-			// Only fetch pricing data for SSR if airline supports it
-			if (isSSRSupported) {
+			// Fetch pricing data if airline supports SSR, OR if seat map is available
+			// (Seat map API might work independently of SSR support)
+			if (isSSRSupported || hasSeatMapAvailable) {
 				try {
+					console.log(`📦 Fetching pricing data - SSR: ${isSSRSupported}, SeatMap: ${hasSeatMapAvailable}`);
 					const pricingResponse = await fetch("/api/travel/airiq/pricing", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -151,21 +163,35 @@ AiriqBookingClientProps) {
 
 					if (pricingResponse.ok) {
 						const pricingData = await pricingResponse.json();
-						console.log("📦 AIRiQ Pricing Response for SSR:", {
+						// PriceItenaryInfo is an array - access first element for SSR
+						const priceInfo = pricingData?.PriceItenaryInfo && Array.isArray(pricingData.PriceItenaryInfo) && pricingData.PriceItenaryInfo.length > 0
+							? pricingData.PriceItenaryInfo[0]
+							: pricingData?.PriceItenaryInfo; // Fallback for transformed structure
+						console.log("📦 AIRiQ Pricing Response:", {
 							hasPriceItenaryInfo: !!pricingData?.PriceItenaryInfo,
-							hasSSR: !!pricingData?.PriceItenaryInfo?.SSR,
-							ssrBaggage: pricingData?.PriceItenaryInfo?.SSR?.Baggage?.length || 0,
-							ssrMeals: pricingData?.PriceItenaryInfo?.SSR?.Meal?.length || 0,
-							fullSSR: pricingData?.PriceItenaryInfo?.SSR,
+							isArray: Array.isArray(pricingData?.PriceItenaryInfo),
+							priceItenaryInfoLength: Array.isArray(pricingData?.PriceItenaryInfo) ? pricingData.PriceItenaryInfo.length : 0,
+							hasSSR: !!priceInfo?.SSR,
+							ssrBaggage: priceInfo?.SSR?.Baggage?.length || 0,
+							ssrMeals: priceInfo?.SSR?.Meal?.length || 0,
+							fullSSR: priceInfo?.SSR,
+							trackId: priceInfo?.Trackid, // NEW TrackId from Pricing response
 						});
 						setPricingData(pricingData);
 					}
 				} catch (error) {
-					console.warn("⚠️ Pricing fetch failed:", error);
+					console.error("❌ Pricing fetch failed:", error);
+					if (hasSeatMapAvailable) {
+						console.error("⚠️ Pricing failed but seat map is available");
+						console.error("   According to AIRiQ docs, seat map REQUIRES pricing data with FlightDetails");
+						console.error("   Seat map cannot work without successful pricing API call");
+						console.error("   Error:", error instanceof Error ? error.message : error);
+					}
+					// Do NOT set empty pricing data - seat map requires real pricing data
+					setPricingData(null);
 				}
 			} else {
-				console.log(`⚠️ Airline ${airlineCode} does not support SSR - skipping pricing fetch`);
-				// Set pricing data to null so SSR component knows SSR is not available
+				console.log(`⚠️ Airline ${airlineCode} does not support SSR and no seat map available - skipping pricing fetch`);
 				setPricingData(null);
 			}
 
@@ -348,13 +374,36 @@ AiriqBookingClientProps) {
 										value ? { Price: value.Price } : null,
 									])
 								) as Record<string, { Price: number } | null>,
-								specialServices: {},
+								specialServices: selectedSSRs.otherServices
+									? Object.fromEntries(
+											Object.entries(selectedSSRs.otherServices).map(([key, value]) => [
+												key,
+												value
+													? [
+															{
+																Origin: "",
+																Destination: "",
+																DepartureTime: "",
+																AirlineCode: "",
+																FlightNumber: "",
+																Code: value.Id,
+																ServiceType: 0,
+																Text: "",
+																WayType: 0,
+																Currency: "INR",
+																Price: value.Price,
+															} as SpecialServiceOption,
+													  ]
+													: [],
+											])
+									  )
+									: {},
 							}}
 						/>
 					</section>
 
-					{/* 3. Add-ons (SSR) - Show even if no passengers yet, so users can see options */}
-					{pricingData && (
+					{/* 3. Add-ons (SSR & Seat Map) - Show if pricing data exists OR seat map is available */}
+					{(pricingData !== null || (flightResult as any)?._airiqSeatMapAvailable === true) && (
 						<section>
 							<AiriqSSRSelection
 								traceId={traceId}
@@ -403,7 +452,30 @@ AiriqBookingClientProps) {
 										value ? ({ Price: value.Price } as any) : null,
 									])
 								) as any,
-								specialServices: {},
+								specialServices: selectedSSRs.otherServices
+									? Object.fromEntries(
+											Object.entries(selectedSSRs.otherServices).map(([key, value]) => [
+												key,
+												value
+													? [
+															{
+																Origin: "",
+																Destination: "",
+																DepartureTime: "",
+																AirlineCode: "",
+																FlightNumber: "",
+																Code: value.Id,
+																ServiceType: 0,
+																Text: "",
+																WayType: 0,
+																Currency: "INR",
+																Price: value.Price,
+															} as SpecialServiceOption,
+													  ]
+													: [],
+											])
+									  )
+									: {},
 							}}
 						/>
 

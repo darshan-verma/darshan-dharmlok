@@ -21,6 +21,66 @@ import {
 } from "lucide-react";
 import type { Room } from "@/types/hotelApi";
 
+// Hotel Map Component
+function HotelMap({
+	latitude,
+	longitude,
+	address,
+}: {
+	latitude: string;
+	longitude: string;
+	address: string;
+}) {
+	// Get API key from environment variable
+	// Note: NEXT_PUBLIC_* variables are available at build time and runtime in client components
+	const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+	// Log warning in development if API key is missing
+	useEffect(() => {
+		if (!apiKey && process.env.NODE_ENV === "development") {
+			console.warn(
+				"⚠️ Google Maps API key not found. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your .env.local file"
+			);
+		}
+	}, [apiKey]);
+
+	// If API key is available, use Maps Embed API
+	if (apiKey) {
+		// Use the address if available, otherwise use coordinates
+		const query = address || `${latitude},${longitude}`;
+		return (
+			<iframe
+				width="100%"
+				height="100%"
+				style={{ border: 0 }}
+				src={`https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(query)}`}
+				allowFullScreen
+				loading="lazy"
+				referrerPolicy="no-referrer-when-downgrade"
+			/>
+		);
+	}
+
+	// Fallback: Use Google Maps link with coordinates
+	const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+	return (
+		<a
+			href={mapsUrl}
+			target="_blank"
+			rel="noopener noreferrer"
+			className="flex items-center justify-center h-full bg-gray-100 hover:bg-gray-200 transition-colors"
+		>
+			<div className="text-center p-4">
+				<MapPin className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+				<p className="text-sm text-gray-600 mb-2">Click to view on Google Maps</p>
+				<p className="text-xs text-gray-500">
+					(Google Maps API key required for embedded map)
+				</p>
+			</div>
+		</a>
+	);
+}
+
 export default function HotelDetailsPage() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
@@ -180,13 +240,33 @@ export default function HotelDetailsPage() {
 		}
 	};
 
-	const handleBookRoom = (bookingCode: string) => {
-		// Navigate to booking page with booking code
-		router.push(
-			`/travel-portal/hotel-booking?bookingCode=${encodeURIComponent(
-				bookingCode
-			)}&hotelCode=${hotelCode}`
-		);
+	const handleBookRoom = (room: Room) => {
+		// Prepare room data to pass to booking page
+		const roomData = {
+			bookingCode: room.BookingCode,
+			name: room.Name?.[0] || "Room",
+			totalFare: room.TotalFare,
+			totalTax: room.TotalTax,
+			mealType: room.MealType,
+			isRefundable: room.IsRefundable,
+			inclusion: room.Inclusion,
+			roomPromotion: room.RoomPromotion,
+			cancelPolicies: room.CancelPolicies,
+		};
+
+		// Navigate to booking page with all necessary data
+		const params = new URLSearchParams({
+			bookingCode: room.BookingCode,
+			hotelCode: hotelCode || "",
+			checkIn: checkIn || "",
+			checkOut: checkOut || "",
+			rooms: rooms || "",
+			adults: adults || "",
+			children: children || "0",
+			roomData: encodeURIComponent(JSON.stringify(roomData)),
+		});
+
+		router.push(`/travel-portal/hotel-booking?${params.toString()}`);
 	};
 
 	// Parse images from API response
@@ -707,7 +787,7 @@ export default function HotelDetailsPage() {
 															</div>
 															<div>
 																<Button
-																	onClick={() => handleBookRoom(room.BookingCode)}
+																	onClick={() => handleBookRoom(room)}
 																	className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6 font-semibold"
 																>
 																	BOOK NOW
@@ -903,13 +983,10 @@ export default function HotelDetailsPage() {
 								<CardContent className="p-6">
 									<h2 className="text-xl font-bold mb-4 text-gray-900">Location</h2>
 									<div className="relative w-full h-64 bg-gray-200 rounded-xl overflow-hidden shadow-md mb-4">
-										<iframe
-											width="100%"
-											height="100%"
-											style={{ border: 0 }}
-											src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}&q=${latitude},${longitude}`}
-											allowFullScreen
-											loading="lazy"
+										<HotelMap
+											latitude={latitude}
+											longitude={longitude}
+											address={hotelDetails.Address || ""}
 										/>
 									</div>
 									{hotelDetails.Address && (
@@ -917,6 +994,14 @@ export default function HotelDetailsPage() {
 											<p className="text-sm text-gray-700 font-medium">
 												{hotelDetails.Address}
 											</p>
+											<a
+												href={`https://www.google.com/maps?q=${latitude},${longitude}`}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="text-xs text-blue-600 hover:underline mt-2 inline-block"
+											>
+												View on Google Maps →
+											</a>
 										</div>
 									)}
 								</CardContent>
