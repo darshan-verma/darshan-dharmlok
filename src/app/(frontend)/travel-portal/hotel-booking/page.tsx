@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "@/lib/toast";
 import type { Room } from "@/types/hotelApi";
+import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 
 interface RoomData {
 	bookingCode: string;
@@ -64,7 +65,7 @@ interface PreBookResponse {
 	};
 }
 
-export default function HotelBookingPage() {
+function HotelBookingContent() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
 
@@ -97,26 +98,60 @@ export default function HotelBookingPage() {
 		}
 
 		// Parse room data from URL
+		let parsedRoomData: RoomData | null = null;
 		try {
-			const parsedRoomData = JSON.parse(decodeURIComponent(roomDataParam));
+			parsedRoomData = JSON.parse(decodeURIComponent(roomDataParam));
 			setRoomData(parsedRoomData);
-		} catch (err) {
+		} catch (_err) {
 			setError("Invalid room data");
 			setIsLoading(false);
 			return;
 		}
 
-		// Fetch hotel details
-		if (hotelCode) {
-			fetchHotelDetails();
+		// Capture snapshot when hotel review page loads
+		if (parsedRoomData) {
+			captureAndSendSnapshot(
+				{
+					hotelCode: hotelCode || "",
+					hotelName: hotelInfo?.name || "",
+					roomData: parsedRoomData,
+					checkIn: checkIn || "",
+					checkOut: checkOut || "",
+					rooms: rooms || "",
+					adults: adults || "",
+					children: children || "0",
+				},
+				{
+					page: "hotel_review",
+					user: {},
+					booking: {
+						type: "hotel",
+						searchId: hotelCode || undefined,
+						resultIndex: bookingCode,
+					},
+				}
+			).catch(() => {
+				// Silently fail - don't block user flow
+			});
 		}
 
-		// Call PreBook API
-		callPreBook();
+		// Fetch hotel details first, then call PreBook
+		if (hotelCode) {
+			fetchHotelDetails().then(() => {
+				// Call PreBook after hotel details are fetched
+				callPreBook();
+			}).catch(() => {
+				// Even if hotel details fail, try to prebook
+				callPreBook();
+			});
+		} else {
+			// Call PreBook even without hotel code
+			callPreBook();
+		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [bookingCode, roomDataParam, hotelCode]);
 
-	const fetchHotelDetails = async () => {
+	const fetchHotelDetails = async (): Promise<void> => {
 		if (!hotelCode) return;
 
 		try {
@@ -142,6 +177,7 @@ export default function HotelBookingPage() {
 			}
 		} catch (err) {
 			console.error("Error fetching hotel details:", err);
+			throw err; // Re-throw to allow caller to handle
 		}
 	};
 
@@ -160,6 +196,13 @@ export default function HotelBookingPage() {
 				body: JSON.stringify({
 					bookingCode: bookingCode,
 					paymentMode: "Limit",
+					hotelData: {
+						hotelCode: hotelCode,
+						hotelName: hotelInfo?.name || "",
+						city: hotelInfo?.city || "",
+						country: hotelInfo?.country || "",
+						roomData: roomData,
+					},
 				}),
 			});
 
@@ -172,6 +215,36 @@ export default function HotelBookingPage() {
 			}
 
 			setPreBookResponse(result.data);
+			
+			// Capture snapshot after successful prebook (before payment)
+			if (result.data?.Status?.Code === 1 || result.success) {
+				await captureAndSendSnapshot(
+					{
+						hotelCode: hotelCode || "",
+						hotelName: hotelInfo?.name || "",
+						roomData: roomData,
+						preBookResponse: result.data,
+						checkIn: checkIn || "",
+						checkOut: checkOut || "",
+						rooms: rooms || "",
+						adults: adults || "",
+						children: children || "0",
+						totalPrice: totalPrice,
+					},
+					{
+						page: "payment",
+						user: {},
+						booking: {
+							type: "hotel",
+							searchId: hotelCode || undefined,
+							resultIndex: bookingCode || undefined,
+						},
+					}
+				).catch(() => {
+					// Silently fail - don't block user flow
+				});
+			}
+			
 			setIsLoading(false);
 		} catch (err) {
 			console.error("Error calling PreBook:", err);
@@ -491,5 +564,22 @@ export default function HotelBookingPage() {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+export default function HotelBookingPage() {
+	return (
+		<Suspense
+			fallback={
+				<div className="min-h-screen bg-gray-50">
+					<div className="container mx-auto px-4 py-6">
+						<Skeleton className="h-96 w-full mb-6" />
+						<Skeleton className="h-64 w-full" />
+					</div>
+				</div>
+			}
+		>
+			<HotelBookingContent />
+		</Suspense>
 	);
 }

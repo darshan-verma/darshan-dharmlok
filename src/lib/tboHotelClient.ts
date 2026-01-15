@@ -35,14 +35,16 @@ function getStaticApiCredentials() {
 	// These MUST be the Static API credentials, not the Affiliate API credentials
 	const username = process.env.TBO_STATIC_API_USERNAME || "TBOStaticAPITest";
 	const password = process.env.TBO_STATIC_API_PASSWORD || "Tbo@11530818";
-	
+
 	// Verify we're not accidentally using Affiliate API credentials
 	if (username === "Dharmlok" || password === "Dharmlok@123") {
 		console.error("❌ ERROR: Using Affiliate API credentials for Static API!");
 		console.error("Static API requires: TBOStaticAPITest / Tbo@11530818");
-		throw new Error("Incorrect credentials: Static API cannot use Affiliate API credentials");
+		throw new Error(
+			"Incorrect credentials: Static API cannot use Affiliate API credentials"
+		);
 	}
-	
+
 	return { username, password };
 }
 
@@ -70,7 +72,7 @@ async function makeAuthenticatedRequest<T>(
 	// For Affiliate API Search endpoint, use Basic Auth instead of TokenId
 	// The Affiliate Search API requires Basic Auth with agency credentials
 	const { username, password } = getAffiliateCredentials();
-	
+
 	if (!username || !password) {
 		throw new Error(
 			"Affiliate API credentials (TEKTRAVELS_USER_ID and TEKTRAVELS_PASSWORD) are required for hotel search"
@@ -85,7 +87,7 @@ async function makeAuthenticatedRequest<T>(
 	const basicAuth = Buffer.from(`${username}:${password}`).toString("base64");
 	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
-		"Authorization": `Basic ${basicAuth}`,
+		Authorization: `Basic ${basicAuth}`,
 	};
 
 	console.log(
@@ -112,36 +114,40 @@ async function makeAuthenticatedRequest<T>(
 		const responseText = await response.text();
 		try {
 			const data = JSON.parse(responseText);
-			
+
 			// Check if the API returned an error status (even if HTTP 200)
-			if (data.Status && typeof data.Status === 'object') {
+			if (data.Status && typeof data.Status === "object") {
 				const statusCode = data.Status.Code;
-				const description = (data.Status.Description || '').toLowerCase();
-				
+				const description = (data.Status.Description || "").toLowerCase();
+
 				// Status codes that indicate success:
 				// - 1 = Success
 				// - 0 = Success/Pending
 				// - 200 = Success (used by Affiliate API when Description is "Successful")
 				// Any other code indicates an error
-				const isSuccess = 
-					statusCode === 1 || 
-					statusCode === 0 || 
-					(statusCode === 200 && (description.includes('success') || description === 'successful'));
-				
+				const isSuccess =
+					statusCode === 1 ||
+					statusCode === 0 ||
+					(statusCode === 200 &&
+						(description.includes("success") || description === "successful"));
+
 				if (!isSuccess) {
-					const errorMsg = data.Status.Description || `API Error: Code ${statusCode}`;
-					console.error(`❌ TBO API Error Status: Code ${statusCode}, Description: ${errorMsg}`);
+					const errorMsg =
+						data.Status.Description || `API Error: Code ${statusCode}`;
+					console.error(
+						`❌ TBO API Error Status: Code ${statusCode}, Description: ${errorMsg}`
+					);
 					throw new Error(`TBO API Error: ${errorMsg} (Code: ${statusCode})`);
 				}
 			}
-			
+
 			return data as T;
 		} catch (parseError) {
 			// If it's already an Error we threw, re-throw it
 			if (parseError instanceof Error) {
 				throw parseError;
 			}
-			
+
 			console.error(
 				`Failed to parse response as JSON. Response text:`,
 				responseText
@@ -210,14 +216,14 @@ export async function searchHotels(params: {
 			? {
 					Refundable: params.filters.refundable ?? false,
 					NoOfRooms: 0, // 0 to get all available rooms
-					MealType: params.filters.mealType || null,
-					StarRating: params.filters.starRating || null,
+					MealType: params.filters.mealType || undefined,
+					StarRating: params.filters.starRating || undefined,
 			  }
 			: {
 					Refundable: false,
 					NoOfRooms: 0,
-					MealType: null,
-					StarRating: null,
+					MealType: undefined,
+					StarRating: undefined,
 			  },
 	};
 
@@ -231,7 +237,10 @@ export async function searchHotels(params: {
 		);
 	}
 
-	return makeAuthenticatedRequest("Search", request);
+	return makeAuthenticatedRequest(
+		"Search",
+		request as unknown as Record<string, unknown>
+	);
 }
 
 /**
@@ -250,12 +259,12 @@ export async function getHotelDetailsFromApi(params: {
 	// The API expects "Hotelcodes" (plural, no space) based on tboStaticClient implementation
 	// Request format: Hotelcodes (String - hotel code as string), Language (String), IsRoomDetailRequired (String)
 	const hotelCodeStr = String(params.hotelCode);
-	
+
 	// Validate hotel code is not empty
 	if (!hotelCodeStr || hotelCodeStr.trim() === "") {
 		throw new Error(`Invalid hotel code: ${params.hotelCode}`);
 	}
-	
+
 	const request = {
 		Hotelcodes: hotelCodeStr, // Use plural "Hotelcodes" as per API spec - keep as string
 		Language: params.language || "EN",
@@ -266,14 +275,14 @@ export async function getHotelDetailsFromApi(params: {
 	// IMPORTANT: Hotel Details uses Static API credentials (TBOStaticAPITest / Tbo@11530818)
 	// NOT the Affiliate API credentials (Dharmlok / Dharmlok@123)
 	const { username, password } = getStaticApiCredentials();
-	
+
 	// Verify credentials are correct
 	if (!username || !password) {
 		throw new Error(
 			"Static API credentials are required. Please set TBO_STATIC_API_USERNAME and TBO_STATIC_API_PASSWORD"
 		);
 	}
-	
+
 	const basicAuth = Buffer.from(`${username}:${password}`).toString("base64");
 
 	console.log(
@@ -281,7 +290,9 @@ export async function getHotelDetailsFromApi(params: {
 		JSON.stringify(request, null, 2)
 	);
 	console.log(`🔐 Using Static API Basic Auth with username: ${username}`);
-	console.log(`🔐 Password length: ${password ? password.length : 0} characters`);
+	console.log(
+		`🔐 Password length: ${password ? password.length : 0} characters`
+	);
 	console.log(`🔐 Basic Auth header: Basic ${basicAuth.substring(0, 20)}...`);
 
 	try {
@@ -296,7 +307,9 @@ export async function getHotelDetailsFromApi(params: {
 
 		if (!response.ok) {
 			const errorText = await response.text();
-			console.error(`Hotel Details API HTTP error: ${response.status} - ${errorText}`);
+			console.error(
+				`Hotel Details API HTTP error: ${response.status} - ${errorText}`
+			);
 			throw new Error(
 				`Hotel Details API request failed: ${response.status} ${response.statusText}: ${errorText}`
 			);
@@ -340,7 +353,10 @@ export async function getHotelDetailsFromApi(params: {
 				responseText
 			);
 			throw new Error(
-				`Invalid JSON response from Hotel Details API: ${responseText.substring(0, 100)}`
+				`Invalid JSON response from Hotel Details API: ${responseText.substring(
+					0,
+					100
+				)}`
 			);
 		}
 	} catch (error) {
@@ -372,7 +388,10 @@ export async function getHotelDetails(params: {
 		PaxRooms: buildPaxRooms(params.rooms),
 	};
 
-	return makeAuthenticatedRequest("GetHotelInfo", request);
+	return makeAuthenticatedRequest(
+		"GetHotelInfo",
+		request as unknown as Record<string, unknown>
+	);
 }
 
 /**
@@ -400,7 +419,10 @@ export async function getHotelRooms(params: {
 		PaxRooms: buildPaxRooms(params.rooms),
 	};
 
-	return makeAuthenticatedRequest("GetHotelRoom", request);
+	return makeAuthenticatedRequest(
+		"GetHotelRoom",
+		request as unknown as Record<string, unknown>
+	);
 }
 
 /**
@@ -410,13 +432,16 @@ export async function getHotelRooms(params: {
 export async function preBookHotel(params: {
 	bookingCode: string;
 	paymentMode?: string;
-}): Promise<any> {
+}): Promise<Record<string, unknown>> {
 	const request = {
 		BookingCode: params.bookingCode,
 		PaymentMode: params.paymentMode || "Limit",
 	};
 
-	return makeAuthenticatedRequest("PreBook", request);
+	return makeAuthenticatedRequest(
+		"PreBook",
+		request as unknown as Record<string, unknown>
+	);
 }
 
 /**

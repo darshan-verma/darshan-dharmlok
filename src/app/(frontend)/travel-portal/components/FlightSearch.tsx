@@ -39,6 +39,13 @@ import UpsellModal from "./UpsellModal";
 import { Separator } from "@/components/ui/separator";
 import { getFareBreakdown } from "@/lib/tboFareCalculations";
 import AirlineLogo from "@/components/travel-portal/AirlineLogo";
+import {
+	flightCache,
+	lastSearch,
+	generateCacheKey,
+	normalizeDate,
+} from "@/lib/searchCache";
+import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 
 interface City {
 	city: string;
@@ -218,57 +225,8 @@ export default function FlightSearch() {
 		Map<string, FlightResult[]>
 	>(new Map());
 
-	// Cache for search results with timestamp
-	const searchCache = useRef<
-		Record<
-			string,
-			{
-				results: FlightResult[];
-				traceId: string;
-				timestamp: number;
-				journeyType: string;
-			}
-		>
-	>({});
-
-	// Load cache from sessionStorage on initial mount so it survives navigation
-	useEffect(() => {
-		try {
-			const stored = sessionStorage.getItem("flightSearchCache");
-			if (stored) {
-				const parsedCache = JSON.parse(stored);
-				const now = Date.now();
-				const CACHE_EXPIRY = 30 * 60 * 1000; // 30 minutes
-
-				// Filter out expired cache entries and old cache format
-				const validCache: Record<
-					string,
-					{
-						results: FlightResult[];
-						traceId: string;
-						timestamp: number;
-						journeyType: string;
-					}
-				> = {};
-				Object.keys(parsedCache).forEach((key) => {
-					const entry = parsedCache[key];
-					// Skip old "latest_" keys and expired entries
-					if (
-						key.startsWith("latest_") ||
-						!entry.timestamp ||
-						now - entry.timestamp >= CACHE_EXPIRY
-					) {
-						return;
-					}
-					validCache[key] = entry;
-				});
-
-				searchCache.current = validCache;
-			}
-		} catch (e) {
-			console.warn("Failed to load flight search cache:", e);
-		}
-	}, []);
+	// Track if we've loaded cached results on mount (for back navigation)
+	const hasLoadedCacheRef = useRef(false);
 
 	// DateSelector state
 	const [departureDate, setDepartureDate] = useState<Date>();
@@ -350,7 +308,7 @@ export default function FlightSearch() {
 		},
 	});
 
-	// Auto-fill form and search if URL parameters are present
+	// Auto-fill form and search if URL parameters are present OR load from cache on back navigation
 	useEffect(() => {
 		const origin = searchParams.get("origin");
 		const destination = searchParams.get("destination");
@@ -361,7 +319,6 @@ export default function FlightSearch() {
 		const infants = searchParams.get("infants");
 		const journeyType = searchParams.get("journeyType");
 		const cabinClass = searchParams.get("cabinClass");
-
 
 		// Check for multi-city parameters
 		const leg1From = searchParams.get("leg1From");
@@ -374,21 +331,91 @@ export default function FlightSearch() {
 		const leg3To = searchParams.get("leg3To");
 		const leg3Date = searchParams.get("leg3Date");
 
-		// If any search parameters are present, clear the cache to ensure fresh search
+		// If no URL params but we have lastSearch, restore form UI only (no cache lookup)
 		if (
-			origin ||
-			destination ||
-			departureDate ||
-			leg1From ||
-			leg1To ||
-			leg1Date
+			!origin &&
+			!destination &&
+			!departureDate &&
+			!leg1From &&
+			!hasLoadedCacheRef.current
 		) {
-			searchCache.current = {};
-			try {
-				sessionStorage.setItem("flightSearchCache", JSON.stringify({}));
-			} catch (e) {
-				console.warn("Failed to clear flight search cache:", e);
+			const lastSearchParams = lastSearch.get("flight") as {
+				origin?: string;
+				destination?: string;
+				departureDate?: string;
+				returnDate?: string;
+				adults?: number;
+				children?: number;
+				infants?: number;
+				journeyType?: string;
+				cabinClass?: string;
+				segments?: FlightSegment[];
+			} | null;
+			if (lastSearchParams) {
+				hasLoadedCacheRef.current = true;
+				
+				// Restore form from lastSearch (UI state only)
+				if (lastSearchParams.origin && lastSearchParams.destination) {
+					const fromCity = getCityFromCode(lastSearchParams.origin);
+					const toCity = getCityFromCode(lastSearchParams.destination);
+					setFrom(fromCity);
+					setTo(toCity);
+					form.setValue("origin", lastSearchParams.origin);
+					form.setValue("destination", lastSearchParams.destination);
+
+					if (lastSearchParams.departureDate) {
+						const depDate = new Date(lastSearchParams.departureDate);
+						setDepartureDate(depDate);
+						form.setValue("departureDate", depDate);
+					}
+					if (lastSearchParams.returnDate) {
+						const retDate = new Date(lastSearchParams.returnDate);
+						setReturnDate(retDate);
+						form.setValue("returnDate", retDate);
+					}
+					}
+
+					setTravellers({
+						adults: lastSearchParams.adults || 1,
+						children: lastSearchParams.children || 0,
+						infants: lastSearchParams.infants || 0,
+					});
+					form.setValue("adults", lastSearchParams.adults || 1);
+					form.setValue("children", lastSearchParams.children || 0);
+					form.setValue("infants", lastSearchParams.infants || 0);
+
+					if (lastSearchParams.journeyType) {
+						form.setValue("journeyType", lastSearchParams.journeyType as "1" | "2" | "3");
+						setTripType(
+							reverseTripTypeMapping[lastSearchParams.journeyType] || "one-way"
+						);
+					prevTripTypeRef.current = reverseTripTypeMapping[lastSearchParams.journeyType] || "one-way";
+					}
+					if (lastSearchParams.cabinClass) {
+						form.setValue("cabinClass", lastSearchParams.cabinClass);
+						setTravelClass(
+							reverseCabinClassMapping[lastSearchParams.cabinClass] || "Economy"
+						);
+					}
+
+				// For multi-city, restore segments if available
+				if (lastSearchParams.journeyType === "3" && lastSearchParams.segments) {
+					const segments = lastSearchParams.segments;
+							const newLegs: CityLeg[] = segments.map((seg: FlightSegment, index: number) => ({
+								id: `leg-${index + 1}`,
+						from: getCityFromCode(seg.origin || ""),
+						to: getCityFromCode(seg.destination || ""),
+						date: seg.departureDate ? new Date(seg.departureDate) : undefined,
+							}));
+							setMultiCityLegs(newLegs);
+					form.setValue("segments", segments);
+				}
 			}
+		}
+
+		// If URL params are present, this is a new search - clear cache for this specific search
+		if (origin || destination || departureDate || leg1From || leg1To || leg1Date) {
+			hasLoadedCacheRef.current = false;
 		}
 
 		// Parse travellers
@@ -545,23 +572,12 @@ export default function FlightSearch() {
 		}
 	};
 
-	// Clear flights and cache when trip type changes
+	// Clear flights when trip type changes (cache key includes trip type, so no need to clear cache)
 	useEffect(() => {
 		if (prevTripTypeRef.current !== tripType) {
-			// Clear displayed flights
+			// Clear displayed flights only
 			setFlights([]);
 			setSearchPerformed(false);
-
-			// CLEAR ENTIRE CACHE when trip type changes
-			searchCache.current = {};
-
-			// Update sessionStorage
-			try {
-				sessionStorage.setItem("flightSearchCache", JSON.stringify({}));
-			} catch (e) {
-				console.warn("Failed to clear flight search cache:", e);
-			}
-
 			prevTripTypeRef.current = tripType;
 		}
 	}, [tripType]);
@@ -883,13 +899,10 @@ export default function FlightSearch() {
 		setSearchPerformed(true);
 
 		try {
-			const formatLocalDate = (date: Date) => {
-				const year = date.getFullYear();
-				const month = String(date.getMonth() + 1).padStart(2, "0");
-				const day = String(date.getDate()).padStart(2, "0");
-				const hours = String(date.getHours()).padStart(2, "0");
-				const minutes = String(date.getMinutes()).padStart(2, "0");
-				return `${year}-${month}-${day}T${hours}:${minutes}:00`;
+			// Helper function to format date for API (YYYY-MM-DDT00:00:00)
+			const formatDateForAPI = (date: Date) => {
+				const normalized = normalizeDate(date);
+				return `${normalized}T00:00:00`;
 			};
 
 			const searchParams: FlightSearchParams = {
@@ -910,7 +923,7 @@ export default function FlightSearch() {
 					Destination: segment.destination.toUpperCase(),
 					FlightCabinClass: searchData.cabinClass,
 					PreferredDepartureTime: segment.departureDate
-						? formatLocalDate(new Date(segment.departureDate))
+						? formatDateForAPI(new Date(segment.departureDate))
 						: "",
 				}));
 			} else {
@@ -918,43 +931,70 @@ export default function FlightSearch() {
 				searchParams.Origin = searchData.origin.toUpperCase();
 				searchParams.Destination = searchData.destination.toUpperCase();
 				searchParams.PreferredDepartureTime = searchData.departureDate
-					? formatLocalDate(new Date(searchData.departureDate))
+					? formatDateForAPI(new Date(searchData.departureDate))
 					: "";
 				if (searchData.journeyType === "2") {
 					searchParams.ReturnPreferredDepartureTime = searchData.returnDate
-						? formatLocalDate(new Date(searchData.returnDate))
+						? formatDateForAPI(new Date(searchData.returnDate))
 						: "";
 				}
 			}
 
-			// Create cache key from search parameters
-			const cacheKey = JSON.stringify(searchParams);
+			// Create cache key from search parameters (hashed) - use normalized dates for cache key
+			const cacheKeyParams: Record<string, string | number | Array<Record<string, string>>> = {
+				AdultCount: String(searchData.adults),
+				ChildCount: String(searchData.children),
+				InfantCount: String(searchData.infants),
+				FlightCabinClass: searchData.cabinClass,
+				JourneyType: searchData.journeyType,
+				DirectFlight: String(searchData.directFlight),
+				OneStopFlight: String(searchData.oneStopFlight),
+			};
+
+			if (searchData.journeyType === "3" && searchData.segments) {
+				cacheKeyParams.Segments = searchData.segments.map((segment) => ({
+					Origin: segment.origin.toUpperCase(),
+					Destination: segment.destination.toUpperCase(),
+					FlightCabinClass: searchData.cabinClass,
+					PreferredDepartureTime: segment.departureDate
+						? normalizeDate(new Date(segment.departureDate))
+						: "",
+				}));
+			} else {
+				cacheKeyParams.Origin = searchData.origin.toUpperCase();
+				cacheKeyParams.Destination = searchData.destination.toUpperCase();
+				cacheKeyParams.PreferredDepartureTime = searchData.departureDate
+					? normalizeDate(new Date(searchData.departureDate))
+					: "";
+				if (searchData.journeyType === "2") {
+					cacheKeyParams.ReturnPreferredDepartureTime = searchData.returnDate
+						? normalizeDate(new Date(searchData.returnDate))
+						: "";
+				}
+			}
+
+			const cacheKey = await generateCacheKey(cacheKeyParams);
 
 			// Check cache (unless forced refresh requested)
 			if (!forceRefresh) {
-				// Try exact cache key match
-				if (searchCache.current[cacheKey]) {
-					const cached = searchCache.current[cacheKey];
-					const now = Date.now();
-					const CACHE_EXPIRY = 30 * 60 * 1000; // 30 minutes
-
-					// Check if cache is still valid
-					if (now - cached.timestamp < CACHE_EXPIRY) {
-						setFlights(cached.results);
-						setTraceId(cached.traceId);
-						setSearchPerformed(true);
-						setLoading(false);
-						if (cached.results.length === 0) {
-							toast.info("No flights found (cached)");
-						} else {
-							toast.success(
-								`Found ${cached.results.length} flight options (cached)`
-							);
-						}
-						return;
-					} else {
-						delete searchCache.current[cacheKey];
+				const cached = flightCache.get(cacheKey);
+				if (cached) {
+					setFlights(cached.results as FlightResult[]);
+					// Get traceId from separate storage (not from cache structure)
+					const cachedTraceId = flightCache.getTraceId(cacheKey);
+					if (cachedTraceId) {
+						setTraceId(cachedTraceId);
 					}
+					setSearchPerformed(true);
+					setLoading(false);
+					if (cached.results.length === 0) {
+						toast.info("No flights found (cached)");
+					} else {
+						toast.success(
+							`Found ${cached.results.length} flight options (cached)`
+						);
+					}
+					return;
 				}
 			}
 
@@ -1023,6 +1063,8 @@ export default function FlightSearch() {
 			const newTraceId = result.data?.Response?.TraceId || "";
 			if (newTraceId) {
 				setTraceId(newTraceId);
+				// Store traceId separately (not in cache structure)
+				flightCache.setTraceId(cacheKey, newTraceId);
 			}
 
 			// Extract flights from the response
@@ -1131,47 +1173,41 @@ export default function FlightSearch() {
 				flightResults = result.data?.Response?.Results?.[0] || [];
 			}
 
-			// Update cache with timestamp
-			const now = Date.now();
-			const CACHE_EXPIRY = 30 * 60 * 1000; // 30 minutes
-
-			// Clean up expired cache entries
-			const validCache: Record<
-				string,
-				{
-					results: FlightResult[];
-					traceId: string;
-					timestamp: number;
-					journeyType: string;
-				}
-			> = {};
-
-			Object.keys(searchCache.current).forEach((key) => {
-				const entry = searchCache.current[key];
-				if (now - entry.timestamp < CACHE_EXPIRY) {
-					validCache[key] = entry;
-				}
+			// Save to cache (only results and createdAt, no traceId)
+			flightCache.set(cacheKey, {
+				results: flightResults,
+				createdAt: Date.now(),
 			});
 
-			// Add the new search result
-			validCache[cacheKey] = {
-				results: flightResults,
-				traceId: newTraceId,
-				timestamp: now,
-				journeyType: searchParams.JourneyType,
+			// Save last search parameters for form restoration (UI state only)
+			const lastSearchData: Record<string, string | number | Array<{ origin: string; destination: string; departureDate?: string }>> = {
+				adults: searchData.adults,
+				children: searchData.children,
+				infants: searchData.infants,
+				journeyType: searchData.journeyType,
+				cabinClass: searchData.cabinClass,
 			};
 
-			searchCache.current = validCache;
-
-			// Persist cache to sessionStorage so it survives navigation/back
-			try {
-				sessionStorage.setItem(
-					"flightSearchCache",
-					JSON.stringify(searchCache.current)
-				);
-			} catch (err) {
-				console.warn("Failed to persist flight search cache:", err);
+			if (searchData.journeyType === "3" && searchData.segments) {
+				// Multi-city: save segments
+				lastSearchData.segments = searchData.segments.map((seg) => ({
+					origin: seg.origin,
+					destination: seg.destination,
+					departureDate: seg.departureDate ? normalizeDate(new Date(seg.departureDate)) : undefined,
+				}));
+			} else {
+				// One-way or round-trip: save origin/destination
+				lastSearchData.origin = searchData.origin;
+				lastSearchData.destination = searchData.destination;
+				if (searchData.departureDate) {
+					lastSearchData.departureDate = normalizeDate(new Date(searchData.departureDate));
+				}
+				if (searchData.returnDate) {
+					lastSearchData.returnDate = normalizeDate(new Date(searchData.returnDate));
+				}
 			}
+
+			lastSearch.save("flight", lastSearchData);
 
 			setFlights(flightResults);
 			setSearchPerformed(true);
@@ -1235,18 +1271,45 @@ export default function FlightSearch() {
 	};
 
 	const onSubmit = async (data: FlightSearchForm) => {
-		// Clear cache for fresh search when user manually submits
-		console.log(
-			"Manual search submission detected, clearing cache for fresh search"
-		);
-		searchCache.current = {};
-		try {
-			sessionStorage.setItem("flightSearchCache", JSON.stringify({}));
-		} catch (e) {
-			console.warn("Failed to clear flight search cache:", e);
+		// Generate cache key to clear specific entry when user manually submits
+		// Use normalized dates for cache key generation
+		const cacheKeyParams: Record<string, string | number | Array<Record<string, string>>> = {
+			AdultCount: String(data.adults),
+			ChildCount: String(data.children),
+			InfantCount: String(data.infants),
+			FlightCabinClass: data.cabinClass,
+			JourneyType: data.journeyType,
+			DirectFlight: String(data.directFlight),
+			OneStopFlight: String(data.oneStopFlight),
+		};
+
+		if (data.journeyType === "3" && data.segments) {
+			cacheKeyParams.Segments = data.segments.map((segment) => ({
+				Origin: segment.origin.toUpperCase(),
+				Destination: segment.destination.toUpperCase(),
+				FlightCabinClass: data.cabinClass,
+				PreferredDepartureTime: segment.departureDate
+					? normalizeDate(new Date(segment.departureDate))
+					: "",
+			}));
+		} else {
+			cacheKeyParams.Origin = data.origin.toUpperCase();
+			cacheKeyParams.Destination = data.destination.toUpperCase();
+			cacheKeyParams.PreferredDepartureTime = data.departureDate
+				? normalizeDate(new Date(data.departureDate))
+				: "";
+			if (data.journeyType === "2") {
+				cacheKeyParams.ReturnPreferredDepartureTime = data.returnDate
+					? normalizeDate(new Date(data.returnDate))
+					: "";
+			}
 		}
 
-		await handleAutoSearch(data);
+		const cacheKey = await generateCacheKey(cacheKeyParams);
+		// Clear this specific cache entry to force fresh search
+		flightCache.clearKey(cacheKey);
+
+		await handleAutoSearch(data, { forceRefresh: true });
 	};
 
 	const formatDuration = (minutes: number) => {
@@ -1334,7 +1397,7 @@ export default function FlightSearch() {
 			}
 
 			return "Invalid Date";
-		} catch (error) {
+		} catch (_error) {
 			return "Invalid Date";
 		}
 	};
@@ -1957,8 +2020,8 @@ export default function FlightSearch() {
 																const hasCabinBaggage =
 																	firstSegment?.CabinBaggage;
 																
-																// Check seat map availability for AIRiQ flights
-																const hasSeatMap = (flight as any)?._airiqSeatMapAvailable === true;
+								// Check seat map availability for AIRiQ flights
+								const hasSeatMap = (flight as FlightResult & { _airiqSeatMapAvailable?: boolean })?._airiqSeatMapAvailable === true;
 																
 																// Check if any features are available
 																if (hasSeatMap || hasBaggage || hasCabinBaggage) {
@@ -2076,8 +2139,95 @@ export default function FlightSearch() {
 																disabled={
 																	selectingFlight === flight.ResultIndex
 																}
-																onClick={() => {
+																onClick={async () => {
 																	const values = form.getValues();
+																	
+																	// Capture snapshot of flight selection (non-blocking)
+									try {
+										const firstSegment = flight.Segments?.[0]?.[0];
+										const origin = firstSegment?.Origin;
+										const destination = firstSegment?.Destination;
+										const originCode = origin?.Airport?.AirportCode || (origin as { AirportCode?: string })?.AirportCode;
+										const destCode = destination?.Airport?.AirportCode || (destination as { AirportCode?: string })?.AirportCode;
+										const departureTime = origin?.DepTime || (firstSegment as { DepartureTime?: string })?.DepartureTime;
+										const arrivalTime = destination?.ArrTime || (firstSegment as { ArrivalTime?: string })?.ArrivalTime;
+										const cabinClass = (firstSegment as { CabinClass?: string })?.CabinClass || (flight.Fare as { CabinClass?: string })?.CabinClass;
+										// Fix: Property 'Refundable' does not exist on type 'Fare'.
+										// Some APIs may expose 'Refundable', so we fallback gracefully, otherwise use 'non-refundable' if undefined
+										let refundType = "non-refundable";
+										if ("Refundable" in (flight.Fare ?? {})) {
+											const refundable = (flight.Fare as { Refundable?: boolean })?.Refundable;
+											refundType = refundable ? "refundable" : "non-refundable";
+										}
+																		
+																		await captureAndSendSnapshot(
+																			{
+																				origin: originCode,
+																				destination: destCode,
+																				airline: flight.AirlineCode,
+																				flightNumber: (firstSegment as { FlightNumber?: string })?.FlightNumber,
+																				departureTime,
+																				arrivalTime,
+																				fare: flight.Fare?.OfferedFare,
+																				cabinClass,
+																				refundType,
+																				passengers: {
+																					adults: values.adults,
+																					children: values.children,
+																					infants: values.infants,
+																				},
+																				flightDetails: flight,
+																			},
+																			{
+																				page: "flight_results",
+																				user: {
+																					ip: undefined, // Will be captured server-side
+																					userAgent: undefined, // Will be captured server-side
+																				},
+																				booking: {
+																					type: "flight",
+																					traceId: traceId,
+																					resultIndex: flight.ResultIndex,
+																				},
+											}
+										);
+									} catch (_error) {
+										// Silently fail - don't block user flow
+									}
+																	
+									// Log flight selection (non-blocking)
+									try {
+										const firstSegment = flight.Segments?.[0]?.[0];
+										const origin = firstSegment?.Origin;
+										const destination = firstSegment?.Destination;
+										await fetch("/api/travel/log-selection", {
+											method: "POST",
+											headers: { "Content-Type": "application/json" },
+											body: JSON.stringify({
+												logType: "flight",
+												action: "selection",
+												provider: flight.ApiSource || "TBO",
+												flightData: {
+													origin: origin?.Airport?.AirportCode || (origin as { AirportCode?: string })?.AirportCode,
+													destination: destination?.Airport?.AirportCode || (destination as { AirportCode?: string })?.AirportCode,
+													airline: flight.AirlineCode,
+													flightNumber: (firstSegment as { FlightNumber?: string })?.FlightNumber,
+													cabinClass: (firstSegment as { CabinClass?: string })?.CabinClass || (flight.Fare as { CabinClass?: string })?.CabinClass,
+													departureDate: origin?.DepTime || (firstSegment as { DepartureTime?: string })?.DepartureTime,
+																					adultCount: values.adults,
+																					childCount: values.children,
+																					infantCount: values.infants,
+																					totalFare: flight.Fare?.OfferedFare,
+																					totalTax: flight.Fare?.Tax,
+																				},
+																				traceId: traceId,
+																				resultIndex: flight.ResultIndex,
+											}),
+										}).catch(() => {}); // Silently fail
+									} catch (_error) {
+										// Silently fail - don't block user flow
+									}
+
 																	// If multicity or no upsell available - go straight to booking
 																	if (
 																		tripType === "multi-city" ||

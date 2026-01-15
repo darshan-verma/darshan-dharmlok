@@ -47,7 +47,10 @@ export async function GET(request: NextRequest) {
 		);
 
 		// Log the full response to see the structure
-		console.log("✅ Hotel Details API full response:", JSON.stringify(result, null, 2));
+		console.log(
+			"✅ Hotel Details API full response:",
+			JSON.stringify(result, null, 2)
+		);
 		console.log("✅ Hotel Details API response:", {
 			hotelCode,
 			hasDetails: !!result.HotelDetails,
@@ -64,33 +67,45 @@ export async function GET(request: NextRequest) {
 		};
 		if ((result as ResultWithStatus).Status) {
 			const status = (result as ResultWithStatus).Status;
-			if (status.Code !== 1 && status.Code !== 0 && status.Code !== 200) {
-				return NextResponse.json({
-					success: false,
-					error: status.Description || "Hotel details API returned an error",
-				}, { status: 400 });
+			if (
+				status &&
+				status.Code !== 1 &&
+				status.Code !== 0 &&
+				status.Code !== 200
+			) {
+				return NextResponse.json(
+					{
+						success: false,
+						error: status.Description || "Hotel details API returned an error",
+					},
+					{ status: 400 }
+				);
 			}
 		}
 
-		// The API returns HotelDetails as an array, so we need to extract the first element
-		// Check if HotelDetails is an array and extract the first element
 		let hotelDetailsData = null;
-		
+
 		if (result.HotelDetails) {
-			if (Array.isArray(result.HotelDetails) && result.HotelDetails.length > 0) {
+			if (
+				Array.isArray(result.HotelDetails) &&
+				result.HotelDetails.length > 0
+			) {
 				// HotelDetails is an array, get the first element
 				hotelDetailsData = result.HotelDetails[0];
-			} else if (typeof result.HotelDetails === 'object') {
+			} else if (typeof result.HotelDetails === "object") {
 				// HotelDetails is already an object
 				hotelDetailsData = result.HotelDetails;
 			}
 		}
 
 		if (!hotelDetailsData) {
-			return NextResponse.json({
-				success: false,
-				error: "Hotel details not found in response",
-			}, { status: 404 });
+			return NextResponse.json(
+				{
+					success: false,
+					error: "Hotel details not found in response",
+				},
+				{ status: 404 }
+			);
 		}
 
 		// Return the hotel details as an object (not array)
@@ -105,7 +120,10 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json(
 			{
 				success: false,
-				error: error instanceof Error ? error.message : "Failed to fetch hotel details",
+				error:
+					error instanceof Error
+						? error.message
+						: "Failed to fetch hotel details",
 			},
 			{ status: 500 }
 		);

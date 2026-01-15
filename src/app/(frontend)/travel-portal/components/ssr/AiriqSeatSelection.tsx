@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { PassengerDetail } from "@/types/tbo";
+import type { AiriqSeatMapResponse } from "@/types/airiq";
 import {
 	Dialog,
 	DialogContent,
@@ -32,7 +33,7 @@ export interface AiriqSeatOption {
 }
 
 interface AiriqSeatSelectionProps {
-	seatMapData: any; // AIRiQ seat map structure
+	seatMapData: AiriqSeatMapResponse['FlightSeat']; // AIRiQ seat map structure
 	passengers: PassengerDetail[];
 	adultCount: number;
 	childCount: number;
@@ -150,7 +151,7 @@ export default function AiriqSeatSelection({
 
 	return (
 		<div className="space-y-6">
-			{seatMapData.map((segmentData: any, segmentIndex: number) => {
+			{seatMapData.map((segmentData: NonNullable<AiriqSeatMapResponse['FlightSeat']>[0], segmentIndex: number) => {
 				const seatMap = segmentData.SeatMap || [];
 				if (seatMap.length === 0) return null;
 

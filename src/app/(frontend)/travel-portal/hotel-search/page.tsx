@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import HotelSearchForm, {
 	HotelSearchData,
@@ -20,8 +20,13 @@ import {
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { HotelSearchResponse, HotelResult } from "@/types/hotelApi";
+import {
+	hotelCache,
+	lastSearch,
+	generateCacheKey,
+} from "@/lib/searchCache";
 
-export default function HotelSearchPage() {
+function HotelSearchContent() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
 
@@ -42,6 +47,7 @@ export default function HotelSearchPage() {
 		}>
 	>({});
 	const [loadingDetails, setLoadingDetails] = useState<Set<string>>(new Set());
+	const hasLoadedCacheRef = React.useRef(false);
 
 	// Filter state
 	const [filters, setFilters] = useState<FilterState>({
@@ -75,12 +81,48 @@ export default function HotelSearchPage() {
 		return null;
 	});
 
+	// Helper function to format dates
+	const formatDate = (date: Date | string) => {
+		const d = typeof date === "string" ? new Date(date) : date;
+		const year = d.getFullYear();
+		const month = String(d.getMonth() + 1).padStart(2, "0");
+		const day = String(d.getDate()).padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	};
+
 	// Perform search
-	const performSearch = async (data: HotelSearchData) => {
+	const performSearch = async (data: HotelSearchData, forceRefresh = false) => {
 		setIsLoading(true);
 		setError(null);
 
 		try {
+			// Generate cache key
+			const cacheKey = await generateCacheKey({
+				cityCode: data.cityCode,
+				checkIn: formatDate(data.checkIn),
+				checkOut: formatDate(data.checkOut),
+				rooms: data.rooms,
+				adults: data.adults,
+				children: data.children,
+			});
+
+			// Check cache (unless forced refresh)
+			if (!forceRefresh) {
+				const cached = hotelCache.get(cacheKey);
+				if (cached) {
+					const results = cached.results as HotelSearchResponse | null;
+					setSearchResults(results);
+					const hotelResults = results?.HotelResult || (Array.isArray(results) ? results : []);
+					setFilteredResults(Array.isArray(hotelResults) ? hotelResults : []);
+					setIsLoading(false);
+					setError(null);
+					// Fetch hotel details for cached results
+					if (Array.isArray(hotelResults) && hotelResults.length > 0) {
+						fetchHotelDetailsBatch(hotelResults);
+					}
+					return;
+				}
+			}
 			console.log(
 				"🔍 Starting hotel search for:",
 				data.location,
@@ -140,14 +182,6 @@ export default function HotelSearchPage() {
 					Children: childrenPerRoom,
 					ChildrenAges: Array(childrenPerRoom).fill(5),
 				}));
-
-			// Format dates
-			const formatDate = (date: Date) => {
-				const year = date.getFullYear();
-				const month = String(date.getMonth() + 1).padStart(2, "0");
-				const day = String(date.getDate()).padStart(2, "0");
-				return `${year}-${month}-${day}`;
-			};
 
 			// Call hotel search API
 			const hotelSearchResponse = await fetch("/api/travel/hotel/search", {
@@ -239,6 +273,32 @@ export default function HotelSearchPage() {
 				setSearchResults(result.data);
 				setFilteredResults(hotelResults);
 
+				// Save to cache
+				hotelCache.set(cacheKey, {
+					results: result.data,
+					timestamp: Date.now(),
+					searchData: {
+						location: data.location,
+						cityCode: data.cityCode,
+						checkIn: formatDate(data.checkIn),
+						checkOut: formatDate(data.checkOut),
+						rooms: data.rooms,
+						adults: data.adults,
+						children: data.children,
+					},
+				});
+
+				// Save last search parameters for auto-search on back navigation
+				lastSearch.save("hotel", {
+					location: data.location,
+					cityCode: data.cityCode,
+					checkIn: formatDate(data.checkIn),
+					checkOut: formatDate(data.checkOut),
+					rooms: data.rooms,
+					adults: data.adults,
+					children: data.children,
+				});
+
 				// Fetch hotel details for all hotels in batches
 				fetchHotelDetailsBatch(hotelResults);
 			}
@@ -271,9 +331,9 @@ export default function HotelSearchPage() {
 			`🔄 Fetching hotel details for ${hotelCodesToFetch.length} hotels...`
 		);
 
-		// Fetch in batches of 10 for faster loading (optimized from 5)
-		// API can handle this, and it improves user experience
-		const batchSize = 10;
+		// Fetch in batches of 5 to avoid overwhelming the TBO Static API
+		// Reduced from 10 to prevent 503 errors
+		const batchSize = 5;
 		
 		// Process batches sequentially but fetch within batch in parallel
 		for (let i = 0; i < hotelCodesToFetch.length; i += batchSize) {
@@ -378,8 +438,9 @@ export default function HotelSearchPage() {
 			});
 
 			// Small delay between batches to avoid overwhelming the API
+			// Increased delay to 500ms to reduce rate limiting issues
 			if (i + batchSize < hotelCodesToFetch.length) {
-				await new Promise((resolve) => setTimeout(resolve, 200)); // 200ms delay
+				await new Promise((resolve) => setTimeout(resolve, 500)); // 500ms delay
 			}
 		}
 
@@ -388,19 +449,93 @@ export default function HotelSearchPage() {
 		);
 	};
 
-	// Initial search on mount if URL params exist
+	// Initial search on mount if URL params exist OR load from cache on back navigation
 	useEffect(() => {
 		console.log("🔄 useEffect triggered, searchData:", searchData);
+		
+		// If no URL params but we have cached search, restore from cache (back navigation)
+		if (!searchData && !hasLoadedCacheRef.current) {
+			const lastSearchParams = lastSearch.get("hotel") as {
+				location?: string;
+				cityCode?: string;
+				checkIn?: string;
+				checkOut?: string;
+				rooms?: number;
+				adults?: number;
+				children?: number;
+			} | null;
+			if (lastSearchParams) {
+				hasLoadedCacheRef.current = true;
+				
+				// Restore search data
+				const restoredData: HotelSearchData = {
+					location: lastSearchParams.location || "",
+					cityCode: lastSearchParams.cityCode || "",
+					checkIn: lastSearchParams.checkIn ? new Date(lastSearchParams.checkIn) : new Date(),
+					checkOut: lastSearchParams.checkOut ? new Date(lastSearchParams.checkOut) : new Date(),
+					rooms: lastSearchParams.rooms || 1,
+					adults: lastSearchParams.adults || 1,
+					children: lastSearchParams.children || 0,
+				};
+				
+				setSearchData(restoredData);
+				
+				// Try to load from cache
+				const loadFromCache = async () => {
+					const cacheKey = await generateCacheKey({
+						cityCode: restoredData.cityCode,
+						checkIn: formatDate(restoredData.checkIn),
+						checkOut: formatDate(restoredData.checkOut),
+						rooms: restoredData.rooms,
+						adults: restoredData.adults,
+						children: restoredData.children,
+					});
+
+					const cached = hotelCache.get(cacheKey);
+					if (cached) {
+						const results = cached.results as HotelSearchResponse | null;
+						setSearchResults(results);
+						const hotelResults = results?.HotelResult || (Array.isArray(results) ? results : []);
+						setFilteredResults(Array.isArray(hotelResults) ? hotelResults : []);
+						setError(null);
+						// Fetch hotel details for cached results
+						if (Array.isArray(hotelResults) && hotelResults.length > 0) {
+							fetchHotelDetailsBatch(hotelResults);
+						}
+						return;
+					}
+
+					// If no cache, auto-search with last params
+					performSearch(restoredData);
+				};
+				loadFromCache();
+			}
+		}
+
 		if (searchData) {
+			hasLoadedCacheRef.current = false;
 			performSearch(searchData);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	// Handle new search
-	const handleSearch = (data: HotelSearchData) => {
+	const handleSearch = async (data: HotelSearchData) => {
 		console.log("🔍 handleSearch called with:", data);
 		setSearchData(data);
+
+		// Clear cache for this specific search to force fresh results
+		const cacheKey = await generateCacheKey({
+			cityCode: data.cityCode,
+			checkIn: formatDate(data.checkIn),
+			checkOut: formatDate(data.checkOut),
+			rooms: data.rooms,
+			adults: data.adults,
+			children: data.children,
+		});
+
+		// Clear this specific cache entry to force fresh search
+		hotelCache.clearKey(cacheKey);
 
 		// Update URL
 		const params = new URLSearchParams({
@@ -413,14 +548,14 @@ export default function HotelSearchPage() {
 		});
 
 		router.push(`/travel-portal/hotel-search?${params.toString()}`);
-		performSearch(data);
+		performSearch(data, true); // Force refresh
 	};
 
 	// Apply filters and sorting - group hotels by hotel code
 	useEffect(() => {
 		if (!searchResults?.HotelResult) return;
 
-		let results = [...searchResults.HotelResult];
+		const results = [...searchResults.HotelResult];
 
 		// Group hotels by hotel code (each hotel should appear only once)
 		const hotelMap = new Map<string, HotelResult>();
@@ -747,5 +882,32 @@ export default function HotelSearchPage() {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+export default function HotelSearchPage() {
+	return (
+		<Suspense
+			fallback={
+				<div className="min-h-screen bg-gray-50">
+					<div className="container mx-auto px-4 py-6">
+						<div className="bg-white border-b sticky top-0 z-10 shadow-sm">
+							<div className="container mx-auto px-4 py-4">
+								<Skeleton className="h-32 w-full" />
+							</div>
+						</div>
+						<div className="space-y-4 mt-6">
+							{[1, 2, 3].map((i) => (
+								<div key={i} className="bg-white rounded-lg p-6">
+									<Skeleton className="h-48 w-full" />
+								</div>
+							))}
+						</div>
+					</div>
+				</div>
+			}
+		>
+			<HotelSearchContent />
+		</Suspense>
 	);
 }

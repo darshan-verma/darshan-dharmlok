@@ -8,6 +8,14 @@ import {
 import { calculateNetPayable } from "@/lib/tboFareCalculations";
 import type { FlightSegment, FlightSearchResponse } from "@/types/tbo";
 import type { AiriqFlightSearchResponse } from "@/types/airiq";
+import {
+	logTravelActivity,
+	getIpAddress,
+	getUserAgent,
+	type FlightLogData,
+} from "@/lib/travelLogger";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 interface RequestSegment {
 	Origin: string;
@@ -149,7 +157,7 @@ export async function POST(request: NextRequest) {
 			if (searchParams.JourneyType === "3") {
 				airiqParams = null;
 			}
-		} catch (err) {
+		} catch (_err) {
 			airiqParams = null;
 		}
 
@@ -296,6 +304,51 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
+		// Log the search activity (non-blocking)
+		try {
+			const session = await getServerSession(authOptions);
+			const userId = session?.user?.id;
+			const userEmail = session?.user?.email || undefined;
+			const userName = session?.user?.name || undefined;
+
+			// Extract search parameters for logging
+			const firstSegment = searchParams.Segments?.[0];
+			const flightLogData: FlightLogData = {
+				origin: firstSegment?.Origin || body.Origin || undefined,
+				destination: firstSegment?.Destination || body.Destination || undefined,
+				departureDate: firstSegment?.PreferredDepartureTime || body.PreferredDepartureTime || undefined,
+				returnDate: searchParams.Segments?.[1]?.PreferredDepartureTime || body.ReturnPreferredDepartureTime || undefined,
+				cabinClass: firstSegment?.FlightCabinClass || body.FlightCabinClass || undefined,
+				adultCount: parseInt(body.AdultCount || "1"),
+				childCount: parseInt(body.ChildCount || "0"),
+				infantCount: parseInt(body.InfantCount || "0"),
+			};
+
+			// Log search activity
+			logTravelActivity({
+				userId,
+				userEmail,
+				userName,
+				logType: "flight",
+				action: "search",
+				provider: mergedResults?.Response?.Results ? 
+					(tboResult.status === "fulfilled" && airiqResult.status === "fulfilled" ? "TBO+AIRiQ" : 
+					 tboResult.status === "fulfilled" ? "TBO" : "AIRiQ") : undefined,
+				flightData: flightLogData,
+				traceId: mergedResults?.Response?.TraceId || undefined,
+				metadata: {
+					journeyType: body.JourneyType || "1",
+					resultCount: tboFlightCount + airiqFlightCount,
+					tboResults: tboFlightCount,
+					airiqResults: airiqFlightCount,
+				},
+				ipAddress: getIpAddress(request),
+				userAgent: getUserAgent(request),
+			});
+		} catch (error) {
+			// Silently fail - logging should never break search
+			console.warn("Failed to log flight search:", error);
+		}
 
 		return NextResponse.json({
 			success: true,

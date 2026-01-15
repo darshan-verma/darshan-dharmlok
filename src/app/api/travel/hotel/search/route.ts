@@ -7,6 +7,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { searchHotels } from "@/lib/tboHotelClient";
+import {
+	logTravelActivity,
+	getIpAddress,
+	getUserAgent,
+	type HotelLogData,
+} from "@/lib/travelLogger";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
 	try {
@@ -102,6 +110,59 @@ export async function POST(request: NextRequest) {
 		};
 
 		const results = await searchHotels(searchParams);
+
+		// Log the search activity (non-blocking)
+		try {
+			const session = await getServerSession(authOptions);
+			const userId = session?.user?.id;
+			const userEmail = session?.user?.email || undefined;
+			const userName = session?.user?.name || undefined;
+
+			interface RoomConfig {
+				adults: number;
+				children?: number;
+				roomType?: string;
+				mealType?: string;
+				[key: string]: unknown;
+			}
+
+			const hotelLogData: HotelLogData = {
+				checkIn: body.checkIn,
+				checkOut: body.checkOut,
+				rooms: body.rooms?.map((room: RoomConfig) => ({
+					adults: room.adults,
+					children: room.children || 0,
+					roomType: room.roomType,
+					mealType: room.mealType,
+				})),
+			};
+
+			// Count hotels found
+			interface HotelSearchResponse {
+				HotelResult?: unknown[];
+				[key: string]: unknown;
+			}
+			const hotelCount = (results as HotelSearchResponse)?.HotelResult?.length || 0;
+
+			logTravelActivity({
+				userId,
+				userEmail,
+				userName,
+				logType: "hotel",
+				action: "search",
+				provider: "TBO",
+				hotelData: hotelLogData,
+				metadata: {
+					hotelCount,
+					guestNationality: body.guestNationality,
+				},
+				ipAddress: getIpAddress(request),
+				userAgent: getUserAgent(request),
+			});
+		} catch (error) {
+			// Silently fail - logging should never break search
+			console.warn("Failed to log hotel search:", error);
+		}
 
 		// Log the response structure for debugging
 		console.log("🔍 TBO API Response structure:", JSON.stringify(results, null, 2));

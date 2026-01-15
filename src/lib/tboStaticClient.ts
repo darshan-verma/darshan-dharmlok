@@ -27,62 +27,103 @@ function getStaticAuthHeader(): string {
 }
 
 /**
- * Make an authenticated request to TBO Static API
+ * Make an authenticated request to TBO Static API with retry logic for transient errors
  */
 async function makeStaticRequest<T>(
 	endpoint: string,
 	method: "GET" | "POST" = "GET",
-	body?: Record<string, unknown>
+	body?: Record<string, unknown>,
+	maxRetries: number = 3
 ): Promise<T> {
 	const url = `${STATIC_API_BASE_URL}/${endpoint}`;
+	let lastError: Error | null = null;
 
-	try {
-		const options: RequestInit = {
-			method,
-			headers: {
-				Authorization: getStaticAuthHeader(),
-				"Content-Type": "application/json",
-			},
-		};
+	for (let attempt = 0; attempt <= maxRetries; attempt++) {
+		try {
+			// Add exponential backoff delay for retries (except first attempt)
+			if (attempt > 0) {
+				const delayMs = Math.min(1000 * Math.pow(2, attempt - 1), 5000); // Max 5 seconds
+				console.log(`🔄 Retrying ${endpoint} (attempt ${attempt + 1}/${maxRetries + 1}) after ${delayMs}ms...`);
+				await new Promise(resolve => setTimeout(resolve, delayMs));
+			}
 
-		if (method === "POST" && body) {
-			options.body = JSON.stringify(body);
-		}
+			const options: RequestInit = {
+				method,
+				headers: {
+					Authorization: getStaticAuthHeader(),
+					"Content-Type": "application/json",
+				},
+			};
 
-		const response = await fetch(url, options);
+			if (method === "POST" && body) {
+				options.body = JSON.stringify(body);
+			}
 
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(
-				`TBO Static API request failed (${endpoint}): ${response.status} ${response.statusText} - ${errorText}`
-			);
-		}
+			const response = await fetch(url, options);
 
-		const data = await response.json();
-		
-		// Log the response for debugging (only for HotelDetails endpoint)
-		if (endpoint === "HotelDetails") {
-			console.log(`📡 HotelDetails API raw response:`, JSON.stringify(data, null, 2));
-			console.log(`📡 Response keys:`, Object.keys(data));
-			if (data.Status) {
-				console.log(`📡 Status:`, data.Status);
-				// Check if Status indicates an error
-				if (data.Status.Code !== 1 && data.Status.Code !== 0 && data.Status.Code !== 200) {
-					throw new Error(`Hotel Details API Error: ${data.Status.Description || `Code ${data.Status.Code}`}`);
+			// Check for transient errors that should be retried
+			if (!response.ok) {
+				const errorText = await response.text();
+				const isTransientError = response.status === 503 || response.status === 502 || response.status === 504;
+				
+				// If it's a transient error and we have retries left, retry
+				if (isTransientError && attempt < maxRetries) {
+					lastError = new Error(
+						`TBO Static API request failed (${endpoint}): ${response.status} ${response.statusText} - ${errorText}`
+					);
+					console.warn(`⚠️ Transient error ${response.status} for ${endpoint}, will retry...`);
+					continue; // Retry the request
+				}
+				
+				// Non-transient error or out of retries
+				throw new Error(
+					`TBO Static API request failed (${endpoint}): ${response.status} ${response.statusText} - ${errorText}`
+				);
+			}
+
+			const data = await response.json();
+			
+			// Log the response for debugging (only for HotelDetails endpoint)
+			if (endpoint === "HotelDetails") {
+				console.log(`📡 HotelDetails API raw response:`, JSON.stringify(data, null, 2));
+				console.log(`📡 Response keys:`, Object.keys(data));
+				if (data.Status) {
+					console.log(`📡 Status:`, data.Status);
+					// Check if Status indicates an error
+					if (data.Status.Code !== 1 && data.Status.Code !== 0 && data.Status.Code !== 200) {
+						throw new Error(`Hotel Details API Error: ${data.Status.Description || `Code ${data.Status.Code}`}`);
+					}
+				}
+				if (data.HotelDetails) {
+					console.log(`📡 HotelDetails keys:`, Object.keys(data.HotelDetails));
+				} else {
+					console.log(`⚠️ No HotelDetails in response! Response structure:`, JSON.stringify(data, null, 2));
 				}
 			}
-			if (data.HotelDetails) {
-				console.log(`📡 HotelDetails keys:`, Object.keys(data.HotelDetails));
-			} else {
-				console.log(`⚠️ No HotelDetails in response! Response structure:`, JSON.stringify(data, null, 2));
+			
+			return data as T;
+		} catch (error) {
+			lastError = error instanceof Error ? error : new Error(String(error));
+			
+			// If this is the last attempt, throw the error
+			if (attempt === maxRetries) {
+				console.error(`TBO Static API error (${endpoint}) after ${maxRetries + 1} attempts:`, lastError);
+				throw lastError;
 			}
+			
+			// For non-HTTP errors, check if they're network errors that should be retried
+			if (error instanceof TypeError && error.message.includes('fetch')) {
+				console.warn(`⚠️ Network error for ${endpoint}, will retry...`);
+				continue; // Retry network errors
+			}
+			
+			// For other errors, don't retry
+			throw lastError;
 		}
-		
-		return data as T;
-	} catch (error) {
-		console.error(`TBO Static API error (${endpoint}):`, error);
-		throw error;
 	}
+
+	// This should never be reached, but TypeScript needs it
+	throw lastError || new Error(`Failed to make request to ${endpoint}`);
 }
 
 // ============= Type Definitions =============

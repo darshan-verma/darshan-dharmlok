@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { PassengerDetail } from "@/types/tbo";
-import type { AiriqPricingResponse } from "@/types/airiq";
+import type { PassengerDetail, FlightResult } from "@/types/tbo";
+import type { AiriqPricingResponse, AiriqSeatMapResponse } from "@/types/airiq";
+
+// Type aliases for pricing response items (removed - using inline types instead)
 import {
 	Accordion,
 	AccordionContent,
@@ -13,7 +15,6 @@ import { Briefcase, Utensils, Armchair, Sparkles, Info } from "lucide-react";
 import { Loader2 } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import AiriqSeatSelection from "./AiriqSeatSelection";
-import type { FlightResult } from "@/types/tbo";
 
 interface AiriqSSRSelectionProps {
 	traceId: string;
@@ -47,7 +48,7 @@ export default function AiriqSSRSelection({
 	onSSRChange,
 }: AiriqSSRSelectionProps) {
 	const [loading, setLoading] = useState(false);
-	const [seatMapData, setSeatMapData] = useState<any>(null);
+	const [seatMapData, setSeatMapData] = useState<AiriqSeatMapResponse['FlightSeat'] | null>(null);
 	const [loadingServices, setLoadingServices] = useState<boolean>(true);
 	const [selectedBaggage, setSelectedBaggage] = useState<
 		Record<string, { Id: string; Price: number } | null>
@@ -71,7 +72,7 @@ export default function AiriqSSRSelection({
 	// Fetch if airline supports SSR OR if seat map is available from search
 	useEffect(() => {
 		// Check if seat map is available from flight search
-		const hasSeatMapAvailable = (flight as any)?._airiqSeatMapAvailable === true;
+		const hasSeatMapAvailable = (flight as FlightResult & { _airiqSeatMapAvailable?: boolean })?._airiqSeatMapAvailable === true;
 		
 		// Allow seat map fetch if SSR is supported OR seat map is available
 		// (Seat map API can work independently of SSR support)
@@ -83,14 +84,15 @@ export default function AiriqSSRSelection({
 		// CRITICAL: Seat map API requires pricing data with FlightDetails
 		// According to AIRiQ docs, FlightID must come from Pricing response
 		// PriceItenaryInfo is an array - access first element
-		const priceInfo = pricingData?.PriceItenaryInfo && Array.isArray(pricingData.PriceItenaryInfo) && pricingData.PriceItenaryInfo.length > 0
-			? pricingData.PriceItenaryInfo[0]
-			: pricingData?.PriceItenaryInfo; // Fallback for transformed structure
-		const hasValidPricingData = (
-			(priceInfo?.FlightDetails && Array.isArray(priceInfo.FlightDetails) && priceInfo.FlightDetails.length > 0) ||
-			(priceInfo?.AvailabilityResponse && Array.isArray(priceInfo.AvailabilityResponse) && priceInfo.AvailabilityResponse.length > 0 &&
+		const priceInfoArray = pricingData?.PriceItenaryInfo;
+		const priceInfo = priceInfoArray && Array.isArray(priceInfoArray) && priceInfoArray.length > 0
+			? priceInfoArray[0]
+			: null;
+		const hasValidPricingData = priceInfo ? (
+			(priceInfo.FlightDetails && Array.isArray(priceInfo.FlightDetails) && priceInfo.FlightDetails.length > 0) ||
+			(priceInfo.AvailabilityResponse && Array.isArray(priceInfo.AvailabilityResponse) && priceInfo.AvailabilityResponse.length > 0 &&
 				priceInfo.AvailabilityResponse[0]?.Flights && Array.isArray(priceInfo.AvailabilityResponse[0].Flights) && priceInfo.AvailabilityResponse[0].Flights.length > 0)
-		);
+		) : false;
 		
 		if (hasSeatMapAvailable && !hasValidPricingData) {
 			console.warn("⚠️ AiriqSSRSelection: Seat map is available but pricing data is missing or invalid");
@@ -101,7 +103,7 @@ export default function AiriqSSRSelection({
 				isArray: Array.isArray(pricingData?.PriceItenaryInfo),
 				priceItenaryInfoLength: Array.isArray(pricingData?.PriceItenaryInfo) ? pricingData.PriceItenaryInfo.length : 0,
 				hasFlightDetails: !!priceInfo?.FlightDetails,
-				flightDetailsLength: priceInfo?.FlightDetails?.length || 0,
+				flightDetailsLength: priceInfo?.FlightDetails ? (Array.isArray(priceInfo.FlightDetails) ? priceInfo.FlightDetails.length : 0) : 0,
 				pricingDataKeys: pricingData ? Object.keys(pricingData) : [],
 			});
 			console.warn("   Waiting for pricing data to be available...");
@@ -118,7 +120,7 @@ export default function AiriqSSRSelection({
 			isArray: Array.isArray(pricingData?.PriceItenaryInfo),
 			priceItenaryInfoLength: Array.isArray(pricingData?.PriceItenaryInfo) ? pricingData.PriceItenaryInfo.length : 0,
 			hasFlightDetails: !!priceInfo?.FlightDetails,
-			flightDetailsLength: priceInfo?.FlightDetails?.length || 0,
+			flightDetailsLength: priceInfo?.FlightDetails ? (Array.isArray(priceInfo.FlightDetails) ? priceInfo.FlightDetails.length : 0) : 0,
 			passengerCount: passengers.length,
 			adultCount,
 			childCount,
@@ -287,13 +289,46 @@ export default function AiriqSSRSelection({
 			seats: selectedSeats,
 			otherServices: selectedServices,
 		});
-	}, [selectedBaggage, selectedMeals, selectedSeats, selectedServices, onSSRChange]);
+
+		// Log seat/meal selections (non-blocking, debounced)
+		const hasSelections = 
+			Object.keys(selectedSeats).length > 0 ||
+			Object.keys(selectedMeals).length > 0 ||
+			Object.keys(selectedBaggage).length > 0;
+
+		if (hasSelections) {
+			// Debounce logging to avoid too many logs
+			const timeoutId = setTimeout(() => {
+				fetch("/api/travel/log-selection", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						logType: "flight",
+						action: "selection",
+						provider: "AIRiQ",
+						flightData: {
+							seats: selectedSeats,
+							meals: selectedMeals,
+							baggage: selectedBaggage,
+							airline: flight?.AirlineCode || flight?.ValidatingAirlineCode,
+							flightNumber: (flight?.Segments?.[0]?.[0] as { FlightNumber?: string })?.FlightNumber,
+						},
+						traceId,
+						resultIndex,
+					}),
+				}).catch(() => {}); // Silently fail
+			}, 1000); // 1 second debounce
+
+			return () => clearTimeout(timeoutId);
+		}
+	}, [selectedBaggage, selectedMeals, selectedSeats, selectedServices, onSSRChange, traceId, resultIndex, flight]);
 
 	// Get SSR data from pricing response
 	// PriceItenaryInfo is an array - access first element
-	const priceInfoForSSR = pricingData?.PriceItenaryInfo && Array.isArray(pricingData.PriceItenaryInfo) && pricingData.PriceItenaryInfo.length > 0
-		? pricingData.PriceItenaryInfo[0]
-		: pricingData?.PriceItenaryInfo; // Fallback for transformed structure
+	const priceInfoArrayForSSR = pricingData?.PriceItenaryInfo;
+	const priceInfoForSSR = priceInfoArrayForSSR && Array.isArray(priceInfoArrayForSSR) && priceInfoArrayForSSR.length > 0
+		? priceInfoArrayForSSR[0]
+		: null;
 	
 	// Extract services from AvailabilityResponse[0] as per AIRiQ API structure
 	const availResponse = priceInfoForSSR?.AvailabilityResponse?.[0];
@@ -302,7 +337,7 @@ export default function AiriqSSRSelection({
 	const otherServiceOptions = availResponse?.OtherService || [];
 	
 	// Also check transformed SSR structure for backward compatibility
-	const ssrData = priceInfoForSSR?.SSR;
+	const ssrData = priceInfoForSSR ? priceInfoForSSR.SSR : undefined;
 	const transformedBaggage = ssrData?.Baggage || [];
 	const transformedMeals = ssrData?.Meal || [];
 	
@@ -349,7 +384,7 @@ export default function AiriqSSRSelection({
 	const hasBaggage = finalBaggageOptions.length > 0;
 	const hasMeals = finalMealOptions.length > 0;
 	const hasOtherServices = otherServiceOptions.length > 0;
-	const hasSeatMapAvailable = (flight as any)?._airiqSeatMapAvailable === true;
+	const hasSeatMapAvailable = (flight as FlightResult & { _airiqSeatMapAvailable?: boolean })?._airiqSeatMapAvailable === true;
 	// Allow seats if SSR is supported OR if seat map is available (even without SSR)
 	const hasSeats = (isSSRSupported || hasSeatMapAvailable) && seatMapData && seatMapData.length > 0;
 	
@@ -555,13 +590,14 @@ export default function AiriqSSRSelection({
 						</AccordionTrigger>
 						<AccordionContent className="pt-2 pb-6">
 							<div className="space-y-4">
-								{finalBaggageOptions.map((baggage: any, index: number) => {
+								{finalBaggageOptions.map((baggage, index: number) => {
 									// AIRiQ structure: Bagg array has BaggageID, Code, Description, Amount
-									const baggageId = baggage.BaggageID || baggage.Id || String(index);
-									const price = parseFloat(baggage.Amount || baggage.Price || "0");
-									const description = baggage.Description || "";
-									const origin = baggage.Origin || baggage.Orgin || "";
-									const destination = baggage.Destination || "";
+									// Transformed SSR structure has Id, Price
+									const baggageId = (baggage as { BaggageID?: string; Id?: string }).BaggageID || (baggage as { BaggageID?: string; Id?: string }).Id || String(index);
+									const price = parseFloat((baggage as { Amount?: string; Price?: number }).Amount || String((baggage as { Amount?: string; Price?: number }).Price || 0));
+									const description = (baggage as { Description?: string }).Description || "";
+									const origin = (baggage as { Origin?: string; Orgin?: string }).Origin || (baggage as { Origin?: string; Orgin?: string }).Orgin || "";
+									const destination = (baggage as { Destination?: string }).Destination || "";
 									const isSelected = selectedBaggage["0-0"]?.Id === baggageId;
 									
 									return (
@@ -576,7 +612,7 @@ export default function AiriqSSRSelection({
 											<div className="flex-1">
 												<div className="flex items-center gap-2">
 													<p className="font-medium">{description}</p>
-													{baggage.BaggageText && (
+													{(baggage as { BaggageText?: string }).BaggageText && (
 														<Tooltip>
 															<TooltipTrigger asChild>
 																<button
@@ -593,7 +629,7 @@ export default function AiriqSSRSelection({
 															>
 																<div className="font-semibold mb-2">Terms & Conditions:</div>
 																<div className="whitespace-pre-wrap">
-																	{baggage.BaggageText}
+																	{(baggage as { BaggageText?: string }).BaggageText}
 																</div>
 															</TooltipContent>
 														</Tooltip>
@@ -669,13 +705,14 @@ export default function AiriqSSRSelection({
 						</AccordionTrigger>
 						<AccordionContent className="pt-2 pb-6">
 							<div className="space-y-4">
-								{finalMealOptions.map((meal: any, index: number) => {
+								{finalMealOptions.map((meal, index: number) => {
 									// AIRiQ structure: Meal array has MealID, Code, Description, Amount
-									const mealId = meal.MealID || meal.Id || String(index);
-									const price = parseFloat(meal.Amount || meal.Price || "0");
-									const description = meal.Description || "";
-									const origin = meal.Origin || meal.Orgin || "";
-									const destination = meal.Destination || "";
+									// Transformed SSR structure has Id, Price
+									const mealId = (meal as { MealID?: string; Id?: string }).MealID || (meal as { MealID?: string; Id?: string }).Id || String(index);
+									const price = parseFloat((meal as { Amount?: string; Price?: number }).Amount || String((meal as { Amount?: string; Price?: number }).Price || 0));
+									const description = (meal as { Description?: string }).Description || "";
+									const origin = (meal as { Origin?: string; Orgin?: string }).Origin || (meal as { Origin?: string; Orgin?: string }).Orgin || "";
+									const destination = (meal as { Destination?: string }).Destination || "";
 									const isSelected = selectedMeals["0-0"]?.Id === mealId;
 									
 									return (
@@ -764,7 +801,7 @@ export default function AiriqSSRSelection({
 						</AccordionTrigger>
 						<AccordionContent className="pt-2 pb-6">
 							<div className="space-y-4">
-								{otherServiceOptions.map((service: any, index: number) => {
+								{otherServiceOptions.map((service, index: number) => {
 									// AIRiQ structure: OtherService array has OtherID, SSRCode, Description, Amount
 									// Use OtherID first, then SSRCode as fallback, then index
 									const serviceId = service.OtherID || service.SSRCode || `service-${index}`;

@@ -14,10 +14,43 @@ export async function POST(request: NextRequest) {
 		console.log("Starting full TBO sync process...");
 
 		type SyncResults = {
-			countries: unknown;
-			cities: unknown;
-			hotels: unknown;
-			searchIndex: unknown;
+			countries: {
+				success: boolean;
+				message: string;
+				synced: number;
+				errors: number;
+				total: number;
+			} | null;
+			cities: {
+				success: boolean;
+				message: string;
+				countryCode: string;
+				countryName: string;
+				synced: number;
+				errors: number;
+				total: number;
+			} | null;
+			hotels: {
+				success: boolean;
+				message: string;
+				cityCode: string;
+				cityName: string;
+				synced: number;
+				errors: number;
+				total: number;
+				enriched: boolean;
+			} | null;
+			searchIndex: {
+				success: boolean;
+				message: string;
+				indexed: number;
+				errors: number;
+				breakdown: {
+					countries: number;
+					cities: number;
+					hotels: number;
+				};
+			} | null;
 			errors: string[];
 		};
 		const results: SyncResults = {
@@ -46,7 +79,7 @@ export async function POST(request: NextRequest) {
 			}
 
 			results.countries = await countryResponse.json();
-			console.log(`✓ Countries synced: ${results.countries.synced}`);
+			console.log(`✓ Countries synced: ${results.countries!.synced}`);
 		} catch (error) {
 			const errorMsg = `Country sync failed: ${
 				error instanceof Error ? error.message : "Unknown error"
@@ -142,7 +175,7 @@ export async function POST(request: NextRequest) {
 			}
 
 			results.hotels = await hotelResponse.json();
-			console.log(`✓ Hotels synced: ${results.hotels.synced}`);
+			console.log(`✓ Hotels synced: ${results.hotels!.synced}`);
 		} catch (error) {
 			const errorMsg = `Hotel sync failed: ${
 				error instanceof Error ? error.message : "Unknown error"
@@ -175,7 +208,7 @@ export async function POST(request: NextRequest) {
 			}
 
 			results.searchIndex = await searchIndexResponse.json();
-			console.log(`✓ Search index built: ${results.searchIndex.indexed}`);
+			console.log(`✓ Search index built: ${results.searchIndex!.indexed}`);
 		} catch (error) {
 			const errorMsg = `Search index build failed: ${
 				error instanceof Error ? error.message : "Unknown error"

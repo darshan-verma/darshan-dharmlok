@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +20,7 @@ import {
 	ChevronUp,
 } from "lucide-react";
 import type { Room } from "@/types/hotelApi";
+import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 
 // Hotel Map Component
 function HotelMap({
@@ -81,7 +82,7 @@ function HotelMap({
 	);
 }
 
-export default function HotelDetailsPage() {
+function HotelDetailsContent() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
 	const hotelCode = searchParams.get("hotelCode");
@@ -253,6 +254,38 @@ export default function HotelDetailsPage() {
 			roomPromotion: room.RoomPromotion,
 			cancelPolicies: room.CancelPolicies,
 		};
+
+		// Capture snapshot of hotel room selection
+		captureAndSendSnapshot(
+			{
+				hotelCode: hotelCode || "",
+				hotelName: hotelDetails?.HotelName || "",
+				room: {
+					bookingCode: room.BookingCode,
+					name: room.Name?.[0] || "Room",
+					totalFare: room.TotalFare,
+					totalTax: room.TotalTax,
+					mealType: room.MealType,
+					isRefundable: room.IsRefundable,
+				},
+				checkIn: checkIn || "",
+				checkOut: checkOut || "",
+				rooms: rooms || "",
+				adults: adults || "",
+				children: children || "0",
+			},
+			{
+				page: "hotel_results",
+				user: {},
+				booking: {
+					type: "hotel",
+					searchId: hotelCode || undefined,
+					resultIndex: room.BookingCode,
+				},
+			}
+		).catch(() => {
+			// Silently fail - don't block user flow
+		});
 
 		// Navigate to booking page with all necessary data
 		const params = new URLSearchParams({
@@ -1011,5 +1044,22 @@ export default function HotelDetailsPage() {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+export default function HotelDetailsPage() {
+	return (
+		<Suspense
+			fallback={
+				<div className="min-h-screen bg-gray-50">
+					<div className="container mx-auto px-4 py-6">
+						<Skeleton className="h-96 w-full mb-6" />
+						<Skeleton className="h-64 w-full" />
+					</div>
+				</div>
+			}
+		>
+			<HotelDetailsContent />
+		</Suspense>
 	);
 }

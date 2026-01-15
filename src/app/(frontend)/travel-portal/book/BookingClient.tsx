@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PassengerDetails from "../components/PassengerDetails";
 import SSRSelection from "../components/ssr/SSRSelection";
 import { BaggageOption } from "../components/ssr/BaggageSelection";
@@ -17,6 +17,7 @@ import type {
 	PassengerDetail,
 	FareRuleResponse,
 } from "@/types/tbo";
+import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 // import { Button } from "@/components/ui/button"; // Assuming available if needed later, but PassengerDetails has the button
 
 interface BookingClientProps {
@@ -54,6 +55,36 @@ export default function BookingClient({
 		seats: {},
 		specialServices: {},
 	});
+
+	// Capture snapshot when booking review page loads
+	useEffect(() => {
+		captureAndSendSnapshot(
+			{
+				flightResult,
+				adultCount,
+				childCount,
+				infantCount,
+				traceId,
+				resultIndex,
+				fareRules: fareRules ? {
+					hasRules: true,
+					// Don't include full rules to avoid large payload
+				} : null,
+			},
+			{
+				page: "flight_review",
+				user: {},
+				booking: {
+					type: "flight",
+					traceId,
+					resultIndex,
+				},
+			}
+		).catch(() => {
+			// Silently fail - don't block user flow
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []); // Only capture once on mount
 
 	const handleBookingSubmit = async (passengerData: PassengerDetail[]) => {
 		try {
@@ -108,6 +139,40 @@ export default function BookingClient({
 					...p,
 					Fare: flightResult.Fare, // Include fare details for each passenger
 				};
+			});
+
+			// Capture snapshot before payment/booking initiation
+			await captureAndSendSnapshot(
+				{
+					flightResult,
+					passengers: passengerData.map((p) => ({
+						// Only include non-sensitive passenger info
+						title: p.Title,
+						firstName: p.FirstName,
+						lastName: p.LastName,
+						dateOfBirth: p.DateOfBirth,
+						gender: p.Gender,
+					})),
+					ssrSelections: selectedSSRs,
+					adultCount,
+					childCount,
+					infantCount,
+					totalFare: flightResult.Fare?.OfferedFare,
+					totalTax: flightResult.Fare?.Tax,
+					traceId,
+					resultIndex,
+				},
+				{
+					page: "payment",
+					user: {},
+					booking: {
+						type: "flight",
+						traceId,
+						resultIndex,
+					},
+				}
+			).catch(() => {
+				// Silently fail - don't block user flow
 			});
 
 			const bookingRequest = {

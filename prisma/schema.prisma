@@ -799,3 +799,66 @@ model TboSearchIndex {
   @@index([cityCode])
   @@index([hotelCode])
 }
+
+// Travel Audit Log Model - Lightweight logging for travel bookings
+model TravelLog {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String?  @db.ObjectId
+  userEmail     String?
+  userName      String?
+  logType       String   // "flight" | "hotel"
+  action        String   // "booking" | "search" | "selection"
+  provider      String?  // "AIRiQ" | "TBO" | "other"
+  
+  // Flight-specific data
+  flightData    Json?    // Flight details, seat selections, meal selections
+  
+  // Hotel-specific data
+  hotelData     Json?    // Hotel details, room selections
+  
+  // Common booking data
+  bookingCode   String?  // External booking reference
+  traceId       String?  // Search trace ID
+  resultIndex   String?  // Selected result index
+  totalAmount   Float?   // Total booking amount
+  currency      String?  @default("INR")
+  
+  // Metadata
+  metadata      Json?    // Additional flexible data
+  ipAddress     String?
+  userAgent     String?
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
+  @@index([logType])
+  @@index([action])
+  @@index([createdAt])
+  @@index([userId, logType])
+  @@index([logType, createdAt])
+}
+
+// Booking Audit Snapshot Model - DOM snapshot audit trail for legal defense
+model BookingAuditSnapshot {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId     String?  // External booking code/ID (can be ObjectId or string)
+  userId        String?  @db.ObjectId
+  type          String   // "flight" | "hotel"
+  page          String   // "flight_results" | "flight_review" | "payment" | "hotel_results" | "hotel_review"
+  snapshotJson  Json     // Full snapshot data (JSONB)
+  hash          String   // SHA256 hash for tamper protection
+  ip            String?
+  userAgent     String?
+  traceId       String?  // Search trace ID for linking pre-booking snapshots
+  resultIndex   String?  // Selected result index
+  createdAt     DateTime @default(now())
+  
+  @@index([bookingId])
+  @@index([userId])
+  @@index([type])
+  @@index([page])
+  @@index([traceId])
+  @@index([createdAt])
+  @@index([bookingId, createdAt])
+  @@index([traceId, createdAt])
+}

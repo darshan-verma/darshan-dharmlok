@@ -12,6 +12,7 @@ import FareUpsellList from "./FareUpsellList";
 import { Loader2 } from "lucide-react";
 import AirlineLogo from "@/components/travel-portal/AirlineLogo";
 import type { FlightResult } from "@/types/tbo";
+import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 
 interface FareUpsellRequestBody {
 	TraceId: string;
@@ -60,6 +61,29 @@ export default function UpsellModal({
 	useEffect(() => {
 		if (!open) return;
 		let mounted = true;
+
+		// Capture snapshot when fare rules/upsell modal opens
+		if (flight) {
+			captureAndSendSnapshot(
+				{
+					flightResult: flight,
+					upsellOptions: preloadedUpsell || [],
+					traceId,
+					resultIndex,
+				},
+				{
+					page: "flight_results", // Fare rules shown on results page
+					user: {},
+					booking: {
+						type: "flight",
+						traceId,
+						resultIndex,
+					},
+				}
+			).catch(() => {
+				// Silently fail - don't block user flow
+			});
+		}
 
 		// If we have preloaded data, use it immediately
 		if (preloadedUpsell !== null) {
@@ -126,6 +150,7 @@ export default function UpsellModal({
 		childCount,
 		infantCount,
 		preloadedUpsell,
+		flight,
 	]);
 
 	// No upsell for multicity

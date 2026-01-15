@@ -13,6 +13,11 @@ import { Search, Loader2 } from "lucide-react";
 import Link from "next/link";
 import type { PassengerDetail, FlightResult, FareRuleResponse } from "@/types/tbo";
 import type { SpecialServiceOption } from "../components/ssr/SpecialServiceSelection";
+import type { AiriqPricingResponse } from "@/types/airiq";
+import type { BaggageOption } from "../components/ssr/BaggageSelection";
+import type { MealOption } from "../components/ssr/MealSelection";
+import type { SeatOption } from "../components/ssr/SeatSelection";
+import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 
 interface AiriqBookingClientProps {
 	adultCount: number;
@@ -34,7 +39,7 @@ AiriqBookingClientProps) {
 	const [loading, setLoading] = useState(true);
 	const [flightResult, setFlightResult] = useState<FlightResult | null>(null);
 	const [fareRules, setFareRules] = useState<FareRuleResponse | null>(null);
-	const [pricingData, setPricingData] = useState<any>(null);
+	const [pricingData, setPricingData] = useState<AiriqPricingResponse | null>(null);
 	const [passengers, setPassengers] = useState<PassengerDetail[]>([]);
 	const [selectedSSRs, setSelectedSSRs] = useState<{
 		baggage: Record<string, { Id: string; Price: number } | null>;
@@ -60,14 +65,17 @@ AiriqBookingClientProps) {
 
 			const cache = JSON.parse(stored);
 
-			// Optimized: Find the flight with matching resultIndex and traceId
+			// Find the flight with matching resultIndex (cache structure changed - no traceId in cache entries)
+			// Search through all cache entries to find the flight
 			let foundFlight: FlightResult | null = null;
-			for (const entry of Object.values(cache) as Array<{ traceId: string; results?: FlightResult[] }>) {
-				if (entry.traceId === traceId && entry.results) {
-					foundFlight = entry.results.find(
-						(f: FlightResult) => f.ResultIndex === resultIndex
-					) ?? null;
-					if (foundFlight) {
+			for (const entry of Object.values(cache) as Array<{ results?: FlightResult[] }>) {
+				if (entry.results && Array.isArray(entry.results)) {
+					// Find flight by ResultIndex and ensure it's from AIRiQ
+					const flight = entry.results.find(
+						(f: FlightResult) => f.ResultIndex === resultIndex && f.ApiSource === "AIRiQ"
+					);
+					if (flight) {
+						foundFlight = flight;
 						break; // Found it, exit early
 					}
 				}
@@ -103,19 +111,15 @@ AiriqBookingClientProps) {
 					try {
 						const cache = JSON.parse(cacheData);
 
-						// Optimized: Find matching cache entry directly
-						for (const cacheKey of Object.keys(cache)) {
-							const entry = cache[cacheKey];
-							
-							// Quick check: match traceId first
-							if (entry.traceId === traceId && entry.results) {
-								// Search for return flight by ResultIndex
+						// Search through all cache entries to find the return flight (cache structure changed)
+						for (const entry of Object.values(cache) as Array<{ results?: FlightResult[] }>) {
+							if (entry.results && Array.isArray(entry.results)) {
+								// Search for return flight by ResultIndex and ensure it's from AIRiQ
 								const found = entry.results.find(
-									(r: FlightResult) => r.ResultIndex === returnResultIndex
+									(r: FlightResult) => r.ResultIndex === returnResultIndex && r.ApiSource === "AIRiQ"
 								);
-								returnFlight = found ?? null;
-								
-								if (returnFlight) {
+								if (found) {
+									returnFlight = found;
 									break; // Found it, exit early
 								}
 							}
@@ -134,7 +138,7 @@ AiriqBookingClientProps) {
 			const airlineCode = flight?.AirlineCode || flight?.ValidatingAirlineCode || "";
 			const ssrSupportedAirlines = ["AI", "UK"]; // AI = Air India, UK = Vistara
 			const isSSRSupported = ssrSupportedAirlines.includes(airlineCode);
-			const hasSeatMapAvailable = (flight as any)?._airiqSeatMapAvailable === true;
+			const hasSeatMapAvailable = (flight as FlightResult & { _airiqSeatMapAvailable?: boolean })?._airiqSeatMapAvailable === true;
 			
 			console.log("🔍 AiriqBookingClient - Checking SSR support:", {
 				airlineCode,
@@ -249,6 +253,42 @@ AiriqBookingClientProps) {
 				}
 			}
 
+			// Capture snapshot before payment/booking initiation
+			if (flightResult) {
+				await captureAndSendSnapshot(
+					{
+						flightResult,
+						passengers: passengerData.map((p) => ({
+							// Only include non-sensitive passenger info
+							title: p.Title,
+							firstName: p.FirstName,
+							lastName: p.LastName,
+							dateOfBirth: p.DateOfBirth,
+							gender: p.Gender,
+						})),
+						ssrSelections: selectedSSRs,
+						adultCount,
+						childCount,
+						infantCount,
+						totalFare: flightResult.Fare?.OfferedFare,
+						totalTax: flightResult.Fare?.Tax,
+						traceId,
+						resultIndex,
+					},
+					{
+						page: "payment",
+						user: {},
+						booking: {
+							type: "flight",
+							traceId,
+							resultIndex,
+						},
+					}
+				).catch(() => {
+					// Silently fail - don't block user flow
+				});
+			}
+
 			// Construct AIRiQ booking request
 			const bookingRequest = {
 				traceId,
@@ -257,6 +297,8 @@ AiriqBookingClientProps) {
 				adultCount,
 				childCount,
 				infantCount,
+				ssrData: selectedSSRs, // Include SSR selections (seats, meals, baggage)
+				flightData: flightResult, // Include flight details for logging
 			};
 
 			console.log("AIRiQ Booking Request:", bookingRequest);
@@ -275,6 +317,34 @@ AiriqBookingClientProps) {
 
 			const result = await response.json();
 			console.log("Booking result:", result);
+
+			// Capture snapshot after booking confirmation
+			if ((result.Response?.Status === 1 || result.BookingId) && flightResult) {
+				const bookingId = result.BookingId || result.Response?.BookingId;
+				await captureAndSendSnapshot(
+					{
+						bookingId,
+						bookingStatus: "confirmed",
+						flightResult,
+						totalFare: flightResult.Fare?.OfferedFare,
+						totalTax: flightResult.Fare?.Tax,
+						traceId,
+						resultIndex,
+					},
+					{
+						page: "payment", // Payment completed
+						user: {},
+						booking: {
+							type: "flight",
+							traceId,
+							resultIndex,
+							bookingId: bookingId?.toString(),
+						},
+					}
+				).catch(() => {
+					// Silently fail - don't block user flow
+				});
+			}
 
 			toast.success(
 				"Booking request submitted successfully! Our team will contact you shortly."
@@ -403,7 +473,7 @@ AiriqBookingClientProps) {
 					</section>
 
 					{/* 3. Add-ons (SSR & Seat Map) - Show if pricing data exists OR seat map is available */}
-					{(pricingData !== null || (flightResult as any)?._airiqSeatMapAvailable === true) && (
+					{(pricingData !== null || (flightResult as FlightResult & { _airiqSeatMapAvailable?: boolean })?._airiqSeatMapAvailable === true) && (
 						<section>
 							<AiriqSSRSelection
 								traceId={traceId}
@@ -437,21 +507,21 @@ AiriqBookingClientProps) {
 								baggage: Object.fromEntries(
 									Object.entries(selectedSSRs.baggage).map(([key, value]) => [
 										key,
-										value ? ({ Price: value.Price } as any) : null,
+										value ? ({ Price: value.Price } as unknown as BaggageOption) : null,
 									])
-								) as any,
+								) as Record<string, BaggageOption | null>,
 								meals: Object.fromEntries(
 									Object.entries(selectedSSRs.meals).map(([key, value]) => [
 										key,
-										value ? ({ Price: value.Price } as any) : null,
+										value ? ({ Price: value.Price } as unknown as MealOption) : null,
 									])
-								) as any,
+								) as Record<string, MealOption | null>,
 								seats: Object.fromEntries(
 									Object.entries(selectedSSRs.seats).map(([key, value]) => [
 										key,
-										value ? ({ Price: value.Price } as any) : null,
+										value ? ({ Price: value.Price } as unknown as SeatOption) : null,
 									])
-								) as any,
+								) as Record<string, SeatOption | null>,
 								specialServices: selectedSSRs.otherServices
 									? Object.fromEntries(
 											Object.entries(selectedSSRs.otherServices).map(([key, value]) => [

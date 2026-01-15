@@ -1,5 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSeatMap } from "@/lib/airiqClient";
+import type { FlightResult } from "@/types/tbo";
+import type { PassengerDetail } from "@/types/tbo";
+
+interface FlightWithSeatMap extends FlightResult {
+	_airiqSeatMapAvailable?: boolean;
+}
+
+interface FlightDetail {
+	FlightID?: string;
+	FlightNumber?: string;
+	Origin?: unknown;
+	Destination?: unknown;
+	DepartureDateTime?: string;
+	ArrivalDateTime?: string;
+	[key: string]: unknown;
+}
 
 /**
  * POST /api/travel/airiq/seat-map
@@ -31,7 +47,7 @@ export async function POST(req: NextRequest) {
 			hasFlightDetails: !!pricingData?.PriceItenaryInfo?.FlightDetails,
 			flightDetailsLength: pricingData?.PriceItenaryInfo?.FlightDetails?.length || 0,
 			airlineCode: flight?.AirlineCode || flight?.ValidatingAirlineCode,
-			hasSeatMapAvailable: (flight as any)?._airiqSeatMapAvailable,
+			hasSeatMapAvailable: (flight as FlightWithSeatMap)?._airiqSeatMapAvailable,
 		});
 
 		if (!traceId || !resultIndex || !flight || !passengers) {
@@ -155,7 +171,7 @@ export async function POST(req: NextRequest) {
 		else if (priceInfo.AvailabilityResponse && Array.isArray(priceInfo.AvailabilityResponse) && priceInfo.AvailabilityResponse.length > 0) {
 			const availResponse = priceInfo.AvailabilityResponse[0];
 			if (availResponse.Flights && Array.isArray(availResponse.Flights) && availResponse.Flights.length > 0) {
-				flightDetailsArray = availResponse.Flights.map((flight: any) => ({
+				flightDetailsArray = availResponse.Flights.map((flight: FlightDetail) => ({
 					FlightID: flight.FlightID,
 					FlightNumber: flight.FlightNumber,
 					Origin: flight.Origin,
@@ -234,8 +250,8 @@ export async function POST(req: NextRequest) {
 
 		console.log("👥 Seat Map API: Processing passengers:", {
 			passengerCount: passengers.length,
-			passengerNames: passengers.map((p: any) => `${p.FirstName || 'N/A'} ${p.LastName || 'N/A'}`),
-			passengerDetails: passengers.map((p: any, idx: number) => ({
+			passengerNames: passengers.map((p: PassengerDetail) => `${p.FirstName || 'N/A'} ${p.LastName || 'N/A'}`),
+			passengerDetails: passengers.map((p: PassengerDetail, idx: number) => ({
 				index: idx,
 				firstName: p.FirstName,
 				lastName: p.LastName,
