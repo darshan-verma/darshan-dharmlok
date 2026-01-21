@@ -3,7 +3,7 @@
  * Provides helper methods to make authenticated requests to TBO API
  */
 
-import { getTboToken } from "@/services/tboAuth";
+import { getTboToken, clearTokenCache } from "@/services/tboAuth";
 import type {
 	FlightSearchRequest,
 	FlightSearchResponse,
@@ -60,6 +60,16 @@ export async function tboRequest<T = unknown>(
 			? endpoint
 			: `${baseUrl}/${endpoint}`;
 
+		// Debug logging
+		console.log(`🔍 TBO Request Debug:`, {
+			endpoint,
+			service,
+			baseUrl,
+			fullUrl: url,
+			tokenPreview: token ? `${token.substring(0, 20)}...` : "NO TOKEN",
+			tokenLength: token?.length || 0,
+		});
+
 		const requestOptions: RequestInit = {
 			method,
 			headers: {
@@ -69,16 +79,39 @@ export async function tboRequest<T = unknown>(
 		};
 
 		// Add token to request body if it's a POST/PUT request
+		let requestBody: unknown = body;
 		if (body && (method === "POST" || method === "PUT")) {
-			requestOptions.body = JSON.stringify({
-				...body,
+			requestBody = {
+				...(typeof body === "object" && body !== null ? body : {}),
 				TokenId: token,
-			});
+			};
+			requestOptions.body = JSON.stringify(requestBody);
+			
+			// Log request body (without sensitive data)
+			const bodyForLog = typeof requestBody === "object" && requestBody !== null
+				? { ...(requestBody as Record<string, unknown>) }
+				: {};
+			if (bodyForLog.TokenId) {
+				bodyForLog.TokenId = `${String(bodyForLog.TokenId).substring(0, 20)}...`;
+			}
+			console.log(`📤 TBO Request Body:`, JSON.stringify(bodyForLog, null, 2));
 		}
 
 		const response = await fetch(url, requestOptions);
 
+		console.log(`📥 TBO Response Status:`, {
+			status: response.status,
+			statusText: response.statusText,
+			ok: response.ok,
+		});
+
 		if (!response.ok) {
+			const errorText = await response.text();
+			console.error(`❌ TBO API HTTP Error:`, {
+				status: response.status,
+				statusText: response.statusText,
+				body: errorText,
+			});
 			throw new Error(
 				`TBO API request failed: ${response.status} ${response.statusText}`
 			);
@@ -86,10 +119,95 @@ export async function tboRequest<T = unknown>(
 
 		const data = await response.json();
 
+		// Log full response for debugging (truncate if too large)
+		const responseForLog = JSON.stringify(data, null, 2);
+		if (responseForLog.length > 1000) {
+			console.log(`📥 TBO Response (truncated):`, responseForLog.substring(0, 1000) + "...");
+		} else {
+			console.log(`📥 TBO Response:`, responseForLog);
+		}
+
 		// Check for API-level errors at top level
 		if (data.Error && data.Error.ErrorCode !== 0) {
+			console.error(`❌ TBO API Error (top level):`, {
+				ErrorCode: data.Error.ErrorCode,
+				ErrorMessage: data.Error.ErrorMessage,
+			});
+			
+			// Handle "Invalid Token" error - clear cache and retry once
+			const errorMessage = data.Error.ErrorMessage || "";
+			if (
+				errorMessage.toLowerCase().includes("invalid token") ||
+				(errorMessage.toLowerCase().includes("token") && 
+				 (errorMessage.toLowerCase().includes("invalid") || errorMessage.toLowerCase().includes("expired")))
+			) {
+				console.warn("⚠️ Invalid/Expired token detected (top level). Clearing cache and retrying...");
+				clearTokenCache();
+				
+				// Retry the request once with a fresh token
+				try {
+					const freshToken = await getTboToken();
+					
+					// Rebuild request with fresh token
+					const retryRequestBody = body && (method === "POST" || method === "PUT")
+						? {
+								...body,
+								TokenId: freshToken,
+							}
+						: body;
+					
+					const retryRequestOptions: RequestInit = {
+						method,
+						headers: {
+							"Content-Type": "application/json",
+							...headers,
+						},
+					};
+					
+					if (retryRequestBody && (method === "POST" || method === "PUT")) {
+						retryRequestOptions.body = JSON.stringify(retryRequestBody);
+					}
+					
+					console.log("🔄 Retrying request with fresh token (top level error)...");
+					const retryResponse = await fetch(url, retryRequestOptions);
+					
+					if (!retryResponse.ok) {
+						throw new Error(
+							`TBO API request failed after retry: ${retryResponse.status} ${retryResponse.statusText}`
+						);
+					}
+					
+					const retryData = await retryResponse.json();
+					
+					// Check for errors in retry response
+					if (retryData.Error && retryData.Error.ErrorCode !== 0) {
+						throw new Error(
+							`TBO API Error (after retry): ${retryData.Error.ErrorMessage || "Unknown error"}`
+						);
+					}
+					
+					if (
+						retryData.Response &&
+						retryData.Response.Error &&
+						retryData.Response.Error.ErrorCode !== 0
+					) {
+						throw new Error(
+							`TBO API Error (after retry): ${retryData.Response.Error.ErrorMessage || "Unknown error"}`
+						);
+					}
+					
+					console.log("✅ Request succeeded after token refresh (top level)");
+					return retryData as T;
+				} catch (retryError) {
+					console.error("❌ Retry failed (top level):", retryError);
+					throw new Error(
+						`TBO API Error: ${errorMessage} (Token refresh retry also failed)`
+					);
+				}
+			}
+			
 			throw new Error(
-				`TBO API Error: ${data.Error.ErrorMessage || "Unknown error"}`
+				`TBO API Error: ${errorMessage || "Unknown error"}`
 			);
 		}
 
@@ -99,6 +217,11 @@ export async function tboRequest<T = unknown>(
 			data.Response.Error &&
 			data.Response.Error.ErrorCode !== 0
 		) {
+			console.error(`❌ TBO API Error (Response level):`, {
+				ErrorCode: data.Response.Error.ErrorCode,
+				ErrorMessage: data.Response.Error.ErrorMessage,
+				endpoint,
+			});
 			// Special case: "No result found" is not really an error, just no flights available
 			if (
 				data.Response.Error.ErrorMessage?.toLowerCase().includes(
@@ -108,8 +231,97 @@ export async function tboRequest<T = unknown>(
 				// Return the response as is - it should have empty Results array
 				return data as T;
 			}
+
+			// Special case for FareUpsell: "Supplier end" errors are common and should be handled gracefully
+			// IsUpsellAllowed flag doesn't guarantee upsell will actually work
+			if (
+				endpoint === "FareUpsell" &&
+				data.Response.Error.ErrorMessage?.toLowerCase().includes(
+					"supplier end"
+				)
+			) {
+				// Log but don't throw - return empty results so the route can handle it
+				console.warn(
+					"⚠️ FareUpsell: Supplier doesn't support upsell for this flight (even though IsUpsellAllowed may be true)"
+				);
+				// Return response with error so route can handle it appropriately
+				return data as T;
+			}
+
+			// Handle "Invalid Token" error - clear cache and retry once
+			const errorMessage = data.Response.Error.ErrorMessage || "";
+			if (
+				errorMessage.toLowerCase().includes("invalid token") ||
+				errorMessage.toLowerCase().includes("token") && 
+				(errorMessage.toLowerCase().includes("invalid") || errorMessage.toLowerCase().includes("expired"))
+			) {
+				console.warn("⚠️ Invalid/Expired token detected. Clearing cache and retrying...");
+				clearTokenCache();
+				
+				// Retry the request once with a fresh token
+				try {
+					const freshToken = await getTboToken();
+					
+					// Rebuild request with fresh token
+					const retryRequestBody = body && (method === "POST" || method === "PUT")
+						? {
+								...body,
+								TokenId: freshToken,
+							}
+						: body;
+					
+					const retryRequestOptions: RequestInit = {
+						method,
+						headers: {
+							"Content-Type": "application/json",
+							...headers,
+						},
+					};
+					
+					if (retryRequestBody && (method === "POST" || method === "PUT")) {
+						retryRequestOptions.body = JSON.stringify(retryRequestBody);
+					}
+					
+					console.log("🔄 Retrying request with fresh token...");
+					const retryResponse = await fetch(url, retryRequestOptions);
+					
+					if (!retryResponse.ok) {
+						throw new Error(
+							`TBO API request failed after retry: ${retryResponse.status} ${retryResponse.statusText}`
+						);
+					}
+					
+					const retryData = await retryResponse.json();
+					
+					// Check for errors in retry response
+					if (retryData.Error && retryData.Error.ErrorCode !== 0) {
+						throw new Error(
+							`TBO API Error (after retry): ${retryData.Error.ErrorMessage || "Unknown error"}`
+						);
+					}
+					
+					if (
+						retryData.Response &&
+						retryData.Response.Error &&
+						retryData.Response.Error.ErrorCode !== 0
+					) {
+						throw new Error(
+							`TBO API Error (after retry): ${retryData.Response.Error.ErrorMessage || "Unknown error"}`
+						);
+					}
+					
+					console.log("✅ Request succeeded after token refresh");
+					return retryData as T;
+				} catch (retryError) {
+					console.error("❌ Retry failed:", retryError);
+					throw new Error(
+						`TBO API Error: ${errorMessage} (Token refresh retry also failed)`
+					);
+				}
+			}
+
 			throw new Error(
-				`TBO API Error: ${data.Response.Error.ErrorMessage || "Unknown error"}`
+				`TBO API Error: ${errorMessage || "Unknown error"}`
 			);
 		}
 
