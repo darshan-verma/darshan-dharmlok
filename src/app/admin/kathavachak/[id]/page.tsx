@@ -190,7 +190,10 @@ export default function KathavachakDetailPage() {
 					KathavachakType: KathavachakData.KathavachakType || "Regular",
 					status: KathavachakData.status || "Active",
 					isLoggedIn: KathavachakData.isLoggedIn || false,
-					bio: KathavachakData.bio || "",
+					// Use bio from API if available, otherwise preserve existing bio
+					bio: KathavachakData.bio !== undefined && KathavachakData.bio !== null 
+						? KathavachakData.bio 
+						: "",
 					createdAt: KathavachakData.createdAt || new Date().toISOString(),
 					// Add client-side only properties (not stored in database)
 					preferences: {
@@ -202,8 +205,15 @@ export default function KathavachakDetailPage() {
 				};
 
 				// Set both original and edited data to the fetched data
-				setKathavachak(completeKathavachak);
-				setEditedKathavachak({ ...completeKathavachak });
+				// Preserve bio if API response doesn't have it
+				setKathavachak((prev) => ({
+					...completeKathavachak,
+					bio: completeKathavachak.bio || prev?.bio || "",
+				}));
+				setEditedKathavachak((prev) => ({
+					...completeKathavachak,
+					bio: completeKathavachak.bio || prev?.bio || "",
+				}));
 				toast.dismiss(loadingToast);
 			} catch (error) {
 				clearTimeout(timeoutId);
@@ -264,6 +274,13 @@ export default function KathavachakDetailPage() {
 			fetchKathavachakData();
 		}
 	}, [KathavachakId, fetchKathavachakData]);
+
+	// Initialize editedKathavachak when kathavachak data is loaded
+	useEffect(() => {
+		if (kathavachak && !editedKathavachak) {
+			setEditedKathavachak({ ...kathavachak });
+		}
+	}, [kathavachak, editedKathavachak]);
 
 	// Form validation function
 	const validateForm = (KathavachakData: Partial<Kathavachak>): boolean => {
@@ -331,6 +348,11 @@ export default function KathavachakDetailPage() {
 		const loadingToast = toast.loading("Saving changes...");
 
 		try {
+			// Preserve the bio value - prioritize editedKathavachak.bio, fallback to kathavachak.bio
+			const bioToPreserve = editedKathavachak.bio !== undefined 
+				? editedKathavachak.bio 
+				: (kathavachak?.bio || "");
+
 			// Prepare data for API - only send necessary fields
 			const dataToSave = {
 				name: editedKathavachak.name,
@@ -338,7 +360,7 @@ export default function KathavachakDetailPage() {
 				phone: editedKathavachak.phone,
 				addresses: editedKathavachak.addresses, // Updated/new addresses
 				addressesToDelete, // Array of address IDs to delete
-				bio: editedKathavachak.bio || null,
+				bio: bioToPreserve,
 				profileImageUrl:
 					editedKathavachak.profileImageUrl === undefined
 						? null // <-- send null if removed
@@ -359,12 +381,17 @@ export default function KathavachakDetailPage() {
 				throw new Error(errorData.error || "Failed to update Kathavachak");
 			}
 
-			const updatedKathavachak = await response.json();
+			// Update state immediately with the saved bio
+			const savedBio = bioToPreserve;
+			setKathavachak((prev) => prev ? { ...prev, bio: savedBio } : null);
+			setEditedKathavachak((prev) => prev ? { ...prev, bio: savedBio } : null);
 
-			// Update local state with fresh data from server
-			setKathavachak(updatedKathavachak);
-			setEditedKathavachak(updatedKathavachak);
 			setIsEditing(false);
+
+			// Refetch in the background to sync with server (don't wait for it)
+			fetchKathavachakData().catch((err) => {
+				console.error("Error refetching data:", err);
+			});
 
 			// Clear the deletion queue since changes are saved
 			setAddressesToDelete([]);
@@ -703,9 +730,19 @@ export default function KathavachakDetailPage() {
 		setVideosToDelete,
 	]);
 	async function handleSaveBiography(): Promise<void> {
-		if (!editedKathavachak) return;
+		if (!editedKathavachak) {
+			toast.error("No data to save");
+			return;
+		}
+		
+		// Get bio from editedKathavachak, fallback to kathavachak.bio to preserve existing bio
+		const bioToSave = editedKathavachak.bio !== undefined 
+			? editedKathavachak.bio 
+			: (kathavachak?.bio || "");
+		
 		setIsSavingBiography(true);
 		const loadingToast = toast.loading("Saving biography...");
+		
 		try {
 			const response = await fetch(`/api/users/${KathavachakId}`, {
 				method: "PUT",
@@ -713,19 +750,28 @@ export default function KathavachakDetailPage() {
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
-					bio: editedKathavachak.bio ?? "",
+					bio: bioToSave,
 				}),
 			});
+			
 			if (!response.ok) {
 				const errorData = await response.json();
 				throw new Error(errorData.error || "Failed to save biography");
 			}
-			const updated = await response.json();
-			setKathavachak(updated);
-			setEditedKathavachak(updated);
+			
+			// Update state immediately with the saved bio
+			const savedBio = bioToSave;
+			setKathavachak((prev) => prev ? { ...prev, bio: savedBio } : null);
+			setEditedKathavachak((prev) => prev ? { ...prev, bio: savedBio } : null);
+			
 			toast.dismiss(loadingToast);
 			toast.success("Biography updated successfully!");
 			setIsEditing(false);
+			
+			// Refetch in the background to sync with server (don't wait for it)
+			fetchKathavachakData().catch((err) => {
+				console.error("Error refetching data:", err);
+			});
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(
