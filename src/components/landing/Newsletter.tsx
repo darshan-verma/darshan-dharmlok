@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Send } from "lucide-react";
+import Image from "next/image";
 
 export default function Newsletter() {
   const [email, setEmail] = useState("");
@@ -23,7 +24,15 @@ export default function Newsletter() {
               <h2 className="text-4xl font-serif font-bold mb-4">
                 Our Newsletter
               </h2>
-              <div className="w-24 h-1 bg-orange-500 mb-4" />
+              <div className="flex justify-start mb-6">
+                <Image
+                  src="/landing-page/1.png"
+                  alt="Decorative Divider"
+                  width={200}
+                  height={20}
+                  className="object-contain"
+                />
+              </div>
               <p className="text-gray-300 text-lg">
                 Get spiritual insights, pilgrimage guides, pooja timings, and exclusive offers directly in your inbox
               </p>

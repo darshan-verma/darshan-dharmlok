@@ -61,6 +61,7 @@ export async function GET(request: Request) {
 					profileImageUrl: true,
 					bannerImageUrl: true,
 					bio: true,
+					description: true,
 					category: true,
 					rank: true,
 					status: true,
@@ -74,6 +75,18 @@ export async function GET(request: Request) {
 							type: true,
 							city: true,
 							state: true,
+						},
+					},
+					serviceOfferings: {
+						select: {
+							id: true,
+							serviceType: true,
+							price: true,
+							details: true,
+							status: true,
+						},
+						where: {
+							status: "Active",
 						},
 					},
 				},

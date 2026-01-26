@@ -177,6 +177,8 @@ export default function TrainersTable({
 												<Image
 													src={trainer.coverImageUrl}
 													alt={trainer.name}
+													width={64}
+													height={64}
 													className="w-full h-full object-cover"
 												/>
 											) : (

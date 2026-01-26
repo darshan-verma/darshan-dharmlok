@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, Clock, PenTool } from "lucide-react";
 
-interface Kathavachak {
+interface Dharmguru {
   id: string;
   name: string;
   profileImageUrl?: string;
@@ -17,42 +17,46 @@ interface Kathavachak {
   }>;
 }
 
-export default function HoroscopeForecasts() {
+export default function Dharmgurus() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [kathavachaks, setKathavachaks] = useState<Kathavachak[]>([]);
+  const [dharmgurus, setDharmgurus] = useState<Dharmguru[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(true);
   const autoScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const fetchKathavachaks = async () => {
+    const fetchDharmgurus = async () => {
       try {
-        const response = await fetch("/api/users/kathavachak?limit=6&page=1");
+        const response = await fetch("/api/users/dharmguru?limit=6&page=1");
         if (!response.ok) {
-          throw new Error("Failed to fetch kathavachaks");
+          throw new Error("Failed to fetch dharmgurus");
         }
         const data = await response.json();
-        if (data.success && data.data) {
-          setKathavachaks(data.data);
+        // Note: dharmguru API returns { dharmgurus: [...] } instead of { data: [...] }
+        if (data.dharmgurus && Array.isArray(data.dharmgurus)) {
+          setDharmgurus(data.dharmgurus);
+        } else if (data.data && Array.isArray(data.data)) {
+          // Fallback for consistency
+          setDharmgurus(data.data);
         }
       } catch (error) {
-        console.error("Error fetching kathavachaks:", error);
+        console.error("Error fetching dharmgurus:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchKathavachaks();
+    fetchDharmgurus();
   }, []);
 
   // Calculate how many pairs of cards we have (2 cards per view)
-  const totalPairs = Math.ceil(kathavachaks.length / 2);
+  const totalPairs = Math.ceil(dharmgurus.length / 2);
   const maxIndex = Math.max(0, totalPairs - 1);
 
   // Auto-scroll functionality - wait 3 seconds, then scroll to next pair
   useEffect(() => {
-    if (kathavachaks.length === 0 || totalPairs <= 1) return;
+    if (dharmgurus.length === 0 || totalPairs <= 1) return;
 
     // Clear any existing timeout
     if (autoScrollTimeoutRef.current) {
@@ -87,7 +91,7 @@ export default function HoroscopeForecasts() {
         clearTimeout(autoScrollTimeoutRef.current);
       }
     };
-  }, [currentIndex, kathavachaks.length, totalPairs]);
+  }, [currentIndex, dharmgurus.length, totalPairs]);
 
   const handlePrevious = () => {
     setCurrentIndex((prev) => {
@@ -164,9 +168,9 @@ export default function HoroscopeForecasts() {
   };
 
   // Generate bullet points from service offerings or use defaults
-  const getBulletPoints = (kathavachak: Kathavachak): string[] => {
-    if (kathavachak.serviceOfferings && kathavachak.serviceOfferings.length > 0) {
-      return kathavachak.serviceOfferings
+  const getBulletPoints = (dharmguru: Dharmguru): string[] => {
+    if (dharmguru.serviceOfferings && dharmguru.serviceOfferings.length > 0) {
+      return dharmguru.serviceOfferings
         .slice(0, 4)
         .map((service) => service.serviceType || service.details || "")
         .filter(Boolean);
@@ -176,24 +180,24 @@ export default function HoroscopeForecasts() {
   };
 
   // Generate description text - prioritize bio (biography) from API
-  const getDescription = (kathavachak: Kathavachak): string => {
+  const getDescription = (dharmguru: Dharmguru): string => {
     // Prioritize bio (biography) field from API
-    if (kathavachak.bio) {
+    if (dharmguru.bio) {
       // Check if bio is BlockNote JSON (starts with '[' or '{')
-      const trimmedBio = kathavachak.bio.trim();
+      const trimmedBio = dharmguru.bio.trim();
       if (trimmedBio.startsWith('[') || trimmedBio.startsWith('{')) {
         // Extract plain text from BlockNote JSON
-        const extractedText = extractPlainTextFromBlockNote(kathavachak.bio);
-        return extractedText || `Connect with ${kathavachak.name}, an experienced and knowledgeable Kathavachak who shares spiritual wisdom and guides you on your spiritual journey.`;
+        const extractedText = extractPlainTextFromBlockNote(dharmguru.bio);
+        return extractedText || `Connect with ${dharmguru.name}, an experienced and knowledgeable Dharmguru who shares spiritual wisdom and guides you on your spiritual journey.`;
       }
       // If it's plain text, return as is
-      return kathavachak.bio;
+      return dharmguru.bio;
     }
-    if (kathavachak.description) {
-      return kathavachak.description;
+    if (dharmguru.description) {
+      return dharmguru.description;
     }
     // Default description
-    return `Connect with ${kathavachak.name}, an experienced and knowledgeable Kathavachak who shares spiritual wisdom and guides you on your spiritual journey.`;
+    return `Connect with ${dharmguru.name}, an experienced and knowledgeable Dharmguru who shares spiritual wisdom and guides you on your spiritual journey.`;
   };
 
   // Extract bold terms from description (simple heuristic: capitalize key words)
@@ -204,12 +208,12 @@ export default function HoroscopeForecasts() {
   };
 
   return (
-    <section id="kathavachak" className="py-20 bg-[#f5f5f0]/80 backdrop-blur-sm relative overflow-hidden">
+    <section id="dharmguru" className="py-20 bg-[#f5f5f0]/80 backdrop-blur-sm relative overflow-hidden">
       <div className="container mx-auto px-4">
         {/* Section Title */}
         <div className="text-center mb-16">
           <h2 className="text-5xl font-serif font-bold text-gray-900 mb-4">
-            Kathavachak
+            Dharmguru
           </h2>
           <div className="flex justify-center mb-6">
             <Image
@@ -221,7 +225,7 @@ export default function HoroscopeForecasts() {
             />
           </div>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Connect with our experienced and knowledgeable Kathavachaks who share spiritual wisdom and guide you on your spiritual journey.
+            Connect with our experienced and knowledgeable Dharmgurus who share spiritual wisdom and guide you on your spiritual journey.
           </p>
         </div>
 
@@ -237,7 +241,7 @@ export default function HoroscopeForecasts() {
               </div>
             ))}
           </div>
-        ) : kathavachaks.length > 0 ? (
+        ) : dharmgurus.length > 0 ? (
           <div className="relative w-full max-w-[1400px] mx-auto">
             {/* Navigation Arrows */}
             {totalPairs > 1 && (
@@ -273,28 +277,23 @@ export default function HoroscopeForecasts() {
                 {/* Render original pairs + duplicate for seamless loop */}
                 {Array.from({ length: totalPairs * 2 }).map((_, pairIndex) => {
                   const actualPairIndex = pairIndex % totalPairs;
-                  const cards = kathavachaks.slice(actualPairIndex * 2, actualPairIndex * 2 + 2);
+                  const cards = dharmgurus.slice(actualPairIndex * 2, actualPairIndex * 2 + 2);
                   return (
                     <div
                       key={`pair-${pairIndex}`}
                       className="flex-shrink-0 w-full grid grid-cols-1 md:grid-cols-2 gap-6 px-2"
                     >
-                      {cards.map((kathavachak, cardIndex) => {
+                      {cards.map((dharmguru, cardIndex) => {
                         // Use unique key to avoid React warnings
-                        const uniqueKey = `${kathavachak.id}-${pairIndex}-${cardIndex}`;
-                        const bulletPoints = getBulletPoints(kathavachak);
-                        const description = getDescription(kathavachak);
+                        const uniqueKey = `${dharmguru.id}-${pairIndex}-${cardIndex}`;
+                        const bulletPoints = getBulletPoints(dharmguru);
+                        const description = getDescription(dharmguru);
                         const boldTerms = getBoldTerms(description);
 
                         return (
                           <div
                             key={uniqueKey}
-                            className="bg-white/30 backdrop-blur-lg rounded-2xl overflow-hidden shadow-xl flex flex-col md:flex-row border border-white/40 h-[280px]"
-                            style={{
-                              background: 'rgba(255, 255, 255, 0.25)',
-                              backdropFilter: 'blur(16px) saturate(180%)',
-                              WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-                            }}
+                            className="liquid-glass-card rounded-2xl overflow-hidden shadow-xl flex flex-col md:flex-row h-[280px] relative"
                           >
                             {/* Left Section - Text Content */}
                             <div className="flex-1 p-5 md:p-6 flex flex-col justify-between min-w-0">
@@ -349,10 +348,10 @@ export default function HoroscopeForecasts() {
 
                             {/* Right Section - Landscape Image */}
                             <div className="w-full md:w-64 h-full relative flex-shrink-0">
-                              {kathavachak.profileImageUrl ? (
+                              {dharmguru.profileImageUrl ? (
                                 <Image
-                                  src={kathavachak.profileImageUrl}
-                                  alt={kathavachak.name}
+                                  src={dharmguru.profileImageUrl}
+                                  alt={dharmguru.name}
                                   fill
                                   className="object-cover"
                                   sizes="256px"
@@ -360,7 +359,7 @@ export default function HoroscopeForecasts() {
                               ) : (
                                 <div className="w-full h-full bg-gradient-to-br from-orange-400 to-yellow-500 flex items-center justify-center">
                                   <span className="text-5xl text-white font-bold">
-                                    {kathavachak.name.charAt(0).toUpperCase()}
+                                    {dharmguru.name.charAt(0).toUpperCase()}
                                   </span>
                                 </div>
                               )}
@@ -378,9 +377,19 @@ export default function HoroscopeForecasts() {
           </div>
         ) : (
           <div className="text-center py-8 text-gray-500">
-            No kathavachaks available at the moment.
+            No dharmgurus available at the moment.
           </div>
         )}
+      </div>
+
+      {/* Wavy Divider */}
+      <div className="absolute bottom-0 left-0 right-0">
+        <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-24">
+          <path
+            d="M0,60 Q300,100 600,60 T1200,60 L1200,120 L0,120 Z"
+            fill="#f5f5f0"
+          />
+        </svg>
       </div>
     </section>
   );

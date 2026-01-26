@@ -71,7 +71,7 @@ export default function OurServices() {
               return (
                 <div
                   key={service.title}
-                  className="bg-white rounded-lg p-6 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100 group"
+                  className="liquid-glass-card rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 group overflow-hidden relative"
                 >
                   <div className="space-y-4">
                     <div className="w-16 h-16 bg-orange-50 rounded-lg flex items-center justify-center border-2 border-orange-500 group-hover:bg-orange-500 transition-colors">
@@ -98,6 +98,16 @@ export default function OurServices() {
             })}
           </div>
         </div>
+      </div>
+
+      {/* Wavy Divider */}
+      <div className="absolute bottom-0 left-0 right-0">
+        <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="w-full h-24">
+          <path
+            d="M0,60 Q300,100 600,60 T1200,60 L1200,120 L0,120 Z"
+            fill="#f5f5f0"
+          />
+        </svg>
       </div>
     </section>
   );

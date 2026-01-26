@@ -3,14 +3,13 @@
 import Header from "./Header";
 import HeroSection from "./HeroSection";
 import AboutDharmlok from "./AboutDharmlok";
-import HoroscopeForecasts from "./HoroscopeForecasts";
+import Kathavachak from "./Kathavachak";
 import OurServices from "./OurServices";
-import WhyChooseUs from "./WhyChooseUs";
-import OurTeam from "./OurTeam";
-import Testimonials from "./Testimonials";
-import PopularProducts from "./PopularProducts";
-import LatestArticles from "./LatestArticles";
-import Newsletter from "./Newsletter";
+import Dharmgurus from "./Dharmgurus";
+import Panditji from "./Panditji";
+import ExploreDharmlok from "./ExploreDharmlok";
+import EShopProducts from "./EShopProducts";
+import TravelPortal from "./TravelPortal";
 import Footer from "./Footer";
 import { BackgroundShader } from "@/components/ui/background-paper-shaders";
 
@@ -24,14 +23,13 @@ export default function LandingPage() {
         <Header />
         <HeroSection />
         <AboutDharmlok />
-        <HoroscopeForecasts />
+        <Kathavachak />
         <OurServices />
-        <WhyChooseUs />
-        <OurTeam />
-        <Testimonials />
-        <PopularProducts />
-        <LatestArticles />
-        <Newsletter />
+        <Dharmgurus />
+        <Panditji />
+        <ExploreDharmlok />
+        <EShopProducts />
+        <TravelPortal />
         <Footer />
       </div>
     </div>

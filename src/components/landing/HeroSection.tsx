@@ -15,7 +15,20 @@ export default function HeroSection() {
   }, []);
 
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden">
+    <>
+      <style>{`
+        /* Fix square background on LiquidButton components */
+        .hero-button-wrapper[data-slot="button"] {
+          overflow: hidden !important;
+        }
+        .hero-button-wrapper[data-slot="button"] > div.absolute.rounded-md {
+          border-radius: 0.375rem !important;
+        }
+        .hero-button-wrapper[data-slot="button"] > div.absolute.isolate {
+          border-radius: 0.375rem !important;
+        }
+      `}</style>
+      <section className="relative min-h-screen flex items-center overflow-hidden">
       {/* Video Background */}
       <div className="absolute inset-0 z-0">
         <video
@@ -53,22 +66,26 @@ export default function HeroSection() {
               Connect with spiritual guides, book pooja services, explore sacred temples, and plan your pilgrimage journey with Dharmlok - your trusted companion for spiritual growth.
             </p>
             <div className="flex gap-4">
-              <LiquidButton 
-                variant="default" 
-                size="xxl"
-                className="text-white font-semibold text-lg !text-white hover:!text-white"
-                style={{ fontFamily: 'var(--font-jost), sans-serif' }}
-              >
-                Explore Services
-              </LiquidButton>
-              <LiquidButton 
-                variant="default" 
-                size="xxl"
-                className="text-white font-semibold text-lg !text-white hover:!text-white"
-                style={{ fontFamily: 'var(--font-jost), sans-serif' }}
-              >
-                Book Travel
-              </LiquidButton>
+              <div className="overflow-hidden rounded-md">
+                <LiquidButton 
+                  variant="default" 
+                  size="xxl"
+                  className="hero-button-wrapper text-white font-semibold text-lg !text-white hover:!text-white"
+                  style={{ fontFamily: 'var(--font-jost), sans-serif' }}
+                >
+                  Explore Services
+                </LiquidButton>
+              </div>
+              <div className="overflow-hidden rounded-md">
+                <LiquidButton 
+                  variant="default" 
+                  size="xxl"
+                  className="hero-button-wrapper text-white font-semibold text-lg !text-white hover:!text-white"
+                  style={{ fontFamily: 'var(--font-jost), sans-serif' }}
+                >
+                  Book Travel
+                </LiquidButton>
+              </div>
             </div>
           </div>
         </div>
@@ -86,5 +103,6 @@ export default function HeroSection() {
       </div>
 
     </section>
+    </>
   );
 }
