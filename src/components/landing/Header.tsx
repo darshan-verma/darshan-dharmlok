@@ -1,14 +1,39 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, ShoppingCart, User, Menu, X, Phone, Mail, Clock } from "lucide-react";
+import { Search, User, Menu, X, Phone, Mail, Clock, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { LiquidButton } from "@/components/ui/liquid-glass-button";
+import { useSession, signOut } from "next-auth/react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Header() {
+  const { data: session, status } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const isAuthenticated = status === "authenticated";
+
+  // Debug: Log session data (remove in production)
+  useEffect(() => {
+    if (isAuthenticated && session?.user) {
+      console.log("Header - Session user:", {
+        name: session.user.name,
+        email: session.user.email,
+        image: session.user.image,
+        id: session.user.id,
+      });
+    }
+  }, [isAuthenticated, session]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -22,21 +47,25 @@ export default function Header() {
 
   const menuItems = [
     { name: "Home", href: "/", active: true },
-    { name: "About Us", href: "#about" },
-    { name: "Services", href: "#services" },
-    { name: "Travel Portal", href: "/travel-portal" },
-    { name: "Temples", href: "#temples" },
-    { name: "Events", href: "#events" },
     {
-      name: "Spiritual Guides",
-      href: "#guides",
-      dropdown: [
+      name: "Explore",
+      href: "#explore",
+      megaMenu: true,
+      leftColumn: [
+        { name: "Kathavachak", href: "#kathavachak" },
         { name: "Dharmguru", href: "#dharmguru" },
         { name: "Panditji", href: "#panditji" },
-        { name: "Kathavachak", href: "#kathavachak" },
       ],
+      rightColumn: [
+        { name: "Book Pooja", href: "#book-pooja" },
+        { name: "Book Yoga Session", href: "#book-yoga" },
+        { name: "Events", href: "#events" },
+        { name: "Temples", href: "#temples" },
+      ],
+      viewAllLink: { name: "View All", href: "/services" },
     },
-    { name: "E-Shop", href: "#shop" },
+    { name: "Travel Portal", href: "/travel-portal" },
+    { name: "Shop", href: "#shop" },
     { name: "Contact Us", href: "#contact" },
   ];
 
@@ -74,9 +103,15 @@ export default function Header() {
                 <span className="text-white text-xs font-bold">y</span>
               </a>
             </div>
-            <Link href="/auth/signin" className="hover:text-orange-500 transition-colors whitespace-nowrap">
-              Log in / Register
-            </Link>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-300">{session?.user?.name || session?.user?.email}</span>
+              </div>
+            ) : (
+              <Link href="/auth/user/signin" className="hover:text-orange-500 transition-colors whitespace-nowrap">
+                Log in / Register
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -112,7 +147,7 @@ export default function Header() {
                 <div
                   key={item.name}
                   className="relative"
-                  onMouseEnter={() => item.dropdown && setActiveDropdown(item.name)}
+                  onMouseEnter={() => item.megaMenu && setActiveDropdown(item.name)}
                   onMouseLeave={() => setActiveDropdown(null)}
                 >
                   <Link
@@ -123,17 +158,58 @@ export default function Header() {
                   >
                     {item.name}
                   </Link>
-                  {item.dropdown && activeDropdown === item.name && (
-                    <div className="absolute top-full left-0 mt-2 w-48 bg-white shadow-xl rounded-lg py-2 z-50 animate-in fade-in slide-in-from-top-2">
-                      {item.dropdown.map((subItem) => (
-                        <Link
-                          key={subItem.name}
-                          href={subItem.href}
-                          className="block px-4 py-2 text-gray-700 hover:bg-orange-50 hover:text-orange-500 transition-colors"
-                        >
-                          {subItem.name}
-                        </Link>
-                      ))}
+                  {item.megaMenu && activeDropdown === item.name && (
+                    <div className="absolute top-full left-0 mt-2 w-96 bg-white/40 backdrop-blur-xl shadow-2xl rounded-2xl py-4 z-50 animate-in fade-in slide-in-from-top-2 border border-white/30">
+                      <div className="flex gap-6 px-4">
+                        {/* Left Column - Spiritual Guides */}
+                        <div className="flex-1">
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200/50">
+                            Spiritual Guides
+                          </h3>
+                          <div className="space-y-2">
+                            {item.leftColumn?.map((subItem) => (
+                              <Link
+                                key={subItem.name}
+                                href={subItem.href}
+                                className="block px-2 py-2 text-gray-700 hover:bg-orange-50/60 hover:text-orange-500 transition-colors rounded"
+                              >
+                                {subItem.name}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Right Column - Services */}
+                        <div className="flex-1 border-l border-gray-200/50 pl-6">
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200/50">
+                            Services
+                          </h3>
+                          <div className="space-y-2">
+                            {item.rightColumn?.map((subItem) => (
+                              <Link
+                                key={subItem.name}
+                                href={subItem.href}
+                                className="block px-2 py-2 text-gray-700 hover:bg-orange-50/60 hover:text-orange-500 transition-colors rounded"
+                              >
+                                {subItem.name}
+                              </Link>
+                            ))}
+                          </div>
+                          {/* View All Services Link */}
+                          {item.viewAllLink && (
+                            <div className="mt-3 pt-3 border-t border-gray-200/50">
+                              <Link href={item.viewAllLink.href} className="block">
+                                <LiquidButton
+                                  size="sm"
+                                  variant="default"
+                                  className="w-full text-orange-500"
+                                >
+                                  {item.viewAllLink.name}
+                                </LiquidButton>
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -145,15 +221,57 @@ export default function Header() {
               <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                 <Search className="w-5 h-5 text-gray-700" />
               </button>
-              <button className="relative p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <ShoppingCart className="w-5 h-5 text-gray-700" />
-                <span className="absolute top-0 right-0 w-5 h-5 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center">
-                  0
-                </span>
-              </button>
-              <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <User className="w-5 h-5 text-gray-700" />
-              </button>
+              {isAuthenticated ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-0 hover:opacity-80 transition-opacity rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
+                      <Avatar className="w-10 h-10 border-2 border-orange-500/30 hover:border-orange-500 transition-colors">
+                        <AvatarImage 
+                          src={session?.user?.image || undefined} 
+                          alt={session?.user?.name || "User"}
+                          className="object-cover"
+                        />
+                        <AvatarFallback className="bg-orange-500 text-white font-semibold">
+                          {session?.user?.name?.charAt(0)?.toUpperCase() || session?.user?.email?.charAt(0)?.toUpperCase() || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">{session?.user?.name || "User"}</p>
+                        <p className="text-xs leading-none text-muted-foreground">{session?.user?.email}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard" className="cursor-pointer">
+                        <User className="mr-2 h-4 w-4" />
+                        <span>Dashboard</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard/profile" className="cursor-pointer">
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Settings</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      className="cursor-pointer text-red-600 focus:text-red-600"
+                      onClick={() => signOut({ callbackUrl: "/" })}
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <User className="w-5 h-5 text-gray-700" />
+                </button>
+              )}
               <button
                 className="lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -179,9 +297,12 @@ export default function Header() {
                   >
                     {item.name}
                   </Link>
-                  {item.dropdown && (
+                  {item.megaMenu && (
                     <div className="pl-8">
-                      {item.dropdown.map((subItem) => (
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
+                        Spiritual Guides
+                      </div>
+                      {item.leftColumn?.map((subItem) => (
                         <Link
                           key={subItem.name}
                           href={subItem.href}
@@ -191,6 +312,36 @@ export default function Header() {
                           {subItem.name}
                         </Link>
                       ))}
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase mt-2">
+                        Services
+                      </div>
+                      {item.rightColumn?.map((subItem) => (
+                        <Link
+                          key={subItem.name}
+                          href={subItem.href}
+                          className="block px-4 py-2 text-gray-600 hover:bg-orange-50 hover:text-orange-500 transition-colors text-sm"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          {subItem.name}
+                        </Link>
+                      ))}
+                      {item.viewAllLink && (
+                        <div className="px-4 mt-3">
+                          <Link
+                            href={item.viewAllLink.href}
+                            onClick={() => setIsMenuOpen(false)}
+                            className="block"
+                          >
+                            <LiquidButton
+                              size="sm"
+                              variant="default"
+                              className="w-full text-orange-500"
+                            >
+                              {item.viewAllLink.name}
+                            </LiquidButton>
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

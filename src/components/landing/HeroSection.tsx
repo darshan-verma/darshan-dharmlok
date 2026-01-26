@@ -21,11 +21,11 @@ export default function HeroSection() {
         .hero-button-wrapper[data-slot="button"] {
           overflow: hidden !important;
         }
-        .hero-button-wrapper[data-slot="button"] > div.absolute.rounded-md {
-          border-radius: 0.375rem !important;
+        .hero-button-wrapper[data-slot="button"] > div.absolute.rounded-full {
+          border-radius: 9999px !important;
         }
         .hero-button-wrapper[data-slot="button"] > div.absolute.isolate {
-          border-radius: 0.375rem !important;
+          border-radius: 9999px !important;
         }
       `}</style>
       <section className="relative min-h-screen flex items-center overflow-hidden">
@@ -66,7 +66,7 @@ export default function HeroSection() {
               Connect with spiritual guides, book pooja services, explore sacred temples, and plan your pilgrimage journey with Dharmlok - your trusted companion for spiritual growth.
             </p>
             <div className="flex gap-4">
-              <div className="overflow-hidden rounded-md">
+              <div className="overflow-hidden rounded-full">
                 <LiquidButton 
                   variant="default" 
                   size="xxl"
@@ -76,7 +76,7 @@ export default function HeroSection() {
                   Explore Services
                 </LiquidButton>
               </div>
-              <div className="overflow-hidden rounded-md">
+              <div className="overflow-hidden rounded-full">
                 <LiquidButton 
                   variant="default" 
                   size="xxl"

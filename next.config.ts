@@ -45,6 +45,31 @@ const nextConfig: NextConfig = {
 				hostname: "*.tbotechnology.in",
 				pathname: "/**",
 			},
+			{
+				protocol: "https",
+				hostname: "images.unsplash.com",
+				port: "",
+				pathname: "/**",
+			},
+			{
+				protocol: "https",
+				hostname: "plus.unsplash.com",
+				port: "",
+				pathname: "/**",
+			},
+			// Google profile images
+			{
+				protocol: "https",
+				hostname: "lh3.googleusercontent.com",
+				port: "",
+				pathname: "/**",
+			},
+			{
+				protocol: "https",
+				hostname: "*.googleusercontent.com",
+				port: "",
+				pathname: "/**",
+			},
 		],
 	},
 	// ... any other existing configurations

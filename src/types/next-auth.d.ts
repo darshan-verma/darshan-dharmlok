@@ -6,6 +6,7 @@ declare module "next-auth" {
 		user: {
 			id: string;
 			role: string;
+			image?: string | null;
 		} & DefaultSession["user"];
 		// Add accessToken property for API auth
 		accessToken?: string;
@@ -20,6 +21,7 @@ declare module "next-auth/jwt" {
 	interface JWT {
 		role?: string;
 		id: string;
+		image?: string | null;
 		accessToken?: string;
 	}
 }
