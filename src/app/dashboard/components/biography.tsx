@@ -118,27 +118,29 @@ export default function Biography({ userId, editable = true }: BiographyProps) {
 						<Pencil className="h-4 w-4 mr-1" /> Edit Bio
 					</Button>
 				)}
-				<CardHeader className="flex flex-row items-center gap-6 p-4 border-b">
-					<div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 shadow-md bg-white dark:bg-zinc-800 flex items-center justify-center">
-						<Image
-							src={user.profileImageUrl || "/placeholder-avatar.png"}
-							alt={user.name}
-							width={64}
-							height={64}
-							className="object-cover w-full h-full"
-						/>
-					</div>
-					<div className="flex flex-col justify-center flex-1 gap-1">
-						<CardTitle className="text-xl font-bold text-left">
-							{user.name}
-						</CardTitle>
-						{user.category && (
-							<CardDescription className="text-sm text-muted-foreground text-left">
-								{user.category}
-							</CardDescription>
-						)}
-					</div>
-				</CardHeader>
+				{editable && (
+					<CardHeader className="flex flex-row items-center gap-6 p-4 border-b">
+						<div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 shadow-md bg-white dark:bg-zinc-800 flex items-center justify-center">
+							<Image
+								src={user.profileImageUrl || "/placeholder-avatar.png"}
+								alt={user.name}
+								width={64}
+								height={64}
+								className="object-cover w-full h-full"
+							/>
+						</div>
+						<div className="flex flex-col justify-center flex-1 gap-1">
+							<CardTitle className="text-xl font-bold text-left">
+								{user.name}
+							</CardTitle>
+							{user.category && (
+								<CardDescription className="text-sm text-muted-foreground text-left">
+									{user.category}
+								</CardDescription>
+							)}
+						</div>
+					</CardHeader>
+				)}
 				<CardContent className="px-4 py-4">
 					{isEditing ? (
 						<BlockNoteEditor

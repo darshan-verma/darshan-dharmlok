@@ -14,6 +14,8 @@ export async function POST(req: NextRequest) {
 			"unknown";
 		const source = formData.get("source") as string | null;
 
+		console.log("[POST /api/upload/video] Upload params - userId:", userId, "source:", source);
+
 		if (!file || !(file instanceof File)) {
 			return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
 		}
@@ -39,6 +41,11 @@ export async function POST(req: NextRequest) {
 			!userId.includes("dharamshala")
 		) {
 			try {
+				// If source is comma-separated, use the first value for storage
+				// The query will handle multiple sources by splitting
+				const sourceToSave = source?.split(",")[0] || source;
+				console.log("[POST /api/upload/video] Saving video with source:", sourceToSave);
+				
 				videoRecord = await prisma.video.create({
 					data: {
 						title: file.name,
@@ -48,8 +55,15 @@ export async function POST(req: NextRequest) {
 						status: "active",
 						category: "general",
 						type: "video",
-						...(source && { source }),
+						...(sourceToSave && { source: sourceToSave }),
 					},
+				});
+				console.log("[POST /api/upload/video] Created video record:", {
+					id: videoRecord.id,
+					title: videoRecord.title,
+					userId: videoRecord.userId,
+					source: videoRecord.source,
+					videoFile: videoRecord.videoFile,
 				});
 			} catch (dbError) {
 				console.error("Error creating video record:", dbError);

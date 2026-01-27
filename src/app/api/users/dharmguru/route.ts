@@ -97,15 +97,21 @@ export async function GET(request: Request) {
 			prisma.user.count({ where: whereConditions }),
 		]);
 
+		// Calculate pagination info
+		const totalPages = Math.ceil(totalCount / limit);
+		const hasNext = page < totalPages;
+		const hasPrev = page > 1;
+
 		return NextResponse.json({
-			dharmgurus,
+			success: true,
+			data: dharmgurus,
 			pagination: {
-				page,
+				currentPage: page,
+				totalPages,
+				totalCount,
+				hasNext,
+				hasPrev,
 				limit,
-				total: totalCount,
-				totalPages: Math.ceil(totalCount / limit),
-				hasNext: skip + limit < totalCount,
-				hasPrev: page > 1,
 			},
 		});
 	} catch (error) {

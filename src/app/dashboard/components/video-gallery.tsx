@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import {
@@ -69,36 +69,71 @@ export default function VideoGallery({
 
 	const [isSaving, setIsSaving] = useState(false);
 
-	useEffect(() => {
-		setLoading(true);
-		setError(null);
+	const fetchVideos = useCallback(async () => {
+		try {
+			const url = `/api/videos?userId=${userId}&source=${source}`;
+			console.log("Fetching videos from:", url);
+			console.log("Query params - userId:", userId, "source:", source);
+			
+			const res = await fetch(url);
+			if (!res.ok) {
+				const errorText = await res.text();
+				console.error("API error response:", errorText);
+				throw new Error(`Failed to fetch videos: ${res.status} ${errorText}`);
+			}
+			const data = await res.json();
+			
+			console.log("Video API response:", data);
+			// Handle both array and object with videos property
+			const videosArray = Array.isArray(data) ? data : (data.videos || []);
+			console.log("Videos array:", videosArray);
+			
+			if (!Array.isArray(videosArray)) {
+				console.error("Videos is not an array:", videosArray);
+				setVideos([]);
+				return;
+			}
 
-		// First fetch the user profile to get basic user info
-		fetch(`/api/users/${userId}`)
-			.then((res) => {
-				if (!res.ok) throw new Error("Failed to fetch user profile");
-				return res.json();
-			})
-			.then((userData) => {
+			const videosWithUrl = videosArray.map((v: Video) => {
+				const videoFile = v.videoFile || v.videoUrl || "";
+				console.log(`Video ${v.id}: videoFile=${videoFile}, title=${v.title}`);
+				return {
+					...v,
+					videoFile: videoFile,
+				};
+			});
+			console.log("Processed videos:", videosWithUrl);
+			setVideos(videosWithUrl);
+		} catch (e) {
+			console.error("Error fetching videos:", e);
+			setError((e as Error).message);
+		}
+	}, [userId, source]);
+
+	useEffect(() => {
+		const loadData = async () => {
+			setLoading(true);
+			setError(null);
+
+			try {
+				// First fetch the user profile to get basic user info
+				const userRes = await fetch(`/api/users/${userId}`);
+				if (!userRes.ok) throw new Error("Failed to fetch user profile");
+				const userData = await userRes.json();
 				setUser(userData);
 
 				// Then fetch videos from the video API
-				return fetch(`/api/videos?userId=${userId}&source=${source}`);
-			})
-			.then((res) => {
-				if (!res.ok) throw new Error("Failed to fetch videos");
-				return res.json();
-			})
-			.then((data) => {
-				const videosWithUrl = data.videos.map((v: Video) => ({
-					...v,
-					videoFile: v.videoFile || v.videoUrl || "",
-				}));
-				setVideos(videosWithUrl || []);
-			})
-			.catch((e) => setError(e.message))
-			.finally(() => setLoading(false));
-	}, [userId, source]);
+				await fetchVideos();
+			} catch (e) {
+				console.error("Error loading data:", e);
+				setError((e as Error).message);
+			} finally {
+				setLoading(false);
+			}
+		};
+
+		loadData();
+	}, [userId, source, fetchVideos]);
 
 	const handleAddVideo = async () => {
 		if (!newVideo.title || !newVideo.file) return;
@@ -131,17 +166,14 @@ export default function VideoGallery({
 							description: newVideo.description,
 						}),
 					});
-					if (updateRes.ok) {
-						const updatedVideo = await updateRes.json();
-						setVideos((prev) => [updatedVideo, ...prev]);
-					} else {
-						// Still add the video even if update fails
-						setVideos((prev) => [video, ...prev]);
+					if (!updateRes.ok) {
+						console.warn("Failed to update video title/description");
 					}
-				} else {
-					setVideos((prev) => [video, ...prev]);
 				}
 			}
+
+			// Refetch videos from the API to ensure we have the latest data
+			await fetchVideos();
 
 			// Reset form
 			setNewVideo({ title: "", description: "", file: null });
@@ -183,10 +215,9 @@ export default function VideoGallery({
 				}),
 			});
 			if (!res.ok) throw new Error("Failed to update video");
-			const updatedVideo = await res.json();
-			setVideos((prev) =>
-				prev.map((v) => (v.id === updatedVideo.id ? updatedVideo : v))
-			);
+			
+			// Refetch videos to ensure we have the latest data
+			await fetchVideos();
 			setEditState(null);
 		} catch (e) {
 			setError((e as Error).message);
@@ -203,7 +234,9 @@ export default function VideoGallery({
 				method: "DELETE",
 			});
 			if (!res.ok) throw new Error("Failed to delete video");
-			setVideos((prev) => prev.filter((v) => v.id !== id));
+			
+			// Refetch videos to ensure we have the latest data
+			await fetchVideos();
 		} catch (e) {
 			setError((e as Error).message);
 		} finally {
@@ -224,27 +257,27 @@ export default function VideoGallery({
 
 	return (
 		<Card className="w-full rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 bg-background">
-			<CardHeader className="flex flex-row items-center gap-6 p-4 border-b">
-				<div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 shadow-md bg-white dark:bg-zinc-800 flex items-center justify-center">
-					<Image
-						src={user.profileImageUrl || "./placeholder-avatar.svg"}
-						alt={user.name}
-						width={64}
-						height={64}
-						className="object-cover w-full h-full"
-					/>
-				</div>
-				<div className="flex flex-col justify-center flex-1 gap-1">
-					<CardTitle className="text-xl font-bold text-left">
-						{user.name}
-					</CardTitle>
-					{user.category && (
-						<CardDescription className="text-sm text-muted-foreground text-left">
-							{user.category}
-						</CardDescription>
-					)}
-				</div>
-				{editable && (
+			{editable && (
+				<CardHeader className="flex flex-row items-center gap-6 p-4 border-b">
+					<div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/30 shadow-md bg-white dark:bg-zinc-800 flex items-center justify-center">
+						<Image
+							src={user.profileImageUrl || "./placeholder-avatar.svg"}
+							alt={user.name}
+							width={64}
+							height={64}
+							className="object-cover w-full h-full"
+						/>
+					</div>
+					<div className="flex flex-col justify-center flex-1 gap-1">
+						<CardTitle className="text-xl font-bold text-left">
+							{user.name}
+						</CardTitle>
+						{user.category && (
+							<CardDescription className="text-sm text-muted-foreground text-left">
+								{user.category}
+							</CardDescription>
+						)}
+					</div>
 					<Button
 						size="sm"
 						variant="default"
@@ -253,8 +286,8 @@ export default function VideoGallery({
 					>
 						<Plus className="h-4 w-4 mr-2" /> Add Video
 					</Button>
-				)}
-			</CardHeader>
+				</CardHeader>
+			)}
 			<CardContent className="p-4">
 				{isAdding && (
 					<Card className="mb-6 border bg-muted/30 shadow-sm">
@@ -381,13 +414,19 @@ export default function VideoGallery({
 								) : (
 									<>
 										<div className="aspect-video bg-black">
-											<video
-												src={video.videoFile}
-												controls
-												className="w-full h-full rounded-t-lg"
-											>
-												Your browser does not support the video tag.
-											</video>
+											{video.videoFile && video.videoFile.trim() !== "" ? (
+												<video
+													src={video.videoFile}
+													controls
+													className="w-full h-full rounded-t-lg"
+												>
+													Your browser does not support the video tag.
+												</video>
+											) : (
+												<div className="w-full h-full flex items-center justify-center text-white">
+													<p>Video URL not available</p>
+												</div>
+											)}
 										</div>
 										<CardHeader className="flex flex-row items-start gap-3 pb-1 pt-3 px-4">
 											<div className="flex-1">

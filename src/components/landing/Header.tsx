@@ -52,8 +52,8 @@ export default function Header() {
       href: "#explore",
       megaMenu: true,
       leftColumn: [
-        { name: "Kathavachak", href: "#kathavachak" },
-        { name: "Dharmguru", href: "#dharmguru" },
+        { name: "Kathavachak", href: "/kathavachak" },
+        { name: "Dharmguru", href: "/dharmguru" },
         { name: "Panditji", href: "#panditji" },
       ],
       rightColumn: [

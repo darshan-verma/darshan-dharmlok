@@ -409,92 +409,88 @@ export default function PhotoGallery({
 						)}
 					</div>
 				) : (
-					<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-4">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 						{photos.map((photo, index) => (
-							<div key={`${photo.url}-${index}`} className="relative group">
+							<Card
+								key={`${photo.url}-${index}`}
+								className="shadow-sm border rounded-lg overflow-hidden hover:shadow-md transition-shadow duration-300"
+							>
 								{editState && editState.url === photo.url ? (
-									<Card className="mb-2 border bg-muted/30 shadow-sm">
-										<CardContent className="p-4 space-y-3">
-											<input
-												type="text"
-												value={editState.title}
-												onChange={(e) =>
-													setEditState((s) =>
-														s ? { ...s, title: e.target.value } : null
-													)
-												}
-												placeholder="Title (optional)"
-												className="w-full p-2 border rounded-md text-sm"
-											/>
-											<textarea
-												value={editState.description}
-												onChange={(e) =>
-													setEditState((s) =>
-														s ? { ...s, description: e.target.value } : null
-													)
-												}
-												placeholder="Description (optional)"
-												className="w-full p-2 border rounded-md text-sm"
-												rows={3}
-											/>
-											<input
-												type="file"
-												accept="image/*"
-												onChange={(e) =>
-													setEditState((s) =>
-														s
-															? { ...s, file: e.target.files?.[0] || null }
-															: null
-													)
-												}
-												className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-											/>
-											<div className="flex gap-2 justify-end pt-2">
-												<Button
-													size="sm"
-													variant="outline"
-													onClick={() => setEditState(null)}
-													className="rounded-full px-4"
-												>
-													<X className="h-4 w-4 mr-2" />
-													Cancel
-												</Button>
-												<Button
-													size="sm"
-													onClick={handleSaveEdit}
-													disabled={isSaving}
-													className="rounded-full px-4"
-												>
-													{isSaving ? (
-														<Loader2 className="h-4 w-4 mr-2 animate-spin" />
-													) : (
-														<Save className="h-4 w-4 mr-2" />
-													)}
-													Save
-												</Button>
-											</div>
-										</CardContent>
-									</Card>
+									<div className="p-4 space-y-3">
+										<input
+											type="text"
+											value={editState.title}
+											onChange={(e) =>
+												setEditState((s) =>
+													s ? { ...s, title: e.target.value } : null
+												)
+											}
+											placeholder="Title (optional)"
+											className="w-full p-2 border rounded-md text-sm"
+										/>
+										<textarea
+											value={editState.description}
+											onChange={(e) =>
+												setEditState((s) =>
+													s ? { ...s, description: e.target.value } : null
+												)
+											}
+											placeholder="Description (optional)"
+											className="w-full p-2 border rounded-md text-sm"
+											rows={3}
+										/>
+										<input
+											type="file"
+											accept="image/*"
+											onChange={(e) =>
+												setEditState((s) =>
+													s
+														? { ...s, file: e.target.files?.[0] || null }
+														: null
+												)
+											}
+											className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+										/>
+										<div className="flex gap-2 justify-end pt-2">
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() => setEditState(null)}
+												className="rounded-full px-4"
+											>
+												<X className="h-4 w-4 mr-2" />
+												Cancel
+											</Button>
+											<Button
+												size="sm"
+												onClick={handleSaveEdit}
+												disabled={isSaving}
+												className="rounded-full px-4"
+											>
+												{isSaving ? (
+													<Loader2 className="h-4 w-4 mr-2 animate-spin" />
+												) : (
+													<Save className="h-4 w-4 mr-2" />
+												)}
+												Save
+											</Button>
+										</div>
+									</div>
 								) : (
 									<>
 										<Dialog>
 											<DialogTrigger asChild>
 												<div
-													className="relative aspect-square rounded-md overflow-hidden cursor-pointer border shadow-sm hover:shadow-md transition-shadow duration-300"
+													className="relative aspect-video bg-black cursor-pointer"
 													onClick={() => setSelectedPhoto(photo)}
 												>
 													<Image
 														src={photo.url}
 														alt={photo.title || `Photo ${index + 1}`}
 														fill
-														sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-														className="object-cover hover:scale-105 transition-transform duration-300"
+														sizes="(max-width: 768px) 100vw, 50vw"
+														className="object-cover rounded-t-lg"
 													/>
-													{photo.title && (
-														<div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white p-2 text-sm truncate">
-															{photo.title}
-														</div>
-													)}
 												</div>
 											</DialogTrigger>
 											<DialogContent className="max-w-3xl">
@@ -519,34 +515,42 @@ export default function PhotoGallery({
 												)}
 											</DialogContent>
 										</Dialog>
-
-										{editable && (
-											<div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-												<Button
-													size="icon"
-													variant="ghost"
-													onClick={() => handleEditPhoto(photo)}
-													className="h-8 w-8 rounded-full hover:bg-primary/10"
-												>
-													<Edit className="h-4 w-4" />
-												</Button>
-												<Button
-													variant="destructive"
-													size="icon"
-													className="h-8 w-8 rounded-full shadow-md bg-black/60 hover:bg-red-600/90"
-													onClick={(e) => {
-														e.stopPropagation();
-														handleDeletePhoto(photo);
-													}}
-													disabled={isDeleting}
-												>
-													<Trash2 className="h-4 w-4" />
-												</Button>
+										<CardHeader className="flex flex-row items-start gap-3 pb-1 pt-3 px-4">
+											<div className="flex-1">
+												<CardTitle className="text-base font-semibold line-clamp-1">
+													{photo.title || `Photo ${index + 1}`}
+												</CardTitle>
+												{photo.description && (
+													<CardDescription className="text-sm mt-1 line-clamp-2">
+														{photo.description}
+													</CardDescription>
+												)}
 											</div>
-										)}
+											{editable && (
+												<div className="flex gap-2">
+													<Button
+														size="icon"
+														variant="ghost"
+														onClick={() => handleEditPhoto(photo)}
+														className="h-8 w-8 rounded-full hover:bg-primary/10"
+													>
+														<Edit className="h-4 w-4" />
+													</Button>
+													<Button
+														size="icon"
+														variant="ghost"
+														onClick={() => handleDeletePhoto(photo)}
+														disabled={isDeleting}
+														className="h-8 w-8 rounded-full text-red-500 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50"
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</div>
+											)}
+										</CardHeader>
 									</>
 								)}
-							</div>
+							</Card>
 						))}
 					</div>
 				)}
