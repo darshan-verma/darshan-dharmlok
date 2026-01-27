@@ -1,20 +1,22 @@
 "use client";
 
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
+import BlockNoteEditor, {
+	type BlockNoteEditorHandle,
+} from "@/components/richtext/BlockNoteEditor";
 import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
 import { Kathavachak } from "./types";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import { PartialBlock } from "@blocknote/core";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 
 interface BiographyTabProps {
 	editedKathavachak: Partial<Kathavachak> | null;
 	isEditing: boolean;
 	handleBlockNoteChange: (field: "bio", val: string) => void;
-	onSave?: () => void;
+	onSave?: (content?: string) => void;
 	isSaving?: boolean;
 }
 
@@ -58,6 +60,8 @@ export default function BiographyTab({
 	onSave,
 	isSaving,
 }: BiographyTabProps) {
+	const blockNoteRef = useRef<BlockNoteEditorHandle | null>(null);
+
 	// Create a unique key that changes when bio changes to force component recreation
 	const bioKey = useMemo(() => {
 		const bioString = editedKathavachak?.bio || "";
@@ -65,11 +69,20 @@ export default function BiographyTab({
 		return `${editedKathavachak?.id || "unknown"}-${bioHash}`;
 	}, [editedKathavachak?.id, editedKathavachak?.bio]);
 
+	const handleSaveClick = () => {
+		if (!onSave) return;
+		blockNoteRef.current?.flush();
+		const content =
+			blockNoteRef.current?.getContent() ?? editedKathavachak?.bio ?? "";
+		onSave(content);
+	};
+
 	return (
 		<Card>
 			<CardContent className="p-4">
 				{isEditing ? (
 					<BlockNoteEditor
+						ref={blockNoteRef}
 						key={`bio-editor-${bioKey}`}
 						initialContent={editedKathavachak?.bio || ""}
 						onChange={(val: string) => handleBlockNoteChange("bio", val)}
@@ -95,7 +108,7 @@ export default function BiographyTab({
 			</CardContent>
 			{isEditing && onSave && (
 				<CardFooter>
-					<Button onClick={onSave} disabled={isSaving}>
+					<Button onClick={handleSaveClick} disabled={isSaving}>
 						{isSaving ? (
 							<>
 								<Save className="h-4 w-4 mr-2 animate-spin" />

@@ -1,20 +1,22 @@
 "use client";
 
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
+import BlockNoteEditor, {
+	type BlockNoteEditorHandle,
+} from "@/components/richtext/BlockNoteEditor";
 import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
 import { Dharmguru } from "./types";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface BiographyTabProps {
 	editedDharmguru: Partial<Dharmguru> | null;
 	isEditing: boolean;
 	handleBlockNoteChange: (field: "bio", val: string) => void;
 	safeBlockNoteHtml: (jsonString?: string) => string;
-	onSave?: () => void;
+	onSave?: (content?: string) => void;
 	isSaving?: boolean;
 }
 
@@ -26,6 +28,7 @@ export default function BiographyTab({
 	isSaving,
 }: BiographyTabProps) {
 	const editor = useCreateBlockNote();
+	const blockNoteRef = useRef<BlockNoteEditorHandle | null>(null);
 
 	useEffect(() => {
 		if (!isEditing && editor && editedDharmguru?.bio) {
@@ -39,11 +42,20 @@ export default function BiographyTab({
 		}
 	}, [editedDharmguru?.bio, isEditing, editor]);
 
+	const handleSaveClick = () => {
+		if (!onSave) return;
+		blockNoteRef.current?.flush();
+		const content =
+			blockNoteRef.current?.getContent() ?? editedDharmguru?.bio ?? "";
+		onSave(content);
+	};
+
 	return (
 		<Card>
 			<CardContent className="p-4">
 				{isEditing ? (
 					<BlockNoteEditor
+						ref={blockNoteRef}
 						initialContent={editedDharmguru?.bio || ""}
 						onChange={(val: string) => handleBlockNoteChange("bio", val)}
 						editable={isEditing}
@@ -67,7 +79,7 @@ export default function BiographyTab({
 			</CardContent>
 			{isEditing && onSave && (
 				<CardFooter>
-					<Button onClick={onSave} disabled={isSaving}>
+					<Button onClick={handleSaveClick} disabled={isSaving}>
 						{isSaving ? (
 							<>
 								<Save className="h-4 w-4 mr-2 animate-spin" />

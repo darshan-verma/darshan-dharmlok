@@ -729,46 +729,40 @@ export default function KathavachakDetailPage() {
 		setDeletedImages,
 		setVideosToDelete,
 	]);
-	async function handleSaveBiography(): Promise<void> {
-		if (!editedKathavachak) {
-			toast.error("No data to save");
-			return;
-		}
-		
-		// Get bio from editedKathavachak, fallback to kathavachak.bio to preserve existing bio
-		const bioToSave = editedKathavachak.bio !== undefined 
-			? editedKathavachak.bio 
-			: (kathavachak?.bio || "");
-		
+	async function handleSaveBiography(content?: string): Promise<void> {
+		const bioToSave =
+			content ??
+			(editedKathavachak?.bio !== undefined
+				? editedKathavachak.bio
+				: (kathavachak?.bio || ""));
+
 		setIsSavingBiography(true);
 		const loadingToast = toast.loading("Saving biography...");
-		
+
 		try {
 			const response = await fetch(`/api/users/${KathavachakId}`, {
 				method: "PUT",
 				headers: {
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify({
-					bio: bioToSave,
-				}),
+				body: JSON.stringify({ bio: bioToSave }),
 			});
-			
+
 			if (!response.ok) {
 				const errorData = await response.json();
 				throw new Error(errorData.error || "Failed to save biography");
 			}
-			
-			// Update state immediately with the saved bio
-			const savedBio = bioToSave;
-			setKathavachak((prev) => prev ? { ...prev, bio: savedBio } : null);
-			setEditedKathavachak((prev) => prev ? { ...prev, bio: savedBio } : null);
-			
+
+			const updated = await response.json();
+			setKathavachak((prev) => (prev ? { ...prev, ...updated } : updated));
+			setEditedKathavachak((prev) =>
+				prev ? { ...prev, ...updated } : updated
+			);
+
 			toast.dismiss(loadingToast);
 			toast.success("Biography updated successfully!");
 			setIsEditing(false);
-			
-			// Refetch in the background to sync with server (don't wait for it)
+
 			fetchKathavachakData().catch((err) => {
 				console.error("Error refetching data:", err);
 			});

@@ -5,7 +5,14 @@ import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { useCreateBlockNote } from "@blocknote/react";
 import { useTheme } from "next-themes";
-import { useCallback, useEffect, useState } from "react";
+import {
+	forwardRef,
+	useCallback,
+	useEffect,
+	useImperativeHandle,
+	useRef,
+	useState,
+} from "react";
 
 interface BlockNoteEditorProps {
 	onChange: (value: string) => void;
@@ -13,14 +20,24 @@ interface BlockNoteEditorProps {
 	editable?: boolean;
 }
 
+export interface BlockNoteEditorHandle {
+	getContent: () => string;
+	flush: () => void;
+}
+
+const DEBOUNCE_MS = 150;
+
 // Prevent hydration mismatch by only rendering BlockNoteView on client
-const BlockNoteEditorComponent = ({
-	onChange,
-	initialContent,
-	editable = true,
-}: BlockNoteEditorProps) => {
+const BlockNoteEditorComponent = forwardRef<
+	BlockNoteEditorHandle,
+	BlockNoteEditorProps
+>(function BlockNoteEditorComponent(
+	{ onChange, initialContent, editable = true },
+	ref
+) {
 	const { resolvedTheme } = useTheme();
 	const [mounted, setMounted] = useState(false);
+	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// SSR-safe parse
 	function safeParseBlockNoteContent(
@@ -40,13 +57,43 @@ const BlockNoteEditorComponent = ({
 		// No uploadFile handler
 	});
 
-	const uploadToDatabase = useCallback(() => {
-		if (onChange) {
-			setTimeout(() => {
-				onChange(JSON.stringify(editor.document));
-			}, 1000);
+	const flushToParent = useCallback(() => {
+		if (onChange && editor.document) {
+			onChange(JSON.stringify(editor.document));
 		}
 	}, [editor, onChange]);
+
+	const uploadToDatabase = useCallback(() => {
+		if (!onChange) return;
+		if (debounceRef.current) clearTimeout(debounceRef.current);
+		debounceRef.current = setTimeout(() => {
+			debounceRef.current = null;
+			flushToParent();
+		}, DEBOUNCE_MS);
+	}, [onChange, flushToParent]);
+
+	useImperativeHandle(
+		ref,
+		() => ({
+			getContent: () =>
+				editor?.document ? JSON.stringify(editor.document) : "",
+			flush: () => {
+				if (debounceRef.current) {
+					clearTimeout(debounceRef.current);
+					debounceRef.current = null;
+				}
+				flushToParent();
+			},
+		}),
+		[editor, flushToParent]
+	);
+
+	useEffect(
+		() => () => {
+			if (debounceRef.current) clearTimeout(debounceRef.current);
+		},
+		[]
+	);
 
 	useEffect(() => {
 		setMounted(true);
@@ -65,6 +112,6 @@ const BlockNoteEditorComponent = ({
 			theme={resolvedTheme === "dark" ? "dark" : "light"}
 		/>
 	);
-};
+});
 
 export default BlockNoteEditorComponent;

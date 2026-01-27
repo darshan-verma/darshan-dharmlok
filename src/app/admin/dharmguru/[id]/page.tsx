@@ -329,23 +329,22 @@ export default function DharmguruDetailPage() {
 		}
 	};
 
-	const handleSaveBiography = async () => {
+	const handleSaveBiography = async (content?: string) => {
 		setIsSavingBiography(true);
+		const bioToSave = content ?? editedDharmguru?.bio ?? "";
 		try {
 			const response = await fetch(`/api/users/${dharmguruId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					bio: editedDharmguru?.bio || "",
-				}),
+				body: JSON.stringify({ bio: bioToSave }),
 			});
 			if (!response.ok) {
 				const errorData = await response.json();
 				throw new Error(errorData.error || "Failed to save biography");
 			}
 			const updated = await response.json();
-			setDharmguru(updated);
-			setEditedDharmguru(updated);
+			setDharmguru((prev) => (prev ? { ...prev, ...updated } : updated));
+			setEditedDharmguru((prev) => (prev ? { ...prev, ...updated } : updated));
 			toast.success("Biography saved!");
 			setIsEditing(false);
 		} catch (error) {
