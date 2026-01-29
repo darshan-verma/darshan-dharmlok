@@ -10,6 +10,7 @@ export interface Banner {
 	type: string;
 	status: string;
 	imageUrl?: string;
+	pageSlug?: string;
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
 			type: banner.type,
 			status: banner.status,
 			imageUrl: banner.imageUrl ?? "",
+			pageSlug: banner.pageSlug ?? undefined,
 			createdAt: banner.createdAt?.toISOString?.() ?? "",
 			updatedAt: banner.updatedAt?.toISOString?.() ?? "",
 		};
@@ -72,6 +74,7 @@ export async function PUT(req: NextRequest) {
 			type,
 			status,
 			imageUrl,
+			pageSlug,
 		} = body as {
 			title?: string;
 			date?: string;
@@ -80,6 +83,7 @@ export async function PUT(req: NextRequest) {
 			type?: string;
 			status?: string;
 			imageUrl?: string | null;
+			pageSlug?: string | null;
 		};
 
 		const updateData: {
@@ -90,6 +94,7 @@ export async function PUT(req: NextRequest) {
 			type?: string;
 			status?: string;
 			imageUrl?: string | null;
+			pageSlug?: string | null;
 		} = {};
 		if (title !== undefined) updateData.title = title;
 		if (date !== undefined) updateData.date = new Date(date);
@@ -101,6 +106,10 @@ export async function PUT(req: NextRequest) {
 		if (imageUrl !== undefined) {
 			updateData.imageUrl =
 				imageUrl === "" || imageUrl === null ? null : imageUrl;
+		}
+		if (pageSlug !== undefined) {
+			updateData.pageSlug =
+				typeof pageSlug === "string" && pageSlug.trim() !== "" ? pageSlug : null;
 		}
 
 		const updatedBanner = await prisma.banner.update({
@@ -120,6 +129,7 @@ export async function PUT(req: NextRequest) {
 			type: updatedBanner.type,
 			status: updatedBanner.status,
 			imageUrl: updatedBanner.imageUrl ?? "",
+			pageSlug: updatedBanner.pageSlug ?? undefined,
 			createdAt: updatedBanner.createdAt?.toISOString?.() ?? "",
 			updatedAt: updatedBanner.updatedAt?.toISOString?.() ?? "",
 		};

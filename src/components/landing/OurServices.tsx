@@ -26,14 +26,22 @@ const services = [
   },
 ];
 
-export default function OurServices() {
+export interface OurServicesSectionProps {
+  title?: string;
+  description?: string;
+}
+
+export default function OurServices({
+  title = "Our Services",
+  description = "Comprehensive spiritual services to support your journey - from pooja bookings to pilgrimage planning, all in one trusted platform.",
+}: OurServicesSectionProps = {}) {
   return (
     <section id="services" className="py-20 bg-[#f5f5f0]/80 backdrop-blur-sm relative overflow-hidden">
       <div className="container mx-auto px-4">
         {/* Section Title */}
         <div className="text-center mb-16">
           <h2 className="text-5xl font-serif font-bold text-gray-900 mb-4">
-            Our Services
+            {title}
           </h2>
           <div className="flex justify-center mb-6">
             <Image
@@ -45,7 +53,7 @@ export default function OurServices() {
             />
           </div>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Comprehensive spiritual services to support your journey - from pooja bookings to pilgrimage planning, all in one trusted platform.
+            {description}
           </p>
         </div>
 

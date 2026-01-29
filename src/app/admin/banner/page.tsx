@@ -153,15 +153,13 @@ export default function BannerPage() {
 			}
 			// If no new imageFile and imageUrl was not cleared, finalImageUrl remains as is from initialData or typed input.
 
-			// 2. Prepare banner data for API
+			// 2. Prepare banner data for API (category, type, status use defaults in API)
 			const dataToSave = {
 				title: bannerFormData.title,
 				date: bannerFormData.date,
 				description: bannerFormData.description,
-				category: bannerFormData.category,
-				type: bannerFormData.type,
-				status: bannerFormData.status,
-				imageUrl: finalImageUrl, // Use the potentially updated imageUrl
+				pageSlug: bannerFormData.pageSlug ?? null,
+				imageUrl: finalImageUrl,
 			};
 
 			const url = currentBanner?.id
@@ -231,7 +229,11 @@ export default function BannerPage() {
 
 	return (
 		<div className="container mx-auto py-6">
-			<h1 className="text-2xl font-bold mb-6">Banner Management</h1>
+			<h1 className="text-2xl font-bold mb-6">Page Banners</h1>
+			<p className="text-muted-foreground mb-6">
+				Control banners for all frontend pages. Assign a banner to a page (e.g.
+				Blogs, E-Shop) and set it Active; that page will show this banner.
+			</p>
 
 			<BannerTable
 				banners={banners}

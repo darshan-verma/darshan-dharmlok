@@ -17,7 +17,15 @@ interface Dharmguru {
   }>;
 }
 
-export default function Dharmgurus() {
+export interface DharmgurusSectionProps {
+  title?: string;
+  description?: string;
+}
+
+export default function Dharmgurus({
+  title = "Dharmguru",
+  description = "Connect with our experienced and knowledgeable Dharmgurus who share spiritual wisdom and guide you on your spiritual journey.",
+}: DharmgurusSectionProps = {}) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [dharmgurus, setDharmgurus] = useState<Dharmguru[]>([]);
   const [loading, setLoading] = useState(true);
@@ -213,7 +221,7 @@ export default function Dharmgurus() {
         {/* Section Title */}
         <div className="text-center mb-16">
           <h2 className="text-5xl font-serif font-bold text-gray-900 mb-4">
-            Dharmguru
+            {title}
           </h2>
           <div className="flex justify-center mb-6">
             <Image
@@ -225,7 +233,7 @@ export default function Dharmgurus() {
             />
           </div>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Connect with our experienced and knowledgeable Dharmgurus who share spiritual wisdom and guide you on your spiritual journey.
+            {description}
           </p>
         </div>
 

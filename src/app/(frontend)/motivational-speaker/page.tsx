@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Loader2, Play } from "lucide-react";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
+import { PageBanner } from "@/components/shared/PageBanner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VideoPlayerModal } from "@/components/ui/video-player-modal";
 
@@ -34,8 +34,6 @@ type RecordedSession = {
   speakerId: string;
   title: string;
 };
-
-const DEFAULT_BANNER = "/banners/9983f4c9bb5fd3f6d8213d08ad1e99d3.jpg";
 
 export default function MotivationalSpeakerPage() {
   const router = useRouter();
@@ -90,37 +88,15 @@ export default function MotivationalSpeakerPage() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      {/* Banner */}
-      <section className="relative w-full h-[400px] md:h-[500px] overflow-hidden">
-        <div className="absolute inset-0">
-          <Image
-            src={DEFAULT_BANNER}
-            alt="Motivational Speakers"
-            fill
-            className="object-cover"
-            priority
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src =
-                "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=1200&h=600&fit=crop";
-            }}
-          />
-          <div className="absolute inset-0 bg-black/45" />
-        </div>
-        <div className="relative z-10 h-full flex items-center justify-center">
-          <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-4 drop-shadow-2xl">
-              Motivational Speakers
-            </h1>
-            <p
-              className="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto drop-shadow-lg font-light"
-              style={{ fontFamily: "var(--font-jost), sans-serif" }}
-            >
-              Wisdom and inspiration from our speakers
-            </p>
-          </div>
-        </div>
-      </section>
+      <PageBanner
+        pageSlug="motivational-speaker"
+        title="Motivational Speakers"
+        description="Wisdom and inspiration from our speakers"
+        alt="Motivational Speakers"
+        className="h-[400px] md:h-[500px]"
+        titleClassName="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-4 drop-shadow-2xl"
+        descriptionClassName="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto drop-shadow-lg font-light"
+      />
 
       {/* Speakers – Avatars with names */}
       <section className="py-16 bg-[#f5f5f0]">

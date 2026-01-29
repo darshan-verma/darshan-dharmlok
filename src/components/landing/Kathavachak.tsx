@@ -17,7 +17,15 @@ interface Kathavachak {
   }>;
 }
 
-export default function Kathavachak() {
+export interface KathavachakSectionProps {
+  title?: string;
+  description?: string;
+}
+
+export default function Kathavachak({
+  title = "Kathavachak",
+  description = "Connect with our experienced and knowledgeable Kathavachaks who share spiritual wisdom and guide you on your spiritual journey.",
+}: KathavachakSectionProps = {}) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [kathavachaks, setKathavachaks] = useState<Kathavachak[]>([]);
   const [loading, setLoading] = useState(true);
@@ -209,7 +217,7 @@ export default function Kathavachak() {
         {/* Section Title */}
         <div className="text-center mb-16">
           <h2 className="text-5xl font-serif font-bold text-gray-900 mb-4">
-            Kathavachak
+            {title}
           </h2>
           <div className="flex justify-center mb-6">
             <Image
@@ -221,7 +229,7 @@ export default function Kathavachak() {
             />
           </div>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Connect with our experienced and knowledgeable Kathavachaks who share spiritual wisdom and guide you on your spiritual journey.
+            {description}
           </p>
         </div>
 

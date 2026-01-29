@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
 import { ProfileCard } from "@/components/ui/profile-card";
+import { PageBanner } from "@/components/shared/PageBanner";
 
 interface AlbumSong {
   id: string;
@@ -23,8 +23,6 @@ interface Album {
   status: string;
   songs?: AlbumSong[];
 }
-
-const DEFAULT_ALBUM_IMAGE = "/services/audio-library.jpg";
 
 export default function AudioLibraryPage() {
   const router = useRouter();
@@ -57,36 +55,15 @@ export default function AudioLibraryPage() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      <section className="relative w-full h-[400px] md:h-[500px] overflow-hidden">
-        <div className="absolute inset-0">
-          <Image
-            src={DEFAULT_ALBUM_IMAGE}
-            alt="Audio Library"
-            fill
-            className="object-cover"
-            priority
-            sizes="100vw"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=1200&h=600&fit=crop";
-            }}
-          />
-          <div className="absolute inset-0 bg-black/45" />
-        </div>
-        <div className="relative z-10 h-full flex items-center justify-center">
-          <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-4 drop-shadow-2xl">
-              Audio Library
-            </h1>
-            <p
-              className="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto drop-shadow-lg font-light"
-              style={{ fontFamily: "var(--font-jost), sans-serif" }}
-            >
-              Chants, mantras, and devotional music
-            </p>
-          </div>
-        </div>
-      </section>
+      <PageBanner
+        pageSlug="audio-library"
+        title="Audio Library"
+        description="Chants, mantras, and devotional music"
+        alt="Audio Library"
+        className="h-[400px] md:h-[500px]"
+        titleClassName="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-4 drop-shadow-2xl"
+        descriptionClassName="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto drop-shadow-lg font-light"
+      />
 
       <section className="py-16 bg-[#f5f5f0]">
         <div className="container mx-auto px-4 max-w-7xl">
@@ -102,6 +79,7 @@ export default function AudioLibraryPage() {
           ) : albums.length > 0 ? (
             <div className="grid gap-8 justify-items-center grid-cols-[repeat(auto-fill,minmax(360px,1fr))]">
               {albums.map((album) => {
+                const DEFAULT_ALBUM_IMAGE = "/images/audio_album_placeholder.jpg";
                 const image =
                   album.songs?.[0]?.thumbnail ||
                   DEFAULT_ALBUM_IMAGE;

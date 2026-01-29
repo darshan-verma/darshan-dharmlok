@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
 import { ProfileCard } from "@/components/ui/profile-card";
+import { PageBanner } from "@/components/shared/PageBanner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface FreeYoga {
@@ -149,41 +149,13 @@ export default function BookYogaPage() {
 		<div className="min-h-screen bg-white">
 			<Header />
 
-			{/* Banner Section with Text Overlay */}
-			<section className="relative w-full h-[500px] md:h-[600px] overflow-hidden">
-				{/* Banner Image */}
-				<div className="absolute inset-0">
-					<Image
-						src="/banners/9983f4c9bb5fd3f6d8213d08ad1e99d3.jpg"
-						alt="Book Yoga Banner"
-						fill
-						className="object-cover"
-						priority
-						onError={(e) => {
-							const target = e.target as HTMLImageElement;
-							target.src = "/landing-page/amritsar-6185143.jpg";
-						}}
-					/>
-					{/* Dark overlay for better text readability */}
-					<div className="absolute inset-0 bg-black/40" />
-				</div>
-
-				{/* Text Overlay */}
-				<div className="relative z-10 h-full flex items-center justify-center">
-					<div className="container mx-auto px-4 text-center">
-						<h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-6 drop-shadow-2xl animate-fade-in-up">
-							Book Yoga
-						</h1>
-						<p
-							className="text-xl md:text-2xl lg:text-3xl text-white/90 max-w-3xl mx-auto drop-shadow-lg font-light"
-							style={{ fontFamily: "var(--font-jost), sans-serif" }}
-						>
-							Discover free yoga sessions or book paid sessions with expert
-							trainers
-						</p>
-					</div>
-				</div>
-			</section>
+			<PageBanner
+				pageSlug="book-yoga"
+				title="Book Yoga"
+				description="Discover free yoga sessions or book paid sessions with expert trainers"
+				alt="Book Yoga Banner"
+				titleClassName="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-6 drop-shadow-2xl animate-fade-in-up"
+			/>
 
 			{/* Yoga Sessions Cards Section with Tabs */}
 			<section className="py-16 bg-[#f5f5f0]">

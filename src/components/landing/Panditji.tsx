@@ -25,7 +25,15 @@ interface Panditji {
   serviceOfferings?: ServiceOffering[];
 }
 
-export default function Panditji() {
+export interface PanditjiSectionProps {
+  title?: string;
+  description?: string;
+}
+
+export default function Panditji({
+  title = "Panditji",
+  description = "Meet our verified and experienced Panditji dedicated to supporting your spiritual journey with authentic rituals and guidance.",
+}: PanditjiSectionProps = {}) {
   const [panditjis, setPanditjis] = useState<Panditji[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -81,7 +89,7 @@ export default function Panditji() {
         {/* Section Title */}
         <div className="text-center mb-16">
           <h2 className="text-5xl font-serif font-bold text-gray-900 mb-4">
-            Panditji
+            {title}
           </h2>
           <div className="flex justify-center mb-6">
             <Image
@@ -93,7 +101,7 @@ export default function Panditji() {
             />
           </div>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Meet our verified and experienced Panditji dedicated to supporting your spiritual journey with authentic rituals and guidance.
+            {description}
           </p>
         </div>
 

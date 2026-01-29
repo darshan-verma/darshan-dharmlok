@@ -10,14 +10,55 @@ export interface Banner {
 	type: string;
 	status: string;
 	imageUrl?: string;
+	pageSlug?: string;
 	createdAt?: string;
 	updatedAt?: string;
 }
 
+function mapBannerToResponse(b: {
+	id: string;
+	title: string;
+	date: Date | string;
+	description: string;
+	category: string;
+	type: string;
+	status: string;
+	imageUrl: string | null;
+	pageSlug: string | null;
+	createdAt: Date | null;
+	updatedAt: Date | null;
+}): Banner {
+	return {
+		id: b.id,
+		title: b.title,
+		date: b.date instanceof Date ? b.date.toISOString().slice(0, 10) : b.date,
+		description: b.description,
+		category: b.category,
+		type: b.type,
+		status: b.status,
+		imageUrl: b.imageUrl ?? "",
+		pageSlug: b.pageSlug ?? undefined,
+		createdAt: b.createdAt?.toISOString?.() ?? "",
+		updatedAt: b.updatedAt?.toISOString?.() ?? "",
+	};
+}
+
 // GET /api/banner
+// If pageSlug is provided: returns single active banner for that page (for frontend).
+// Otherwise: returns paginated list (for admin).
 export async function GET(req: NextRequest) {
 	try {
 		const { searchParams } = new URL(req.url);
+		const pageSlug = searchParams.get("pageSlug");
+
+		if (pageSlug) {
+			const banner = await prisma.banner.findFirst({
+				where: { pageSlug, status: "Active" },
+				orderBy: { updatedAt: "desc" },
+			});
+			return NextResponse.json({ banner: banner ? mapBannerToResponse(banner) : null });
+		}
+
 		const page = parseInt(searchParams.get("page") || "1", 10);
 		const limit = parseInt(searchParams.get("limit") || "50", 10);
 		const skip = (page - 1) * limit;
@@ -31,18 +72,7 @@ export async function GET(req: NextRequest) {
 			}),
 		]);
 
-		const content: Banner[] = banners.map((b) => ({
-			id: b.id,
-			title: b.title,
-			date: b.date instanceof Date ? b.date.toISOString().slice(0, 10) : b.date,
-			description: b.description,
-			category: b.category,
-			type: b.type,
-			status: b.status,
-			imageUrl: b.imageUrl ?? "",
-			createdAt: b.createdAt?.toISOString?.() ?? "",
-			updatedAt: b.updatedAt?.toISOString?.() ?? "",
-		}));
+		const content: Banner[] = banners.map((b) => mapBannerToResponse(b));
 
 		return NextResponse.json({
 			content,
@@ -66,23 +96,25 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
 	try {
 		const body = await req.json();
-		const { title, date, description, category, type, status, imageUrl } =
+		const { title, date, description, imageUrl, pageSlug } =
 			body as {
 				title: string;
 				date: string;
 				description: string;
-				category: string;
-				type: string;
-				status: string;
 				imageUrl?: string;
+				pageSlug?: string | null;
 			};
 
-		if (!title || !date || !description || !category || !type || !status) {
+		if (!title?.trim() || !date?.trim() || !description?.trim()) {
 			return NextResponse.json(
-				{
-					error:
-						"Title, date, description, category, type, and status are required",
-				},
+				{ error: "Title, date, and description are required" },
+				{ status: 400 }
+			);
+		}
+
+		if (!pageSlug || typeof pageSlug !== "string" || !pageSlug.trim()) {
+			return NextResponse.json(
+				{ error: "Page is required" },
 				{ status: 400 }
 			);
 		}
@@ -92,34 +124,27 @@ export async function POST(req: NextRequest) {
 			typeof imageUrl === "string" && imageUrl.trim() === ""
 				? ""
 				: imageUrl ?? "";
+		const normalizedPageSlug = pageSlug.trim();
+
+		// Defaults for legacy DB fields (no longer in form)
+		const category = "Other";
+		const type = "Image";
+		const status = "Active";
 
 		const newBanner = await prisma.banner.create({
 			data: {
-				title,
+				title: title.trim(),
 				date: new Date(date),
-				description,
+				description: description.trim(),
 				category,
 				type,
 				status,
 				imageUrl: normalizedImageUrl,
+				pageSlug: normalizedPageSlug,
 			},
 		});
 
-		const result: Banner = {
-			id: newBanner.id,
-			title: newBanner.title,
-			date:
-				newBanner.date instanceof Date
-					? newBanner.date.toISOString().slice(0, 10)
-					: newBanner.date,
-			description: newBanner.description,
-			category: newBanner.category,
-			type: newBanner.type,
-			status: newBanner.status,
-			imageUrl: newBanner.imageUrl ?? "",
-			createdAt: newBanner.createdAt?.toISOString?.() ?? "",
-			updatedAt: newBanner.updatedAt?.toISOString?.() ?? "",
-		};
+		const result: Banner = mapBannerToResponse(newBanner);
 
 		return NextResponse.json(result);
 	} catch (error) {

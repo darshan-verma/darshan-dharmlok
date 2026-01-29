@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
 import { ProfileCard } from "@/components/ui/profile-card";
+import { PageBanner } from "@/components/shared/PageBanner";
 import { extractPlainTextFromBlockNote } from "@/lib/blog-content";
 
 interface Blog {
@@ -68,37 +68,13 @@ export default function BlogsPage() {
 		<div className="min-h-screen bg-white">
 			<Header />
 
-			{/* Banner Section with Text Overlay */}
-			<section className="relative w-full h-[500px] md:h-[600px] overflow-hidden">
-				<div className="absolute inset-0">
-					<Image
-						src="/banners/9983f4c9bb5fd3f6d8213d08ad1e99d3.jpg"
-						alt="Blogs Banner"
-						fill
-						className="object-cover"
-						priority
-						onError={(e) => {
-							const target = e.target as HTMLImageElement;
-							target.src = "/landing-page/amritsar-6184343.jpg";
-						}}
-					/>
-					<div className="absolute inset-0 bg-black/40" />
-				</div>
-
-				<div className="relative z-10 h-full flex items-center justify-center">
-					<div className="container mx-auto px-4 text-center">
-						<h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-6 drop-shadow-2xl animate-fade-in-up">
-							Blogs
-						</h1>
-						<p
-							className="text-xl md:text-2xl lg:text-3xl text-white/90 max-w-3xl mx-auto drop-shadow-lg font-light"
-							style={{ fontFamily: "var(--font-jost), sans-serif" }}
-						>
-							Read articles and insights on spirituality and devotion
-						</p>
-					</div>
-				</div>
-			</section>
+			<PageBanner
+				pageSlug="blogs"
+				title="Blogs"
+				description="Read articles and insights on spirituality and devotion"
+				alt="Blogs Banner"
+				titleClassName="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-6 drop-shadow-2xl animate-fade-in-up"
+			/>
 
 			{/* Blogs Cards Section */}
 			<section className="py-16 bg-[#f5f5f0]">

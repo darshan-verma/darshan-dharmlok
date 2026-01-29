@@ -15,30 +15,13 @@ import {
 import Image from "next/image"; // Import next/image
 import { Trash2, UploadCloud } from "lucide-react"; // Import icons
 
-// These should match your BannerTable columns/types
-const bannerCategories = [
-	"Homepage",
-	"Event",
-	"Promotion",
-	"Spiritual",
-	"Mythology",
-	"Other",
-];
-
-const bannerTypes = ["Image", "Video", "Slider", "Popup", "Other"];
-
-const bannerStatuses = [
-	{ value: "Active", label: "Active" },
-	{ value: "Inactive", label: "Inactive" },
-];
+import { BANNER_PAGE_SLUGS } from "@/lib/banner-pages";
 
 export interface BannerFormData {
 	title: string;
 	date: string;
 	description: string;
-	category: string;
-	type: string;
-	status: string;
+	pageSlug: string | null; // Frontend page this banner is for (required)
 	imageUrl?: string | null; // Allow null for explicit removal
 	imageFile?: File | null; // Add imageFile field
 }
@@ -55,11 +38,9 @@ export default function BannerForm({
 		title: "",
 		date: "",
 		description: "",
-		category: "",
-		type: "",
-		status: "Active",
-		imageUrl: null, // Default to null
-		imageFile: null, // Default to null
+		pageSlug: null,
+		imageUrl: null,
+		imageFile: null,
 	},
 	onSubmit,
 	onCancel,
@@ -69,9 +50,7 @@ export default function BannerForm({
 		title: initialData.title || "",
 		date: initialData.date || "",
 		description: initialData.description || "",
-		category: initialData.category || "",
-		type: initialData.type || "",
-		status: initialData.status || "Active",
+		pageSlug: initialData.pageSlug ?? null,
 		imageUrl: initialData.imageUrl || null,
 		imageFile: initialData.imageFile || null,
 	});
@@ -97,9 +76,7 @@ export default function BannerForm({
 		if (!data.date?.trim()) errors.date = "Date is required";
 		if (!data.description?.trim())
 			errors.description = "Description is required";
-		if (!data.category) errors.category = "Category is required";
-		if (!data.type) errors.type = "Type is required";
-		if (!data.status) errors.status = "Status is required";
+		if (!data.pageSlug?.trim()) errors.pageSlug = "Page is required";
 
 		// Basic validation for imageFile if present
 		if (data.imageFile && data.imageFile.size > 5 * 1024 * 1024) {
@@ -136,7 +113,7 @@ export default function BannerForm({
 	};
 
 	const handleInputChange = (
-		field: keyof Omit<BannerFormData, "imageFile" | "imageUrl">, // Exclude imageFile and imageUrl as they are handled separately
+		field: keyof Omit<BannerFormData, "imageFile" | "imageUrl">,
 		value: string
 	) => {
 		setBannerData({ ...bannerData, [field]: value });
@@ -221,55 +198,38 @@ export default function BannerForm({
 					<p className="text-sm text-red-500">{formErrors.description}</p>
 				)}
 			</div>
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-				<div className="space-y-2">
-					<Label htmlFor="category">Category *</Label>
-					<Select
-						value={bannerData.category}
-						onValueChange={(value) => handleInputChange("category", value)}
+			<div className="space-y-2">
+				<Label htmlFor="pageSlug">Page *</Label>
+				<Select
+					value={bannerData.pageSlug || ""}
+					onValueChange={(value) =>
+						setBannerData({
+							...bannerData,
+							pageSlug: value || null,
+						})
+					}
+				>
+					<SelectTrigger
+						id="pageSlug"
+						className={formErrors.pageSlug ? "border-red-500" : ""}
 					>
-						<SelectTrigger
-							id="category"
-							className={formErrors.category ? "border-red-500" : ""}
-						>
-							<SelectValue placeholder="Select category" />
-						</SelectTrigger>
-						<SelectContent>
-							{bannerCategories.map((cat) => (
-								<SelectItem key={cat} value={cat}>
-									{cat}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-					{formErrors.category && (
-						<p className="text-sm text-red-500">{formErrors.category}</p>
-					)}
-				</div>
-				<div className="space-y-2">
-					<Label htmlFor="type">Type *</Label>
-					<Select
-						value={bannerData.type}
-						onValueChange={(value) => handleInputChange("type", value)}
-					>
-						<SelectTrigger
-							id="type"
-							className={formErrors.type ? "border-red-500" : ""}
-						>
-							<SelectValue placeholder="Select type" />
-						</SelectTrigger>
-						<SelectContent>
-							{bannerTypes.map((type) => (
-								<SelectItem key={type} value={type}>
-									{type}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-					{formErrors.type && (
-						<p className="text-sm text-red-500">{formErrors.type}</p>
-					)}
-				</div>
+						<SelectValue placeholder="Select which page this banner appears on" />
+					</SelectTrigger>
+					<SelectContent>
+						{BANNER_PAGE_SLUGS.map((p) => (
+							<SelectItem key={p.value} value={p.value}>
+								{p.label}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+				{formErrors.pageSlug && (
+					<p className="text-sm text-red-500">{formErrors.pageSlug}</p>
+				)}
+				<p className="text-xs text-gray-500 mt-1">
+					This banner will be shown on the selected frontend page. Title and
+					description above are what users see on that page.
+				</p>
 			</div>
 
 			<div className="space-y-2">
@@ -340,24 +300,6 @@ export default function BannerForm({
 				</p>
 			</div>
 
-			<div className="space-y-2">
-				<Label htmlFor="status">Status *</Label>
-				<Select
-					value={bannerData.status}
-					onValueChange={(value) => handleInputChange("status", value)}
-				>
-					<SelectTrigger id="status">
-						<SelectValue placeholder="Select status" />
-					</SelectTrigger>
-					<SelectContent>
-						{bannerStatuses.map((status) => (
-							<SelectItem key={status.value} value={status.value}>
-								{status.label}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-			</div>
 			<div className="flex justify-end gap-2 mt-4">
 				<Button type="button" variant="outline" onClick={onCancel}>
 					Cancel

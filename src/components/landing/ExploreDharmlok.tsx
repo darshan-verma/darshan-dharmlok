@@ -1,61 +1,29 @@
 "use client";
 
 import { CyberneticBentoGrid } from "@/components/ui/cybernetic-bento-grid";
-import { 
-  Building2, 
-  Home, 
-  GraduationCap, 
-  Music, 
-  Calendar, 
-  Users 
-} from "lucide-react";
 import Image from "next/image";
 
-export default function ExploreDharmlok() {
-  const exploreItems = [
-    {
-      title: "Temple",
-      description: "Discover sacred temples and plan your spiritual journey to holy places across India.",
-      icon: <Building2 className="h-8 w-8 text-orange-500" />,
-      image: "https://images.unsplash.com/photo-1583212292454-1fe6229603b7?w=800&h=600&fit=crop",
-      className: "col-span-2 row-span-2 flex flex-col justify-between"
-    },
-    {
-      title: "Dharmshala",
-      description: "Find comfortable and affordable accommodations near temples for your pilgrimage.",
-      icon: <Home className="h-8 w-8 text-orange-500" />,
-      image: "https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?w=800&h=600&fit=crop",
-      className: ""
-    },
-    {
-      title: "Bal-vidhya",
-      description: "Educational programs and spiritual learning for children to connect with our rich heritage.",
-      icon: <GraduationCap className="h-8 w-8 text-orange-500" />,
-      image: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=600&fit=crop",
-      className: ""
-    },
-    {
-      title: "Audio Library",
-      description: "Access a vast collection of spiritual chants, mantras, and devotional music.",
-      icon: <Music className="h-8 w-8 text-orange-500" />,
-      image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&h=600&fit=crop",
-      className: "row-span-2"
-    },
-    {
-      title: "Events",
-      description: "Stay updated with upcoming religious festivals, ceremonies, and spiritual gatherings.",
-      icon: <Calendar className="h-8 w-8 text-orange-500" />,
-      image: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=800&h=600&fit=crop",
-      className: "col-span-2"
-    },
-    {
-      title: "Motivational Speakers",
-      description: "Connect with inspiring spiritual leaders and motivational speakers for guidance.",
-      icon: <Users className="h-8 w-8 text-orange-500" />,
-      image: "https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&h=600&fit=crop",
-      className: ""
-    }
-  ];
+const DEFAULT_EXPLORE_ITEMS = [
+  { title: "Temple", description: "Discover sacred temples and plan your spiritual journey to holy places across India.", image: "https://images.unsplash.com/photo-1583212292454-1fe6229603b7?w=800&h=600&fit=crop", className: "col-span-2 row-span-2 flex flex-col justify-between" },
+  { title: "Dharmshala", description: "Find comfortable and affordable accommodations near temples for your pilgrimage.", image: "https://images.unsplash.com/photo-1551884170-09fb70a3a2ed?w=800&h=600&fit=crop", className: "" },
+  { title: "Bal-vidhya", description: "Educational programs and spiritual learning for children to connect with our rich heritage.", image: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&h=600&fit=crop", className: "" },
+  { title: "Audio Library", description: "Access a vast collection of spiritual chants, mantras, and devotional music.", image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&h=600&fit=crop", className: "row-span-2" },
+  { title: "Events", description: "Stay updated with upcoming religious festivals, ceremonies, and spiritual gatherings.", image: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=800&h=600&fit=crop", className: "col-span-2" },
+  { title: "Motivational Speakers", description: "Connect with inspiring spiritual leaders and motivational speakers for guidance.", image: "https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&h=600&fit=crop", className: "" },
+];
+
+export interface ExploreDharmlokSectionProps {
+  title?: string;
+  description?: string;
+  cards?: Array<{ title: string; description: string; image: string; className?: string }>;
+}
+
+export default function ExploreDharmlok({
+  title = "Explore Dharmlok",
+  description = "Discover the diverse spiritual services and resources available on Dharmlok. From temples to educational programs, explore everything that makes your spiritual journey meaningful.",
+  cards,
+}: ExploreDharmlokSectionProps = {}) {
+  const exploreItems = cards && cards.length > 0 ? cards : DEFAULT_EXPLORE_ITEMS;
 
   return (
     <section id="explore-dharmlok" className="py-20 bg-[#f5f5f0]/80 backdrop-blur-sm relative overflow-hidden">
@@ -69,7 +37,7 @@ export default function ExploreDharmlok() {
         {/* Section Title */}
         <div className="text-center mb-16">
           <h2 className="text-5xl font-serif font-bold text-gray-900 mb-4">
-            Explore Dharmlok
+            {title}
           </h2>
           <div className="flex justify-center mb-6">
             <Image
@@ -81,8 +49,7 @@ export default function ExploreDharmlok() {
             />
           </div>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Discover the diverse spiritual services and resources available on Dharmlok. 
-            From temples to educational programs, explore everything that makes your spiritual journey meaningful.
+            {description}
           </p>
         </div>
 

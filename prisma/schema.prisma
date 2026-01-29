@@ -269,7 +269,38 @@ model YogaSession {
     @@index([date])
     @@index([serviceType])
 }
-// Banner Model
+// Homepage Hero Carousel - multiple slides (heading, subheading, description, image or video)
+model HomepageHeroSlide {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    heading     String
+    subheading  String?
+    description String?
+    mediaUrl    String?  // image or video URL
+    mediaType   String   @default("image") // "image" | "video"
+    sortOrder   Int      @default(0)
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    @@index([sortOrder])
+}
+
+// Homepage Section - one record per section (about, kathavachak, our-services, etc.)
+model HomepageSection {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    sectionKey  String   @unique // "about" | "kathavachak" | "our-services" | "dharmguru" | "panditji" | "explore-dharmlok" | "eshop"
+    title       String
+    description String?
+    mediaUrl    String?  // for about section: video or image URL
+    mediaType   String?  // "image" | "video"
+    sortOrder   Int      @default(0)
+    extraData   Json?    // e.g. bento cards for explore-dharmlok: { cards: [{ title, description, image }] }
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    @@index([sortOrder])
+}
+
+// Banner Model - pageSlug links banner to a frontend page (e.g. "blogs", "e-shop")
 model Banner {
     id          String   @id @default(auto()) @map("_id") @db.ObjectId
     title       String
@@ -278,8 +309,9 @@ model Banner {
     category    String
     type        String   // e.g. "image", "video", "promo", etc.
     imageUrl    String?  // URL/path to the banner file (image, video, etc.)
-    bannerFile     String?  // optional file path if type == "video"
+    bannerFile  String?  // optional file path if type == "video"
     status      String   // e.g. "active", "inactive", "draft"
+    pageSlug    String?  // frontend page this banner is for (e.g. "blogs", "e-shop")
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
 }

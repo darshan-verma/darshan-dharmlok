@@ -2,7 +2,19 @@
 
 import Image from "next/image";
 
-export default function AboutDharmlok() {
+export interface AboutSectionProps {
+  title?: string;
+  description?: string;
+  mediaUrl?: string | null;
+  mediaType?: string | null;
+}
+
+export default function AboutDharmlok({
+  title = "About Dharmlok",
+  description = "Dharmlok is your comprehensive spiritual platform connecting devotees with authentic spiritual services, sacred destinations, and experienced guides for a meaningful spiritual journey.",
+  mediaUrl,
+  mediaType,
+}: AboutSectionProps = {}) {
   return (
     <section id="about" className="py-20 bg-gradient-to-br from-[#f5f5f0]/80 via-[#fafaf5]/80 to-[#f0f0eb]/80 backdrop-blur-sm relative overflow-hidden">
       {/* Subtle Background Pattern */}
@@ -38,7 +50,7 @@ export default function AboutDharmlok() {
         {/* Section Title */}
         <div className="text-center mb-16">
           <h2 className="text-5xl font-serif font-bold text-gray-900 mb-4">
-            About Dharmlok
+            {title}
           </h2>
           <div className="flex justify-center mb-6">
             <Image
@@ -50,24 +62,46 @@ export default function AboutDharmlok() {
             />
           </div>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Dharmlok is your comprehensive spiritual platform connecting devotees with authentic spiritual services, sacred destinations, and experienced guides for a meaningful spiritual journey.
+            {description}
           </p>
         </div>
 
         {/* Main Content */}
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left - Video */}
+          {/* Left - Video or Image */}
           <div className="relative group">
             <div className="relative rounded-lg overflow-hidden shadow-2xl transform group-hover:scale-105 transition-transform duration-500">
-              <video
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="w-full h-full object-cover aspect-video"
-              >
-                <source src="/landing-page/854070-hd_1920_1080_25fps.mp4" type="video/mp4" />
-              </video>
+              {mediaUrl && mediaType === "video" ? (
+                <video
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover aspect-video"
+                >
+                  <source src={mediaUrl} type="video/mp4" />
+                </video>
+              ) : mediaUrl ? (
+                <div className="relative w-full aspect-video">
+                  <Image
+                    src={mediaUrl}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+              ) : (
+                <video
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover aspect-video"
+                >
+                  <source src="/landing-page/854070-hd_1920_1080_25fps.mp4" type="video/mp4" />
+                </video>
+              )}
             </div>
             <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-orange-500/20 rounded-full blur-xl" />
           </div>

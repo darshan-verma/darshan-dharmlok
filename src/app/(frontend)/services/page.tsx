@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
 import { ProfileCard } from "@/components/ui/profile-card";
+import { PageBanner } from "@/components/shared/PageBanner";
 
 const SERVICES = [
   {
@@ -80,34 +80,15 @@ export default function ServicesPage() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      {/* Banner - add banner.jpg or banner.png in public/services for a custom hero image */}
-      <section className="relative w-full h-[400px] md:h-[500px] overflow-hidden">
-        <div className="absolute inset-0">
-          <Image
-            src="/services/book-pooja.jpg"
-            alt="Our Services"
-            fill
-            className="object-cover"
-            priority
-            sizes="100vw"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = "/landing-page/amritsar-6185143.jpg";
-            }}
-          />
-          <div className="absolute inset-0 bg-black/45" />
-        </div>
-        <div className="relative z-10 h-full flex items-center justify-center">
-          <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-4 drop-shadow-2xl">
-              Our Services
-            </h1>
-            <p className="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto drop-shadow-lg font-light" style={{ fontFamily: 'var(--font-jost), sans-serif' }}>
-              Explore all that Dharmlok has to offer for your spiritual journey
-            </p>
-          </div>
-        </div>
-      </section>
+      <PageBanner
+        pageSlug="services"
+        title="Our Services"
+        description="Explore all that Dharmlok has to offer for your spiritual journey"
+        alt="Our Services"
+        className="h-[400px] md:h-[500px]"
+        titleClassName="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-4 drop-shadow-2xl"
+        descriptionClassName="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto drop-shadow-lg font-light"
+      />
 
       {/* Service cards - pooja-style with increased size */}
       <section className="py-16 bg-[#f5f5f0]">

@@ -9,9 +9,6 @@ import {
 	Eye,
 	Edit,
 	Trash2,
-	CheckCircle2,
-	CircleSlash,
-	Activity,
 	PlusCircle,
 	Image as ImageIcon,
 } from "lucide-react";
@@ -31,14 +28,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
-	DropdownMenuSub,
-	DropdownMenuSubContent,
-	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
+import { BANNER_PAGE_SLUGS } from "@/lib/banner-pages";
 
 // Banner interface
 export interface Banner {
@@ -46,10 +41,8 @@ export interface Banner {
 	title: string;
 	date: string;
 	description: string;
-	category: string;
-	type: string;
-	status: string;
 	imageUrl?: string;
+	pageSlug?: string;
 }
 
 interface BannerTableProps {
@@ -58,28 +51,20 @@ interface BannerTableProps {
 	onAddBanner?: () => void;
 	onEditBanner: (banner: Banner) => void;
 	onDeleteBanner: (id: string, title: string) => void;
-	onUpdateStatus: (id: string, newStatus: string) => Promise<void>;
+	onUpdateStatus?: (id: string, newStatus: string) => Promise<void>;
 	onViewBanner: (banner: Banner) => void;
 }
-
-// Helper for status color
-const getStatusColor = (status: string): string =>
-	status === "Active"
-		? "bg-green-100 text-green-800"
-		: "bg-red-100 text-red-800";
 
 export default function BannerTable({
 	banners,
 	onAddBanner,
 	onEditBanner,
 	onDeleteBanner,
-	onUpdateStatus,
+	onUpdateStatus: _onUpdateStatus,
 }: // onViewBanner,
 BannerTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
-	const [statusFilter, setStatusFilter] = useState<string>("all");
-	const [categoryFilter, setCategoryFilter] = useState<string>("all");
-	const [typeFilter, setTypeFilter] = useState<string>("all");
+	const [pageSlugFilter, setPageSlugFilter] = useState<string>("all");
 	const [currentPage, setCurrentPage] = useState(1);
 	const itemsPerPage = 10;
 
@@ -87,18 +72,13 @@ BannerTableProps) {
 		const matchesSearch =
 			banner.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			banner.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			banner.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			banner.type.toLowerCase().includes(searchTerm.toLowerCase());
+			(banner.pageSlug ?? "").toLowerCase().includes(searchTerm.toLowerCase());
 
-		const matchesStatus =
-			statusFilter === "all" || banner.status === statusFilter;
+		const matchesPage =
+			pageSlugFilter === "all" ||
+			(banner.pageSlug ?? "") === pageSlugFilter;
 
-		const matchesCategory =
-			categoryFilter === "all" || banner.category === categoryFilter;
-
-		const matchesType = typeFilter === "all" || banner.type === typeFilter;
-
-		return matchesSearch && matchesStatus && matchesCategory && matchesType;
+		return matchesSearch && matchesPage;
 	});
 
 	// Pagination logic
@@ -109,14 +89,10 @@ BannerTableProps) {
 		currentPage * itemsPerPage
 	);
 
-	// Unique categories/types for filters
-	const uniqueCategories = Array.from(new Set(banners.map((b) => b.category)));
-	const uniqueTypes = Array.from(new Set(banners.map((b) => b.type)));
-
 	// Reset to first page if filters/search change
 	React.useEffect(() => {
 		setCurrentPage(1);
-	}, [searchTerm, statusFilter, categoryFilter, typeFilter]);
+	}, [searchTerm, pageSlugFilter]);
 
 	return (
 		<div className="space-y-4">
@@ -143,48 +119,21 @@ BannerTableProps) {
 						</Button>
 					)}
 				</div>
-				{/* Filters */}
+				{/* Page Filter */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
-					{/* Category Filter */}
-					<div className="w-40">
+					<div className="w-44">
 						<select
 							className="h-8 border rounded px-2 w-full"
-							value={categoryFilter}
-							onChange={(e) => setCategoryFilter(e.target.value)}
+							value={pageSlugFilter}
+							onChange={(e) => setPageSlugFilter(e.target.value)}
 						>
-							<option value="all">All Categories</option>
-							{uniqueCategories.map((cat) => (
-								<option key={cat} value={cat}>
-									{cat}
+							<option value="all">All Pages</option>
+							{BANNER_PAGE_SLUGS.map((p) => (
+								<option key={p.value} value={p.value}>
+									{p.label}
 								</option>
 							))}
-						</select>
-					</div>
-					{/* Type Filter */}
-					<div className="w-36">
-						<select
-							className="h-8 border rounded px-2 w-full"
-							value={typeFilter}
-							onChange={(e) => setTypeFilter(e.target.value)}
-						>
-							<option value="all">All Types</option>
-							{uniqueTypes.map((type) => (
-								<option key={type} value={type}>
-									{type}
-								</option>
-							))}
-						</select>
-					</div>
-					{/* Status Filter */}
-					<div className="w-32">
-						<select
-							className="h-8 border rounded px-2 w-full"
-							value={statusFilter}
-							onChange={(e) => setStatusFilter(e.target.value)}
-						>
-							<option value="all">All Status</option>
-							<option value="Active">Active</option>
-							<option value="Inactive">Inactive</option>
+							<option value="">No page</option>
 						</select>
 					</div>
 				</div>
@@ -201,10 +150,8 @@ BannerTableProps) {
 							<TableHead>Preview</TableHead>
 							<TableHead>Title</TableHead>
 							<TableHead>Date</TableHead>
+							<TableHead>Page</TableHead>
 							<TableHead>Description</TableHead>
-							<TableHead>Category</TableHead>
-							<TableHead>Type</TableHead>
-							<TableHead>Status</TableHead>
 							<TableHead>Details</TableHead>
 							<TableHead>Action</TableHead>
 						</TableRow>
@@ -239,19 +186,14 @@ BannerTableProps) {
 											  })
 											: ""}
 									</TableCell>
+									<TableCell>
+										{banner.pageSlug
+											? BANNER_PAGE_SLUGS.find((p) => p.value === banner.pageSlug)
+													?.label ?? banner.pageSlug
+											: "—"}
+									</TableCell>
 									<TableCell className="max-w-xs truncate">
 										{banner.description}
-									</TableCell>
-									<TableCell>{banner.category}</TableCell>
-									<TableCell>{banner.type}</TableCell>
-									<TableCell>
-										<span
-											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(
-												banner.status
-											)}`}
-										>
-											{banner.status}
-										</span>
 									</TableCell>
 									<TableCell>
 										<Button variant="ghost" size="sm" asChild>
@@ -271,36 +213,6 @@ BannerTableProps) {
 											<DropdownMenuContent align="end">
 												<DropdownMenuLabel>Manage Banner</DropdownMenuLabel>
 												<DropdownMenuSeparator />
-												<DropdownMenuSub>
-													<DropdownMenuSubTrigger>
-														<Activity className="h-4 w-4 mr-2" />
-														Change Status
-													</DropdownMenuSubTrigger>
-													<DropdownMenuSubContent>
-														<DropdownMenuItem
-															onClick={() =>
-																onUpdateStatus(banner.id, "Active")
-															}
-															className={
-																banner.status === "Active" ? "bg-blue-50" : ""
-															}
-														>
-															<CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
-															Active
-														</DropdownMenuItem>
-														<DropdownMenuItem
-															onClick={() =>
-																onUpdateStatus(banner.id, "Inactive")
-															}
-															className={
-																banner.status === "Inactive" ? "bg-blue-50" : ""
-															}
-														>
-															<CircleSlash className="h-4 w-4 mr-2 text-gray-500" />
-															Inactive
-														</DropdownMenuItem>
-													</DropdownMenuSubContent>
-												</DropdownMenuSub>
 												<DropdownMenuItem onClick={() => onEditBanner(banner)}>
 													<Edit className="h-4 w-4 mr-2" />
 													Edit
@@ -322,7 +234,7 @@ BannerTableProps) {
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={9} className="text-center py-6">
+								<TableCell colSpan={7} className="text-center py-6">
 									No banners found. Try a different search or add a new banner.
 								</TableCell>
 							</TableRow>

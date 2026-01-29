@@ -16,7 +16,15 @@ interface EshopProduct {
   description?: string;
 }
 
-export default function EShopProducts() {
+export interface EShopProductsSectionProps {
+  title?: string;
+  description?: string;
+}
+
+export default function EShopProducts({
+  title = "E-Shop Products",
+  description = "Discover authentic spiritual products, pooja items, and sacred artifacts from our curated e-shop to enhance your spiritual practice.",
+}: EShopProductsSectionProps = {}) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [products, setProducts] = useState<EshopProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +115,7 @@ export default function EShopProducts() {
         {/* Section Title */}
         <div className="text-center mb-16">
           <h2 className="text-5xl font-serif font-bold text-gray-900 mb-4">
-            E-Shop Products
+            {title}
           </h2>
           <div className="flex justify-center mb-6">
             <Image
@@ -119,7 +127,7 @@ export default function EShopProducts() {
             />
           </div>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Discover authentic spiritual products, pooja items, and sacred artifacts from our curated e-shop to enhance your spiritual practice.
+            {description}
           </p>
         </div>
 
