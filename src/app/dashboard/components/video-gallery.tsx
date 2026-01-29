@@ -71,7 +71,9 @@ export default function VideoGallery({
 
 	const fetchVideos = useCallback(async () => {
 		try {
-			const url = `/api/videos?userId=${userId}&source=${source}`;
+			const url = source && source.trim() 
+				? `/api/videos?userId=${userId}&source=${source}`
+				: `/api/videos?userId=${userId}`;
 			console.log("Fetching videos from:", url);
 			console.log("Query params - userId:", userId, "source:", source);
 			

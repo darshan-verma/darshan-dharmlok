@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Jost } from "next/font/google";
+import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import AuthProvider from "@/components/providers/AuthProvider";
@@ -34,6 +35,13 @@ export default function RootLayout({
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} ${jost.variable} antialiased`}
 			>
+				<NextTopLoader
+					color="#ea580c"
+					height={3}
+					showSpinner={false}
+					easing="ease"
+					speed={300}
+				/>
 				<AuthProvider>
 					{children}
 					<Toaster position="top-right" richColors closeButton />

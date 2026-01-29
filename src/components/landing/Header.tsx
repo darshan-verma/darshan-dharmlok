@@ -54,13 +54,14 @@ export default function Header() {
       leftColumn: [
         { name: "Kathavachak", href: "/kathavachak" },
         { name: "Dharmguru", href: "/dharmguru" },
-        { name: "Panditji", href: "#panditji" },
+        { name: "Panditji", href: "/panditji" },
       ],
       rightColumn: [
-        { name: "Book Pooja", href: "#book-pooja" },
-        { name: "Book Yoga Session", href: "#book-yoga" },
-        { name: "Events", href: "#events" },
-        { name: "Temples", href: "#temples" },
+        { name: "Book Pooja", href: "/book-pooja" },
+        { name: "Book Yoga Session", href: "/book-yoga" },
+        { name: "Events", href: "/events" },
+        { name: "Dharmshala", href: "/dharmshala" },
+        { name: "Temples", href: "/temple" },
       ],
       viewAllLink: { name: "View All", href: "/services" },
     },
@@ -152,62 +153,64 @@ export default function Header() {
                 >
                   <Link
                     href={item.href}
-                    className={`text-gray-800 hover:text-orange-500 transition-colors font-medium ${
+                    className={`block py-3 px-2 -my-3 -mx-2 text-gray-800 hover:text-orange-500 transition-colors font-medium rounded ${
                       item.active ? "text-orange-500 border-b-2 border-orange-500" : ""
                     }`}
                   >
                     {item.name}
                   </Link>
                   {item.megaMenu && activeDropdown === item.name && (
-                    <div className="absolute top-full left-0 mt-2 w-96 bg-white/40 backdrop-blur-xl shadow-2xl rounded-2xl py-4 z-50 animate-in fade-in slide-in-from-top-2 border border-white/30">
-                      <div className="flex gap-6 px-4">
-                        {/* Left Column - Spiritual Guides */}
-                        <div className="flex-1">
-                          <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200/50">
-                            Spiritual Guides
-                          </h3>
-                          <div className="space-y-2">
-                            {item.leftColumn?.map((subItem) => (
-                              <Link
-                                key={subItem.name}
-                                href={subItem.href}
-                                className="block px-2 py-2 text-gray-700 hover:bg-orange-50/60 hover:text-orange-500 transition-colors rounded"
-                              >
-                                {subItem.name}
-                              </Link>
-                            ))}
-                          </div>
-                        </div>
-                        {/* Right Column - Services */}
-                        <div className="flex-1 border-l border-gray-200/50 pl-6">
-                          <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200/50">
-                            Services
-                          </h3>
-                          <div className="space-y-2">
-                            {item.rightColumn?.map((subItem) => (
-                              <Link
-                                key={subItem.name}
-                                href={subItem.href}
-                                className="block px-2 py-2 text-gray-700 hover:bg-orange-50/60 hover:text-orange-500 transition-colors rounded"
-                              >
-                                {subItem.name}
-                              </Link>
-                            ))}
-                          </div>
-                          {/* View All Services Link */}
-                          {item.viewAllLink && (
-                            <div className="mt-3 pt-3 border-t border-gray-200/50">
-                              <Link href={item.viewAllLink.href} className="block">
-                                <LiquidButton
-                                  size="sm"
-                                  variant="default"
-                                  className="w-full text-orange-500"
+                    <div className="absolute top-full left-0 pt-2 w-96 z-50">
+                      <div className="bg-white/40 backdrop-blur-xl shadow-2xl rounded-2xl py-4 animate-in fade-in slide-in-from-top-2 border border-white/30">
+                        <div className="flex gap-6 px-4">
+                          {/* Left Column - Spiritual Guides */}
+                          <div className="flex-1">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200/50">
+                              Spiritual Guides
+                            </h3>
+                            <div className="space-y-2">
+                              {item.leftColumn?.map((subItem) => (
+                                <Link
+                                  key={subItem.name}
+                                  href={subItem.href}
+                                  className="block px-2 py-2 text-gray-700 hover:bg-orange-50/60 hover:text-orange-500 transition-colors rounded"
                                 >
-                                  {item.viewAllLink.name}
-                                </LiquidButton>
-                              </Link>
+                                  {subItem.name}
+                                </Link>
+                              ))}
                             </div>
-                          )}
+                          </div>
+                          {/* Right Column - Services */}
+                          <div className="flex-1 border-l border-gray-200/50 pl-6">
+                            <h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200/50">
+                              Services
+                            </h3>
+                            <div className="space-y-2">
+                              {item.rightColumn?.map((subItem) => (
+                                <Link
+                                  key={subItem.name}
+                                  href={subItem.href}
+                                  className="block px-2 py-2 text-gray-700 hover:bg-orange-50/60 hover:text-orange-500 transition-colors rounded"
+                                >
+                                  {subItem.name}
+                                </Link>
+                              ))}
+                            </div>
+                            {/* View All Services Link */}
+                            {item.viewAllLink && (
+                              <div className="mt-3 pt-3 border-t border-gray-200/50">
+                                <Link href={item.viewAllLink.href} className="block">
+                                  <LiquidButton
+                                    size="sm"
+                                    variant="default"
+                                    className="w-full text-orange-500"
+                                  >
+                                    {item.viewAllLink.name}
+                                  </LiquidButton>
+                                </Link>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -8,7 +8,7 @@ import Footer from "@/components/landing/Footer";
 import { KathavachakDharmguruCard } from "@/components/shared/kathavachak-dharmguru-card";
 import { CardsPagination, CARDS_PER_PAGE } from "@/components/shared/CardsPagination";
 
-interface Dharmguru {
+interface Panditji {
   id: string;
   name: string;
   profileImageUrl?: string;
@@ -29,33 +29,27 @@ interface PaginationInfo {
   totalCount: number;
 }
 
-export default function DharmguruPage() {
+export default function PanditjiPage() {
   const router = useRouter();
-  const [dharmgurus, setDharmgurus] = useState<Dharmguru[]>([]);
+  const [panditjis, setPanditjis] = useState<Panditji[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingCardId, setLoadingCardId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
 
   useEffect(() => {
-    const fetchDharmgurus = async () => {
+    const fetchPanditjis = async () => {
       setLoading(true);
       try {
         const response = await fetch(
-          `/api/users/dharmguru?limit=${CARDS_PER_PAGE}&page=${currentPage}`
+          `/api/users/panditji?limit=${CARDS_PER_PAGE}&page=${currentPage}`
         );
         if (!response.ok) {
-          throw new Error("Failed to fetch dharmgurus");
+          throw new Error("Failed to fetch panditjis");
         }
         const data = await response.json();
-        const list = data.data && Array.isArray(data.data)
-          ? data.data
-          : data.dharmgurus && Array.isArray(data.dharmgurus)
-            ? data.dharmgurus
-            : Array.isArray(data)
-              ? data
-              : [];
-        setDharmgurus(list);
+        const list = data.data && Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
+        setPanditjis(list);
         if (data.pagination) {
           setPagination({
             currentPage: data.pagination.currentPage,
@@ -64,13 +58,13 @@ export default function DharmguruPage() {
           });
         }
       } catch (error) {
-        console.error("Error fetching dharmgurus:", error);
+        console.error("Error fetching panditjis:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDharmgurus();
+    fetchPanditjis();
   }, [currentPage]);
 
   useEffect(() => {
@@ -89,7 +83,7 @@ export default function DharmguruPage() {
         <div className="absolute inset-0">
           <Image
             src="/banners/9983f4c9bb5fd3f6d8213d08ad1e99d3.jpg"
-            alt="Dharmguru Banner"
+            alt="Panditji Banner"
             fill
             className="object-cover"
             priority
@@ -107,7 +101,7 @@ export default function DharmguruPage() {
         <div className="relative z-10 h-full flex items-center justify-center">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-6 drop-shadow-2xl animate-fade-in-up">
-              Dharmguru
+              Panditji
             </h1>
             <p className="text-xl md:text-2xl lg:text-3xl text-white/90 max-w-3xl mx-auto drop-shadow-lg font-light" style={{ fontFamily: 'var(--font-jost), sans-serif' }}>
               Connect with our spiritual guides and experience the wisdom of ancient traditions
@@ -116,7 +110,7 @@ export default function DharmguruPage() {
         </div>
       </section>
 
-      {/* Dharmguru Cards Section */}
+      {/* Panditji Cards Section */}
       <section className="py-16 bg-[#f5f5f0]">
         <div className="container mx-auto px-4 max-w-7xl">
           {loading ? (
@@ -128,19 +122,19 @@ export default function DharmguruPage() {
                 />
               ))}
             </div>
-          ) : dharmgurus.length > 0 ? (
+          ) : panditjis.length > 0 ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {dharmgurus.map((dharmguru) => (
+                {panditjis.map((panditji) => (
                   <KathavachakDharmguruCard
-                    key={dharmguru.id}
-                    dharmguru={dharmguru}
-                    isLoading={loadingCardId === dharmguru.id}
+                    key={panditji.id}
+                    dharmguru={panditji}
+                    isLoading={loadingCardId === panditji.id}
                     onGetInTouch={() => {
-                      setLoadingCardId(dharmguru.id);
-                      router.push(`/dharmguru/${dharmguru.id}`);
+                      setLoadingCardId(panditji.id);
+                      router.push(`/panditji/${panditji.id}`);
                     }}
-                    onBookmark={() => console.log(`Bookmark ${dharmguru.name}`)}
+                    onBookmark={() => console.log(`Bookmark ${panditji.name}`)}
                   />
                 ))}
               </div>
@@ -155,7 +149,7 @@ export default function DharmguruPage() {
             </>
           ) : (
             <div className="text-center py-16 text-gray-500">
-              <p className="text-xl">No dharmgurus available at the moment.</p>
+              <p className="text-xl">No panditjis available at the moment.</p>
             </div>
           )}
         </div>

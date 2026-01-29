@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
 import { KathavachakDharmguruCard } from "@/components/shared/kathavachak-dharmguru-card";
+import { CardsPagination, CARDS_PER_PAGE } from "@/components/shared/CardsPagination";
 
 interface Kathavachak {
   id: string;
@@ -22,24 +23,39 @@ interface Kathavachak {
   }>;
 }
 
+interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+}
+
 export default function KathavachakPage() {
   const router = useRouter();
   const [kathavachaks, setKathavachaks] = useState<Kathavachak[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingCardId, setLoadingCardId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
 
   useEffect(() => {
     const fetchKathavachaks = async () => {
+      setLoading(true);
       try {
-        const response = await fetch("/api/users/kathavachak?limit=20&page=1");
+        const response = await fetch(
+          `/api/users/kathavachak?limit=${CARDS_PER_PAGE}&page=${currentPage}`
+        );
         if (!response.ok) {
           throw new Error("Failed to fetch kathavachaks");
         }
         const data = await response.json();
-        if (data.data && Array.isArray(data.data)) {
-          setKathavachaks(data.data);
-        } else if (Array.isArray(data)) {
-          setKathavachaks(data);
+        const list = data.data && Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
+        setKathavachaks(list);
+        if (data.pagination) {
+          setPagination({
+            currentPage: data.pagination.currentPage,
+            totalPages: data.pagination.totalPages,
+            totalCount: data.pagination.totalCount,
+          });
         }
       } catch (error) {
         console.error("Error fetching kathavachaks:", error);
@@ -49,7 +65,13 @@ export default function KathavachakPage() {
     };
 
     fetchKathavachaks();
-  }, []);
+  }, [currentPage]);
+
+  useEffect(() => {
+    if (currentPage > 1) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [currentPage]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -93,7 +115,7 @@ export default function KathavachakPage() {
         <div className="container mx-auto px-4 max-w-7xl">
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, index) => (
+              {[...Array(CARDS_PER_PAGE)].map((_, index) => (
                 <div
                   key={index}
                   className="bg-gray-300 rounded-2xl h-96 animate-pulse"
@@ -101,20 +123,30 @@ export default function KathavachakPage() {
               ))}
             </div>
           ) : kathavachaks.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {kathavachaks.map((kathavachak) => (
-                <KathavachakDharmguruCard
-                  key={kathavachak.id}
-                  dharmguru={kathavachak}
-                  isLoading={loadingCardId === kathavachak.id}
-                  onGetInTouch={() => {
-                    setLoadingCardId(kathavachak.id);
-                    router.push(`/kathavachak/${kathavachak.id}`);
-                  }}
-                  onBookmark={() => console.log(`Bookmark ${kathavachak.name}`)}
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {kathavachaks.map((kathavachak) => (
+                  <KathavachakDharmguruCard
+                    key={kathavachak.id}
+                    dharmguru={kathavachak}
+                    isLoading={loadingCardId === kathavachak.id}
+                    onGetInTouch={() => {
+                      setLoadingCardId(kathavachak.id);
+                      router.push(`/kathavachak/${kathavachak.id}`);
+                    }}
+                    onBookmark={() => console.log(`Bookmark ${kathavachak.name}`)}
+                  />
+                ))}
+              </div>
+              {pagination && (
+                <CardsPagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  totalCount={pagination.totalCount}
+                  onPageChange={setCurrentPage}
                 />
-              ))}
-            </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-16 text-gray-500">
               <p className="text-xl">No kathavachaks available at the moment.</p>
