@@ -10,6 +10,8 @@ export interface Ebook {
 	category: string;
 	detail?: string;
 	status: string;
+	bookCover?: string;
+	bookFile?: string;
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -56,6 +58,8 @@ export async function GET(req: NextRequest) {
 			category: e.category,
 			detail: e.detail ?? "",
 			status: e.status ?? "Active",
+			bookCover: e.bookCover ?? undefined,
+			bookFile: e.bookFile ?? undefined,
 			createdAt: e.createdAt?.toISOString?.() ?? "",
 			updatedAt: e.updatedAt?.toISOString?.() ?? "",
 		}));

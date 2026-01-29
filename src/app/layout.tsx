@@ -4,6 +4,7 @@ import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import AuthProvider from "@/components/providers/AuthProvider";
+import { MusicPlayerLayout } from "@/components/providers/MusicPlayerLayout";
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -43,7 +44,9 @@ export default function RootLayout({
 					speed={300}
 				/>
 				<AuthProvider>
-					{children}
+					<MusicPlayerLayout>
+						{children}
+					</MusicPlayerLayout>
 					<Toaster position="top-right" richColors closeButton />
 				</AuthProvider>
 			</body>

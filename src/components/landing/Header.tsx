@@ -59,9 +59,11 @@ export default function Header() {
       rightColumn: [
         { name: "Book Pooja", href: "/book-pooja" },
         { name: "Book Yoga Session", href: "/book-yoga" },
+        { name: "E-Books", href: "/e-book" },
         { name: "Events", href: "/events" },
         { name: "Dharmshala", href: "/dharmshala" },
         { name: "Temples", href: "/temple" },
+        { name: "Motivational Speaker", href: "/motivational-speaker" },
       ],
       viewAllLink: { name: "View All", href: "/services" },
     },

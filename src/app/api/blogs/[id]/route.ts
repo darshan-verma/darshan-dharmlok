@@ -12,6 +12,44 @@ export interface Blog {
 	updatedAt?: string;
 }
 
+function getBlogIdFromRequest(req: NextRequest): string | null {
+	const url = new URL(req.url);
+	const pathnameParts = url.pathname.split("/");
+	const id = pathnameParts[pathnameParts.length - 1];
+	return id && /^[0-9a-fA-F]{24}$/.test(id) ? id : null;
+}
+
+// GET /api/blogs/[id]
+export async function GET(req: NextRequest) {
+	try {
+		const id = getBlogIdFromRequest(req);
+		if (!id) {
+			return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
+		}
+		const blog = await prisma.blog.findUnique({ where: { id } });
+		if (!blog) {
+			return NextResponse.json({ error: "Blog not found" }, { status: 404 });
+		}
+		const result: Blog = {
+			id: blog.id,
+			title: blog.title,
+			content: blog.content,
+			coverImage: blog.coverImage ?? "",
+			bannerImage: blog.bannerImage ?? "",
+			status: blog.status,
+			createdAt: blog.createdAt?.toISOString?.() ?? "",
+			updatedAt: blog.updatedAt?.toISOString?.() ?? "",
+		};
+		return NextResponse.json(result);
+	} catch (error) {
+		console.error("Error fetching blog:", error);
+		return NextResponse.json(
+			{ error: "Failed to fetch blog" },
+			{ status: 500 }
+		);
+	}
+}
+
 // PUT /api/blogs/[id]
 export async function PUT(req: NextRequest) {
 	try {

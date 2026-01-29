@@ -20,7 +20,10 @@ interface ProfileCardProps {
   /** When "event", shows category, type, price and Book button */
   /** When "dharamshala", uses the same card style and shows "View Details" */
   /** When "temple", uses the same card style and shows "View Details" */
-  variant?: "profile" | "pooja-service" | "event" | "dharamshala" | "temple";
+  /** When "ebook", uses the same card style and shows "Read book" */
+  /** When "blog", uses the same card style and shows "Read blog" */
+  /** When "e-shop", shows price and "Buy Now" for product cards */
+  variant?: "profile" | "pooja-service" | "event" | "dharamshala" | "temple" | "ebook" | "blog" | "e-shop";
   price?: number;
   onBook?: () => void;
   isBooking?: boolean;
@@ -55,8 +58,11 @@ export function ProfileCard({
   const isEvent = variant === "event";
   const isDharamshala = variant === "dharamshala";
   const isTemple = variant === "temple";
+  const isEbook = variant === "ebook";
+  const isBlog = variant === "blog";
+  const isEshop = variant === "e-shop";
   const displayImage =
-    (isPooja || isEvent || isDharamshala || isTemple) && !image
+    (isPooja || isEvent || isDharamshala || isTemple || isEbook || isBlog || isEshop) && !image
       ? DEFAULT_POOJA_IMAGE
       : image;
 
@@ -336,8 +342,8 @@ export function ProfileCard({
           {description}
         </motion.p>
 
-        {/* Category and Type for Events */}
-        {isEvent && (category || type) && (
+        {/* Category for Events and E-shop */}
+        {(isEvent || isEshop) && (category || type) && (
           <motion.div
             variants={itemVariants}
             className="flex items-center gap-2 flex-wrap"
@@ -361,16 +367,18 @@ export function ProfileCard({
           variants={itemVariants}
           className="flex items-center gap-6 pt-2"
         >
-          {(isPooja || isEvent || isDharamshala || isTemple) &&
+          {(isPooja || isEvent || isDharamshala || isTemple || isEshop) &&
+          !isEbook &&
+          !isBlog &&
           typeof price === "number" ? (
             <div className={cn("flex items-center gap-2", bodyClass)}>
               <IndianRupee className="w-4 h-4" />
               <span className={cn("font-semibold", titleClass)}>
                 {price.toLocaleString("en-IN")}
               </span>
-              <span className="text-sm">starting price</span>
+              <span className="text-sm">{isEshop ? "per unit" : "starting price"}</span>
             </div>
-          ) : !isEvent ? (
+          ) : !isEvent && !isEbook && !isBlog ? (
             <>
               <div className={cn("flex items-center gap-2", bodyClass)}>
                 <Users className="w-4 h-4" />
@@ -387,7 +395,7 @@ export function ProfileCard({
         </motion.div>
 
         {/* Action Button */}
-        {(isPooja || isEvent || isDharamshala || isTemple) ? (
+        {(isPooja || isEvent || isDharamshala || isTemple || isEbook || isBlog || isEshop) ? (
           <motion.button
             variants={itemVariants}
             onClick={(e) => {
@@ -413,7 +421,15 @@ export function ProfileCard({
                 Loading...
               </span>
             ) : (
-              isEvent || isDharamshala || isTemple ? "View Details" : "Book service"
+              isEshop
+                ? "Buy Now"
+                : isEbook
+                  ? "Read book"
+                  : isBlog
+                    ? "Read blog"
+                    : isEvent || isDharamshala || isTemple
+                      ? "View Details"
+                      : "Book service"
             )}
           </motion.button>
         ) : (
