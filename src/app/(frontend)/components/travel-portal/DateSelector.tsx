@@ -125,8 +125,23 @@ export default function DateSelector({
 								setReturnOpen(false);
 							}}
 							disabled={(date) => date < (departureDate || new Date())}
+							modifiers={{
+								departureDay: departureDate ? [departureDate] : [],
+							}}
+							modifiersClassNames={{
+								departureDay:
+									"bg-green-100 text-green-800 font-semibold ring-2 ring-green-400 ring-offset-2",
+							}}
 							initialFocus
 						/>
+						{departureDate && (
+							<div className="px-3 pb-3 pt-2 text-xs text-gray-600 border-t">
+								<span className="font-semibold">Departure: </span>
+								<span className="text-green-700">
+									{format(departureDate, "dd MMM yyyy, EEEE")}
+								</span>
+							</div>
+						)}
 					</PopoverContent>
 				</Popover>
 			</div>

@@ -84,21 +84,21 @@ export default function SSRSelection({
 					// Handle HTTP errors
 					if (response.status === 400) {
 						throw new Error(
-							"Invalid request parameters for additional services"
+							"Invalid request parameters for additional services",
 						);
 					} else if (response.status === 404) {
 						throw new Error("Flight not found for additional services");
 					} else if (response.status === 429) {
 						throw new Error(
-							"Too many requests. Please wait a moment before selecting services."
+							"Too many requests. Please wait a moment before selecting services.",
 						);
 					} else if (response.status >= 500) {
 						throw new Error(
-							"Server error loading additional services. Please try again later."
+							"Server error loading additional services. Please try again later.",
 						);
 					} else {
 						throw new Error(
-							`Failed to load additional services (Error ${response.status})`
+							`Failed to load additional services (Error ${response.status})`,
 						);
 					}
 				}
@@ -115,39 +115,8 @@ export default function SSRSelection({
 				}
 			} catch (error) {
 				console.error("SSRSelection: Failed to fetch SSRs:", error);
-
-				// Handle different types of errors
-				let errorMessage = "Failed to load additional services";
-
-				if (error instanceof Error) {
-					errorMessage = error.message;
-				} else if (typeof error === "string") {
-					errorMessage = error;
-				}
-
-				// Show appropriate toast based on error type
-				if (
-					errorMessage.toLowerCase().includes("network") ||
-					errorMessage.toLowerCase().includes("connection") ||
-					errorMessage.toLowerCase().includes("fetch")
-				) {
-					toast.error(
-						"Network error loading additional services. Please check your connection."
-					);
-				} else if (errorMessage.toLowerCase().includes("invalid")) {
-					toast.error(
-						"Unable to load additional services due to invalid flight data."
-					);
-				} else if (errorMessage.toLowerCase().includes("server")) {
-					toast.error(
-						"Server error loading additional services. Our team has been notified."
-					);
-				} else {
-					toast.error(
-						errorMessage +
-							". You can still proceed with booking without additional services."
-					);
-				}
+				// Silently handle SSR errors - don't show toast messages to users
+				// This is especially common for multi-city flights where SSR may not be available
 			} finally {
 				setLoading(false);
 			}
@@ -183,7 +152,7 @@ export default function SSRSelection({
 	const handleBaggageSelect = (
 		pIndex: number,
 		sIndex: number,
-		option: BaggageOption | null
+		option: BaggageOption | null,
 	) => {
 		setSelectedBaggage((prev) => ({
 			...prev,
@@ -194,7 +163,7 @@ export default function SSRSelection({
 	const handleMealSelect = (
 		pIndex: number,
 		sIndex: number,
-		option: MealOption | null
+		option: MealOption | null,
 	) => {
 		setSelectedMeals((prev) => ({
 			...prev,
@@ -205,7 +174,7 @@ export default function SSRSelection({
 	const handleSeatSelect = (
 		pIndex: number,
 		sIndex: number,
-		option: SeatOption | null
+		option: SeatOption | null,
 	) => {
 		setSelectedSeats((prev) => ({
 			...prev,
@@ -217,7 +186,7 @@ export default function SSRSelection({
 		pIndex: number,
 		sIndex: number,
 		option: SpecialServiceOption,
-		isChecked: boolean
+		isChecked: boolean,
 	) => {
 		setSelectedServices((prev) => {
 			const key = `${pIndex}-${sIndex}`;
@@ -319,7 +288,7 @@ export default function SSRSelection({
 											<span className="text-blue-600 font-medium">
 												{Object.values(selectedBaggage).reduce(
 													(acc, curr) => acc + (curr?.Weight || 0),
-													0
+													0,
 												)}
 												kg added (₹
 												{Object.values(selectedBaggage)

@@ -20,11 +20,7 @@ import {
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { HotelSearchResponse, HotelResult } from "@/types/hotelApi";
-import {
-	hotelCache,
-	lastSearch,
-	generateCacheKey,
-} from "@/lib/searchCache";
+import { hotelCache, lastSearch, generateCacheKey } from "@/lib/searchCache";
 
 function HotelSearchContent() {
 	const searchParams = useSearchParams();
@@ -38,13 +34,16 @@ function HotelSearchContent() {
 	const [sortBy, setSortBy] = useState<string>("price-low");
 	// Store hotel details fetched from HotelDetails API
 	const [hotelDetailsMap, setHotelDetailsMap] = useState<
-		Record<string, {
-			HotelName?: string;
-			CityName?: string;
-			CountryName?: string;
-			HotelRating?: string | number;
-			Images?: string | string[];
-		}>
+		Record<
+			string,
+			{
+				HotelName?: string;
+				CityName?: string;
+				CountryName?: string;
+				HotelRating?: string | number;
+				Images?: string | string[];
+			}
+		>
 	>({});
 	const [loadingDetails, setLoadingDetails] = useState<Set<string>>(new Set());
 	const hasLoadedCacheRef = React.useRef(false);
@@ -112,7 +111,8 @@ function HotelSearchContent() {
 				if (cached) {
 					const results = cached.results as HotelSearchResponse | null;
 					setSearchResults(results);
-					const hotelResults = results?.HotelResult || (Array.isArray(results) ? results : []);
+					const hotelResults =
+						results?.HotelResult || (Array.isArray(results) ? results : []);
 					setFilteredResults(Array.isArray(hotelResults) ? hotelResults : []);
 					setIsLoading(false);
 					setError(null);
@@ -127,7 +127,7 @@ function HotelSearchContent() {
 				"🔍 Starting hotel search for:",
 				data.location,
 				"with cityCode:",
-				data.cityCode
+				data.cityCode,
 			);
 
 			if (!data.cityCode) {
@@ -159,16 +159,22 @@ function HotelSearchContent() {
 				return;
 			}
 
-			// Limit to 100 hotels as recommended by TBO API
-			const hotels = cityDetailsData.data.hotels.slice(0, 100);
-			const hotelCodes = hotels.map((h: { hotelCode: string }) => h.hotelCode).join(",");
+			// Limit hotels sent to TBO API
+			// TBO API can handle multiple hotel codes, but too many may cause timeouts
+			// For better availability results, especially for near dates, we check more hotels
+			const totalHotelsInCity = cityDetailsData.data.hotels.length;
+			const maxHotels = totalHotelsInCity <= 800 ? totalHotelsInCity : 500; // Use all hotels if ≤800, otherwise limit to 500
+			const hotels = cityDetailsData.data.hotels.slice(0, maxHotels);
+			const hotelCodes = hotels
+				.map((h: { hotelCode: string }) => h.hotelCode)
+				.join(",");
 			console.log(
-				`✅ Found ${cityDetailsData.data.hotels.length} hotels in city, using first ${hotels.length} hotels`
+				`✅ Found ${cityDetailsData.data.hotels.length} hotels in city, using first ${hotels.length} hotels for availability check`,
 			);
 
 			console.log(
 				"🏨 Using hotel codes:",
-				hotelCodes.substring(0, 100) + "..."
+				hotelCodes.substring(0, 100) + "...",
 			);
 
 			// Prepare room configuration
@@ -206,12 +212,22 @@ function HotelSearchContent() {
 
 			const result = await hotelSearchResponse.json();
 
-			console.log("📡 Hotel search API response:", result);
-			console.log("📡 Response data structure:", JSON.stringify(result.data, null, 2));
-			console.log("📡 Data keys:", result.data ? Object.keys(result.data) : "no data");
-			console.log("📡 HotelResult check:", result.data?.HotelResult);
-			console.log("📡 HotelResult type:", Array.isArray(result.data?.HotelResult) ? "array" : typeof result.data?.HotelResult);
-			console.log("📡 HotelResult length:", Array.isArray(result.data?.HotelResult) ? result.data.HotelResult.length : "not an array");
+			console.log("📡 Hotel search API response received");
+			console.log("📡 Response Status:", result.data?.Status);
+			console.log(
+				"📡 HotelResult count:",
+				Array.isArray(result.data?.HotelResult)
+					? result.data.HotelResult.length
+					: "not an array",
+			);
+
+			// Log detailed response structure for debugging (only in development)
+			if (process.env.NODE_ENV === "development") {
+				console.log(
+					"📡 Full response structure:",
+					JSON.stringify(result.data, null, 2),
+				);
+			}
 
 			if (!result.success) {
 				console.log("❌ API returned error:", result.error);
@@ -222,24 +238,30 @@ function HotelSearchContent() {
 
 			// Handle different possible response structures
 			let hotelResults = [];
-			
+
 			// Check if response has Status and it indicates success
 			if (result.data?.Status) {
 				console.log("📡 Response Status:", result.data.Status);
 				const statusCode = result.data.Status.Code;
-				const description = (result.data.Status.Description || '').toLowerCase();
-				
+				const description = (
+					result.data.Status.Description || ""
+				).toLowerCase();
+
 				// Status codes that indicate success:
 				// - 1 = Success
-				// - 0 = Success/Pending  
+				// - 0 = Success/Pending
 				// - 200 = Success (used by Affiliate API when Description is "Successful")
-				const isSuccess = 
-					statusCode === 1 || 
-					statusCode === 0 || 
-					(statusCode === 200 && (description.includes('success') || description === 'successful'));
-				
+				const isSuccess =
+					statusCode === 1 ||
+					statusCode === 0 ||
+					(statusCode === 200 &&
+						(description.includes("success") || description === "successful"));
+
 				if (!isSuccess) {
-					console.log("⚠️ API returned non-success status:", result.data.Status.Description);
+					console.log(
+						"⚠️ API returned non-success status:",
+						result.data.Status.Description,
+					);
 					setError(result.data.Status.Description || "No hotels found");
 					setIsLoading(false);
 					return;
@@ -260,12 +282,30 @@ function HotelSearchContent() {
 				hotelResults = result.HotelResult;
 			}
 
-			console.log("✅ Extracted hotel results:", hotelResults.length, "hotels");
-			console.log("✅ Sample hotel result:", hotelResults[0]);
-			
+			console.log(
+				`✅ Extracted hotel results: ${hotelResults.length} hotels with availability`,
+			);
+			console.log(
+				`📊 Availability rate: ${hotelResults.length} out of ${hotels.length} hotels have rooms (${Math.round((hotelResults.length / hotels.length) * 100)}%)`,
+			);
+
+			if (hotelResults.length > 0) {
+				console.log(
+					"✅ Sample hotel:",
+					hotelResults[0]?.HotelName || hotelResults[0]?.Name,
+				);
+			}
+
 			if (hotelResults.length === 0) {
-				console.log("⚠️ No hotels found in response");
-				setError("No hotels found for the selected criteria. Please try different dates or location.");
+				console.log(
+					"⚠️ No hotels found with availability for your search criteria",
+				);
+				console.log(
+					"💡 Try: Different dates (2-3 months ahead), fewer guests, or different location",
+				);
+				setError(
+					"No hotels available for the selected dates and criteria. Please try different dates or adjust your search.",
+				);
 			} else {
 				console.log("✅ Setting search results:", result.data);
 				// Clear any previous errors
@@ -304,7 +344,11 @@ function HotelSearchContent() {
 			}
 		} catch (err) {
 			console.error("❌ Search error:", err);
-			setError(err instanceof Error ? err.message : "An error occurred while searching");
+			setError(
+				err instanceof Error
+					? err.message
+					: "An error occurred while searching",
+			);
 		} finally {
 			setIsLoading(false);
 		}
@@ -314,12 +358,12 @@ function HotelSearchContent() {
 	const fetchHotelDetailsBatch = async (hotels: HotelResult[]) => {
 		// Get unique hotel codes (convert to strings for consistency)
 		const uniqueHotelCodes = Array.from(
-			new Set(hotels.map((h) => String(h.HotelCode)))
+			new Set(hotels.map((h) => String(h.HotelCode))),
 		);
 
 		// Filter out hotels we already have details for
 		const hotelCodesToFetch = uniqueHotelCodes.filter(
-			(code) => !hotelDetailsMap[code] && !loadingDetails.has(code)
+			(code) => !hotelDetailsMap[code] && !loadingDetails.has(code),
 		);
 
 		if (hotelCodesToFetch.length === 0) {
@@ -328,17 +372,17 @@ function HotelSearchContent() {
 		}
 
 		console.log(
-			`🔄 Fetching hotel details for ${hotelCodesToFetch.length} hotels...`
+			`🔄 Fetching hotel details for ${hotelCodesToFetch.length} hotels...`,
 		);
 
 		// Fetch in batches of 5 to avoid overwhelming the TBO Static API
 		// Reduced from 10 to prevent 503 errors
 		const batchSize = 5;
-		
+
 		// Process batches sequentially but fetch within batch in parallel
 		for (let i = 0; i < hotelCodesToFetch.length; i += batchSize) {
 			const batch = hotelCodesToFetch.slice(i, i + batchSize);
-			
+
 			// Mark as loading
 			setLoadingDetails((prev) => {
 				const newSet = new Set(prev);
@@ -354,20 +398,20 @@ function HotelSearchContent() {
 					// Create abort controller for timeout
 					const controller = new AbortController();
 					timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-					
+
 					const response = await fetch(
 						`/api/travel/hotel/details?hotelCode=${hotelCode}&language=EN&isRoomDetailRequired=false`,
 						{
 							signal: controller.signal,
-						}
+						},
 					);
-					
+
 					if (timeoutId) clearTimeout(timeoutId);
-					
+
 					if (!response.ok) {
 						throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 					}
-					
+
 					const result = await response.json();
 
 					if (result.success && result.data?.HotelDetails) {
@@ -376,7 +420,7 @@ function HotelSearchContent() {
 						if (Array.isArray(hotelDetails) && hotelDetails.length > 0) {
 							hotelDetails = hotelDetails[0];
 						}
-						
+
 						return {
 							success: true,
 							hotelCode: String(hotelCode),
@@ -388,12 +432,13 @@ function HotelSearchContent() {
 				} catch (error) {
 					// Always clear timeout on error
 					if (timeoutId) clearTimeout(timeoutId);
-					
+
 					// Log error but don't block other hotels
-					const errorMessage = error instanceof Error ? error.message : String(error);
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
 					console.warn(
 						`⚠️ Failed to fetch details for hotel ${hotelCode}:`,
-						errorMessage
+						errorMessage,
 					);
 					return {
 						success: false,
@@ -412,7 +457,7 @@ function HotelSearchContent() {
 
 			setHotelDetailsMap((prev) => {
 				const newMap = { ...prev };
-				
+
 				detailsResults.forEach((result) => {
 					if (result.status === "fulfilled" && result.value.success) {
 						const { hotelCode, details } = result.value;
@@ -422,12 +467,12 @@ function HotelSearchContent() {
 						failureCount++;
 					}
 				});
-				
+
 				return newMap;
 			});
 
 			console.log(
-				`✅ Batch ${Math.floor(i / batchSize) + 1}: ${successCount} succeeded, ${failureCount} failed`
+				`✅ Batch ${Math.floor(i / batchSize) + 1}: ${successCount} succeeded, ${failureCount} failed`,
 			);
 
 			// Remove from loading set (even failed ones, so UI doesn't hang)
@@ -445,14 +490,14 @@ function HotelSearchContent() {
 		}
 
 		console.log(
-			`✅ Hotel details fetching completed for ${hotelCodesToFetch.length} hotels`
+			`✅ Hotel details fetching completed for ${hotelCodesToFetch.length} hotels`,
 		);
 	};
 
 	// Initial search on mount if URL params exist OR load from cache on back navigation
 	useEffect(() => {
 		console.log("🔄 useEffect triggered, searchData:", searchData);
-		
+
 		// If no URL params but we have cached search, restore from cache (back navigation)
 		if (!searchData && !hasLoadedCacheRef.current) {
 			const lastSearchParams = lastSearch.get("hotel") as {
@@ -466,20 +511,24 @@ function HotelSearchContent() {
 			} | null;
 			if (lastSearchParams) {
 				hasLoadedCacheRef.current = true;
-				
+
 				// Restore search data
 				const restoredData: HotelSearchData = {
 					location: lastSearchParams.location || "",
 					cityCode: lastSearchParams.cityCode || "",
-					checkIn: lastSearchParams.checkIn ? new Date(lastSearchParams.checkIn) : new Date(),
-					checkOut: lastSearchParams.checkOut ? new Date(lastSearchParams.checkOut) : new Date(),
+					checkIn: lastSearchParams.checkIn
+						? new Date(lastSearchParams.checkIn)
+						: new Date(),
+					checkOut: lastSearchParams.checkOut
+						? new Date(lastSearchParams.checkOut)
+						: new Date(),
 					rooms: lastSearchParams.rooms || 1,
 					adults: lastSearchParams.adults || 1,
 					children: lastSearchParams.children || 0,
 				};
-				
+
 				setSearchData(restoredData);
-				
+
 				// Try to load from cache
 				const loadFromCache = async () => {
 					const cacheKey = await generateCacheKey({
@@ -495,7 +544,8 @@ function HotelSearchContent() {
 					if (cached) {
 						const results = cached.results as HotelSearchResponse | null;
 						setSearchResults(results);
-						const hotelResults = results?.HotelResult || (Array.isArray(results) ? results : []);
+						const hotelResults =
+							results?.HotelResult || (Array.isArray(results) ? results : []);
 						setFilteredResults(Array.isArray(hotelResults) ? hotelResults : []);
 						setError(null);
 						// Fetch hotel details for cached results
@@ -559,10 +609,10 @@ function HotelSearchContent() {
 
 		// Group hotels by hotel code (each hotel should appear only once)
 		const hotelMap = new Map<string, HotelResult>();
-		
+
 		results.forEach((hotel) => {
 			const hotelCode = String(hotel.HotelCode);
-			
+
 			if (!hotelMap.has(hotelCode)) {
 				// First time seeing this hotel, add it
 				hotelMap.set(hotelCode, hotel);
@@ -581,7 +631,7 @@ function HotelSearchContent() {
 			// Filter by price - use minimum price from all rooms
 			const hotelPrice = hotel.Rooms.reduce(
 				(min, room) => Math.min(min, room.TotalFare + room.TotalTax),
-				Infinity
+				Infinity,
 			);
 
 			if (
@@ -600,7 +650,7 @@ function HotelSearchContent() {
 			// Filter by meal type
 			if (filters.mealTypes.length > 0) {
 				const hasMealType = hotel.Rooms.some((room) =>
-					filters.mealTypes.includes(room.MealType)
+					filters.mealTypes.includes(room.MealType),
 				);
 				if (!hasMealType) return false;
 			}
@@ -612,11 +662,11 @@ function HotelSearchContent() {
 		groupedResults.sort((a, b) => {
 			const priceA = a.Rooms.reduce(
 				(min, room) => Math.min(min, room.TotalFare + room.TotalTax),
-				Infinity
+				Infinity,
 			);
 			const priceB = b.Rooms.reduce(
 				(min, room) => Math.min(min, room.TotalFare + room.TotalTax),
-				Infinity
+				Infinity,
 			);
 
 			switch (sortBy) {
@@ -635,7 +685,7 @@ function HotelSearchContent() {
 	// Handle booking - navigate to hotel details page with search params
 	const handleBook = (hotelCode: string) => {
 		if (!searchData) return;
-		
+
 		const params = new URLSearchParams({
 			hotelCode: hotelCode,
 			checkIn: searchData.checkIn.toISOString().split("T")[0],
@@ -645,7 +695,7 @@ function HotelSearchContent() {
 			children: searchData.children.toString(),
 			location: searchData.location,
 		});
-		
+
 		router.push(`/travel-portal/hotel-details?${params.toString()}`);
 	};
 
@@ -766,30 +816,32 @@ function HotelSearchContent() {
 								const hotelCodeKey = String(hotel.HotelCode);
 								const hotelDetails = hotelDetailsMap[hotelCodeKey];
 								const isDetailsLoading = loadingDetails.has(hotelCodeKey);
-								
+
 								// Calculate price range from all rooms
-								const prices = hotel.Rooms.map(room => room.TotalFare + room.TotalTax);
+								const prices = hotel.Rooms.map(
+									(room) => room.TotalFare + room.TotalTax,
+								);
 								const minPrice = Math.min(...prices);
 								const maxPrice = Math.max(...prices);
 								const hasMultiplePrices = minPrice !== maxPrice;
-								
+
 								// Get the cheapest room for display
 								const cheapestRoom = hotel.Rooms.reduce((cheapest, room) => {
 									const roomPrice = room.TotalFare + room.TotalTax;
 									const cheapestPrice = cheapest.TotalFare + cheapest.TotalTax;
 									return roomPrice < cheapestPrice ? room : cheapest;
 								}, hotel.Rooms[0]);
-								
+
 								// Parse images from HotelDetails API response
 								let hotelImage: string | undefined;
 								let imageCount = 0;
-								
+
 								if (hotelDetails?.Images) {
 									try {
 										// Images might be a string or array
 										const imagesValue = hotelDetails.Images;
-										
-										if (typeof imagesValue === 'string') {
+
+										if (typeof imagesValue === "string") {
 											// Try parsing as JSON first
 											try {
 												const parsed = JSON.parse(imagesValue);
@@ -800,11 +852,14 @@ function HotelSearchContent() {
 													}
 												} else {
 													// Parsed but not an array, try comma-separated
-													const imageArray = imagesValue.split(',').map((img: string) => img.trim()).filter(Boolean);
+													const imageArray = imagesValue
+														.split(",")
+														.map((img: string) => img.trim())
+														.filter(Boolean);
 													if (imageArray.length > 0) {
 														hotelImage = imageArray[0];
 														imageCount = imageArray.length;
-													} else if (imagesValue.startsWith('http')) {
+													} else if (imagesValue.startsWith("http")) {
 														// Single URL
 														hotelImage = imagesValue;
 														imageCount = 1;
@@ -812,25 +867,37 @@ function HotelSearchContent() {
 												}
 											} catch {
 												// If not JSON, try comma-separated
-												const imageArray = imagesValue.split(',').map((img: string) => img.trim()).filter(Boolean);
+												const imageArray = imagesValue
+													.split(",")
+													.map((img: string) => img.trim())
+													.filter(Boolean);
 												if (imageArray.length > 0) {
 													hotelImage = imageArray[0];
 													imageCount = imageArray.length;
-												} else if (imagesValue.startsWith('http')) {
+												} else if (imagesValue.startsWith("http")) {
 													// Single URL
 													hotelImage = imagesValue;
 													imageCount = 1;
 												}
 											}
-										} else if (Array.isArray(imagesValue) && imagesValue.length > 0) {
+										} else if (
+											Array.isArray(imagesValue) &&
+											imagesValue.length > 0
+										) {
 											hotelImage = imagesValue[0];
 											imageCount = imagesValue.length;
 										}
 									} catch (e) {
-										console.error(`Error parsing images for hotel ${hotelCodeKey}:`, e);
+										console.error(
+											`Error parsing images for hotel ${hotelCodeKey}:`,
+											e,
+										);
 										// If parsing fails, try to use it as a single image URL
 										const imagesValue = hotelDetails.Images;
-										if (typeof imagesValue === 'string' && imagesValue.startsWith('http')) {
+										if (
+											typeof imagesValue === "string" &&
+											imagesValue.startsWith("http")
+										) {
 											hotelImage = imagesValue;
 											imageCount = 1;
 										}
@@ -838,20 +905,20 @@ function HotelSearchContent() {
 								}
 
 								// Get hotel name - use actual hotel name from API, fallback to hotel code if details not loaded yet
-								const hotelName = hotelDetails?.HotelName 
-									? hotelDetails.HotelName 
-									: isDetailsLoading 
-										? `Hotel ${hotel.HotelCode} (Loading...)` 
+								const hotelName = hotelDetails?.HotelName
+									? hotelDetails.HotelName
+									: isDetailsLoading
+										? `Hotel ${hotel.HotelCode} (Loading...)`
 										: `Hotel ${hotel.HotelCode}`;
-								
-								const starRating = hotelDetails?.HotelRating 
-									? (typeof hotelDetails.HotelRating === 'string' 
-										? parseInt(hotelDetails.HotelRating) 
-										: hotelDetails.HotelRating)
+
+								const starRating = hotelDetails?.HotelRating
+									? typeof hotelDetails.HotelRating === "string"
+										? parseInt(hotelDetails.HotelRating)
+										: hotelDetails.HotelRating
 									: undefined;
-								
-								const location = hotelDetails 
-									? `${hotelDetails.CityName || ''}, ${hotelDetails.CountryName || ''}`.trim()
+
+								const location = hotelDetails
+									? `${hotelDetails.CityName || ""}, ${hotelDetails.CountryName || ""}`.trim()
 									: searchData?.location || "Location details loading...";
 
 								return (
@@ -863,7 +930,9 @@ function HotelSearchContent() {
 										starRating={starRating}
 										room={cheapestRoom}
 										hotelImage={hotelImage}
-										propertyPhotosCount={imageCount > 1 ? imageCount : undefined}
+										propertyPhotosCount={
+											imageCount > 1 ? imageCount : undefined
+										}
 										isDetailsLoading={isDetailsLoading}
 										onBookClick={handleBook}
 										onViewDetails={handleViewDetails}
@@ -872,7 +941,11 @@ function HotelSearchContent() {
 											count: 6472,
 											label: "Very Good",
 										}}
-										priceRange={hasMultiplePrices ? { min: minPrice, max: maxPrice } : undefined}
+										priceRange={
+											hasMultiplePrices
+												? { min: minPrice, max: maxPrice }
+												: undefined
+										}
 										roomCount={hotel.Rooms.length}
 									/>
 								);

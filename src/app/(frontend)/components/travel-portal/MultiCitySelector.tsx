@@ -53,7 +53,7 @@ export default function MultiCitySelector({
 
 	const updateLeg = (id: string, updates: Partial<CityLeg>) => {
 		const updatedLegs = legs.map((leg) =>
-			leg.id === id ? { ...leg, ...updates } : leg
+			leg.id === id ? { ...leg, ...updates } : leg,
 		);
 
 		// If destination (to) was updated, update the next leg's origin (from)
@@ -147,9 +147,33 @@ export default function MultiCitySelector({
 											updateLeg(leg.id, { date });
 											setOpenPopoverId(null);
 										}}
-										disabled={(date) => date < new Date()}
+										disabled={(date) => {
+											const prevLeg = index > 0 ? legs[index - 1] : null;
+											const minDate = prevLeg?.date || new Date();
+											return date < minDate;
+										}}
+										modifiers={{
+											previousDepartureDay:
+												index > 0 && legs[index - 1]?.date
+													? [legs[index - 1].date]
+													: [],
+										}}
+										modifiersClassNames={{
+											previousDepartureDay:
+												"bg-green-100 text-green-800 font-semibold ring-2 ring-green-400 ring-offset-2",
+										}}
 										initialFocus
 									/>
+									{index > 0 && legs[index - 1]?.date && (
+										<div className="px-3 pb-3 pt-2 text-xs text-gray-600 border-t">
+											<span className="font-semibold">
+												Previous Leg {index}:{" "}
+											</span>
+											<span className="text-green-700">
+												{format(legs[index - 1].date!, "dd MMM yyyy, EEEE")}
+											</span>
+										</div>
+									)}
 								</PopoverContent>
 							</Popover>
 

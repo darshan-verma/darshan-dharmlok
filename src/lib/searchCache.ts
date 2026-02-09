@@ -11,7 +11,7 @@ export function normalizeDate(date: Date | string): string {
 	const d = typeof date === "string" ? new Date(date) : date;
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
 		2,
-		"0"
+		"0",
 	)}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
@@ -71,24 +71,38 @@ async function sha256Hash(data: string): Promise<string> {
 /**
  * Generate a cache key from search parameters by hashing the normalized search request
  * Includes all fields that affect pricing:
- * - journeyType, origin, destination, departureDate, returnDate
- * - segments[] (for multi-city, in order)
- * - adults, children, infants, cabinClass
- * - directFlight, oneStopFlight
+ * - For flights: journeyType, origin, destination, departureDate, returnDate, segments[], adults, children, infants, cabinClass, directFlight, oneStopFlight
+ * - For hotels: cityCode, checkIn, checkOut, rooms, adults, children
  */
 export async function generateCacheKey(
-	params: Record<string, unknown>
+	params: Record<string, unknown>,
 ): Promise<string> {
 	// Normalize the search request for consistent hashing
-	const normalizedRequest: Record<string, unknown> = {
-		journeyType: params.JourneyType || params.journeyType,
-		adults: params.AdultCount || params.adults || 1,
-		children: params.ChildCount || params.children || 0,
-		infants: params.InfantCount || params.infants || 0,
-		cabinClass: params.FlightCabinClass || params.cabinClass || "1",
-		directFlight: params.DirectFlight || params.directFlight || "true",
-		oneStopFlight: params.OneStopFlight || params.oneStopFlight || "false",
-	};
+	const normalizedRequest: Record<string, unknown> = {};
+
+	// Handle hotel search parameters
+	if (params.cityCode || params.checkIn || params.checkOut) {
+		normalizedRequest.searchType = "hotel";
+		normalizedRequest.cityCode = params.cityCode || "";
+		normalizedRequest.checkIn = params.checkIn || "";
+		normalizedRequest.checkOut = params.checkOut || "";
+		normalizedRequest.rooms = params.rooms || 1;
+		normalizedRequest.adults = params.adults || 1;
+		normalizedRequest.children = params.children || 0;
+	} else {
+		// Flight search parameters
+		normalizedRequest.searchType = "flight";
+		normalizedRequest.journeyType = params.JourneyType || params.journeyType;
+		normalizedRequest.adults = params.AdultCount || params.adults || 1;
+		normalizedRequest.children = params.ChildCount || params.children || 0;
+		normalizedRequest.infants = params.InfantCount || params.infants || 0;
+		normalizedRequest.cabinClass =
+			params.FlightCabinClass || params.cabinClass || "1";
+		normalizedRequest.directFlight =
+			params.DirectFlight || params.directFlight || "true";
+		normalizedRequest.oneStopFlight =
+			params.OneStopFlight || params.oneStopFlight || "false";
+	}
 
 	// Handle one-way and round-trip
 	if (
@@ -96,15 +110,15 @@ export async function generateCacheKey(
 		normalizedRequest.journeyType === "2"
 	) {
 		normalizedRequest.origin = String(
-			params.Origin || params.origin || ""
+			params.Origin || params.origin || "",
 		).toUpperCase();
 		normalizedRequest.destination = String(
-			params.Destination || params.destination || ""
+			params.Destination || params.destination || "",
 		).toUpperCase();
 		if (params.PreferredDepartureTime || params.departureDate) {
 			const depDate = params.PreferredDepartureTime || params.departureDate;
 			normalizedRequest.departureDate = normalizeDate(
-				new Date(depDate as string | number | Date)
+				new Date(depDate as string | number | Date),
 			);
 		}
 		if (
@@ -113,7 +127,7 @@ export async function generateCacheKey(
 		) {
 			const retDate = params.ReturnPreferredDepartureTime || params.returnDate;
 			normalizedRequest.returnDate = normalizeDate(
-				new Date(retDate as string | number | Date)
+				new Date(retDate as string | number | Date),
 			);
 		}
 	}
@@ -142,7 +156,7 @@ export async function generateCacheKey(
 					destination: (seg.Destination || seg.destination || "").toUpperCase(),
 					date: segmentDate ? normalizeDate(new Date(segmentDate)) : "",
 				};
-			}
+			},
 		);
 	} else if (
 		normalizedRequest.journeyType === "3" &&
@@ -157,17 +171,20 @@ export async function generateCacheKey(
 				date: seg.departureDate
 					? normalizeDate(new Date(seg.departureDate))
 					: "",
-			})
+			}),
 		);
 	}
 
 	// Sort keys for deterministic ordering, then stringify and hash
 	const sortedKeys = Object.keys(normalizedRequest).sort();
 	const normalizedString = JSON.stringify(
-		sortedKeys.reduce((acc, key) => {
-			acc[key] = normalizedRequest[key];
-			return acc;
-		}, {} as Record<string, unknown>)
+		sortedKeys.reduce(
+			(acc, key) => {
+				acc[key] = normalizedRequest[key];
+				return acc;
+			},
+			{} as Record<string, unknown>,
+		),
 	);
 
 	return await sha256Hash(normalizedString);
@@ -195,15 +212,15 @@ export function generateCacheKeySync(params: Record<string, unknown>): string {
 		normalizedRequest.journeyType === "2"
 	) {
 		normalizedRequest.origin = String(
-			params.Origin || params.origin || ""
+			params.Origin || params.origin || "",
 		).toUpperCase();
 		normalizedRequest.destination = String(
-			params.Destination || params.destination || ""
+			params.Destination || params.destination || "",
 		).toUpperCase();
 		if (params.PreferredDepartureTime || params.departureDate) {
 			const depDate = params.PreferredDepartureTime || params.departureDate;
 			normalizedRequest.departureDate = normalizeDate(
-				new Date(depDate as string | number | Date)
+				new Date(depDate as string | number | Date),
 			);
 		}
 		if (
@@ -212,7 +229,7 @@ export function generateCacheKeySync(params: Record<string, unknown>): string {
 		) {
 			const retDate = params.ReturnPreferredDepartureTime || params.returnDate;
 			normalizedRequest.returnDate = normalizeDate(
-				new Date(retDate as string | number | Date)
+				new Date(retDate as string | number | Date),
 			);
 		}
 	}
@@ -241,7 +258,7 @@ export function generateCacheKeySync(params: Record<string, unknown>): string {
 					destination: (seg.Destination || seg.destination || "").toUpperCase(),
 					date: segmentDate ? normalizeDate(new Date(segmentDate)) : "",
 				};
-			}
+			},
 		);
 	} else if (
 		normalizedRequest.journeyType === "3" &&
@@ -256,17 +273,20 @@ export function generateCacheKeySync(params: Record<string, unknown>): string {
 				date: seg.departureDate
 					? normalizeDate(new Date(seg.departureDate))
 					: "",
-			})
+			}),
 		);
 	}
 
 	// Sort keys for deterministic ordering, then stringify
 	const sortedKeys = Object.keys(normalizedRequest).sort();
 	const normalizedString = JSON.stringify(
-		sortedKeys.reduce((acc, key) => {
-			acc[key] = normalizedRequest[key];
-			return acc;
-		}, {} as Record<string, unknown>)
+		sortedKeys.reduce(
+			(acc, key) => {
+				acc[key] = normalizedRequest[key];
+				return acc;
+			},
+			{} as Record<string, unknown>,
+		),
 	);
 
 	// Simple hash fallback (deterministic but not cryptographically secure)
@@ -365,7 +385,7 @@ export const flightCache = {
 					delete traceIdMap[cacheKey];
 					sessionStorage.setItem(
 						FLIGHT_TRACEID_MAP_KEY,
-						JSON.stringify(traceIdMap)
+						JSON.stringify(traceIdMap),
 					);
 				}
 			} catch (_e) {
@@ -388,7 +408,7 @@ export const flightCache = {
 			traceIdMap[cacheKey] = traceId;
 			sessionStorage.setItem(
 				FLIGHT_TRACEID_MAP_KEY,
-				JSON.stringify(traceIdMap)
+				JSON.stringify(traceIdMap),
 			);
 		} catch (e) {
 			console.warn("Failed to set traceId:", e);
