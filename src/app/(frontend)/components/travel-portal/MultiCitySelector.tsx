@@ -155,7 +155,7 @@ export default function MultiCitySelector({
 										modifiers={{
 											previousDepartureDay:
 												index > 0 && legs[index - 1]?.date
-													? [legs[index - 1].date]
+													? [legs[index - 1].date!]
 													: [],
 										}}
 										modifiersClassNames={{
