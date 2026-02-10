@@ -1,14 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-	Search,
-	User,
-	Menu,
-	X,
-	LogOut,
-	Settings,
-} from "lucide-react";
+import { Search, User, Menu, X, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { LiquidButton } from "@/components/ui/liquid-glass-button";
@@ -27,7 +20,7 @@ export default function Header() {
 	const { data: session, status } = useSession();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-	const [isScrolled, setIsScrolled] = useState(false);
+	const [_isScrolled, setIsScrolled] = useState(false);
 	const isAuthenticated = status === "authenticated";
 
 	// Debug: Log session data (remove in production)
@@ -76,18 +69,18 @@ export default function Header() {
 		},
 		{ name: "Travel Portal", href: "/travel-portal" },
 		{ name: "Shop", href: "#shop" },
-		{ name: "Contact Us", href: "#contact" },
+		{ name: "Contact Us", href: "/contact-us" },
 	];
 
 	return (
 		<>
 			{/* Main Navigation */}
 			<nav
-				className={`sticky top-0 z-50 transition-all duration-300 ${
-					isScrolled
-						? "bg-white/50 backdrop-blur-md shadow-lg"
-						: "bg-white shadow-md"
-				}`}
+				className="sticky top-0 z-50 transition-all duration-300 bg-white/70 backdrop-blur-1xl shadow-md border-b border-white/30"
+				style={{
+					backdropFilter: "blur(40px) saturate(180%)",
+					WebkitBackdropFilter: "blur(40px) saturate(180%)",
+				}}
 			>
 				<div className="container mx-auto px-4">
 					<div className="flex items-center justify-between h-20">

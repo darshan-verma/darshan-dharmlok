@@ -29,9 +29,15 @@ export default function Navbar() {
 	];
 
 	return (
-		<nav className="sticky top-0 z-40 transition-all duration-300">
+		<nav
+			className="sticky top-20 z-40 bg-white/70 backdrop-blur-xl border-b border-white/30 shadow-sm transition-all duration-300"
+			style={{
+				backdropFilter: "blur(24px) saturate(180%)",
+				WebkitBackdropFilter: "blur(24px) saturate(180%)",
+			}}
+		>
 			<div className="container mx-auto px-4">
-				<div className="flex items-center h-10">
+				<div className="flex items-center h-14">
 					<div className="flex items-center gap-2">
 						{menuItems.map((item) => {
 							const isActive = item.match(pathname);

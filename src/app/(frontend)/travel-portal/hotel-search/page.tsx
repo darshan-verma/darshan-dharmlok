@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import HotelSearchForm, {
 	HotelSearchData,
@@ -9,6 +9,7 @@ import HotelFilters, {
 	FilterState,
 } from "@/components/travel-portal/HotelFilters";
 import HotelCard from "@/components/travel-portal/HotelCard";
+import MinimalHotelSearch from "@/components/travel-portal/MinimalHotelSearch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
 	Select,
@@ -48,6 +49,10 @@ function HotelSearchContent() {
 	const [loadingDetails, setLoadingDetails] = useState<Set<string>>(new Set());
 	const hasLoadedCacheRef = React.useRef(false);
 
+	// Scroll state for sticky header
+	const [showMinimalHeader, setShowMinimalHeader] = useState(false);
+	const searchFormRef = useRef<HTMLDivElement>(null);
+
 	// Filter state
 	const [filters, setFilters] = useState<FilterState>({
 		priceRange: [0, 50000],
@@ -79,6 +84,30 @@ function HotelSearchContent() {
 		}
 		return null;
 	});
+
+	// Scroll detection for sticky minimal header
+	useEffect(() => {
+		const handleScroll = () => {
+			if (searchFormRef.current) {
+				const rect = searchFormRef.current.getBoundingClientRect();
+				// Show minimal header when search form is scrolled past (top is above viewport)
+				setShowMinimalHeader(rect.top < -50);
+			}
+		};
+
+		window.addEventListener("scroll", handleScroll, { passive: true });
+		handleScroll(); // Initial check
+
+		return () => window.removeEventListener("scroll", handleScroll);
+	}, []);
+
+	// Handler to scroll back to search form
+	const scrollToSearch = () => {
+		searchFormRef.current?.scrollIntoView({
+			behavior: "smooth",
+			block: "start",
+		});
+	};
 
 	// Helper function to format dates
 	const formatDate = (date: Date | string) => {
@@ -705,9 +734,28 @@ function HotelSearchContent() {
 	};
 
 	return (
-		<div className="min-h-screen bg-gray-50">
-			{/* Search Form */}
-			<div className="bg-white border-b sticky top-0 z-10 shadow-sm">
+		<div className="min-h-screen bg-gray-50 relative">
+			{/* Minimal Sticky Header - appears when scrolling, below navbar */}
+			<div
+				className={`fixed top-20 left-0 right-0 z-50 transition-all duration-300 ease-in-out ${
+					showMinimalHeader && searchData
+						? "translate-y-0 opacity-100"
+						: "-translate-y-full opacity-0 pointer-events-none"
+				}`}
+			>
+				<MinimalHotelSearch
+					location={searchData?.location || ""}
+					checkInDate={searchData?.checkIn}
+					checkOutDate={searchData?.checkOut}
+					rooms={searchData?.rooms || 1}
+					adults={searchData?.adults || 2}
+					childrenCount={searchData?.children || 0}
+					onModifySearch={scrollToSearch}
+				/>
+			</div>
+
+			{/* Search Form - Scrolls away naturally */}
+			<div ref={searchFormRef} className="bg-white border-b shadow-sm">
 				<div className="container mx-auto px-4 py-4">
 					<HotelSearchForm
 						initialValues={searchData || undefined}
@@ -720,7 +768,19 @@ function HotelSearchContent() {
 				<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
 					{/* Filters Sidebar */}
 					<aside className="lg:col-span-1">
-						<div className="sticky top-24">
+						<div
+							className={`transition-all duration-300 ${
+								showMinimalHeader
+									? "lg:sticky lg:top-[168px]"
+									: "lg:sticky lg:top-6"
+							}`}
+							style={{
+								maxHeight: showMinimalHeader
+									? "calc(100vh - 176px)"
+									: "calc(100vh - 32px)",
+								overflowY: "auto",
+							}}
+						>
 							<HotelFilters
 								filters={filters}
 								onFilterChange={setFilters}
@@ -964,7 +1024,7 @@ export default function HotelSearchPage() {
 			fallback={
 				<div className="min-h-screen bg-gray-50">
 					<div className="container mx-auto px-4 py-6">
-						<div className="bg-white border-b sticky top-0 z-10 shadow-sm">
+						<div className="bg-white border-b sticky top-[8.5rem] z-10 shadow-sm">
 							<div className="container mx-auto px-4 py-4">
 								<Skeleton className="h-32 w-full" />
 							</div>

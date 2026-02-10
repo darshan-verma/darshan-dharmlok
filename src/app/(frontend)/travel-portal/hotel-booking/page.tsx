@@ -81,7 +81,8 @@ function HotelBookingContent() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [roomData, setRoomData] = useState<RoomData | null>(null);
-	const [preBookResponse, setPreBookResponse] = useState<PreBookResponse | null>(null);
+	const [preBookResponse, setPreBookResponse] =
+		useState<PreBookResponse | null>(null);
 	const [hotelInfo, setHotelInfo] = useState<{
 		name: string;
 		address: string;
@@ -129,7 +130,7 @@ function HotelBookingContent() {
 						searchId: hotelCode || undefined,
 						resultIndex: bookingCode,
 					},
-				}
+				},
 			).catch(() => {
 				// Silently fail - don't block user flow
 			});
@@ -137,13 +138,15 @@ function HotelBookingContent() {
 
 		// Fetch hotel details first, then call PreBook
 		if (hotelCode) {
-			fetchHotelDetails().then(() => {
-				// Call PreBook after hotel details are fetched
-				callPreBook();
-			}).catch(() => {
-				// Even if hotel details fail, try to prebook
-				callPreBook();
-			});
+			fetchHotelDetails()
+				.then(() => {
+					// Call PreBook after hotel details are fetched
+					callPreBook();
+				})
+				.catch(() => {
+					// Even if hotel details fail, try to prebook
+					callPreBook();
+				});
 		} else {
 			// Call PreBook even without hotel code
 			callPreBook();
@@ -156,7 +159,7 @@ function HotelBookingContent() {
 
 		try {
 			const response = await fetch(
-				`/api/travel/hotel/details?hotelCode=${hotelCode}&language=EN&isRoomDetailRequired=false`
+				`/api/travel/hotel/details?hotelCode=${hotelCode}&language=EN&isRoomDetailRequired=false`,
 			);
 			const result = await response.json();
 
@@ -215,7 +218,7 @@ function HotelBookingContent() {
 			}
 
 			setPreBookResponse(result.data);
-			
+
 			// Capture snapshot after successful prebook (before payment)
 			if (result.data?.Status?.Code === 1 || result.success) {
 				await captureAndSendSnapshot(
@@ -239,12 +242,12 @@ function HotelBookingContent() {
 							searchId: hotelCode || undefined,
 							resultIndex: bookingCode || undefined,
 						},
-					}
+					},
 				).catch(() => {
 					// Silently fail - don't block user flow
 				});
 			}
-			
+
 			setIsLoading(false);
 		} catch (err) {
 			console.error("Error calling PreBook:", err);
@@ -253,9 +256,7 @@ function HotelBookingContent() {
 		}
 	};
 
-	const totalPrice = roomData
-		? roomData.totalFare + roomData.totalTax
-		: 0;
+	const totalPrice = roomData ? roomData.totalFare + roomData.totalTax : 0;
 
 	if (isLoading) {
 		return (
@@ -284,7 +285,7 @@ function HotelBookingContent() {
 	return (
 		<div className="min-h-screen bg-gray-50 pb-24">
 			{/* Header */}
-			<div className="bg-white border-b sticky top-0 z-10">
+			<div className="bg-white border-b sticky top-0 z-10 shadow-sm">
 				<div className="container mx-auto px-4 py-4">
 					<Button
 						variant="ghost"
@@ -294,14 +295,16 @@ function HotelBookingContent() {
 						<ChevronRight className="mr-2 h-4 w-4 rotate-180" />
 						Back
 					</Button>
-					<h1 className="text-2xl font-bold text-gray-900">Complete Your Booking</h1>
+					<h1 className="text-2xl font-bold text-gray-900">
+						Complete Your Booking
+					</h1>
 				</div>
 			</div>
 
 			<div className="container mx-auto px-4 py-6 max-w-7xl">
-				<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-					{/* Main Content */}
-					<div className="lg:col-span-2 space-y-6">
+				<div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative">
+					{/* Main Content - Left Column (8 columns) */}
+					<div className="lg:col-span-8 space-y-6">
 						{/* Hotel Info Card */}
 						<Card>
 							<CardContent className="p-6">
@@ -312,19 +315,22 @@ function HotelBookingContent() {
 										</h2>
 										{hotelInfo?.rating && (
 											<div className="flex items-center gap-1 mb-2">
-												{Array.from({ length: hotelInfo.rating }).map((_, i) => (
-													<Star
-														key={i}
-														className="w-4 h-4 fill-yellow-400 text-yellow-400"
-													/>
-												))}
+												{Array.from({ length: hotelInfo.rating }).map(
+													(_, i) => (
+														<Star
+															key={i}
+															className="w-4 h-4 fill-yellow-400 text-yellow-400"
+														/>
+													),
+												)}
 											</div>
 										)}
 										{hotelInfo?.address && (
 											<div className="flex items-center gap-1 text-sm text-gray-600 mb-1">
 												<MapPin className="w-4 h-4" />
 												<span>
-													{hotelInfo.address}, {hotelInfo.city}, {hotelInfo.country}
+													{hotelInfo.address}, {hotelInfo.city},{" "}
+													{hotelInfo.country}
 												</span>
 											</div>
 										)}
@@ -437,23 +443,24 @@ function HotelBookingContent() {
 								</div>
 
 								{/* Promotions */}
-								{roomData.roomPromotion && roomData.roomPromotion.length > 0 && (
-									<div>
-										<h4 className="text-sm font-medium text-gray-700 mb-2">
-											Promotions
-										</h4>
-										<div className="space-y-1">
-											{roomData.roomPromotion.map((promo, idx) => (
-												<div
-													key={idx}
-													className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded"
-												>
-													{promo}
-												</div>
-											))}
+								{roomData.roomPromotion &&
+									roomData.roomPromotion.length > 0 && (
+										<div>
+											<h4 className="text-sm font-medium text-gray-700 mb-2">
+												Promotions
+											</h4>
+											<div className="space-y-1">
+												{roomData.roomPromotion.map((promo, idx) => (
+													<div
+														key={idx}
+														className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded"
+													>
+														{promo}
+													</div>
+												))}
+											</div>
 										</div>
-									</div>
-								)}
+									)}
 							</CardContent>
 						</Card>
 
@@ -476,9 +483,9 @@ function HotelBookingContent() {
 						)}
 					</div>
 
-					{/* Sidebar - Price Summary */}
-					<div className="lg:col-span-1">
-						<div className="sticky top-24 space-y-4">
+					{/* Sidebar - Right Column (4 columns) - Sticky Price Summary */}
+					<div className="lg:col-span-4 h-full">
+						<div className="sticky top-20 space-y-4">
 							<Card>
 								<CardHeader>
 									<CardTitle>Price Summary</CardTitle>
@@ -524,6 +531,31 @@ function HotelBookingContent() {
 									</div>
 								</CardContent>
 							</Card>
+
+							{/* Booking Guarantee */}
+							<div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600 border border-gray-100">
+								<p className="flex items-center gap-2 mb-2 font-medium text-gray-900">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="16"
+										height="16"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										className="text-green-600"
+									>
+										<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+									</svg>
+									Best Price Guarantee
+								</p>
+								<p className="text-xs">
+									We guarantee the best prices for your hotel booking. Book with
+									confidence.
+								</p>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -539,7 +571,9 @@ function HotelBookingContent() {
 							</div>
 							<div className="text-xs text-gray-500">
 								{checkIn} - {checkOut} • {rooms} Room(s) • {adults} Adults
-								{children && parseInt(children) > 0 ? `, ${children} Children` : ""}
+								{children && parseInt(children) > 0
+									? `, ${children} Children`
+									: ""}
 							</div>
 						</div>
 						<div className="flex items-center gap-6">
