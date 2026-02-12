@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import DestinationCard from "../components/travel-portal/DestinationCard";
 import TravelBookingWrapper from "../components/travel-portal/TravelBookingWrapper";
+import Footer from "@/components/landing/Footer";
 import {
 	ArrowRight,
 	MapPin,
@@ -371,6 +372,7 @@ export default function TravelHomePage() {
 					</Link>
 				</div>
 			</section>
+			<Footer />
 		</div>
 	);
 }

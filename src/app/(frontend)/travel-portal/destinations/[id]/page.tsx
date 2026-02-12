@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import Footer from "@/components/landing/Footer";
 import {
 	MapPin,
 	IndianRupee,
@@ -87,7 +88,7 @@ export default function DestinationDetailPage() {
 				<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 					<Card className="p-12 text-center">
 						<div className="flex flex-col items-center justify-center">
-							<div className="text-6xl mb-4">😔</div>
+							<div className="text-6xl mb-4 text-muted-foreground">404</div>
 							<h3 className="text-xl font-semibold mb-2">
 								Destination Not Found
 							</h3>
@@ -103,6 +104,7 @@ export default function DestinationDetailPage() {
 						</div>
 					</Card>
 				</div>
+				<Footer />
 			</div>
 		);
 	}
@@ -292,6 +294,7 @@ export default function DestinationDetailPage() {
 					</div>
 				</div>
 			</div>
+			<Footer />
 		</div>
 	);
 }

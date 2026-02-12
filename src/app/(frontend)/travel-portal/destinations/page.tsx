@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import Footer from "@/components/landing/Footer";
 import { Search, Filter, X } from "lucide-react";
 import {
 	Select,
@@ -37,7 +38,7 @@ export default function DestinationsPage() {
 
 	// Get unique categories from destinations
 	const categories = Array.from(
-		new Set(destinations.map((dest) => dest.category))
+		new Set(destinations.map((dest) => dest.category)),
 	);
 
 	useEffect(() => {
@@ -62,7 +63,7 @@ export default function DestinationsPage() {
 		// Apply filters
 		if (locationFilter) {
 			filtered = filtered.filter((dest) =>
-				dest.location.toLowerCase().includes(locationFilter.toLowerCase())
+				dest.location.toLowerCase().includes(locationFilter.toLowerCase()),
 			);
 		}
 		if (categoryFilter && categoryFilter !== "all") {
@@ -210,7 +211,9 @@ export default function DestinationsPage() {
 				) : filteredDestinations.length === 0 ? (
 					<Card className="p-12 text-center">
 						<div className="flex flex-col items-center justify-center">
-							<div className="text-6xl mb-4">🏔️</div>
+							<div className="text-6xl mb-4 text-muted-foreground">
+								No Results
+							</div>
 							<h3 className="text-xl font-semibold mb-2">
 								No destinations found
 							</h3>
@@ -232,6 +235,7 @@ export default function DestinationsPage() {
 					</div>
 				)}
 			</div>
+			<Footer />
 		</div>
 	);
 }
