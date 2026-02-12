@@ -15,12 +15,14 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SearchDialog } from "@/components/shared/SearchDialog";
 
 export default function Header() {
 	const { data: session, status } = useSession();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 	const [_isScrolled, setIsScrolled] = useState(false);
+	const [isSearchOpen, setIsSearchOpen] = useState(false);
 	const isAuthenticated = status === "authenticated";
 
 	// Debug: Log session data (remove in production)
@@ -186,9 +188,14 @@ export default function Header() {
 
 						{/* Right Icons */}
 						<div className="flex items-center gap-4">
-							<button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-								<Search className="w-5 h-5 text-gray-700" />
-							</button>
+							<SearchDialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+								<button
+									className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+									aria-label="Search"
+								>
+									<Search className="w-5 h-5 text-gray-700" />
+								</button>
+							</SearchDialog>
 							{isAuthenticated ? (
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
