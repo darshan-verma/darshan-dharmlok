@@ -62,6 +62,10 @@ function HotelSearchContent() {
 	});
 
 	// Search parameters from URL
+	const [specificHotelCode, setSpecificHotelCode] = useState<string | null>(
+		searchParams.get("hotelCode"),
+	);
+
 	const [searchData, setSearchData] = useState<HotelSearchData | null>(() => {
 		const location = searchParams.get("location");
 		const locationCode = searchParams.get("locationCode");
@@ -603,6 +607,9 @@ function HotelSearchContent() {
 		console.log("🔍 handleSearch called with:", data);
 		setSearchData(data);
 
+		// Clear specific hotel filter when doing a new search
+		setSpecificHotelCode(null);
+
 		// Clear cache for this specific search to force fresh results
 		const cacheKey = await generateCacheKey({
 			cityCode: data.cityCode,
@@ -634,7 +641,17 @@ function HotelSearchContent() {
 	useEffect(() => {
 		if (!searchResults?.HotelResult) return;
 
-		const results = [...searchResults.HotelResult];
+		let results = [...searchResults.HotelResult];
+
+		// Filter by specific hotel if hotelCode is provided
+		if (specificHotelCode) {
+			results = results.filter(
+				(hotel: HotelResult) => String(hotel.HotelCode) === specificHotelCode,
+			);
+			console.log(
+				`🎯 Filtering for specific hotel: ${specificHotelCode}, found ${results.length} rooms`,
+			);
+		}
 
 		// Group hotels by hotel code (each hotel should appear only once)
 		const hotelMap = new Map<string, HotelResult>();
@@ -709,7 +726,7 @@ function HotelSearchContent() {
 		});
 
 		setFilteredResults(groupedResults);
-	}, [searchResults, filters, sortBy]);
+	}, [searchResults, filters, sortBy, specificHotelCode]);
 
 	// Handle booking - navigate to hotel details page with search params
 	const handleBook = (hotelCode: string) => {

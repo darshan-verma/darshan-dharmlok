@@ -398,7 +398,7 @@ export default function FlightSearch() {
 						reverseTripTypeMapping[lastSearchParams.journeyType] || "one-way",
 					);
 					prevTripTypeRef.current =
-						reverseTripTypeMapping[lastSearchParams.journeyType] || "one-way";
+						reverseTripTypeMapping[lastSearchParams.journeyType] || "one-way" ;
 				}
 				if (lastSearchParams.cabinClass) {
 					form.setValue("cabinClass", lastSearchParams.cabinClass);

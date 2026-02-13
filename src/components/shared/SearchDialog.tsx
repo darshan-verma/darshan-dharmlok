@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Search, ArrowRight, X } from "lucide-react";
+import { Search, ArrowRight, X, Hotel, MapPin } from "lucide-react";
 import {
 	Popover,
 	PopoverContent,
@@ -19,6 +19,26 @@ interface SearchDialogProps {
 	children?: React.ReactNode;
 }
 
+interface HotelResult {
+	id: string;
+	type: "hotel" | "city";
+	name: string;
+	countryCode: string;
+	cityCode?: string;
+	hotelCode?: string;
+}
+
+type SearchResult = {
+	title: string;
+	description: string;
+	href: string;
+	category: string;
+	keywords?: string[];
+	resultType?: "page" | "hotel" | "city";
+	hotelCode?: string;
+	cityCode?: string;
+};
+
 export function SearchDialog({
 	open,
 	onOpenChange,
@@ -26,6 +46,7 @@ export function SearchDialog({
 }: SearchDialogProps) {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedCategory, setSelectedCategory] = useState("All");
+	const [hotelResults, setHotelResults] = useState<HotelResult[]>([]);
 	const router = useRouter();
 
 	// Configure Fuse.js for fuzzy search
@@ -46,30 +67,127 @@ export function SearchDialog({
 		[],
 	);
 
-	// Perform fuzzy search
+	// Search hotels from database
+	useEffect(() => {
+		if (!searchQuery.trim() || searchQuery.length < 2) {
+			setHotelResults([]);
+			return;
+		}
+
+		// Only search hotels if "All" or "Travel" category is selected
+		if (selectedCategory !== "All" && selectedCategory !== "Travel") {
+			setHotelResults([]);
+			return;
+		}
+
+		const searchHotels = async () => {
+			try {
+				const response = await fetch(
+					`/api/travel/hotel-search?q=${encodeURIComponent(searchQuery)}&limit=5&type=hotel`,
+				);
+				const data = await response.json();
+				if (data.success && data.results) {
+					setHotelResults(data.results);
+				} else {
+					setHotelResults([]);
+				}
+			} catch (error) {
+				console.error("Error searching hotels:", error);
+				setHotelResults([]);
+			}
+		};
+
+		const debounceTimer = setTimeout(searchHotels, 300);
+		return () => clearTimeout(debounceTimer);
+	}, [searchQuery, selectedCategory]);
+
+	// Perform fuzzy search and merge with hotel results
 	const searchResults = useMemo(() => {
+		let pageResults: SearchResult[] = [];
+
 		if (!searchQuery.trim()) {
 			// If no search query, show all pages filtered by category
-			const filtered =
+			pageResults =
 				selectedCategory === "All"
 					? searchablePages
 					: searchablePages.filter(
 							(page) => page.category === selectedCategory,
 						);
-			return filtered;
+		} else {
+			// Perform fuzzy search on pages
+			const results = fuse.search(searchQuery);
+			pageResults = results.map((result) => ({
+				...result.item,
+				resultType: "page" as const,
+			}));
+
+			// Filter by category if not "All"
+			if (selectedCategory !== "All") {
+				pageResults = pageResults.filter(
+					(page) => page.category === selectedCategory,
+				);
+			}
 		}
 
-		// Perform fuzzy search
-		const results = fuse.search(searchQuery);
-		const pages = results.map((result) => result.item);
+		// Add hotel results if applicable
+		if (
+			searchQuery.trim() &&
+			(selectedCategory === "All" || selectedCategory === "Travel")
+		) {
+			// Generate default dates: tomorrow for check-in, day after tomorrow for check-out
+			const tomorrow = new Date();
+			tomorrow.setDate(tomorrow.getDate() + 1);
+			const dayAfterTomorrow = new Date();
+			dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
 
-		// Filter by category if not "All"
-		if (selectedCategory !== "All") {
-			return pages.filter((page) => page.category === selectedCategory);
+			const formatDate = (date: Date) => {
+				const year = date.getFullYear();
+				const month = String(date.getMonth() + 1).padStart(2, "0");
+				const day = String(date.getDate()).padStart(2, "0");
+				return `${year}-${month}-${day}`;
+			};
+
+			const checkInDate = formatDate(tomorrow);
+			const checkOutDate = formatDate(dayAfterTomorrow);
+
+			const hotelSearchResults: SearchResult[] = hotelResults.map((hotel) => {
+				// Always use cityCode as the locationCode, even for hotels
+				// since the search page fetches all hotels in a city
+				const locationCode = hotel.cityCode || hotel.hotelCode || "";
+
+				const params = new URLSearchParams({
+					location: hotel.name,
+					locationCode: locationCode,
+					checkIn: checkInDate,
+					checkOut: checkOutDate,
+					rooms: "1",
+					adults: "1",
+					children: "0",
+				});
+
+				// Add hotelCode if it's a specific hotel search
+				if (hotel.type === "hotel" && hotel.hotelCode) {
+					params.set("hotelCode", hotel.hotelCode);
+				}
+
+				return {
+					title: hotel.name,
+					description:
+						hotel.type === "hotel"
+							? "Hotel - Book now"
+							: `${hotel.type === "city" ? "City" : "Location"} - View hotels`,
+					href: `/travel-portal/hotel-search?${params.toString()}`,
+					category: "Travel",
+					resultType: hotel.type === "hotel" ? "hotel" : "city",
+					hotelCode: hotel.hotelCode,
+					cityCode: hotel.cityCode,
+				};
+			});
+			pageResults = [...hotelSearchResults, ...pageResults];
 		}
 
-		return pages;
-	}, [searchQuery, selectedCategory, fuse]);
+		return pageResults;
+	}, [searchQuery, selectedCategory, fuse, hotelResults]);
 
 	// Reset search when dialog closes
 	useEffect(() => {
@@ -115,7 +233,7 @@ export function SearchDialog({
 						<Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
 						<Input
 							type="text"
-							placeholder="Search pages..."
+							placeholder="Search pages, hotels, cities..."
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
 							className="border-0 focus-visible:ring-0 text-sm px-0 h-auto py-0 bg-transparent"
@@ -164,33 +282,56 @@ export function SearchDialog({
 						</div>
 					) : (
 						<div className="space-y-1.5">
-							{searchResults.map((page, index) => (
-								<button
-									key={`${page.href}-${index}`}
-									onClick={() => handleNavigate(page.href)}
-									className="w-full text-left p-3 rounded-lg hover:bg-white/50 transition-colors group border border-transparent hover:border-orange-200/50"
-								>
-									<div className="flex items-start justify-between gap-3">
-										<div className="flex-1 min-w-0">
-											<div className="flex items-center gap-2 mb-0.5">
-												<h3 className="font-semibold text-sm text-gray-900 group-hover:text-orange-600 transition-colors">
-													{page.title}
-												</h3>
-												<Badge
-													variant="secondary"
-													className="text-[10px] px-1.5 py-0"
-												>
-													{page.category}
-												</Badge>
+							{searchResults.map((page, index) => {
+								const isHotel = page.resultType === "hotel";
+								const isCity = page.resultType === "city";
+								const Icon = isHotel ? Hotel : isCity ? MapPin : null;
+
+								return (
+									<button
+										key={`${page.href}-${index}`}
+										onClick={() => handleNavigate(page.href)}
+										className="w-full text-left p-3 rounded-lg hover:bg-white/50 transition-colors group border border-transparent hover:border-orange-200/50"
+									>
+										<div className="flex items-start justify-between gap-3">
+											<div className="flex items-start gap-2 flex-1 min-w-0">
+												{Icon && (
+													<Icon className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+												)}
+												<div className="flex-1 min-w-0">
+													<div className="flex items-center gap-2 mb-0.5">
+														<h3 className="font-semibold text-sm text-gray-900 group-hover:text-orange-600 transition-colors truncate">
+															{page.title}
+														</h3>
+														<Badge
+															variant={
+																isHotel || isCity ? "default" : "secondary"
+															}
+															className={`text-[10px] px-1.5 py-0 flex-shrink-0 ${
+																isHotel
+																	? "bg-orange-500 hover:bg-orange-600 text-white"
+																	: isCity
+																		? "bg-blue-500 hover:bg-blue-600 text-white"
+																		: ""
+															}`}
+														>
+															{isHotel
+																? "Hotel"
+																: isCity
+																	? "City"
+																	: page.category}
+														</Badge>
+													</div>
+													<p className="text-xs text-gray-600 line-clamp-1">
+														{page.description}
+													</p>
+												</div>
 											</div>
-											<p className="text-xs text-gray-600 line-clamp-1">
-												{page.description}
-											</p>
+											<ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-orange-500 transition-colors flex-shrink-0 mt-0.5" />
 										</div>
-										<ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-orange-500 transition-colors flex-shrink-0 mt-0.5" />
-									</div>
-								</button>
-							))}
+									</button>
+								);
+							})}
 						</div>
 					)}
 				</div>

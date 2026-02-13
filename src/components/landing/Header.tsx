@@ -70,7 +70,7 @@ export default function Header() {
 			viewAllLink: { name: "View All", href: "/services" },
 		},
 		{ name: "Travel Portal", href: "/travel-portal" },
-		{ name: "Shop", href: "#shop" },
+		{ name: "Shop", href: "/e-shop" },
 		{ name: "Contact Us", href: "/contact-us" },
 	];
 
