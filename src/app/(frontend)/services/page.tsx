@@ -38,6 +38,12 @@ const SERVICES = [
     href: "/events",
   },
   {
+    name: "Live Streams",
+    description: "Watch ongoing live spiritual sessions and connect with creators in real time.",
+    image: "/services/events.jpg",
+    href: "/live-streams",
+  },
+  {
     name: "Yoga",
     description: "Book free and paid yoga sessions with certified instructors.",
     image: "/services/yoga.jpg",

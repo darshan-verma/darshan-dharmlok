@@ -3,13 +3,16 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { hasRequiredRole } from "@/app/dashboard/components/user-role";
 
 export default function RouteProtection({
 	children,
 	requiredRole,
+	requiredRoles,
 }: {
 	children: React.ReactNode;
 	requiredRole?: string;
+	requiredRoles?: string[];
 }) {
 	const { data: session, status } = useSession();
 	const router = useRouter();
@@ -26,12 +29,10 @@ export default function RouteProtection({
 			return;
 		}
 
-		const userRole = session?.user?.role?.toLowerCase();
-		const required = requiredRole?.toLowerCase();
-		// Allow if user is admin or matches requiredRole
-		if (required && userRole !== required && userRole !== "admin") {
+		const required = requiredRoles || (requiredRole ? [requiredRole] : undefined);
+		if (!hasRequiredRole(session?.user?.role, required)) {
 			console.log(
-				`Role mismatch: Required ${requiredRole}, but user has ${session?.user?.role}`
+				`Role mismatch: Required ${required?.join(", ")}, but user has ${session?.user?.role}`
 			);
 			router.push("/unauthorized");
 			return;
@@ -39,7 +40,7 @@ export default function RouteProtection({
 
 		// If we reach here, the user is authorized
 		setIsAuthorized(true);
-	}, [session, status, requiredRole, router]);
+	}, [session, status, requiredRole, requiredRoles, router]);
 
 	// Show loading while checking auth
 	if (status === "loading") {

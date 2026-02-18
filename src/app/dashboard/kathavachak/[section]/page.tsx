@@ -12,6 +12,7 @@ import PhotoGallery from "../../components/photo-gallery";
 import { useEffect, useState } from "react";
 import KathavachakDashboard from "../../components/kathavachak-dashboard";
 import { SidebarInset } from "@/components/ui/sidebar";
+import LiveStudio from "../../components/live-studio";
 
 const LoadingState = ({ message }: { message: string }) => (
 	<div className="flex flex-col justify-center items-center h-[calc(100vh-200px)]">
@@ -77,6 +78,8 @@ export default function KathavachakSectionPage() {
 		);
 	} else if (section === "photos") {
 		content = <PhotoGallery userId={session.user.id} editable={true} />;
+	} else if (section === "go-live") {
+		content = <LiveStudio roleLabel="Kathavachak" />;
 	} else {
 		content = (
 			<div className="text-center mt-8">

@@ -50,6 +50,14 @@ export default function UserSignInPage() {
 				router.replace("/dashboard/panditji");
 			} else if (role === "seller") {
 				router.replace("/dashboard/seller");
+			} else if (role === "yoga" || role === "trainer" || role === "yoga-trainer") {
+				router.replace("/dashboard/yoga/go-live");
+			} else if (
+				role === "motivationalspeaker" ||
+				role === "motivational-speaker" ||
+				role === "motivation-speaker"
+			) {
+				router.replace("/dashboard/motivational-speaker/go-live");
 			} else {
 				// Regular user - redirect to home
 				router.replace("/");

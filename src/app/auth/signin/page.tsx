@@ -80,6 +80,14 @@ export default function SignInPage() {
 					router.replace("/dashboard/panditji");
 				} else if (role === "seller") {
 					router.replace("/dashboard/seller");
+				} else if (role === "yoga" || role === "trainer" || role === "yoga-trainer") {
+					router.replace("/dashboard/yoga/go-live");
+				} else if (
+					role === "motivationalspeaker" ||
+					role === "motivational-speaker" ||
+					role === "motivation-speaker"
+				) {
+					router.replace("/dashboard/motivational-speaker/go-live");
 				} else {
 					router.replace("/dashboard");
 				}

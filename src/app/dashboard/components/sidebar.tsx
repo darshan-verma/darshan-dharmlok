@@ -34,6 +34,7 @@ import {
 	Video,
 	Image as ImageIcon,
 } from "lucide-react";
+import { canonicalRole } from "@/app/dashboard/components/user-role";
 
 interface MenuItem {
 	label: string;
@@ -46,12 +47,22 @@ interface MenuItem {
 type UserType =
 	| "kathavachak"
 	| "dharmguru"
+	| "yoga"
+	| "motivational-speaker"
 	| "seller"
 	| "panditji"
 	| "hotel_dharamshala_vendor"; // Add more as needed
 
 // Helper to generate menu items for a user type
 function generateMenuItems(userType: UserType): MenuItem[] {
+	if (userType === "yoga" || userType === "motivational-speaker") {
+		const prefix = `/dashboard/${userType}`;
+		return [
+			{ label: "Dashboard", href: `${prefix}`, icon: UserCircle2 },
+			{ label: "Go Live", href: `${prefix}/go-live`, icon: Cast },
+		];
+	}
+
 	if (userType === "seller") {
 		const prefix = `/dashboard/seller`;
 		return [
@@ -197,6 +208,8 @@ function generateMenuItems(userType: UserType): MenuItem[] {
 const menuConfig: Record<UserType, MenuItem[]> = {
 	kathavachak: generateMenuItems("kathavachak"),
 	dharmguru: generateMenuItems("dharmguru"),
+	yoga: generateMenuItems("yoga"),
+	"motivational-speaker": generateMenuItems("motivational-speaker"),
 	seller: generateMenuItems("seller"),
 	panditji: generateMenuItems("panditji"),
 	hotel_dharamshala_vendor: generateMenuItems("hotel_dharamshala_vendor"),
@@ -208,6 +221,8 @@ function isUserType(type: string | undefined): type is UserType {
 	return [
 		"kathavachak",
 		"dharmguru",
+		"yoga",
+		"motivational-speaker",
 		"seller",
 		"panditji",
 		"hotel_dharamshala_vendor",
@@ -222,7 +237,9 @@ export default function DashboardSidebar({
 	className?: string;
 }) {
 	const pathname = usePathname();
-	const validUserType = userType && isUserType(userType) ? userType : undefined;
+	const normalizedType = canonicalRole(userType);
+	const validUserType =
+		normalizedType && isUserType(normalizedType) ? normalizedType : undefined;
 	const menuItems = validUserType ? menuConfig[validUserType] : [];
 
 	const handleLogout = async () => {

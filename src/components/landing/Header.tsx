@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, User, Menu, X, LogOut, Settings } from "lucide-react";
+import { Search, User, Menu, X, LogOut, Settings, Bell } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { LiquidButton } from "@/components/ui/liquid-glass-button";
@@ -23,6 +23,15 @@ export default function Header() {
 	const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 	const [_isScrolled, setIsScrolled] = useState(false);
 	const [isSearchOpen, setIsSearchOpen] = useState(false);
+	const [liveNotifications, setLiveNotifications] = useState<
+		Array<{
+			id: string;
+			type: "created" | "live";
+			message: string;
+			broadcastId: string;
+			createdAt: string;
+		}>
+	>([]);
 	const isAuthenticated = status === "authenticated";
 
 	// Debug: Log session data (remove in production)
@@ -47,6 +56,25 @@ export default function Header() {
 		return () => window.removeEventListener("scroll", handleScroll);
 	}, []);
 
+	useEffect(() => {
+		const fetchLiveNotifications = async () => {
+			try {
+				const res = await fetch("/api/live/notifications?limit=8", {
+					cache: "no-store",
+				});
+				const data = await res.json();
+				if (!res.ok) return;
+				setLiveNotifications(Array.isArray(data.notifications) ? data.notifications : []);
+			} catch {
+				// Silent fail for header-only enhancement.
+			}
+		};
+
+		fetchLiveNotifications();
+		const interval = setInterval(fetchLiveNotifications, 20000);
+		return () => clearInterval(interval);
+	}, []);
+
 	const menuItems = [
 		{ name: "Home", href: "/", active: true },
 		{
@@ -61,6 +89,7 @@ export default function Header() {
 			rightColumn: [
 				{ name: "Book Pooja", href: "/book-pooja" },
 				{ name: "Book Yoga Session", href: "/book-yoga" },
+				{ name: "Live Streams", href: "/live-streams" },
 				{ name: "E-Books", href: "/e-book" },
 				{ name: "Events", href: "/events" },
 				{ name: "Dharmshala", href: "/dharmshala" },
@@ -196,6 +225,50 @@ export default function Header() {
 									<Search className="w-5 h-5 text-gray-700" />
 								</button>
 							</SearchDialog>
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<button
+										className="relative p-2 hover:bg-gray-100 rounded-full transition-colors"
+										aria-label="Live notifications"
+									>
+										<Bell className="w-5 h-5 text-gray-700" />
+										{liveNotifications.length > 0 && (
+											<span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center">
+												{Math.min(liveNotifications.length, 9)}
+											</span>
+										)}
+									</button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end" className="w-80">
+									<DropdownMenuLabel>Live Notifications</DropdownMenuLabel>
+									<DropdownMenuSeparator />
+									{liveNotifications.length === 0 ? (
+										<div className="px-2 py-3 text-sm text-muted-foreground">
+											No live notifications yet.
+										</div>
+									) : (
+										liveNotifications.map((item) => (
+											<DropdownMenuItem key={item.id} asChild>
+												<Link
+													href="/live-streams"
+													className="flex flex-col items-start gap-1 py-2"
+												>
+													<span className="text-xs uppercase text-red-600 font-medium">
+														{item.type === "live" ? "Live Now" : "Scheduled"}
+													</span>
+													<span className="text-sm leading-snug">{item.message}</span>
+												</Link>
+											</DropdownMenuItem>
+										))
+									)}
+									<DropdownMenuSeparator />
+									<DropdownMenuItem asChild>
+										<Link href="/live-streams" className="cursor-pointer text-orange-600">
+											View all live streams
+										</Link>
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
 							{isAuthenticated ? (
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
@@ -252,9 +325,12 @@ export default function Header() {
 									</DropdownMenuContent>
 								</DropdownMenu>
 							) : (
-								<button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+								<Link
+									href="/auth/user/signin"
+									className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+								>
 									<User className="w-5 h-5 text-gray-700" />
-								</button>
+								</Link>
 							)}
 							<button
 								className="lg:hidden p-2 hover:bg-gray-100 rounded-full transition-colors"
