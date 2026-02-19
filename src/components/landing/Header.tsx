@@ -154,7 +154,13 @@ export default function Header() {
 									</Link>
 									{item.megaMenu && activeDropdown === item.name && (
 										<div className="absolute top-full left-0 pt-2 w-96 z-50">
-											<div className="bg-white/40 backdrop-blur-xl shadow-2xl rounded-2xl py-4 animate-in fade-in slide-in-from-top-2 border border-white/30">
+											<div
+												className="bg-white/90 backdrop-blur-2xl shadow-2xl rounded-2xl py-4 animate-in fade-in slide-in-from-top-2 border border-white/40"
+												style={{
+													backdropFilter: "blur(24px) saturate(180%)",
+													WebkitBackdropFilter: "blur(24px) saturate(180%)",
+												}}
+											>
 												<div className="flex gap-6 px-4">
 													{/* Left Column - Spiritual Guides */}
 													<div className="flex-1">

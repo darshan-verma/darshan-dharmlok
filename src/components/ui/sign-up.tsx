@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle, us
 // Importing class-variance-authority for the built-in button component
 import { cva, type VariantProps } from "class-variance-authority";
 // Importing icons from lucide-react
-import { ArrowRight, Mail, Gem, Lock, Eye, EyeOff, ArrowLeft, X, AlertCircle, PartyPopper, Loader } from "lucide-react";
+import { ArrowRight, Mail, Gem, Lock, Eye, EyeOff, ArrowLeft, X, AlertCircle, Loader } from "lucide-react";
 // Importing animation components from framer-motion
 import { AnimatePresence, motion, useInView, Variants, Transition } from "framer-motion";
 
@@ -69,6 +69,38 @@ export function TextLoop({ children, className, interval = 2, transition = { dur
         </motion.div>
       </AnimatePresence>
     </div>
+  );
+}
+
+// --- HINDI QUOTE LOADING FRAME ---
+export function HindiQuoteLoadingFrame({ lines = ["कर्म करो, फल की चिंता मत करो।", "— भगवद् गीता"] }: { lines?: string[] }) {
+  const motionVariants: Variants = {
+    animate: { scale: [0.995, 1, 0.998], opacity: [0, 1, 1] },
+    exit: { opacity: 0, scale: 0.98 },
+  };
+
+  return (
+    <motion.div initial="hidden" animate="animate" exit="exit" variants={motionVariants} transition={{ duration: 2, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" }} className="w-full">
+      <div className="mx-auto w-full max-w-xs p-4 rounded-xl border-4 border-yellow-600 bg-gradient-to-br from-yellow-50 via-white to-yellow-100 shadow-lg">
+        <div className="flex items-center justify-center mb-2">
+          <svg width="48" height="24" viewBox="0 0 48 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-90">
+            <path d="M24 0C18 8 12 12 0 12c12 0 18 4 24 12 6-8 12-12 24-12-12 0-18-4-24-12z" fill="#F59E0B" opacity="0.12"/>
+          </svg>
+        </div>
+        <div className="text-center">
+          <TextLoop interval={3}>
+            {lines.map((line, i) => (
+              <div key={i} className="px-2">
+                <p className="text-center font-serif text-lg sm:text-xl text-yellow-900">{line}</p>
+              </div>
+            ))}
+          </TextLoop>
+          <div className="mt-3">
+            <div className="h-0.5 bg-yellow-200 rounded-full mx-auto w-2/3"></div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -180,8 +212,7 @@ const GitHubIcon = (props: React.SVGProps<SVGSVGElement>) => ( <svg {...props} x
 const modalSteps = [
     { message: "Signing you up...", icon: <Loader className="w-12 h-12 text-primary animate-spin" /> },
     { message: "Onboarding you...", icon: <Loader className="w-12 h-12 text-primary animate-spin" /> },
-    { message: "Finalizing...", icon: <Loader className="w-12 h-12 text-primary animate-spin" /> },
-    { message: "Welcome Aboard!", icon: <PartyPopper className="w-12 h-12 text-green-500" /> }
+    { message: "Finalizing...", icon: <Loader className="w-12 h-12 text-primary animate-spin" /> }
 ];
 const TEXT_LOOP_INTERVAL = 1.5;
 
@@ -310,36 +341,28 @@ useEffect(() => {
 useEffect(() => {
     if (modalStatus === 'success') {
         fireSideCanons();
+        // Auto-close success modal quickly (no "Welcome Aboard" card)
+        const t = setTimeout(() => {
+            closeModal();
+        }, 800);
+        return () => clearTimeout(t);
     }
 }, [modalStatus]);
   
   const Modal = () => (
     <AnimatePresence>
-        {modalStatus !== 'closed' && (
+        {(modalStatus === 'loading' || modalStatus === 'error') && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                 <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative bg-card/80 border-4 border-border rounded-2xl p-8 w-full max-w-sm flex flex-col items-center gap-4 mx-2">
-                    {(modalStatus === 'error' || modalStatus === 'success') && <button onClick={closeModal} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground transition-colors"><X className="w-5 h-5" /></button>}
-                    {modalStatus === 'error' && <>
-                        <AlertCircle className="w-12 h-12 text-destructive" />
-                        <p className="text-lg font-medium text-foreground">{modalErrorMessage}</p>
-                        <GlassButton onClick={closeModal} size="sm" className="mt-4">Try Again</GlassButton>
-                    </>}
-                    {modalStatus === 'loading' && 
-                        <TextLoop interval={TEXT_LOOP_INTERVAL} stopOnEnd={true}>
-                            {modalSteps.slice(0, -1).map((step, i) => 
-                                <div key={i} className="flex flex-col items-center gap-4">
-                                    {step.icon}
-                                    <p className="text-lg font-medium text-foreground">{step.message}</p>
-                                </div>
-                            )}
-                        </TextLoop>
-                    }
-                    {modalStatus === 'success' &&
-                        <div className="flex flex-col items-center gap-4">
-                            {modalSteps[modalSteps.length - 1].icon}
-                            <p className="text-lg font-medium text-foreground">{modalSteps[modalSteps.length - 1].message}</p>
-                        </div>
-                    }
+                    {modalStatus === 'error' && (
+                        <>
+                            <button onClick={closeModal} className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground transition-colors"><X className="w-5 h-5" /></button>
+                            <AlertCircle className="w-12 h-12 text-destructive" />
+                            <p className="text-lg font-medium text-foreground">{modalErrorMessage}</p>
+                            <GlassButton onClick={closeModal} size="sm" className="mt-4">Try Again</GlassButton>
+                        </>
+                    )}
+                    {modalStatus === 'loading' && <HindiQuoteLoadingFrame />}
                 </motion.div>
             </motion.div>
         )}

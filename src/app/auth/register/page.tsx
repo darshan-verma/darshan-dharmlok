@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import Image from "next/image";
+import { HindiQuoteLoadingFrame } from "@/components/ui/sign-up";
 
 export default function RegisterPage() {
 	const router = useRouter();
@@ -401,6 +402,11 @@ export default function RegisterPage() {
 					</button>
 				</div>
 			</form>
+			{isLoading && (
+				<div className="mt-6 flex justify-center">
+					<HindiQuoteLoadingFrame lines={["यह भी गुजर जाएगा।", "— एक शाश्वत सत्य"]} />
+				</div>
+			)}
 			<div className="mt-6">
 				<div className="relative">
 					<div className="absolute inset-0 flex items-center">
