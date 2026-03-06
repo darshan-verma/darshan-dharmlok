@@ -2,27 +2,32 @@
 
 import { BookOpen, User, Calendar, Activity } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 const services = [
   {
     icon: BookOpen,
     title: "Book Pooja",
     description: "Book authentic pooja services with verified Panditji for all occasions",
+    href: "/book-pooja",
   },
   {
     icon: User,
     title: "Book kathavachak",
     description: "Connect with experienced Kathavachaks for spiritual discourses and guidance",
+    href: "/kathavachak",
   },
   {
     icon: Calendar,
     title: "Events",
     description: "Discover and participate in spiritual events and religious ceremonies",
+    href: "/events",
   },
   {
     icon: Activity,
     title: "Yoga",
     description: "Join yoga sessions and meditation classes for spiritual wellness",
+    href: "/book-yoga",
   },
 ];
 
@@ -92,13 +97,13 @@ export default function OurServices({
                       <p className="text-gray-600 text-sm mb-4">
                         {service.description}
                       </p>
-                      <a
-                        href="#"
+                      <Link
+                        href={service.href}
                         className="text-orange-500 font-semibold hover:text-orange-600 transition-colors inline-flex items-center gap-2 group-hover:gap-3"
                       >
                         Read More
                         <span>→</span>
-                      </a>
+                      </Link>
                     </div>
                   </div>
                 </div>

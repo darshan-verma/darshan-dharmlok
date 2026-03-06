@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-
-// Helper to validate MongoDB ObjectId
-function isValidObjectId(id: string) {
-	return /^[a-f\d]{24}$/i.test(id);
-}
+import { authOptions } from "@/lib/auth";
 
 // GET: Get all comments for a post
 export async function GET(
@@ -18,10 +15,6 @@ export async function GET(
 			include: { user: true },
 			orderBy: { createdAt: "desc" },
 		});
-		console.log(
-			`[GET /api/posts/${postId}/comments] Returning comments:`,
-			comments
-		);
 		return NextResponse.json({ comments });
 	} catch (error) {
 		console.error("[GET /api/posts/[id]/comments] Error:", error);
@@ -35,42 +28,36 @@ export async function GET(
 	}
 }
 
-// POST: Add a comment to a post
+// POST: Add a comment to a post (userId from session)
 export async function POST(
 	request: NextRequest,
 	context: { params: Promise<{ id: string }> }
 ) {
+	const session = await getServerSession(authOptions);
+	if (!session?.user?.id) {
+		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+	}
 	const { id: postId } = await context.params;
 	try {
-		const { userId, text } = await request.json();
-		if (!userId || !text)
+		const { text } = await request.json();
+		if (!text || typeof text !== "string") {
 			return NextResponse.json(
-				{ error: "Missing userId or text" },
+				{ error: "Missing or invalid text" },
 				{ status: 400 }
 			);
-		if (!isValidObjectId(userId))
-			return NextResponse.json(
-				{ error: "Invalid userId format" },
-				{ status: 400 }
-			);
-
-		// Check if post exists before creating comment
+		}
 		const post = await prisma.post.findUnique({ where: { id: postId } });
-		if (!post)
+		if (!post) {
 			return NextResponse.json({ error: "Post not found" }, { status: 404 });
-
+		}
 		const comment = await prisma.comment.create({
 			data: {
 				text,
-				userId,
+				userId: session.user.id,
 				postId,
 			},
 			include: { user: true },
 		});
-		console.log(
-			`[POST /api/posts/${postId}/comments] Created comment:`,
-			comment
-		);
 		return NextResponse.json({ comment });
 	} catch (error) {
 		console.error("[POST /api/posts/[id]/comments] Error:", error);

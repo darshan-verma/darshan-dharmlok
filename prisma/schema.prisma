@@ -45,6 +45,9 @@ model User {
     comments Comment[]
     products Product[] @relation("UserProducts")
 
+    // Chat: messages sent by this user
+    chatMessages ChatMessage[]
+
     // Relations for live-session features
     liveSessions LiveSession[]            // sessions where this user is instructor
     sessionParticipants SessionParticipant[]
@@ -546,7 +549,7 @@ model Event {
 model Post {
     id        String   @id @default(auto()) @map("_id") @db.ObjectId
     userType  String
-    caption   String
+    caption   String?  // optional for image-only or video-only posts
     likes     String[] @db.ObjectId // Array of userIds who liked the post
     comments  Comment[] // Relation to comments on this post
     createdAt DateTime @default(now())
@@ -576,6 +579,39 @@ model Media {
     postId String @db.ObjectId
 
     @@index([postId])
+}
+
+// Chat: 1:1 and group conversations (separate from post comments)
+model ChatRoom {
+    id             String   @id @default(auto()) @map("_id") @db.ObjectId
+    type           String   // "direct" | "group"
+    name           String?  // optional, for groups
+    imageUrl       String?  // optional, for groups
+    createdById    String?  @db.ObjectId
+    adminIds       String[] @db.ObjectId @default([])
+    participantIds String[] @db.ObjectId
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+    messages       ChatMessage[]
+
+    @@index([participantIds])
+    @@index([updatedAt])
+}
+
+model ChatMessage {
+    id         String   @id @default(auto()) @map("_id") @db.ObjectId
+    chatRoomId String   @db.ObjectId
+    senderId   String   @db.ObjectId
+    text       String
+    attachmentUrl  String?
+    attachmentType String? // e.g. "image" | "voice"
+    createdAt  DateTime @default(now())
+
+    chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+    sender   User     @relation(fields: [senderId], references: [id])
+
+    @@index([chatRoomId])
+    @@index([createdAt])
 }
 
 // Live sessions (scheduled / live classes)

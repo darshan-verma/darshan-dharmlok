@@ -4,6 +4,7 @@
  */
 export const BANNER_PAGE_SLUGS = [
 	{ value: "blogs", label: "Blogs" },
+	{ value: "community", label: "Community" },
 	{ value: "e-shop", label: "E-Shop" },
 	{ value: "e-book", label: "E-Book" },
 	{ value: "bal-vidhya", label: "Bal Vidhya" },

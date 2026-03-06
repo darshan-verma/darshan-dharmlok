@@ -172,6 +172,8 @@ export async function GET(request: Request) {
 		// ...existing code for user list and pagination...
 		const userType = url.searchParams.get("userType");
 		const status = url.searchParams.get("status");
+		const search = url.searchParams.get("search")?.trim();
+		const excludeUserId = url.searchParams.get("excludeUserId");
 		const limit = url.searchParams.get("limit")
 			? parseInt(url.searchParams.get("limit") || "50")
 			: 50;
@@ -190,6 +192,15 @@ export async function GET(request: Request) {
 		if (status) {
 			whereConditions.status = status;
 		}
+		if (excludeUserId) {
+			whereConditions.id = { not: excludeUserId };
+		}
+		if (search) {
+			whereConditions.OR = [
+				{ name: { contains: search, mode: "insensitive" } },
+				{ email: { contains: search, mode: "insensitive" } },
+			];
+		}
 		const totalCount = await prisma.user.count({
 			where: whereConditions,
 		});
@@ -203,6 +214,7 @@ export async function GET(request: Request) {
 				userType: true,
 				typeVendor: true,
 				profileImageUrl: true,
+				image: true,
 				bio: true,
 				category: true,
 				social: true,

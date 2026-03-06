@@ -1,106 +1,130 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { authOptions } from "@/lib/auth";
+
+const postInclude = {
+	user: {
+		select: {
+			id: true,
+			name: true,
+			profileImageUrl: true,
+			image: true,
+		},
+	},
+	media: true,
+	_count: {
+		select: { comments: true },
+	},
+};
 
 /**
- * @swagger
- * /api/posts:
- *   get:
- *     description: Returns all posts
- *     responses:
- *       200:
- *         description: A list of posts
+ * GET /api/posts
+ * Query: feed=community | feed=own
+ * - feed=community: all posts (auth required)
+ * - feed=own: current user's posts (auth required, userId from session)
+ * Legacy: userId + userType (no feed param) still supported for own posts
  */
 export async function GET(request: Request) {
 	const { searchParams } = new URL(request.url);
+	const feed = searchParams.get("feed");
 	const userId = searchParams.get("userId");
 	const userType = searchParams.get("userType");
+	const session = await getServerSession(authOptions);
 
-	if (!userId || !userType) {
-		return NextResponse.json(
-			{ message: "Missing userId or userType" },
-			{ status: 400 }
-		);
+	if (feed === "community") {
+		if (!session?.user?.id) {
+			return NextResponse.json(
+				{ message: "Unauthorized" },
+				{ status: 401 }
+			);
+		}
+		try {
+			const posts = await prisma.post.findMany({
+				where: {},
+				orderBy: { createdAt: "desc" },
+				include: postInclude,
+			});
+			const postsWithCommentCount = posts.map((post) => ({
+				...post,
+				commentCount: post._count?.comments ?? 0,
+			}));
+			return NextResponse.json(postsWithCommentCount);
+		} catch (error) {
+			console.error("Error fetching community posts:", error);
+			return NextResponse.json(
+				{ message: "Failed to fetch posts" },
+				{ status: 500 }
+			);
+		}
 	}
 
-	try {
-		const posts = await prisma.post.findMany({
-			where: {
-				userId,
-				userType,
-			},
-			orderBy: {
-				createdAt: "desc",
-			},
-			include: {
-				user: {
-					select: {
-						name: true,
-						profileImageUrl: true,
-					},
+	if (feed === "own" || (userId && userType)) {
+		const effectiveUserId = feed === "own" ? session?.user?.id : userId;
+		const effectiveUserType = userType ?? session?.user?.role ?? "user";
+		if (!effectiveUserId) {
+			return NextResponse.json(
+				{ message: "Unauthorized or missing userId" },
+				{ status: 401 }
+			);
+		}
+		try {
+			const posts = await prisma.post.findMany({
+				where: {
+					userId: effectiveUserId,
+					...(effectiveUserType && { userType: effectiveUserType }),
 				},
-				media: true,
-				_count: {
-					select: { comments: true },
-				},
-			},
-		});
-		// Add commentCount to each post
-		const postsWithCommentCount = posts.map((post) => ({
-			...post,
-			commentCount: post._count?.comments ?? 0,
-		}));
-		return NextResponse.json(postsWithCommentCount);
-	} catch (error) {
-		console.error("Error fetching posts:", error);
-		return NextResponse.json(
-			{ message: "Failed to fetch posts" },
-			{ status: 500 }
-		);
+				orderBy: { createdAt: "desc" },
+				include: postInclude,
+			});
+			const postsWithCommentCount = posts.map((post) => ({
+				...post,
+				commentCount: post._count?.comments ?? 0,
+			}));
+			return NextResponse.json(postsWithCommentCount);
+		} catch (error) {
+			console.error("Error fetching posts:", error);
+			return NextResponse.json(
+				{ message: "Failed to fetch posts" },
+				{ status: 500 }
+			);
+		}
 	}
+
+	return NextResponse.json(
+		{ message: "Missing feed (community|own) or userId+userType" },
+		{ status: 400 }
+	);
 }
 
 /**
- * @swagger
- * /api/posts:
- *   post:
- *     description: Creates a new post
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               caption:
- *                 type: string
- *               media:
- *                 type: array
- *     responses:
- *       201:
- *         description: The created post
+ * POST /api/posts
+ * Body: { caption?, media, userType? }
+ * userId from session. caption optional (image/video-only posts).
  */
 export async function POST(req: Request) {
+	const session = await getServerSession(authOptions);
+	if (!session?.user?.id) {
+		return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+	}
 	try {
 		const body = await req.json();
-		const { userId, caption, media, userType } = body;
+		const { caption, media, userType } = body;
+		const userId = session.user.id;
 
-		if (!userId || !caption || !media || !userType) {
+		if (!media || !Array.isArray(media) || media.length === 0) {
 			return NextResponse.json(
-				{ message: "Missing required fields" },
+				{ message: "At least one media item is required" },
 				{ status: 400 }
 			);
 		}
 
 		const newPost = await prisma.post.create({
 			data: {
-				caption,
-				userType, // <-- add userType here
-				user: {
-					connect: {
-						id: userId,
-					},
-				},
+				caption: caption ?? "",
+				userType: userType ?? (session.user.role ?? "user"),
+				user: { connect: { id: userId } },
 				media: {
 					create: media.map((m: { url: string; type: string }) => ({
 						url: m.url,
@@ -112,8 +136,10 @@ export async function POST(req: Request) {
 				media: true,
 				user: {
 					select: {
+						id: true,
 						name: true,
 						profileImageUrl: true,
+						image: true,
 					},
 				},
 			},
@@ -122,7 +148,6 @@ export async function POST(req: Request) {
 		return NextResponse.json(newPost, { status: 201 });
 	} catch (error) {
 		console.error("Error creating post:", error);
-		// Provide more specific error messages in development
 		if (error instanceof Prisma.PrismaClientValidationError) {
 			return NextResponse.json(
 				{
@@ -134,49 +159,6 @@ export async function POST(req: Request) {
 		}
 		return NextResponse.json(
 			{ message: "Failed to create post" },
-			{ status: 500 }
-		);
-	}
-}
-
-/**
- * @swagger
- * /api/posts/{id}:
- *   delete:
- *     description: Deletes a post by ID
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Post deleted successfully
- *       404:
- *         description: Post not found
- */
-export async function DELETE(request: Request) {
-	try {
-		const url = new URL(request.url);
-		const pathnameParts = url.pathname.split("/");
-		const postId = pathnameParts[pathnameParts.length - 1];
-
-		const postIndex = await prisma.post.findUnique({
-			where: { id: postId },
-		});
-
-		if (!postIndex) {
-			return NextResponse.json({ message: "Post not found" }, { status: 404 });
-		}
-
-		// In a real app, you would also delete the associated media from S3 here
-		await prisma.post.delete({ where: { id: postId } });
-		return NextResponse.json({ message: "Post deleted successfully" });
-	} catch (error) {
-		console.error("Error deleting post:", error);
-		return NextResponse.json(
-			{ message: "Failed to delete post" },
 			{ status: 500 }
 		);
 	}

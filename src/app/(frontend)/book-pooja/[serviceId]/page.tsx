@@ -9,6 +9,8 @@ import Footer from "@/components/landing/Footer";
 import { KathavachakDharmguruCard } from "@/components/shared/kathavachak-dharmguru-card";
 import { CardsPagination, CARDS_PER_PAGE } from "@/components/shared/CardsPagination";
 
+export const dynamic = "force-dynamic";
+
 interface PoojaService {
 	id: string;
 	name: string;

@@ -30,6 +30,36 @@ export const searchablePages: SearchablePage[] = [
 		keywords: ["contact", "reach out", "support", "help"],
 	},
 
+	// Community
+	{
+		title: "Community",
+		description: "Explore posts from the Dharmlok community",
+		href: "/community",
+		category: "Community",
+		keywords: ["community", "posts", "feed", "social"],
+	},
+	{
+		title: "Create Post",
+		description: "Create a new community post",
+		href: "/community/create",
+		category: "Community",
+		keywords: ["create", "post", "upload", "share"],
+	},
+	{
+		title: "My Posts",
+		description: "View posts you have created",
+		href: "/community/my-posts",
+		category: "Community",
+		keywords: ["my posts", "own posts", "profile posts"],
+	},
+	{
+		title: "Community Chat",
+		description: "Chat with people and groups in the community",
+		href: "/community/chat",
+		category: "Community",
+		keywords: ["chat", "messages", "inbox", "groups", "direct message"],
+	},
+
 	// Spiritual Guides
 	{
 		title: "Kathavachak",
@@ -216,6 +246,7 @@ export const searchablePages: SearchablePage[] = [
 export const categories = [
 	"All",
 	"Main",
+	"Community",
 	"Spiritual Guides",
 	"Services",
 	"Travel",

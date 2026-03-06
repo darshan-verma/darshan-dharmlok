@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
+import { authOptions } from "@/lib/auth";
 
-// POST: Like a post
+// POST: Like a post (userId from session)
 export async function POST(
-	request: NextRequest,
+	_request: NextRequest,
 	context: { params: Promise<{ id: string }> }
 ) {
+	const session = await getServerSession(authOptions);
+	if (!session?.user?.id) {
+		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+	}
+	const userId = session.user.id;
 	try {
 		const { id: postId } = await context.params;
-		const { userId } = await request.json();
-		if (!userId)
-			return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-
-		// Add userId to likes array if not already present
 		const post = await prisma.post.update({
 			where: { id: postId },
-			data: {
-				likes: { push: userId },
-			},
+			data: { likes: { push: userId } },
 		});
 		return NextResponse.json({ likes: post.likes });
 	} catch (error) {
@@ -31,27 +31,26 @@ export async function POST(
 	}
 }
 
-// DELETE: Unlike a post
+// DELETE: Unlike a post (userId from session)
 export async function DELETE(
-	request: NextRequest,
+	_request: NextRequest,
 	context: { params: Promise<{ id: string }> }
 ) {
+	const session = await getServerSession(authOptions);
+	if (!session?.user?.id) {
+		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+	}
+	const userId = session.user.id;
 	try {
 		const { id: postId } = await context.params;
-		const { userId } = await request.json();
-		if (!userId)
-			return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-
-		// Remove userId from likes array
+		const current = await prisma.post.findUnique({ where: { id: postId } });
+		if (!current) {
+			return NextResponse.json({ error: "Post not found" }, { status: 404 });
+		}
 		const post = await prisma.post.update({
 			where: { id: postId },
 			data: {
-				likes: {
-					set:
-						(
-							await prisma.post.findUnique({ where: { id: postId } })
-						)?.likes.filter((id: string) => id !== userId) || [],
-				},
+				likes: { set: current.likes.filter((id: string) => id !== userId) },
 			},
 		});
 		return NextResponse.json({ likes: post.likes });

@@ -1,24 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { authOptions } from "@/lib/auth";
 
-// DELETE a post by ID
-export async function DELETE(req: Request) {
-	const url = new URL(req.url);
-	const pathnameParts = url.pathname.split("/");
-	const id = pathnameParts[pathnameParts.length - 1];
+// DELETE a post by ID (auth required; only post owner)
+export async function DELETE(
+	_req: Request,
+	context: { params: Promise<{ id: string }> }
+) {
+	const session = await getServerSession(authOptions);
+	if (!session?.user?.id) {
+		return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+	}
+	const { id } = await context.params;
 	try {
-		// First, delete all media associated with the post
-		await prisma.media.deleteMany({
-			where: {
-				postId: id,
-			},
-		});
-
-		// Then, delete the post itself
-		await prisma.post.delete({
-			where: { id },
-		});
+		const post = await prisma.post.findUnique({ where: { id } });
+		if (!post) {
+			return NextResponse.json({ message: "Post not found" }, { status: 404 });
+		}
+		if (post.userId !== session.user.id) {
+			return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+		}
+		await prisma.media.deleteMany({ where: { postId: id } });
+		await prisma.post.delete({ where: { id } });
 		return NextResponse.json({ message: "Post deleted successfully" });
 	} catch (error) {
 		if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -37,22 +42,30 @@ export async function DELETE(req: Request) {
 	}
 }
 
-// PATCH (update) a post by ID
-export async function PATCH(req: Request) {
-	const url = new URL(req.url);
-	const pathnameParts = url.pathname.split("/");
-	const id = pathnameParts[pathnameParts.length - 1];
+// PATCH (update) a post by ID (auth required; only post owner)
+export async function PATCH(
+	req: Request,
+	context: { params: Promise<{ id: string }> }
+) {
+	const session = await getServerSession(authOptions);
+	if (!session?.user?.id) {
+		return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+	}
+	const { id } = await context.params;
 	try {
-		const { caption } = await req.json();
-		if (typeof caption !== "string") {
-			return NextResponse.json({ message: "Invalid caption" }, { status: 400 });
+		const post = await prisma.post.findUnique({ where: { id } });
+		if (!post) {
+			return NextResponse.json({ message: "Post not found" }, { status: 404 });
 		}
-
+		if (post.userId !== session.user.id) {
+			return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+		}
+		const body = await req.json();
+		const { caption } = body;
 		const updatedPost = await prisma.post.update({
 			where: { id },
-			data: { caption },
+			data: { caption: caption !== undefined ? (caption ?? null) : undefined },
 		});
-
 		return NextResponse.json(updatedPost);
 	} catch (error) {
 		if (error instanceof Prisma.PrismaClientKnownRequestError) {

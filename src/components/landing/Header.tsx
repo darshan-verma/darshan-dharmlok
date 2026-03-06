@@ -100,6 +100,7 @@ export default function Header() {
 		},
 		{ name: "Travel Portal", href: "/travel-portal" },
 		{ name: "Shop", href: "/e-shop" },
+		{ name: "Community", href: "/community" },
 		{ name: "Contact Us", href: "/contact-us" },
 	];
 
@@ -116,7 +117,7 @@ export default function Header() {
 				<div className="container mx-auto px-4">
 					<div className="flex items-center justify-between h-20">
 						{/* Logo */}
-						<Link href="" className="flex items-center gap-2 group">
+						<Link href="/" className="flex items-center gap-2 group">
 							<div className="relative group-hover:scale-110 transition-transform">
 								<Image
 									src="/dharmlok-logo.svg"
