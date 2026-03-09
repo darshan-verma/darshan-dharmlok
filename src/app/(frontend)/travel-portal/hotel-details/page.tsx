@@ -22,7 +22,7 @@ import {
 import type { Room } from "@/types/hotelApi";
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 
-// Hotel Map Component
+// Hotel Map Component — embeds Google Maps when API key is set (requires Maps Embed API enabled in Cloud Console)
 function HotelMap({
 	latitude,
 	longitude,
@@ -32,52 +32,48 @@ function HotelMap({
 	longitude: string;
 	address: string;
 }) {
-	// Get API key from environment variable
-	// Note: NEXT_PUBLIC_* variables are available at build time and runtime in client components
 	const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-	// Log warning in development if API key is missing
 	useEffect(() => {
 		if (!apiKey && process.env.NODE_ENV === "development") {
 			console.warn(
-				"⚠️ Google Maps API key not found. Please set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your .env.local file"
+				"⚠️ Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY and enable Maps Embed API: https://console.cloud.google.com/apis/library/maps-embed-backend.googleapis.com"
 			);
 		}
 	}, [apiKey]);
 
-	// If API key is available, use Maps Embed API
 	if (apiKey) {
-		// Use the address if available, otherwise use coordinates
-		const query = address || `${latitude},${longitude}`;
+		// Exact location: use coordinates so the map centers on the hotel
+		const query = `${latitude},${longitude}`;
 		return (
 			<iframe
 				width="100%"
 				height="100%"
 				style={{ border: 0 }}
-				src={`https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(query)}`}
+				src={`https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(query)}&zoom=15`}
 				allowFullScreen
 				loading="lazy"
 				referrerPolicy="no-referrer-when-downgrade"
+				title="Hotel location map"
 			/>
 		);
 	}
 
-	// Fallback: Use Google Maps link with coordinates
-	const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+	const mapsUrl = address
+		? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+		: `https://www.google.com/maps?q=${latitude},${longitude}`;
 	return (
 		<a
 			href={mapsUrl}
 			target="_blank"
 			rel="noopener noreferrer"
-			className="flex items-center justify-center h-full bg-gray-100 hover:bg-gray-200 transition-colors"
+			className="flex flex-col items-center justify-center h-full min-h-[12rem] bg-gray-100 hover:bg-gray-200 transition-colors rounded-xl"
 		>
-			<div className="text-center p-4">
-				<MapPin className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-				<p className="text-sm text-gray-600 mb-2">Click to view on Google Maps</p>
-				<p className="text-xs text-gray-500">
-					(Google Maps API key required for embedded map)
-				</p>
-			</div>
+			<MapPin className="w-12 h-12 mx-auto mb-2 text-gray-500" />
+			<p className="text-sm text-gray-700 font-medium mb-1">View location on Google Maps</p>
+			<p className="text-xs text-gray-500 text-center px-4">
+				Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY and enable Maps Embed API for embedded map
+			</p>
 		</a>
 	);
 }
