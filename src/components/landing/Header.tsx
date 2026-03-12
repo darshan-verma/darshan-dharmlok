@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, User, Menu, X, LogOut, Settings, Bell } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -23,7 +23,7 @@ export default function Header() {
 	const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 	const [_isScrolled, setIsScrolled] = useState(false);
 	const [isSearchOpen, setIsSearchOpen] = useState(false);
-	const [liveNotifications, setLiveNotifications] = useState<
+	const [_liveNotifications, setLiveNotifications] = useState<
 		Array<{
 			id: string;
 			type: "created" | "live";
@@ -32,7 +32,36 @@ export default function Header() {
 			createdAt: string;
 		}>
 	>([]);
+	const seenIdsRef = useRef<Set<string>>(new Set());
+	const [seenIdsLoaded, setSeenIdsLoaded] = useState(false);
+	const [unseenNotifications, setUnseenNotifications] = useState<typeof _liveNotifications>([]);
 	const isAuthenticated = status === "authenticated";
+
+	const SEEN_STORAGE_KEY = "dharmlok_seen_notification_ids";
+
+	useEffect(() => {
+		try {
+			const stored = localStorage.getItem(SEEN_STORAGE_KEY);
+			if (stored) {
+				const ids: string[] = JSON.parse(stored);
+				ids.forEach((id) => seenIdsRef.current.add(id));
+			}
+		} catch { /* ignore corrupt data */ }
+		setSeenIdsLoaded(true);
+	}, []);
+
+	const persistSeenIds = useCallback(() => {
+		try {
+			const ids = Array.from(seenIdsRef.current).slice(-50);
+			localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(ids));
+		} catch { /* storage full / unavailable */ }
+	}, []);
+
+	const markOneSeen = useCallback((id: string) => {
+		seenIdsRef.current.add(id);
+		persistSeenIds();
+		setUnseenNotifications((prev) => prev.filter((n) => n.id !== id));
+	}, [persistSeenIds]);
 
 	// Debug: Log session data (remove in production)
 	useEffect(() => {
@@ -57,6 +86,8 @@ export default function Header() {
 	}, []);
 
 	useEffect(() => {
+		if (!seenIdsLoaded) return;
+
 		const fetchLiveNotifications = async () => {
 			try {
 				const res = await fetch("/api/live/notifications?limit=8", {
@@ -64,7 +95,9 @@ export default function Header() {
 				});
 				const data = await res.json();
 				if (!res.ok) return;
-				setLiveNotifications(Array.isArray(data.notifications) ? data.notifications : []);
+				const fresh = Array.isArray(data.notifications) ? data.notifications : [];
+				setLiveNotifications(fresh);
+				setUnseenNotifications(fresh.filter((n: { id: string }) => !seenIdsRef.current.has(n.id)));
 			} catch {
 				// Silent fail for header-only enhancement.
 			}
@@ -73,7 +106,7 @@ export default function Header() {
 		fetchLiveNotifications();
 		const interval = setInterval(fetchLiveNotifications, 20000);
 		return () => clearInterval(interval);
-	}, []);
+	}, [seenIdsLoaded]);
 
 	const menuItems = [
 		{ name: "Home", href: "/", active: true },
@@ -232,33 +265,34 @@ export default function Header() {
 									<Search className="w-5 h-5 text-gray-700" />
 								</button>
 							</SearchDialog>
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<button
-										className="relative p-2 hover:bg-gray-100 rounded-full transition-colors"
-										aria-label="Live notifications"
-									>
-										<Bell className="w-5 h-5 text-gray-700" />
-										{liveNotifications.length > 0 && (
-											<span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center">
-												{Math.min(liveNotifications.length, 9)}
-											</span>
-										)}
-									</button>
-								</DropdownMenuTrigger>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<button
+									className="relative p-2 hover:bg-gray-100 rounded-full transition-colors"
+									aria-label="Live notifications"
+								>
+									<Bell className="w-5 h-5 text-gray-700" />
+									{unseenNotifications.length > 0 && (
+										<span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center">
+											{Math.min(unseenNotifications.length, 9)}
+										</span>
+									)}
+								</button>
+							</DropdownMenuTrigger>
 								<DropdownMenuContent align="end" className="w-80">
 									<DropdownMenuLabel>Live Notifications</DropdownMenuLabel>
 									<DropdownMenuSeparator />
-									{liveNotifications.length === 0 ? (
+									{unseenNotifications.length === 0 ? (
 										<div className="px-2 py-3 text-sm text-muted-foreground">
-											No live notifications yet.
+											No new notifications.
 										</div>
 									) : (
-										liveNotifications.map((item) => (
+										unseenNotifications.map((item) => (
 											<DropdownMenuItem key={item.id} asChild>
 												<Link
 													href="/live-streams"
 													className="flex flex-col items-start gap-1 py-2"
+													onClick={() => markOneSeen(item.id)}
 												>
 													<span className="text-xs uppercase text-red-600 font-medium">
 														{item.type === "live" ? "Live Now" : "Scheduled"}

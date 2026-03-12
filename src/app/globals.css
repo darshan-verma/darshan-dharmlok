@@ -461,6 +461,14 @@ html {
 	scroll-behavior: smooth;
 }
 
+.scrollbar-hide {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+	display: none;
+}
+
 /* Custom scrollbar for filter panel */
 .overflow-y-auto::-webkit-scrollbar {
 	width: 6px;
@@ -478,4 +486,13 @@ html {
 
 .overflow-y-auto::-webkit-scrollbar-thumb:hover {
 	background: oklch(0.5 0 0);
+}
+
+/* Flip front-camera video horizontally so left/right appear correct.
+   getUserMedia delivers mirrored frames from front-facing cameras;
+   this compensates both for local previews and remote viewers receiving
+   those same mirrored frames via WebRTC / mediasoup. */
+.video-self-view {
+	transform: scaleX(-1) !important;
+	-webkit-transform: scaleX(-1) !important;
 }

@@ -30,6 +30,50 @@ export const searchablePages: SearchablePage[] = [
 		keywords: ["contact", "reach out", "support", "help"],
 	},
 
+	// Legal / Policies
+	{
+		title: "Privacy Policy",
+		description: "How Dharmlok collects, uses, and protects your data",
+		href: "/privacy-policy",
+		category: "Legal",
+		keywords: ["privacy", "data", "personal information", "gdpr"],
+	},
+	{
+		title: "Terms & Conditions",
+		description: "Terms of use for the Dharmlok platform",
+		href: "/terms-and-conditions",
+		category: "Legal",
+		keywords: ["terms", "conditions", "agreement", "terms of use"],
+	},
+	{
+		title: "Delete Account",
+		description: "How to permanently delete your Dharmlok account and data",
+		href: "/delete-account",
+		category: "Legal",
+		keywords: ["delete account", "remove account", "data deletion", "account deletion"],
+	},
+	{
+		title: "Community Guidelines",
+		description: "Rules for posting and interacting in the Dharmlok community",
+		href: "/community-guidelines",
+		category: "Legal",
+		keywords: ["community", "guidelines", "rules", "posting", "conduct"],
+	},
+	{
+		title: "Cookie Policy",
+		description: "How Dharmlok uses cookies and similar technologies",
+		href: "/cookie-policy",
+		category: "Legal",
+		keywords: ["cookies", "cookie policy", "tracking", "analytics"],
+	},
+	{
+		title: "Content Disclaimer",
+		description: "Disclaimer for religious and spiritual content on Dharmlok",
+		href: "/content-disclaimer",
+		category: "Legal",
+		keywords: ["disclaimer", "content", "religious", "spiritual", "liability"],
+	},
+
 	// Community
 	{
 		title: "Community",
@@ -246,6 +290,7 @@ export const searchablePages: SearchablePage[] = [
 export const categories = [
 	"All",
 	"Main",
+	"Legal",
 	"Community",
 	"Spiritual Guides",
 	"Services",

@@ -211,3 +211,13 @@ export async function getRecentLiveNotifications(limit = 20): Promise<LiveNotifi
 		})
 		.filter((item): item is LiveNotification => Boolean(item));
 }
+
+/** Remove Redis state for a broadcast (call before deleting LiveSession). */
+export async function clearBroadcastRedisState(broadcastId: string): Promise<void> {
+	const state = await getLiveState(broadcastId);
+	const redis = getLiveRedis();
+	await redis.del(broadcastRedisKey(broadcastId));
+	if (state?.streamKeyHash) {
+		await redis.del(streamKeyRedisKey(state.streamKeyHash));
+	}
+}

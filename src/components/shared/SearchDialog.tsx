@@ -249,7 +249,7 @@ export function SearchDialog({
 				</div>
 
 				{/* Category Filters */}
-				<div className="px-4 py-2 border-b border-white/30 bg-white/20 overflow-x-auto">
+				<div className="px-4 py-2 border-b border-white/30 bg-white/20 overflow-x-auto scrollbar-hide">
 					<div className="flex gap-1.5 min-w-max">
 						{categories.map((category) => (
 							<Badge

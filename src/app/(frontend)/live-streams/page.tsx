@@ -216,6 +216,11 @@ export default function LiveStreamsPage() {
 	};
 
 	const startMediasoupWatch = async (broadcastId: string): Promise<boolean> => {
+		// Mediasoup viewer checklist (WebView / web page):
+		// 1. Device loaded with routerRtpCapabilities from GET /api/live/mediasoup/:id
+		// 2. consumeViewer requests send rtpCapabilities: device.rtpCapabilities
+		// 3. Transport connect completes (connect event → connectViewerTransport → callback) before consume resolves
+		// 4. Render consumer tracks on <video> via srcObject (MediaStream), not a URL
 		let video = playerVideoRef.current;
 		for (let i = 0; i < 10 && !video; i++) {
 			await sleep(100);
@@ -493,13 +498,13 @@ export default function LiveStreamsPage() {
 										))}
 									</div>
 								</div>
-								<video
-									ref={playerVideoRef}
-									className="w-full rounded-md border bg-black aspect-video"
-									controls
-									autoPlay
-									playsInline
-								/>
+							<video
+								ref={playerVideoRef}
+								className="video-self-view w-full rounded-md border bg-black aspect-video"
+								controls
+								autoPlay
+								playsInline
+							/>
 								<p className="text-xs text-muted-foreground break-all">
 									{isWebRtcWatching
 										? "Playing via Mediasoup SFU"

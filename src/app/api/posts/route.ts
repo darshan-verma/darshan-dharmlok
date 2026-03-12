@@ -22,7 +22,7 @@ const postInclude = {
 /**
  * GET /api/posts
  * Query: feed=community | feed=own
- * - feed=community: all posts (auth required)
+ * - feed=community: all posts when authenticated; empty list when not (no auth required for this call).
  * - feed=own: current user's posts (auth required, userId from session)
  * Legacy: userId + userType (no feed param) still supported for own posts
  */
@@ -35,10 +35,7 @@ export async function GET(request: Request) {
 
 	if (feed === "community") {
 		if (!session?.user?.id) {
-			return NextResponse.json(
-				{ message: "Unauthorized" },
-				{ status: 401 }
-			);
+			return NextResponse.json([]);
 		}
 		try {
 			const posts = await prisma.post.findMany({

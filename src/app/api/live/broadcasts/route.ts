@@ -5,10 +5,12 @@ import { createLiveBroadcast } from "@/lib/live/controlPlane";
 import { getLiveState } from "@/lib/live/controlPlane";
 import { getMediasoupLiveManager } from "@/lib/live/mediasoupManager";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
 	try {
+		const token = await getToken({ req: request });
 		const manager = getMediasoupLiveManager();
 		const items = await prisma.liveSession.findMany({
+			where: token?.id ? { instructorId: token.id } : undefined,
 			orderBy: { createdAt: "desc" },
 			take: 50,
 			select: {

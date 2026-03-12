@@ -26,11 +26,21 @@ const recentPosts = [
 	"Top 10 Sacred Temples in India",
 ];
 
+const legalLinks = [
+	{ name: "Privacy Policy", href: "/privacy-policy" },
+	{ name: "Terms & Conditions", href: "/terms-and-conditions" },
+	{ name: "Delete Account", href: "/delete-account" },
+	{ name: "Community Guidelines", href: "/community-guidelines" },
+	{ name: "Cookie Policy", href: "/cookie-policy" },
+	{ name: "Content Disclaimer", href: "/content-disclaimer" },
+	{ name: "Contact Us", href: "/contact-us" },
+];
+
 export default function Footer() {
 	return (
 		<footer className="bg-[#f5f5f0]/80 backdrop-blur-sm text-gray-900">
 			<div className="container mx-auto px-4 py-16">
-				<div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
+				<div className="grid md:grid-cols-2 lg:grid-cols-5 gap-12 mb-12">
 					{/* Column 1 - Logo & Description */}
 					<div className="space-y-6">
 						<div className="flex items-center gap-2">
@@ -149,6 +159,27 @@ export default function Footer() {
 									<div>+(91)1800-342-6756</div>
 								</div>
 							</li>
+						</ul>
+					</div>
+
+					{/* Column 5 - Legal / Policies */}
+					<div>
+						<h3 className="text-xl font-bold mb-6 relative pb-3 text-gray-900">
+							Legal
+							<div className="absolute bottom-0 left-0 w-12 h-1 bg-orange-500" />
+						</h3>
+						<ul className="space-y-3">
+							{legalLinks.map((link) => (
+								<li key={link.href}>
+									<Link
+										href={link.href}
+										className="text-gray-600 hover:text-orange-500 transition-colors flex items-center gap-2 group"
+									>
+										<span className="w-2 h-2 bg-orange-500 rounded-full group-hover:scale-150 transition-transform" />
+										{link.name}
+									</Link>
+								</li>
+							))}
 						</ul>
 					</div>
 				</div>

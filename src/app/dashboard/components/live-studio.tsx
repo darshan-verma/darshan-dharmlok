@@ -6,6 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "@/lib/toast";
 
 type LiveBroadcast = {
@@ -46,6 +54,11 @@ export default function LiveStudio({ roleLabel }: { roleLabel: string }) {
 	const [isFetchingPlayback, setIsFetchingPlayback] = useState(false);
 	const [playbackManifestUrl, setPlaybackManifestUrl] = useState<string | null>(null);
 	const [playbackError, setPlaybackError] = useState<string | null>(null);
+	const [editTitle, setEditTitle] = useState("");
+	const [editDescription, setEditDescription] = useState("");
+	const [isSavingEdit, setIsSavingEdit] = useState(false);
+	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
 	const testPreviewVideoRef = useRef<HTMLVideoElement | null>(null);
 	const testPreviewStreamRef = useRef<MediaStream | null>(null);
 	const livePreviewVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -404,6 +417,13 @@ export default function LiveStudio({ roleLabel }: { roleLabel: string }) {
 	}, []);
 
 	useEffect(() => {
+		if (active) {
+			setEditTitle(active.title);
+			setEditDescription(active.description ?? "");
+		}
+	}, [active]);
+
+	useEffect(() => {
 		const interval = window.setInterval(() => {
 			void loadList();
 		}, 10000);
@@ -527,6 +547,10 @@ export default function LiveStudio({ roleLabel }: { roleLabel: string }) {
 	};
 
 	const openManage = async (item: LiveBroadcast) => {
+		if (active?.broadcastId === item.broadcastId) {
+			setActive(null);
+			return;
+		}
 		try {
 			const res = await fetch(`/api/live/broadcasts/${item.broadcastId}`);
 			const data = await res.json();
@@ -555,6 +579,62 @@ export default function LiveStudio({ roleLabel }: { roleLabel: string }) {
 		}
 	};
 
+	const saveEdit = async () => {
+		if (!active?.broadcastId) return;
+		if (!editTitle.trim()) {
+			toast.error("Title is required");
+			return;
+		}
+		setIsSavingEdit(true);
+		try {
+			const res = await fetch(`/api/live/broadcasts/${active.broadcastId}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					title: editTitle.trim(),
+					description: editDescription.trim() || undefined,
+				}),
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.error || "Failed to update stream");
+			setActive((prev) =>
+				prev
+					? {
+							...prev,
+							title: editTitle.trim(),
+							description: editDescription.trim() || undefined,
+					  }
+					: prev
+			);
+			await loadList();
+			toast.success("Stream updated");
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Failed to update stream");
+		} finally {
+			setIsSavingEdit(false);
+		}
+	};
+
+	const deleteBroadcast = async () => {
+		if (!active?.broadcastId) return;
+		setIsDeleting(true);
+		try {
+			const res = await fetch(`/api/live/broadcasts/${active.broadcastId}`, {
+				method: "DELETE",
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.error || "Failed to delete stream");
+			setShowDeleteConfirm(false);
+			setActive(null);
+			await loadList();
+			toast.success("Live stream deleted");
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : "Failed to delete stream");
+		} finally {
+			setIsDeleting(false);
+		}
+	};
+
 	return (
 		<div className="space-y-6">
 			<Card>
@@ -565,14 +645,14 @@ export default function LiveStudio({ roleLabel }: { roleLabel: string }) {
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-3">
-					<video
-						ref={testPreviewVideoRef}
-						autoPlay
-						muted
-						playsInline
-						controls
-						className="w-full max-w-2xl rounded-md border bg-black aspect-video"
-					/>
+				<video
+					ref={testPreviewVideoRef}
+					autoPlay
+					muted
+					playsInline
+					controls
+					className="video-self-view w-full max-w-2xl rounded-md border bg-black aspect-video"
+				/>
 					<div className="flex gap-2">
 						<Button onClick={startTestPreview} disabled={isStartingTestPreview}>
 							{isStartingTestPreview ? "Starting..." : "Start Camera Test"}
@@ -620,160 +700,6 @@ export default function LiveStudio({ roleLabel }: { roleLabel: string }) {
 				</CardContent>
 			</Card>
 
-			{active && (
-				<Card>
-					<CardHeader>
-						<CardTitle>Broadcast Setup</CardTitle>
-						<CardDescription>
-							Use these details in OBS/encoder. RTMP ingest URL is not playable in Chrome.
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="space-y-3 text-sm">
-						<div>
-							<strong>Broadcast ID:</strong> {active.broadcastId}
-						</div>
-						<div>
-							<strong>Active Viewers:</strong> {active.viewerCount || 0}
-						</div>
-						<div className="space-y-2 rounded-md border p-3">
-							<p className="font-medium">Live Stream Preview (for viewers)</p>
-							<video
-								ref={livePreviewVideoRef}
-								autoPlay
-								muted
-								playsInline
-								controls
-								className="w-full max-w-2xl rounded-md border bg-black aspect-video"
-							/>
-							<div className="flex gap-2">
-								<Button
-									size="sm"
-									variant="outline"
-									onClick={startLivePreview}
-									disabled={isStartingLivePreview}
-								>
-									{isStartingLivePreview ? "Starting..." : "Start Live Preview"}
-								</Button>
-								<Button
-									size="sm"
-									variant="outline"
-									onClick={stopLivePreview}
-									disabled={!isLivePreviewing}
-								>
-									Stop Live Preview
-								</Button>
-							</div>
-							{livePreviewError && (
-								<p className="text-xs text-red-600">
-									{livePreviewError}
-								</p>
-							)}
-						</div>
-						<div className="flex items-center gap-2">
-							<strong>Ingest URL:</strong>
-							<span className="break-all">{active.ingestUrl || "-"}</span>
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={() => copy(active.ingestUrl)}
-								disabled={!active.ingestUrl}
-							>
-								Copy
-							</Button>
-						</div>
-						<div className="flex items-center gap-2">
-							<strong>Stream Key:</strong>
-							<span className="break-all">{active.streamKey || "-"}</span>
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={() => copy(active.streamKey)}
-								disabled={!active.streamKey}
-							>
-								Copy
-							</Button>
-						</div>
-						{!active.streamKey && (
-							<p className="text-xs text-muted-foreground">
-								For security, stream key is shown only immediately after creating a
-								stream.
-							</p>
-						)}
-						<div className="flex items-center gap-2">
-							<strong>Playback Path:</strong>
-							<span className="break-all">{active.playbackPath || "-"}</span>
-						</div>
-						<div className="flex items-center gap-2">
-							<strong>Local Playback URL:</strong>
-							<span className="break-all">{localPlaybackUrl || "-"}</span>
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={() => copy(localPlaybackUrl)}
-								disabled={!localPlaybackUrl}
-							>
-								Copy
-							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={() => window.open(localPlaybackUrl, "_blank", "noopener,noreferrer")}
-								disabled={!localPlaybackUrl}
-							>
-								Open
-							</Button>
-						</div>
-						<div className="flex gap-2">
-							<Button
-								size="sm"
-								variant="outline"
-								onClick={fetchPlaybackManifest}
-								disabled={isFetchingPlayback || active.status !== "live"}
-							>
-								{isFetchingPlayback ? "Fetching..." : "Fetch Signed Playback URL"}
-							</Button>
-						</div>
-						{playbackManifestUrl && (
-							<p className="text-xs break-all">
-								<strong>Signed Manifest:</strong> {playbackManifestUrl}
-							</p>
-						)}
-						<p className="text-xs text-muted-foreground">
-							Go Live publishes browser camera/mic directly for viewers. OBS ingest is
-							optional and can still be used.
-						</p>
-						{isBrowserPublishing && (
-							<p className="text-xs text-emerald-600">
-								Browser publishing active ({publishMode || "unknown"}): viewers can connect
-								without OBS.
-							</p>
-						)}
-						{playbackError && (
-							<p className="text-xs text-red-600 break-all">
-								<strong>Playback error:</strong> {playbackError}
-							</p>
-						)}
-						<div className="flex gap-2 pt-2">
-							<Button
-								onClick={() => updateStatus(active.broadcastId, "go-live")}
-								disabled={active.status === "live" || isUpdatingStatus}
-							>
-								{isUpdatingStatus && active.status !== "live"
-									? "Starting..."
-									: "Go Live"}
-							</Button>
-							<Button
-								variant="destructive"
-								onClick={() => updateStatus(active.broadcastId, "end")}
-								disabled={active.status === "ended" || isUpdatingStatus}
-							>
-								End Stream
-							</Button>
-						</div>
-					</CardContent>
-				</Card>
-			)}
-
 			<Card>
 				<CardHeader>
 					<CardTitle>Recent Live Broadcasts</CardTitle>
@@ -786,43 +712,247 @@ export default function LiveStudio({ roleLabel }: { roleLabel: string }) {
 							{items.map((item) => (
 								<div
 									key={item.broadcastId}
-									className={`border rounded-md p-3 flex items-center justify-between gap-4 ${
+									className={`rounded-md border ${
 										active?.broadcastId === item.broadcastId ? "border-primary" : ""
 									}`}
 								>
-									<div>
-										<p className="font-medium">{item.title}</p>
-										<p className="text-xs text-muted-foreground">{item.broadcastId}</p>
-										<p className="text-xs text-muted-foreground">
-											Viewers: {item.viewerCount || 0}
-										</p>
+									<div className="p-3 flex items-center justify-between gap-4">
+										<div>
+											<p className="font-medium">{item.title}</p>
+											<p className="text-xs text-muted-foreground">{item.broadcastId}</p>
+											<p className="text-xs text-muted-foreground">
+												Viewers: {item.viewerCount || 0}
+											</p>
+										</div>
+										<div className="flex items-center gap-2">
+											<Badge
+												variant={
+													item.status === "live"
+														? "destructive"
+														: item.status === "ended"
+															? "secondary"
+															: "outline"
+												}
+											>
+												{item.status}
+											</Badge>
+											<Button
+												size="sm"
+												variant={active?.broadcastId === item.broadcastId ? "secondary" : "outline"}
+												onClick={() => openManage(item)}
+											>
+												{active?.broadcastId === item.broadcastId ? "Close" : "Manage"}
+											</Button>
+										</div>
 									</div>
-									<div className="flex items-center gap-2">
-										<Badge
-											variant={
-												item.status === "live"
-													? "destructive"
-													: item.status === "ended"
-														? "secondary"
-														: "outline"
-											}
-										>
-											{item.status}
-										</Badge>
-										<Button
-											size="sm"
-											variant="outline"
-											onClick={() => openManage(item)}
-										>
-											Manage
-										</Button>
-									</div>
+
+									{active?.broadcastId === item.broadcastId && active && (
+										<div className="border-t bg-muted/30 p-4 space-y-3 text-sm">
+											<div className="space-y-3 rounded-md border bg-background p-3">
+												<p className="font-medium">Edit stream</p>
+												<Input
+													placeholder="Stream title"
+													value={editTitle}
+													onChange={(e) => setEditTitle(e.target.value)}
+												/>
+												<Textarea
+													placeholder="Description (optional)"
+													value={editDescription}
+													onChange={(e) => setEditDescription(e.target.value)}
+													rows={2}
+												/>
+												<div className="flex gap-2">
+													<Button
+														size="sm"
+														onClick={saveEdit}
+														disabled={isSavingEdit || !editTitle.trim()}
+													>
+														{isSavingEdit ? "Saving..." : "Update stream"}
+													</Button>
+													<Button
+														size="sm"
+														variant="destructive"
+														onClick={() => setShowDeleteConfirm(true)}
+														disabled={isDeleting}
+													>
+														Delete stream
+													</Button>
+												</div>
+											</div>
+											<div>
+												<strong>Broadcast ID:</strong> {active.broadcastId}
+											</div>
+											<div>
+												<strong>Active Viewers:</strong> {active.viewerCount || 0}
+											</div>
+											<div className="space-y-2 rounded-md border bg-background p-3">
+												<p className="font-medium">Live Stream Preview (for viewers)</p>
+											<video
+												ref={livePreviewVideoRef}
+												autoPlay
+												muted
+												playsInline
+												controls
+												className="video-self-view w-full max-w-2xl rounded-md border bg-black aspect-video"
+											/>
+												<div className="flex gap-2">
+													<Button
+														size="sm"
+														variant="outline"
+														onClick={startLivePreview}
+														disabled={isStartingLivePreview}
+													>
+														{isStartingLivePreview ? "Starting..." : "Start Live Preview"}
+													</Button>
+													<Button
+														size="sm"
+														variant="outline"
+														onClick={stopLivePreview}
+														disabled={!isLivePreviewing}
+													>
+														Stop Live Preview
+													</Button>
+												</div>
+												{livePreviewError && (
+													<p className="text-xs text-red-600">{livePreviewError}</p>
+												)}
+											</div>
+											<div className="flex items-center gap-2">
+												<strong>Ingest URL:</strong>
+												<span className="break-all">{active.ingestUrl || "-"}</span>
+												<Button
+													size="sm"
+													variant="outline"
+													onClick={() => copy(active.ingestUrl)}
+													disabled={!active.ingestUrl}
+												>
+													Copy
+												</Button>
+											</div>
+											<div className="flex items-center gap-2">
+												<strong>Stream Key:</strong>
+												<span className="break-all">{active.streamKey || "-"}</span>
+												<Button
+													size="sm"
+													variant="outline"
+													onClick={() => copy(active.streamKey)}
+													disabled={!active.streamKey}
+												>
+													Copy
+												</Button>
+											</div>
+											{!active.streamKey && (
+												<p className="text-xs text-muted-foreground">
+													For security, stream key is shown only immediately after creating a stream.
+												</p>
+											)}
+											<div className="flex items-center gap-2">
+												<strong>Playback Path:</strong>
+												<span className="break-all">{active.playbackPath || "-"}</span>
+											</div>
+											<div className="flex items-center gap-2">
+												<strong>Local Playback URL:</strong>
+												<span className="break-all">{localPlaybackUrl || "-"}</span>
+												<Button
+													size="sm"
+													variant="outline"
+													onClick={() => copy(localPlaybackUrl)}
+													disabled={!localPlaybackUrl}
+												>
+													Copy
+												</Button>
+												<Button
+													size="sm"
+													variant="outline"
+													onClick={() =>
+														window.open(localPlaybackUrl, "_blank", "noopener,noreferrer")
+													}
+													disabled={!localPlaybackUrl}
+												>
+													Open
+												</Button>
+											</div>
+											<div className="flex gap-2">
+												<Button
+													size="sm"
+													variant="outline"
+													onClick={fetchPlaybackManifest}
+													disabled={isFetchingPlayback || active.status !== "live"}
+												>
+													{isFetchingPlayback ? "Fetching..." : "Fetch Signed Playback URL"}
+												</Button>
+											</div>
+											{playbackManifestUrl && (
+												<p className="text-xs break-all">
+													<strong>Signed Manifest:</strong> {playbackManifestUrl}
+												</p>
+											)}
+											<p className="text-xs text-muted-foreground">
+												Go Live publishes browser camera/mic directly for viewers. OBS ingest is optional
+												and can still be used.
+											</p>
+											{isBrowserPublishing && (
+												<p className="text-xs text-emerald-600">
+													Browser publishing active ({publishMode || "unknown"}): viewers can connect
+													without OBS.
+												</p>
+											)}
+											{playbackError && (
+												<p className="text-xs text-red-600 break-all">
+													<strong>Playback error:</strong> {playbackError}
+												</p>
+											)}
+											<div className="flex gap-2 pt-2">
+												<Button
+													onClick={() => updateStatus(active.broadcastId, "go-live")}
+													disabled={active.status === "live" || isUpdatingStatus}
+												>
+													{isUpdatingStatus && active.status !== "live" ? "Starting..." : "Go Live"}
+												</Button>
+												<Button
+													variant="destructive"
+													onClick={() => updateStatus(active.broadcastId, "end")}
+													disabled={active.status === "ended" || isUpdatingStatus}
+												>
+													End Stream
+												</Button>
+											</div>
+										</div>
+									)}
 								</div>
 							))}
 						</div>
 					)}
 				</CardContent>
 			</Card>
+
+			<Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Delete live stream?</DialogTitle>
+						<DialogDescription>
+							This cannot be undone. The stream will be removed permanently. If it is
+							currently live, it will be ended first.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setShowDeleteConfirm(false)}
+							disabled={isDeleting}
+						>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={deleteBroadcast}
+							disabled={isDeleting}
+						>
+							{isDeleting ? "Deleting..." : "Delete stream"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

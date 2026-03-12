@@ -30,6 +30,15 @@ async function ensureHostAccess(request: NextRequest, broadcastId: string) {
 	return { ok: true as const, session };
 }
 
+/** Map known mediasoup manager errors to 4xx so clients get clear responses instead of 500. */
+function viewerErrorStatus(message: string): number {
+	const m = message.toLowerCase();
+	if (m.includes("no ") && m.includes(" producer available")) return 409;
+	if (m.includes("cannot consume")) return 409;
+	if (m.includes("viewer transport not found")) return 404;
+	return 500;
+}
+
 export async function GET(_request: NextRequest, context: ParamsContext) {
 	try {
 		const { id } = await context.params;
@@ -133,12 +142,21 @@ export async function POST(request: NextRequest, context: ParamsContext) {
 					{ status: 400 }
 				);
 			}
-			await manager.connectViewerTransport({
-				broadcastId: id,
-				viewerId: body.viewerId,
-				dtlsParameters: body.dtlsParameters as never,
-			});
-			return NextResponse.json({ ok: true });
+			try {
+				await manager.connectViewerTransport({
+					broadcastId: id,
+					viewerId: body.viewerId,
+					dtlsParameters: body.dtlsParameters as never,
+				});
+				return NextResponse.json({ ok: true });
+			} catch (connectError) {
+				const msg = connectError instanceof Error ? connectError.message : String(connectError);
+				const status = viewerErrorStatus(msg);
+				return NextResponse.json(
+					{ error: msg, code: status === 404 ? "viewer_transport_not_found" : "stream_not_ready" },
+					{ status }
+				);
+			}
 		}
 
 		if (body.action === "consumeViewer") {
@@ -148,13 +166,25 @@ export async function POST(request: NextRequest, context: ParamsContext) {
 					{ status: 400 }
 				);
 			}
-			const consumer = await manager.createViewerConsumer({
-				broadcastId: id,
-				viewerId: body.viewerId,
-				rtpCapabilities: body.rtpCapabilities as never,
-				kind: body.kind,
-			});
-			return NextResponse.json({ consumer });
+			try {
+				const consumer = await manager.createViewerConsumer({
+					broadcastId: id,
+					viewerId: body.viewerId,
+					rtpCapabilities: body.rtpCapabilities as never,
+					kind: body.kind,
+				});
+				return NextResponse.json({ consumer });
+			} catch (consumeError) {
+				const msg = consumeError instanceof Error ? consumeError.message : String(consumeError);
+				const status = viewerErrorStatus(msg);
+				return NextResponse.json(
+					{
+						error: msg,
+						code: status === 404 ? "viewer_transport_not_found" : "no_producer_yet",
+					},
+					{ status }
+				);
+			}
 		}
 
 		return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
