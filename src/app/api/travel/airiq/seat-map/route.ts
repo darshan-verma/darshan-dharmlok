@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
 			flight,
 			passengers,
 			pricingData, // Optional: pricing response data
+			tripType: incomingTripType, // "O", "R", or "Y"
 		} = body;
 
 		console.log("🛫 Seat Map API: Request received:", {
@@ -229,9 +230,7 @@ export async function POST(req: NextRequest) {
 		const baseOrigin = flightsInfo[0]?.Origin || "";
 		const baseDestination =
 			flightsInfo[flightsInfo.length - 1]?.Destination || "";
-		// TripType should match what was used in Pricing request
-		// For now, defaulting to "O" (One-way), can be enhanced for round-trip
-		const tripType = "O";
+		const tripType = incomingTripType || "O";
 		
 		console.log("📍 Seat Map API: Segment info:", {
 			baseOrigin,

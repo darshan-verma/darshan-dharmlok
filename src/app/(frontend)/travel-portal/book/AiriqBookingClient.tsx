@@ -13,7 +13,8 @@ import { Search, Loader2 } from "lucide-react";
 import Link from "next/link";
 import type { PassengerDetail, FlightResult, FareRuleResponse } from "@/types/tbo";
 import type { SpecialServiceOption } from "../components/ssr/SpecialServiceSelection";
-import type { AiriqPricingResponse } from "@/types/airiq";
+import type { AiriqPricingResponse, AiriqGetMultiClassFareResponse } from "@/types/airiq";
+import AiriqMultiClassCards from "../components/AiriqMultiClassCards";
 import type { BaggageOption } from "../components/ssr/BaggageSelection";
 import type { MealOption } from "../components/ssr/MealSelection";
 import type { SeatOption } from "../components/ssr/SeatSelection";
@@ -52,6 +53,33 @@ AiriqBookingClientProps) {
 		seats: {},
 		otherServices: {},
 	});
+
+	// Post-booking ancillary flow: create booking (block PNR) → fetch ancillaries → add-ons UI → add or skip → payment
+	const [postBookingCreated, setPostBookingCreated] = useState<{
+		airIqPNR: string;
+		airlinePNR: string;
+		bookingTrackId: string;
+	} | null>(null);
+	const [ancillaryAvail, setAncillaryAvail] = useState<{
+		trackId: string;
+		ssrDetails: {
+			Baggages?: Array<{ Id: string; Code?: string; Description?: string; Amount?: string; Origin?: string; Destination?: string }>;
+			Meals?: Array<{ Id: string; Code?: string; Description?: string; Amount?: string; Origin?: string; Destination?: string }>;
+			Seats?: Array<{ Id: string; SeatName?: string; SeatAmount?: string; SeatStatus?: boolean; Origin?: string; Destination?: string }>;
+			OtherSSR?: Array<{ Id: string; Code?: string; Description?: string; Amount?: string }>;
+		};
+	} | null>(null);
+	const [postBookingSelections, setPostBookingSelections] = useState<{
+		baggages: string[];
+		meals: string[];
+		seats: string[];
+		otherSSR: string[];
+	}>({ baggages: [], meals: [], seats: [], otherSSR: [] });
+	const [ancillarySubmitSuccess, setAncillarySubmitSuccess] = useState(false);
+	const [createBookingLoading, setCreateBookingLoading] = useState(false);
+	const [addAncillaryLoading, setAddAncillaryLoading] = useState(false);
+	const [selectedMulticlassFare, setSelectedMulticlassFare] = useState<AiriqGetMultiClassFareResponse | null>(null);
+	const [returnFlightResult, setReturnFlightResult] = useState<FlightResult | null>(null);
 
 	// Load flight data from sessionStorage cache
 	useEffect(() => {
@@ -133,6 +161,7 @@ AiriqBookingClientProps) {
 					console.warn("⚠️ Return flight not found in cache for ResultIndex:", returnResultIndex);
 				}
 			}
+			setReturnFlightResult(returnFlight);
 
 			// Check if airline supports SSR before fetching pricing
 			const airlineCode = flight?.AirlineCode || flight?.ValidatingAirlineCode || "";
@@ -226,21 +255,73 @@ AiriqBookingClientProps) {
 		}
 	};
 
+	const handleProceedToPayment = () => {
+		if (!postBookingCreated) return;
+		try {
+			sessionStorage.setItem("airiqPostBookingContext", JSON.stringify({
+				airIqPNR: postBookingCreated.airIqPNR,
+				airlinePNR: postBookingCreated.airlinePNR,
+				bookingTrackId: postBookingCreated.bookingTrackId,
+				traceId,
+				resultIndex,
+			}));
+		} catch (_) {}
+		window.location.href = `/travel-portal/payment?traceId=${encodeURIComponent(traceId)}&resultIndex=${encodeURIComponent(resultIndex)}`;
+	};
+
+	const handleAddAncillaries = async () => {
+		if (!postBookingCreated || !ancillaryAvail) return;
+		setAddAncillaryLoading(true);
+		try {
+			const totalAmount = [
+				...(ancillaryAvail.ssrDetails.Baggages || []).filter((b) => postBookingSelections.baggages.includes(b.Id)),
+				...(ancillaryAvail.ssrDetails.Meals || []).filter((m) => postBookingSelections.meals.includes(m.Id)),
+				...(ancillaryAvail.ssrDetails.Seats || []).filter((s) => postBookingSelections.seats.includes(s.Id)),
+				...(ancillaryAvail.ssrDetails.OtherSSR || []).filter((o) => postBookingSelections.otherSSR.includes(o.Id)),
+			].reduce((sum, item) => sum + parseFloat((item as { Amount?: string }).Amount || "0"), 0);
+			const res = await fetch("/api/travel/airiq/ancillary", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					airIqPNR: postBookingCreated.airIqPNR,
+					airlinePNR: postBookingCreated.airlinePNR,
+					ancillaryTrackId: ancillaryAvail.trackId,
+					selections: {
+						baggages: postBookingSelections.baggages.map((id) => ({ paxRefId: "1", baggId: id })),
+						meals: postBookingSelections.meals.map((id) => ({ paxRefId: "1", segmentNo: "1", mealId: id })),
+						seats: postBookingSelections.seats.map((id) => ({ paxRefId: "1", seatId: id })),
+						otherSSR: postBookingSelections.otherSSR.map((id) => ({ otherSSRId: id, paxRefId: "1" })),
+					},
+					totalAmount: String(totalAmount.toFixed(2)),
+				}),
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.error || "Add ancillaries failed");
+			setAncillarySubmitSuccess(true);
+			toast.success("Add-ons applied. Proceed to payment when ready.");
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : "Failed to add ancillaries");
+		} finally {
+			setAddAncillaryLoading(false);
+		}
+	};
+
 	const handleBookingSubmit = async (passengerData: PassengerDetail[]) => {
 		try {
-			// Validate passenger data
+			if (postBookingCreated && ancillarySubmitSuccess) {
+				handleProceedToPayment();
+				return;
+			}
+			if (postBookingCreated) return; // add-ons phase; use Add ancillaries / Skip / Proceed to payment
+
 			if (!passengerData || passengerData.length === 0) {
 				toast.error("Please provide passenger details");
 				return;
 			}
-
-			// Validate required fields for each passenger
 			for (let i = 0; i < passengerData.length; i++) {
 				const passenger = passengerData[i];
 				if (!passenger.FirstName || !passenger.LastName) {
-					toast.error(
-						`Passenger ${i + 1}: First name and last name are required`
-					);
+					toast.error(`Passenger ${i + 1}: First name and last name are required`);
 					return;
 				}
 				if (!passenger.DateOfBirth) {
@@ -252,14 +333,44 @@ AiriqBookingClientProps) {
 					return;
 				}
 			}
-
-			// Capture snapshot before payment/booking initiation
+			const effectivePricingData = selectedMulticlassFare
+				? (() => {
+						const mc = selectedMulticlassFare;
+						if (!mc.Trackid || !mc.FlightDetails?.length || !mc.Fares?.[0]) {
+							return null;
+						}
+						const grossAmount = (mc.Fares[0].Faredescription || []).reduce(
+							(sum, p) => sum + Number(p.GrossAmount || 0),
+							0
+						);
+						return {
+							PriceItenaryInfo: [
+								{
+									Trackid: mc.Trackid,
+									FlightDetails: mc.FlightDetails.map((fd) => ({
+										FlightID: fd.FlightID,
+										FlightNumber: fd.FlightNumber,
+										Origin: fd.Origin,
+										Destination: fd.Destination,
+										DepartureDateTime: fd.DepartureDateTime,
+										ArrivalDateTime: fd.ArrivalDateTime,
+									})),
+									GrossAmount: grossAmount,
+								},
+							],
+							ResponseStatus: mc.Status,
+						} as AiriqPricingResponse;
+				  })()
+				: pricingData;
+			if (!effectivePricingData) {
+				toast.error("Pricing data is not available. Please refresh and try again.");
+				return;
+			}
 			if (flightResult) {
 				await captureAndSendSnapshot(
 					{
 						flightResult,
 						passengers: passengerData.map((p) => ({
-							// Only include non-sensitive passenger info
 							title: p.Title,
 							firstName: p.FirstName,
 							lastName: p.LastName,
@@ -278,86 +389,64 @@ AiriqBookingClientProps) {
 					{
 						page: "payment",
 						user: {},
-						booking: {
-							type: "flight",
-							traceId,
-							resultIndex,
-						},
+						booking: { type: "flight", traceId, resultIndex },
 					}
-				).catch(() => {
-					// Silently fail - don't block user flow
-				});
+				).catch(() => {});
 			}
-
-			// Construct AIRiQ booking request
+			const leadPax = passengerData.find((p) => p.IsLeadPax) || passengerData[0];
+			const contactInfo = {
+				countryCode: leadPax.CountryCode || "91",
+				contactNumber: leadPax.ContactNo || "",
+				emailId: leadPax.Email || "",
+			};
+			const tripType = flightResult?.ReturnResultIndex ? "R" : "O";
 			const bookingRequest = {
-				traceId,
-				resultIndex,
+				pricingData: effectivePricingData,
 				passengers: passengerData,
 				adultCount,
 				childCount,
 				infantCount,
-				ssrData: selectedSSRs, // Include SSR selections (seats, meals, baggage)
-				flightData: flightResult, // Include flight details for logging
+				ssrData: selectedSSRs,
+				flightData: flightResult,
+				contactInfo,
+				gstInfo: undefined,
+				blockPNR: true,
+				postAncillaryFlow: true,
+				tripType,
 			};
-
-			console.log("AIRiQ Booking Request:", bookingRequest);
-
-			// TODO: Call AIRiQ booking API
+			setCreateBookingLoading(true);
 			const response = await fetch("/api/travel/airiq/book", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(bookingRequest),
 			});
-
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.error || "Booking failed");
-			}
-
 			const result = await response.json();
-			console.log("Booking result:", result);
-
-			// Capture snapshot after booking confirmation
-			if ((result.Response?.Status === 1 || result.BookingId) && flightResult) {
-				const bookingId = result.BookingId || result.Response?.BookingId;
-				await captureAndSendSnapshot(
-					{
-						bookingId,
-						bookingStatus: "confirmed",
-						flightResult,
-						totalFare: flightResult.Fare?.OfferedFare,
-						totalTax: flightResult.Fare?.Tax,
-						traceId,
-						resultIndex,
-					},
-					{
-						page: "payment", // Payment completed
-						user: {},
-						booking: {
-							type: "flight",
-							traceId,
-							resultIndex,
-							bookingId: bookingId?.toString(),
-						},
-					}
-				).catch(() => {
-					// Silently fail - don't block user flow
-				});
+			if (!response.ok) throw new Error(result.error || "Booking failed");
+			const isSuccess = result._meta?.isSuccess;
+			const pnrs = result._meta?.pnrs as { airIqPNR: string; airlinePNR: string } | undefined;
+			const bookingTrackId = result._meta?.bookingTrackId as string | undefined;
+			if (!isSuccess || !pnrs || !bookingTrackId) {
+				toast.error(result.Status?.Error || "Booking could not be created");
+				return;
 			}
-
-			toast.success(
-				"Booking request submitted successfully! Our team will contact you shortly."
+			setPostBookingCreated({
+				airIqPNR: pnrs.airIqPNR,
+				airlinePNR: pnrs.airlinePNR,
+				bookingTrackId,
+			});
+			toast.success("Booking created. Add optional add-ons below or skip to payment.");
+			const ancRes = await fetch(
+				`/api/travel/airiq/ancillary?airIqPNR=${encodeURIComponent(pnrs.airIqPNR)}&airlinePNR=${encodeURIComponent(pnrs.airlinePNR)}`
 			);
+			const ancData = await ancRes.json();
+			if (ancRes.ok && ancData.trackId && ancData.ssrDetails) {
+				setAncillaryAvail({ trackId: ancData.trackId, ssrDetails: ancData.ssrDetails });
+			}
 		} catch (error) {
 			console.error("Booking failed:", error);
-
-			let errorMessage = "Booking failed. Please try again.";
-			if (error instanceof Error) {
-				errorMessage = error.message;
-			}
-
-			toast.error(errorMessage);
+			toast.error(error instanceof Error ? error.message : "Booking failed. Please try again.");
+		} finally {
+			setCreateBookingLoading(false);
 		}
 	};
 
@@ -425,6 +514,7 @@ AiriqBookingClientProps) {
 							onBookingSubmit={handleBookingSubmit}
 							onPassengersChange={setPassengers}
 							flightResult={flightResult}
+							isSubmitting={createBookingLoading}
 							ssrCharges={{
 								baggage: Object.fromEntries(
 									Object.entries(selectedSSRs.baggage).map(([key, value]) => [
@@ -486,6 +576,188 @@ AiriqBookingClientProps) {
 								pricingData={pricingData}
 								onSSRChange={setSelectedSSRs}
 							/>
+						</section>
+					)}
+
+					{/* 3a. Multi-class fare options - same UI style as TBO upsell cards */}
+					{flightResult && (flightResult as { _airiqOriginal?: unknown })._airiqOriginal ? (
+						<section>
+							<h3 className="text-lg font-semibold text-gray-900 mb-2">Other fare classes</h3>
+							<AiriqMultiClassCards
+								flight={flightResult}
+								traceId={traceId}
+								resultIndex={resultIndex}
+								returnFlight={returnFlightResult}
+								adultCount={adultCount}
+								childCount={childCount}
+								infantCount={infantCount}
+								pricingTrackid={
+									pricingData?.PriceItenaryInfo &&
+									Array.isArray(pricingData.PriceItenaryInfo) &&
+									pricingData.PriceItenaryInfo.length > 0
+										? pricingData.PriceItenaryInfo[0]?.Trackid
+										: null
+								}
+								onSelectFare={(response) => {
+									setSelectedMulticlassFare(response);
+									toast.success("Fare selected. Proceed to book below.");
+								}}
+							/>
+						</section>
+					) : null}
+
+					{/* 3b. Post-booking add-ons (after create booking): optional baggage, meals, seats, other SSR */}
+					{postBookingCreated && ancillaryAvail && (
+						<section>
+							<Card>
+								<CardHeader>
+									<CardTitle>Optional add-ons</CardTitle>
+									<p className="text-sm text-muted-foreground">
+										Add baggage, meals, seats, or other services to your booking.
+									</p>
+								</CardHeader>
+								<CardContent className="space-y-6">
+									{/* Baggages */}
+									{(ancillaryAvail.ssrDetails.Baggages?.length ?? 0) > 0 && (
+										<div>
+											<h4 className="font-medium mb-2">Baggage</h4>
+											<ul className="space-y-2">
+												{ancillaryAvail.ssrDetails.Baggages!.map((b) => (
+													<li key={b.Id} className="flex items-center justify-between gap-4 rounded border p-3">
+														<label className="flex items-center gap-2 cursor-pointer flex-1">
+															<input
+																type="checkbox"
+																checked={postBookingSelections.baggages.includes(b.Id)}
+																onChange={() =>
+																	setPostBookingSelections((prev) => ({
+																		...prev,
+																		baggages: prev.baggages.includes(b.Id)
+																			? prev.baggages.filter((x) => x !== b.Id)
+																			: [...prev.baggages, b.Id],
+																	}))
+																}
+															/>
+															<span>{b.Description ?? b.Code ?? b.Id}</span>
+														</label>
+														<span className="text-sm font-medium">₹{b.Amount ?? "0"}</span>
+													</li>
+												))}
+											</ul>
+										</div>
+									)}
+									{/* Meals */}
+									{(ancillaryAvail.ssrDetails.Meals?.length ?? 0) > 0 && (
+										<div>
+											<h4 className="font-medium mb-2">Meals</h4>
+											<ul className="space-y-2">
+												{ancillaryAvail.ssrDetails.Meals!.map((m) => (
+													<li key={m.Id} className="flex items-center justify-between gap-4 rounded border p-3">
+														<label className="flex items-center gap-2 cursor-pointer flex-1">
+															<input
+																type="checkbox"
+																checked={postBookingSelections.meals.includes(m.Id)}
+																onChange={() =>
+																	setPostBookingSelections((prev) => ({
+																		...prev,
+																		meals: prev.meals.includes(m.Id)
+																			? prev.meals.filter((x) => x !== m.Id)
+																			: [...prev.meals, m.Id],
+																	}))
+																}
+															/>
+															<span>{m.Description ?? m.Code ?? m.Id}</span>
+														</label>
+														<span className="text-sm font-medium">₹{m.Amount ?? "0"}</span>
+													</li>
+												))}
+											</ul>
+										</div>
+									)}
+									{/* Seats */}
+									{(ancillaryAvail.ssrDetails.Seats?.length ?? 0) > 0 && (
+										<div>
+											<h4 className="font-medium mb-2">Seats</h4>
+											<ul className="space-y-2">
+												{ancillaryAvail.ssrDetails.Seats!.map((s) => (
+													<li key={s.Id} className="flex items-center justify-between gap-4 rounded border p-3">
+														<label className="flex items-center gap-2 cursor-pointer flex-1">
+															<input
+																type="checkbox"
+																checked={postBookingSelections.seats.includes(s.Id)}
+																onChange={() =>
+																	setPostBookingSelections((prev) => ({
+																		...prev,
+																		seats: prev.seats.includes(s.Id)
+																			? prev.seats.filter((x) => x !== s.Id)
+																			: [...prev.seats, s.Id],
+																	}))
+																}
+															/>
+															<span>{s.SeatName ?? s.Id}</span>
+														</label>
+														<span className="text-sm font-medium">₹{s.SeatAmount ?? "0"}</span>
+													</li>
+												))}
+											</ul>
+										</div>
+									)}
+									{/* Other SSR */}
+									{(ancillaryAvail.ssrDetails.OtherSSR?.length ?? 0) > 0 && (
+										<div>
+											<h4 className="font-medium mb-2">Other services</h4>
+											<ul className="space-y-2">
+												{ancillaryAvail.ssrDetails.OtherSSR!.map((o) => (
+													<li key={o.Id} className="flex items-center justify-between gap-4 rounded border p-3">
+														<label className="flex items-center gap-2 cursor-pointer flex-1">
+															<input
+																type="checkbox"
+																checked={postBookingSelections.otherSSR.includes(o.Id)}
+																onChange={() =>
+																	setPostBookingSelections((prev) => ({
+																		...prev,
+																		otherSSR: prev.otherSSR.includes(o.Id)
+																			? prev.otherSSR.filter((x) => x !== o.Id)
+																			: [...prev.otherSSR, o.Id],
+																	}))
+																}
+															/>
+															<span>{o.Description ?? o.Code ?? o.Id}</span>
+														</label>
+														<span className="text-sm font-medium">₹{o.Amount ?? "0"}</span>
+													</li>
+												))}
+											</ul>
+										</div>
+									)}
+									{ancillarySubmitSuccess ? (
+										<div className="flex flex-col gap-2 pt-4">
+											<p className="text-sm text-green-600 font-medium">You can now proceed to payment.</p>
+											<Button onClick={handleProceedToPayment} className="w-full sm:w-auto">
+												Proceed to payment
+											</Button>
+										</div>
+									) : (
+										<div className="flex flex-wrap gap-2 pt-4">
+											<Button
+												onClick={handleAddAncillaries}
+												disabled={
+													addAncillaryLoading ||
+													(postBookingSelections.baggages.length === 0 &&
+														postBookingSelections.meals.length === 0 &&
+														postBookingSelections.seats.length === 0 &&
+														postBookingSelections.otherSSR.length === 0)
+												}
+											>
+												{addAncillaryLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+												Add selected add-ons
+											</Button>
+											<Button variant="outline" onClick={() => { setAncillarySubmitSuccess(true); toast.success("Skipped add-ons. Proceed to payment when ready."); }}>
+												Skip add-ons
+											</Button>
+										</div>
+									)}
+								</CardContent>
+							</Card>
 						</section>
 					)}
 

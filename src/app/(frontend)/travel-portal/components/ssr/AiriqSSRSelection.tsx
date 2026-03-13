@@ -190,6 +190,7 @@ export default function AiriqSSRSelection({
 						flightDetailsCount: priceInfo?.FlightDetails?.length || 0,
 					} : null,
 				});
+				const tripType = flight.ReturnResultIndex ? "R" : "O";
 				const response = await fetch("/api/travel/airiq/seat-map", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -201,7 +202,8 @@ export default function AiriqSSRSelection({
 						adultCount,
 						childCount,
 						infantCount,
-						pricingData, // Pass pricing data so seat map can use FlightDetails from pricing
+						pricingData,
+						tripType,
 					}),
 				});
 

@@ -292,48 +292,330 @@ export interface AiriqFareQuoteResponse {
 	};
 }
 
-export interface AiriqBookingRequest {
-	Token?: string;
-	TokenId?: string;
-	ResultIndex: string;
-	TraceId: string;
-	Passengers: Array<{
-		Title: string;
-		FirstName: string;
-		LastName: string;
-		DateOfBirth: string;
-		Gender: number;
-		PassportNo?: string;
-		PassportExpiry?: string;
-		AddressLine1?: string;
-		City?: string;
-		CountryCode?: string;
-		CountryName?: string;
-		Nationality?: string;
-		ContactNo?: string;
-		Email?: string;
-		IsLeadPax?: boolean;
-		FFAirlineCode?: string;
-		FFNumber?: string;
-		GSTCompanyAddress?: string;
-		GSTCompanyContactNumber?: string;
-		GSTCompanyName?: string;
-		GSTNumber?: string;
-		GSTCompanyEmail?: string;
+// Section 8 - Booking API Types (per Airiq Book API documentation)
+
+export interface AiriqItineraryFlightInfo {
+	FlightID: string;
+	FlightNumber: string;
+	Origin: string;
+	Destination: string;
+	DepartureDateTime: string; // "DD MMM YYYY HH:MM"
+	ArrivalDateTime: string;
+}
+
+export interface AiriqItineraryFlightsInfo {
+	Token: string; // Pricing reference value from PriceItenaryInfo[].AvailabilityResponse[].Token
+	FlightsInfo: AiriqItineraryFlightInfo[];
+	PaymentMode: string; // "T" = Agent Deposit
+	SeatsSSRInfo?: Array<{
+		SeatID: string;
+		PaxRefNumber: number;
 	}>;
-	EndUserIp: string;
+	BaggSSRInfo?: Array<{
+		BaggageID: string;
+		PaxRefNumber: number;
+	}>;
+	MealsSSRInfo?: Array<{
+		MealID: string;
+		PaxRefNumber: number;
+	}>;
+	OtherSSRInfo?: Array<{
+		OtherSSRID: string;
+		PaxRefNumber: number;
+	}>;
+	PaymentInfo?: Array<{
+		TotalAmount: string;
+	}>;
+}
+
+export interface AiriqPaxDetailsInfo {
+	PaxRefNumber: number;
+	Title: string; // Mr, Mrs, Miss, Ms, Mstr, Dr
+	FirstName: string;
+	LastName: string;
+	DOB: string; // DD/MM/YYYY
+	Gender: string; // "Male" | "Female"
+	PaxType: string; // "ADT" | "CHD" | "INF"
+	PassportNo?: string;
+	PassportExpiry?: string; // DD/MM/YYYY
+	PassportIssuedDate?: string; // DD/MM/YYYY
+	PassportCountryCode?: string; // e.g. "IN", "US"
+	InfantRef?: string;
+}
+
+export interface AiriqAddressDetails {
+	CountryCode: string; // Dialing code e.g. "91"
+	ContactNumber: string;
+	EmailID: string;
+}
+
+export interface AiriqGSTInfo {
+	GSTNumber: string;
+	GSTCompanyName: string;
+	GSTAddress: string;
+	GSTEmailID: string;
+	GSTMobileNumber: string;
+}
+
+export interface AiriqFFNumberInfo {
+	PaxRefNumber: number;
+	SegRefNumber: number;
+	AirlineCode: string;
+	FlyerNumber: string;
+	Itinref: number;
+}
+
+export interface AiriqBookingRequest {
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: number;
+	};
+	AdultCount: number;
+	ChildCount: number;
+	InfantCount: number;
+	ItineraryFlightsInfo: AiriqItineraryFlightsInfo[];
+	PaxDetailsInfo: AiriqPaxDetailsInfo[];
+	AddressDetails: AiriqAddressDetails;
+	GSTInfo: AiriqGSTInfo;
+	FFNumberInfo?: AiriqFFNumberInfo[];
+	TripType: string; // "O" = One-way, "R" = Round-trip, "Y" = Round-trip Special
+	BlockPNR: boolean;
+	BaseOrigin: string;
+	BaseDestination: string;
+	TrackId: string; // From Pricing response PriceItenaryInfo[].Trackid
 }
 
 export interface AiriqBookingResponse {
-	Response: {
-		BookingId: string;
-		PNR: string;
-		Status: number;
-		TraceId: string;
-		Error?: {
-			ErrorCode: number;
-			ErrorMessage: string;
-		};
+	TrackId: string;
+	Bookingresponse: {
+		ItinearyDetails: unknown; // Exact success structure TBD from API sample
+	};
+	Status: {
+		Error: string;
+		ResultCode: string; // "1" = success, "2" = pending, "0" = failure, "-1" = exception
+		SequenceID: string;
+	};
+}
+
+/**
+ * Section 9 - Ticketing (IssueTicket)
+ * Request shape per doc 9.3 Data Format and 9.4 Request.
+ * Confirm the ticket for an already blocked itinerary.
+ */
+export interface AiriqIssueTicketRequest {
+	AgentInfo: {
+		AgentId: string; // Doc: AgentID
+		UserName: string; // Doc: Username
+		AppType: string; // Doc: Default "API"
+		Version: number; // Doc: API version (sample 2.0)
+	};
+	BookingTrackId: string; // Doc: Unique reference Id from Booking response
+	AirIqPNR: string; // Doc: Airiq Booking reference number
+	AirlinePNR: string; // Doc: Airline Booking reference number
+	BookingAmount: string; // Doc: Total Booking Amount (decimal string e.g. "11262.00")
+	PaymentMode: string; // Doc: "T" = Agent Deposit
+}
+
+/**
+ * Section 9.5 - IssueTicket response (Success / Pending / Failure / Exception).
+ * TrackId, Bookingresponse.ItinearyDetails, Status.Error | ResultCode | SequenceID.
+ */
+export interface AiriqIssueTicketResponse {
+	TrackId: string;
+	Bookingresponse: {
+		ItinearyDetails: unknown; // doc spelling
+	};
+	Status: {
+		Error: string;
+		ResultCode: string; // "1" success, "2" pending, "0" failure, "-1" exception
+		SequenceID: string;
+	};
+}
+
+/**
+ * Section 10 - Get Booking (RetrieveBooking)
+ * Doc 10.3/10.4: Retrieve booking details by AirIqPNR, AirlinePNR, or CRSPNR.
+ */
+export interface AiriqRetrieveBookingItem {
+	AirIqPNR?: string;
+	AirlinePNR?: string;
+	CRSPNR?: string;
+}
+
+export interface AiriqRetrieveBookingRequest {
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: number;
+	};
+	Item: AiriqRetrieveBookingItem[];
+}
+
+/**
+ * Section 10.5 - RetrieveBooking response. Success has Retrieveresponse set; failure/exception have Status.
+ */
+export interface AiriqRetrieveBookingResponse {
+	Retrieveresponse: unknown | null; // Success payload; doc says "refer to sample JSON"
+	Status: {
+		Error: string;
+		ResultCode: string; // "1" = success, "0" = failure, "-1" = exception
+		SequenceID: string;
+	};
+}
+
+/**
+ * Section 13 - Cancellation Status
+ * Doc 13.3 Request: AgentInfo + OnlineInfo (Flag, AirIqPNR, Remarks).
+ */
+export interface AiriqCancellationRequest {
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: number;
+	};
+	OnlineInfo: {
+		Flag: "PENALTY" | "CANCEL";
+		AirIqPNR: string;
+		Remarks?: string;
+	};
+}
+
+/**
+ * Section 13.4/13.5/13.6/13.7 - Cancellation response
+ * CancelStatus: "SUCCESS" | "Failed" | "PENDING"
+ */
+export interface AiriqCancellationResponse {
+	CancelStatus: string;
+	Remarks: string;
+	PenalityAmount?: string;
+	TotalBookingAmount?: string;
+	Status: {
+		ResultCode: string; // "1" success, "0" failure, "-1" exception, "-2" pending
+		Error: string;
+		SequenceID: string;
+	};
+}
+
+/**
+ * Section 16 - Hold Cancel
+ * Doc 16.2 Request: AgentInfo, AirIqPNR, AirlinePNR.
+ * Doc 16.3/16.4 Response: CancelStatus, Remarks, Status.
+ */
+export interface AiriqHoldCancelRequest {
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: number;
+	};
+	AirIqPNR: string;
+	AirlinePNR: string;
+}
+
+export interface AiriqHoldCancelResponse {
+	CancelStatus: string;
+	Remarks: string;
+	Status: {
+		ResultCode: string;
+		Error: string;
+		SequenceID: string;
+	};
+}
+
+/**
+ * Section 14 - Reschedule Avail
+ * Doc 14.3/14.4: Check availability for new date and revised fare.
+ */
+export interface AiriqRescheduleAvailRequest {
+	TripType: string; // O = One-way, R = Round-trip, Y = Roundtrip Special
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: number;
+	};
+	AvailInfo: Array<{
+		DepartureStation: string;
+		ArrivalStation: string;
+		FlightDate: string; // YYYYMMDD
+	}>;
+	AirIqPNR: string;
+	Remarks?: string;
+}
+
+/**
+ * Section 14.5–14.8: Reschedule Avail response. Same ItineraryFlightList shape as flight search.
+ */
+export interface AiriqRescheduleAvailResponse {
+	Trackid: string | null;
+	ItineraryFlightList: AiriqFlightSearchResponse["ItineraryFlightList"] | null;
+	Status: {
+		Error: string;
+		ResultCode: string; // "1" success, "0" failure, "-1" exception, "-2" pending
+		SequenceID: string;
+	};
+}
+
+/**
+ * Section 14.9/14.10 - Reschedule (confirm). FlightDetails for selected itinerary.
+ */
+export interface AiriqRescheduleFlightDetail {
+	FlightID: string;
+	FlightNumber: string;
+	Origin: string;
+	Destination: string;
+	DepartureDateTime: string;
+	ArrivalDateTime: string;
+}
+
+export interface AiriqRescheduleItineraryInfo {
+	FlightDetails: AiriqRescheduleFlightDetail[];
+	BaseAmount: string;
+	GrossAmount: string;
+}
+
+export interface AiriqRescheduleRequest {
+	AgentInfo: {
+		AgentId: string;
+		TerminalId?: string;
+		UserName: string;
+		AppType: string;
+		Version: number;
+	};
+	SegmentInfo: {
+		BaseOrigin: string;
+		BaseDestination: string;
+		TripType: string;
+	};
+	Trackid: string;
+	AirIqPNR: string;
+	Remarks?: string;
+	Flag: "CHECKFARE" | "CONFIRM";
+	ContactNo: string;
+	ItineraryInfo: AiriqRescheduleItineraryInfo[];
+}
+
+/**
+ * Section 14.11–14.14: Reschedule response. On success, AirIqPNR in response is the NEW PNR.
+ * Failure/exception/pending responses contain only Status.
+ */
+export interface AiriqRescheduleResponse {
+	AgentInfo?: AiriqRescheduleRequest["AgentInfo"];
+	SegmentInfo?: AiriqRescheduleRequest["SegmentInfo"];
+	Trackid?: string;
+	AirIqPNR?: string; // NEW PNR on success; absent on failure/exception/pending
+	Remarks?: string;
+	Flag?: string;
+	ContactNo?: string;
+	ItineraryInfo?: AiriqRescheduleItineraryInfo[];
+	Status: {
+		Error: string;
+		ResultCode: string; // "1" success, "0" failure, "-1" exception, "-2" pending
+		SequenceID: string;
 	};
 }
 
@@ -454,6 +736,58 @@ export interface AiriqPostBookingSSRResponse {
 	Status: {
 		Error: string;
 		ResultCode: string;
+		SequenceID: string;
+	};
+}
+
+/**
+ * Add post-booking SSR (Add SSR) - doc 15.6–15.9.
+ * Request uses TracKID (from Get SSR TrackId), AirIqPNR, AirlinePNR, and selection arrays.
+ */
+export interface AiriqAddPostBookingSSRRequest {
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: number;
+	};
+	Remarks?: string;
+	TracKID: string; // doc spelling; from PostAncillary Avail TrackId
+	AirIqPNR: string;
+	AirlinePNR: string;
+	MealsSSR?: Array<{
+		PaxRefId: string;
+		SegmentNo: string;
+		MealId: string;
+	}>;
+	BaggSSR?: Array<{
+		PaxRefId: string;
+		BaggId: string;
+	}>;
+	SeatsSSR?: Array<{
+		PaxRefId: string;
+		SeatId: string;
+	}>;
+	OtherSSR?: Array<{
+		OtherSSRId: string;
+		PaxRefId: string;
+	}>;
+	Payment: Array<{
+		PaymentMode: string; // "T" = Agent Deposit
+		Amount: string;
+	}>;
+}
+
+/**
+ * Add SSR response - doc 15.8/15.9. Success has Retrieveresponse.ItinearyDetails; failure has Status only.
+ */
+export interface AiriqAddPostBookingSSRResponse {
+	Retrieveresponse?: {
+		ItinearyDetails?: unknown[];
+	};
+	Status: {
+		Error: string;
+		ResultCode: string; // "1" = success, "0" = failure, "-1" = exception
 		SequenceID: string;
 	};
 }
@@ -595,6 +929,140 @@ export interface AiriqPricingResponse {
 	ResponseStatus: {
 		Error: string;
 		ResultCode: string; // "1" = success, "0" = failure, "-1" = exception
+		SequenceID: string;
+	};
+}
+
+// AIRiQ GetMultiClass (doc 17) - available fare classes per flight
+export interface AiriqGetMultiClassRequest {
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: string;
+	};
+	FlightsInfo: Array<{ FlightID: string }>;
+	PassengersInfo: {
+		AdultCount: number;
+		ChildCount: number;
+		InfantCount: number;
+	};
+	TripType: string; // O=Oneway, R=Roundtrip, Y=Roundtrip Special
+	Trackid: string;
+}
+
+export interface AiriqGetMultiClassClass {
+	Cabin: string;
+	Class: string;
+	FareBasisCode: string;
+	Seats: string;
+}
+
+export interface AiriqGetMultiClassAvailDetail {
+	Origin: string;
+	Destination: string;
+	CarrierCode: string;
+	FlightNumber: string;
+	Classes: AiriqGetMultiClassClass[];
+}
+
+export interface AiriqGetMultiClassResponse {
+	AvailDetails: AiriqGetMultiClassAvailDetail[] | null;
+	Status: {
+		Error: string;
+		ResultCode: string;
+		SequenceID: string;
+	};
+}
+
+// AIRiQ GetMultiClassFare (doc 18) - fare for selected class
+export interface AiriqGetMultiClassFareRequest {
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: string;
+	};
+	FlightsInfo: Array<{ FlightID: string }>;
+	ClassFare: Array<{
+		AirlineClass: string;
+		SeatAvailFlag: string;
+	}>;
+	PassengersInfo: {
+		AdultCount: number;
+		ChildCount: number;
+		InfantCount: number;
+	};
+	TripType: string;
+	Trackid: string;
+}
+
+export interface AiriqGetMultiClassFareFlightDetail {
+	FlightID: string;
+	Stock?: string;
+	FlightNumber: string;
+	Origin: string;
+	Destination: string;
+	DepartureTerminal?: string;
+	ArrivalTerminal?: string;
+	DepartureDateTime: string;
+	ArrivalDateTime: string;
+	Class: string;
+	ReferenceToken?: string;
+	SegRef?: string;
+	ItinRef?: string;
+	FareId?: string;
+	Cabin?: string;
+	FareBasisCode?: string;
+	Stops?: string;
+	AirlineCategory?: string;
+	CNX?: string;
+	PlatingCarrier?: string;
+	OperatingCarrier?: string;
+	SegmentDetails?: string;
+	FlyingTime?: string;
+	AvailSeat?: string;
+	FareTypeDescription?: string;
+	FareDescription?: string;
+	Baggage?: string;
+	[key: string]: unknown;
+}
+
+export interface AiriqGetMultiClassFareTax {
+	Amount: string;
+	Code: string;
+}
+
+export interface AiriqGetMultiClassFareDescription {
+	Paxtype: string;
+	BaseAmount: string;
+	TotalTaxAmount: string;
+	GrossAmount: string;
+	Commission?: string | null;
+	Incentive?: string | null;
+	Servicecharge?: string | null;
+	TDS?: string;
+	Discount?: string;
+	PLBAmount?: string;
+	SF?: string;
+	SFGST?: string;
+	Taxes?: AiriqGetMultiClassFareTax[];
+}
+
+export interface AiriqGetMultiClassFareFare {
+	Faredescription: AiriqGetMultiClassFareDescription[];
+	FlightId: string;
+	FareType: string;
+	Currency: string;
+}
+
+export interface AiriqGetMultiClassFareResponse {
+	Trackid: string | null;
+	FlightDetails: AiriqGetMultiClassFareFlightDetail[] | null;
+	Fares: AiriqGetMultiClassFareFare[] | null;
+	Status: {
+		Error: string;
+		ResultCode: string;
 		SequenceID: string;
 	};
 }

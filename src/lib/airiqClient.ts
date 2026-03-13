@@ -13,14 +13,34 @@ import type {
 	AiriqFareQuoteResponse,
 	AiriqBookingRequest,
 	AiriqBookingResponse,
+	AiriqIssueTicketRequest,
+	AiriqIssueTicketResponse,
 	AiriqSSRRequest,
 	AiriqSSRResponse,
 	AiriqPostBookingSSRRequest,
 	AiriqPostBookingSSRResponse,
+	AiriqAddPostBookingSSRRequest,
+	AiriqAddPostBookingSSRResponse,
 	AiriqPricingRequest,
 	AiriqPricingResponse,
 	AiriqSeatMapRequest,
 	AiriqSeatMapResponse,
+	AiriqRetrieveBookingRequest,
+	AiriqRetrieveBookingResponse,
+	AiriqGetMultiClassRequest,
+	AiriqGetMultiClassResponse,
+	AiriqGetMultiClassFareRequest,
+	AiriqGetMultiClassFareResponse,
+} from "@/types/airiq";
+import type {
+	AiriqCancellationRequest,
+	AiriqCancellationResponse,
+	AiriqHoldCancelRequest,
+	AiriqHoldCancelResponse,
+	AiriqRescheduleAvailRequest,
+	AiriqRescheduleAvailResponse,
+	AiriqRescheduleRequest,
+	AiriqRescheduleResponse,
 } from "@/types/airiq";
 import type { FlightSearchResponse, FlightSegment } from "@/types/tbo";
 
@@ -32,6 +52,7 @@ export interface AiriqRequestConfig {
 	method?: "GET" | "POST" | "PUT" | "DELETE";
 	body?: unknown;
 	headers?: Record<string, string>;
+	skipStatusCheck?: boolean;
 }
 
 /**
@@ -43,7 +64,7 @@ export async function airiqRequest<T = unknown>(
 	config: AiriqRequestConfig,
 	isRetry = false
 ): Promise<T> {
-	const { endpoint, method = "POST", body, headers = {} } = config;
+	const { endpoint, method = "POST", body, headers = {}, skipStatusCheck = false } = config;
 
 	try {
 		// Get valid token (from cache or by authenticating)
@@ -100,20 +121,30 @@ export async function airiqRequest<T = unknown>(
 		console.log(`📦 AIRiQ ${endpoint} Response Keys:`, Object.keys(data));
 
 		// Check for AIRiQ Status error (per API doc: ResultCode "1" = success, "0" = failure, "-1" = exception)
-		// Check Status object for errors (present in all AIRiQ responses)
+		// Booking endpoint uses "2" for pending which the caller handles directly
 		if (data.Status) {
-			const { ResultCode, Error: errorMsg, SequenceID } = data.Status;
+			const status = data.Status as Record<string, unknown>;
+			const { ResultCode, SequenceID } = data.Status;
+			const errorMsg = status.Error ?? status.Message ?? (data.Status as { Error?: string }).Error;
 			console.log(
 				`📊 AIRiQ ${endpoint} Status - ResultCode: ${ResultCode}, SequenceID: ${SequenceID}`
 			);
 
-			if (ResultCode !== "1") {
-				const errorMessage = errorMsg || "API request failed";
+			if (!skipStatusCheck && ResultCode !== "1") {
+				const errorMessage =
+					typeof errorMsg === "string" && errorMsg.trim()
+						? errorMsg
+						: "API request failed";
 				console.error(
 					`❌ AIRiQ ${endpoint} Error - Code: ${ResultCode}, Message: ${errorMessage}`
 				);
+				// Log full response for diagnostics (Status, AvailDetails, Trackid, etc.)
+				console.error(`❌ AIRiQ ${endpoint} full response:`, JSON.stringify({
+					Status: data.Status,
+					AvailDetails: data.AvailDetails ?? null,
+					Trackid: data.Trackid ?? null,
+				}));
 
-				// If token timeout and this is not a retry, clear cache and retry once
 				if (
 					!isRetry &&
 					(errorMessage.toLowerCase().includes("token") ||
@@ -126,8 +157,6 @@ export async function airiqRequest<T = unknown>(
 					return await airiqRequest<T>(config, true);
 				}
 
-				// For IP validation errors, still throw but let route handlers catch and handle gracefully
-				// This allows different endpoints to handle IP errors differently
 				throw new Error(
 					`AIRiQ ${endpoint} Error (Code ${ResultCode}): ${errorMessage}`
 				);
@@ -156,6 +185,25 @@ export async function airiqRequest<T = unknown>(
 		return data as T;
 	} catch (error) {
 		console.error(`AIRiQ API Error (${endpoint}):`, error);
+		// Surface clear message for connect/timeout and other network errors
+		const cause = error instanceof Error ? (error as Error & { cause?: { code?: string } }).cause : undefined;
+		const causeCode = cause && typeof cause === "object" && "code" in cause ? (cause as { code?: string }).code : undefined;
+		const errMessage = error instanceof Error ? error.message : String(error);
+		const isTimeout =
+			causeCode === "UND_ERR_CONNECT_TIMEOUT" ||
+			/timeout|ETIMEDOUT/i.test(errMessage) ||
+			(cause && typeof cause === "object" && "message" in cause && /timeout|ETIMEDOUT/i.test(String((cause as { message?: string }).message)));
+		const isNetwork =
+			isTimeout ||
+			/ECONNREFUSED|ENOTFOUND|fetch failed|network/i.test(errMessage) ||
+			(causeCode && /UND_ERR|ECONNREFUSED|ENOTFOUND/i.test(causeCode));
+		if (isNetwork) {
+			const friendlyMessage =
+				isTimeout
+					? "AIRiQ service timed out or unreachable. Please try again."
+					: "AIRiQ service unreachable. Please try again.";
+			throw new Error(friendlyMessage, { cause: error });
+		}
 		throw error;
 	}
 }
@@ -201,27 +249,43 @@ export async function getFareQuote(
 
 /**
  * Get SSR (Special Service Request) options (pre-booking)
+ * Doc: GetSSR → {URL}/GetSSR
  */
 export async function getSSR(
 	ssrParams: Omit<AiriqSSRRequest, "Token">
 ): Promise<AiriqSSRResponse> {
 	return airiqRequest<AiriqSSRResponse>({
-		endpoint: "SSR",
+		endpoint: "GetSSR",
 		method: "POST",
 		body: ssrParams,
 	});
 }
 
 /**
- * Get post-booking SSR (PostAncillary Avail) - uses PNRs
+ * Get post-booking SSR (PostAncillaryAvail) - uses PNRs
+ * Naming aligned with doc: RescheduleAvail, GetAvailSeatMap (PascalCase, no spaces)
  */
 export async function getPostBookingSSR(
 	ssrParams: Omit<AiriqPostBookingSSRRequest, "Token">
 ): Promise<AiriqPostBookingSSRResponse> {
 	return airiqRequest<AiriqPostBookingSSRResponse>({
-		endpoint: "PostAncillary Avail",
+		endpoint: "PostAncillaryAvail",
 		method: "POST",
 		body: ssrParams,
+	});
+}
+
+/**
+ * Add post-booking SSR (Add SSR) - doc 15.6–15.9. Uses TrackId from Get SSR and PNRs.
+ */
+export async function addPostBookingSSR(
+	params: AiriqAddPostBookingSSRRequest
+): Promise<AiriqAddPostBookingSSRResponse> {
+	return airiqRequest<AiriqAddPostBookingSSRResponse>({
+		endpoint: "AddSSR",
+		method: "POST",
+		body: params,
+		skipStatusCheck: true,
 	});
 }
 
@@ -241,6 +305,33 @@ export async function getPricing(
 }
 
 /**
+ * GetMultiClass (doc 17) – available fare classes per flight
+ */
+export async function getMultiClass(
+	params: AiriqGetMultiClassRequest
+): Promise<AiriqGetMultiClassResponse> {
+	return airiqRequest<AiriqGetMultiClassResponse>({
+		endpoint: "GetMultiClass",
+		method: "POST",
+		body: params,
+		skipStatusCheck: true,
+	});
+}
+
+/**
+ * GetMultiClassFare (doc 18) – fare for selected class; returns new Trackid and FlightDetails
+ */
+export async function getMultiClassFare(
+	params: AiriqGetMultiClassFareRequest
+): Promise<AiriqGetMultiClassFareResponse> {
+	return airiqRequest<AiriqGetMultiClassFareResponse>({
+		endpoint: "GetMultiClassFare",
+		method: "POST",
+		body: params,
+	});
+}
+
+/**
  * Get seat map for selected flight
  * Returns seat layout, availability, and pricing for each seat
  */
@@ -255,39 +346,107 @@ export async function getSeatMap(
 }
 
 /**
- * Book a flight
+ * Book a flight (Section 8 of Airiq API docs)
+ * skipStatusCheck is true because the Book endpoint can return ResultCode "2" (pending)
+ * which the route handler needs to distinguish from errors.
  */
 export async function bookFlight(
-	bookingParams: Omit<AiriqBookingRequest, "Token">
+	bookingParams: AiriqBookingRequest
 ): Promise<AiriqBookingResponse> {
 	return airiqRequest<AiriqBookingResponse>({
 		endpoint: "Book",
 		method: "POST",
 		body: bookingParams,
+		skipStatusCheck: true,
 	});
 }
 
 /**
- * Get booking details
+ * Issue ticket (Section 9 - Ticketing, doc method: IssueTicket, URL: {URL}/IssueTicket)
+ * Confirm the ticket for an already blocked itinerary. Call after Book returns success (ResultCode "1").
+ * Response per 9.5: TrackId, Bookingresponse.ItinearyDetails, Status (Error, ResultCode, SequenceID).
+ */
+export async function issueTicket(
+	params: AiriqIssueTicketRequest
+): Promise<AiriqIssueTicketResponse> {
+	return airiqRequest<AiriqIssueTicketResponse>({
+		endpoint: "IssueTicket",
+		method: "POST",
+		body: params,
+		skipStatusCheck: true,
+	});
+}
+
+/**
+ * Get booking details (RetrieveBooking). Doc 10: confirm ticket for already blocked itinerary.
+ * Uses AirIqPNR, AirlinePNR, or CRSPNR in Item[]. skipStatusCheck so caller can handle failure/exception.
  */
 export async function getBookingDetails(
-	bookingParams: Record<string, unknown>
-) {
-	return airiqRequest({
-		endpoint: "GetBookingDetails",
+	params: AiriqRetrieveBookingRequest
+): Promise<AiriqRetrieveBookingResponse> {
+	return airiqRequest<AiriqRetrieveBookingResponse>({
+		endpoint: "RetrieveBooking",
 		method: "POST",
-		body: bookingParams,
+		body: params,
+		skipStatusCheck: true,
 	});
 }
 
 /**
  * Cancel booking
  */
-export async function cancelBooking(cancelParams: Record<string, unknown>) {
-	return airiqRequest({
+export async function cancelOrPenalty(
+	params: AiriqCancellationRequest
+): Promise<AiriqCancellationResponse> {
+	return airiqRequest<AiriqCancellationResponse>({
 		endpoint: "Cancel",
 		method: "POST",
-		body: cancelParams,
+		body: params,
+		skipStatusCheck: true,
+	});
+}
+
+/**
+ * Hold Cancel – cancel a held PNR (Section 16). Request: AgentInfo, AirIqPNR, AirlinePNR.
+ */
+export async function holdCancel(
+	params: AiriqHoldCancelRequest
+): Promise<AiriqHoldCancelResponse> {
+	return airiqRequest<AiriqHoldCancelResponse>({
+		endpoint: "HoldCancel",
+		method: "POST",
+		body: params,
+		skipStatusCheck: true,
+	});
+}
+
+/**
+ * Reschedule Avail – check availability for new date and revised fare (Section 14).
+ * Returns Trackid and ItineraryFlightList; route interprets ResultCode.
+ */
+export async function rescheduleAvail(
+	params: AiriqRescheduleAvailRequest
+): Promise<AiriqRescheduleAvailResponse> {
+	return airiqRequest<AiriqRescheduleAvailResponse>({
+		endpoint: "RescheduleAvail",
+		method: "POST",
+		body: params,
+		skipStatusCheck: true,
+	});
+}
+
+/**
+ * Reschedule – confirm reschedule (Flag CONFIRM) or compare fare (Flag CHECKFARE).
+ * On success, response.AirIqPNR is the new PNR to use for all subsequent actions.
+ */
+export async function reschedule(
+	params: AiriqRescheduleRequest
+): Promise<AiriqRescheduleResponse> {
+	return airiqRequest<AiriqRescheduleResponse>({
+		endpoint: "Reschedule",
+		method: "POST",
+		body: params,
+		skipStatusCheck: true,
 	});
 }
 

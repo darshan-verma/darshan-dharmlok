@@ -54,6 +54,7 @@ interface PassengerDetailsProps {
 	onBookingSubmit: (data: PassengerDetail[]) => void;
 	onPassengersChange?: (passengers: PassengerDetail[]) => void;
 	flightResult: FlightResult;
+	isSubmitting?: boolean;
 	ssrCharges?: {
 		baggage?: Record<string, { Price: number } | null>;
 		meals?: Record<string, { Price: number } | null>;
@@ -69,6 +70,7 @@ export default function PassengerDetails({
 	onBookingSubmit,
 	onPassengersChange,
 	flightResult,
+	isSubmitting = false,
 	ssrCharges,
 }: PassengerDetailsProps) {
 	const {
@@ -552,8 +554,9 @@ export default function PassengerDetails({
 								className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 transition-all hover:shadow-blue-600/40"
 								type="submit"
 								form="passenger-form"
+								disabled={isSubmitting}
 							>
-								Proceed to Pay <ArrowRight className="ml-2 h-4 w-4" />
+								{isSubmitting ? "Creating booking…" : "Proceed to Pay"} <ArrowRight className="ml-2 h-4 w-4" />
 							</Button>
 							<div className="mt-2 text-center sm:hidden flex items-center justify-center gap-2 text-xs text-gray-500">
 								<span>
