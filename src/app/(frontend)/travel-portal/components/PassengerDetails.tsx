@@ -55,6 +55,10 @@ interface PassengerDetailsProps {
 	onPassengersChange?: (passengers: PassengerDetail[]) => void;
 	flightResult: FlightResult;
 	isSubmitting?: boolean;
+	/** When true, passport number and expiry are required (from FareQuote IsPassportRequiredAtBook). */
+	requirePassport?: boolean;
+	/** When true, passport issue date is also required (from FareQuote IsPassportFullDetailRequiredAtBook). */
+	requirePassportFull?: boolean;
 	ssrCharges?: {
 		baggage?: Record<string, { Price: number } | null>;
 		meals?: Record<string, { Price: number } | null>;
@@ -71,6 +75,8 @@ export default function PassengerDetails({
 	onPassengersChange,
 	flightResult,
 	isSubmitting = false,
+	requirePassport = false,
+	requirePassportFull = false,
 	ssrCharges,
 }: PassengerDetailsProps) {
 	const {
@@ -395,19 +401,17 @@ export default function PassengerDetails({
 											{isAdult && (
 												<>
 													<div className="space-y-2">
-														<Label>Passport No (Optional)</Label>
+														<Label>Passport No {requirePassport || requirePassportFull ? "(Required for this flight)" : "(Optional)"}</Label>
 														<Input
-															{...register(`passengers.${index}.passportNo`)}
+															{...register(`passengers.${index}.passportNo`, { required: requirePassport || requirePassportFull })}
 															placeholder="Passport Number"
 														/>
 													</div>
 													<div className="space-y-2">
-														<Label>Passport Expiry (Optional)</Label>
+														<Label>Passport Expiry {requirePassport || requirePassportFull ? "(Required for this flight)" : "(Optional)"}</Label>
 														<Input
 															type="date"
-															{...register(
-																`passengers.${index}.passportExpiry`
-															)}
+															{...register(`passengers.${index}.passportExpiry`, { required: requirePassport || requirePassportFull })}
 														/>
 													</div>
 												</>

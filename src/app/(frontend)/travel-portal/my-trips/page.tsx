@@ -30,19 +30,48 @@ interface Booking {
 	};
 	date: string;
 	status: string;
+	source?: string | null;
+	tboBookingId?: number | null;
+	tboPnr?: string | null;
+	leadFirstName?: string | null;
+	leadLastName?: string | null;
+	airIqPnr?: string | null;
+	airlinePnr?: string | null;
 }
 
 export default function MyTripsPage() {
 	const [bookings, setBookings] = useState<Booking[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [statusFilter, setStatusFilter] = useState<string>("all");
+	const [authError, setAuthError] = useState(false);
 
 	useEffect(() => {
 		setLoading(true);
+		setAuthError(false);
 		fetch("/api/bookings")
-			.then((res) => res.json())
+			.then(async (res) => {
+				const text = await res.text();
+				let data: unknown;
+				try {
+					data = text ? JSON.parse(text) : {};
+				} catch {
+					throw new Error(res.ok ? "Invalid response" : res.statusText || "Failed to fetch bookings");
+				}
+				if (!res.ok) {
+					if (res.status === 401) {
+						setAuthError(true);
+						setBookings([]);
+						return [];
+					}
+					const message = typeof data === "object" && data !== null && "error" in data && typeof (data as { error: unknown }).error === "string"
+						? (data as { error: string }).error
+						: res.statusText || "Failed to fetch bookings";
+					throw new Error(message);
+				}
+				return Array.isArray(data) ? data : [];
+			})
 			.then((data) => {
-				setBookings(data);
+				setBookings(Array.isArray(data) ? data : []);
 			})
 			.catch((error) => {
 				console.error("Error fetching bookings:", error);
@@ -106,6 +135,22 @@ export default function MyTripsPage() {
 						Manage and track all your bookings
 					</p>
 				</div>
+
+				{authError && (
+					<Card className="mb-8 border-amber-500/50 bg-amber-500/10">
+						<CardContent className="pt-6">
+							<p className="text-amber-700 dark:text-amber-400 font-medium mb-2">
+								Sign in to view your trips
+							</p>
+							<p className="text-muted-foreground text-sm mb-4">
+								Your bookings will appear here once you are logged in.
+							</p>
+							<Button asChild variant="default">
+								<Link href="/auth/signin">Sign in</Link>
+							</Button>
+						</CardContent>
+					</Card>
+				)}
 
 				{/* Stats Cards */}
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -210,50 +255,80 @@ export default function MyTripsPage() {
 											<TableHead>Travel Date</TableHead>
 											<TableHead>Booked On</TableHead>
 											<TableHead>Status</TableHead>
+											<TableHead className="text-right">Actions</TableHead>
 										</TableRow>
 									</TableHeader>
 									<TableBody>
-										{filteredBookings.map((booking) => (
-											<TableRow key={booking.id}>
-												<TableCell className="font-medium">
-													{booking.destination.name}
-												</TableCell>
-												<TableCell>
-													<div className="flex items-center text-muted-foreground">
-														<MapPin className="h-4 w-4 mr-1 text-red-500" />
-														<span>{booking.destination.location || "N/A"}</span>
-													</div>
-												</TableCell>
-												<TableCell>
-													<div className="flex items-center">
-														<Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-														{new Date(booking.date).toLocaleDateString(
-															"en-IN",
-															{
-																year: "numeric",
-																month: "short",
-																day: "numeric",
-															}
+										{filteredBookings.map((booking) => {
+											const hasTboDetails = (booking.tboBookingId != null && booking.tboBookingId > 0) || (booking.tboPnr != null && booking.tboPnr.trim() !== "");
+											const hasAiriqDetails = (booking.airIqPnr != null && booking.airIqPnr.trim() !== "") || (booking.airlinePnr != null && booking.airlinePnr.trim() !== "");
+											const hasDetails = hasTboDetails || hasAiriqDetails;
+											const confirmationQuery = new URLSearchParams();
+											if (hasTboDetails) {
+												if (booking.tboBookingId != null && booking.tboBookingId > 0) confirmationQuery.set("bookingId", String(booking.tboBookingId));
+												if (booking.tboPnr) confirmationQuery.set("pnr", booking.tboPnr);
+												if (booking.leadFirstName) confirmationQuery.set("firstName", booking.leadFirstName);
+												if (booking.leadLastName) confirmationQuery.set("lastName", booking.leadLastName);
+												confirmationQuery.set("source", "tbo");
+											} else if (hasAiriqDetails) {
+												confirmationQuery.set("source", "airiq");
+												if (booking.airIqPnr) confirmationQuery.set("airIqPNR", booking.airIqPnr);
+												if (booking.airlinePnr) confirmationQuery.set("airlinePNR", booking.airlinePnr);
+											}
+											return (
+												<TableRow key={booking.id}>
+													<TableCell className="font-medium">
+														{booking.destination.name}
+													</TableCell>
+													<TableCell>
+														<div className="flex items-center text-muted-foreground">
+															<MapPin className="h-4 w-4 mr-1 text-red-500" />
+															<span>{booking.destination.location || "N/A"}</span>
+														</div>
+													</TableCell>
+													<TableCell>
+														<div className="flex items-center">
+															<Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+															{new Date(booking.date).toLocaleDateString(
+																"en-IN",
+																{
+																	year: "numeric",
+																	month: "short",
+																	day: "numeric",
+																}
+															)}
+														</div>
+													</TableCell>
+													<TableCell className="text-muted-foreground text-sm">
+														{new Date(booking.date).toLocaleDateString("en-IN", {
+															year: "numeric",
+															month: "short",
+															day: "numeric",
+														})}
+													</TableCell>
+													<TableCell>
+														<Badge
+															variant={getStatusVariant(booking.status)}
+															className={getStatusColor(booking.status)}
+														>
+															{booking.status}
+														</Badge>
+													</TableCell>
+													<TableCell className="text-right">
+														{hasDetails ? (
+															<Link
+																href={`/travel-portal/booking/confirmation?${confirmationQuery.toString()}`}
+																className="text-blue-600 hover:underline text-sm font-medium"
+															>
+																View details
+															</Link>
+														) : (
+															<span className="text-muted-foreground text-sm">—</span>
 														)}
-													</div>
-												</TableCell>
-												<TableCell className="text-muted-foreground text-sm">
-													{new Date(booking.date).toLocaleDateString("en-IN", {
-														year: "numeric",
-														month: "short",
-														day: "numeric",
-													})}
-												</TableCell>
-												<TableCell>
-													<Badge
-														variant={getStatusVariant(booking.status)}
-														className={getStatusColor(booking.status)}
-													>
-														{booking.status}
-													</Badge>
-												</TableCell>
-											</TableRow>
-										))}
+													</TableCell>
+												</TableRow>
+											);
+										})}
 									</TableBody>
 								</Table>
 							</div>

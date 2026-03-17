@@ -505,6 +505,27 @@ AiriqBookingClientProps) {
 						<FlightDetails flightResult={flightResult} />
 					</section>
 
+					{/* 1b. Booking created – link to confirmation (same pattern as TBO) */}
+					{postBookingCreated && (
+						<section>
+							<div className="rounded-lg border border-green-200 bg-green-50 p-4 text-green-800">
+								<p className="font-medium">Booking created</p>
+								<p className="text-sm">
+									{postBookingCreated.airlinePNR && `PNR: ${postBookingCreated.airlinePNR}`}
+									{postBookingCreated.airlinePNR && postBookingCreated.airIqPNR && " · "}
+									{postBookingCreated.airIqPNR && `Ref: ${postBookingCreated.airIqPNR}`}
+								</p>
+								<p className="mt-1 text-sm">Add optional add-ons below or go to confirmation to view your booking details.</p>
+								<Link
+									href={`/travel-portal/booking/confirmation?source=airiq&airIqPNR=${encodeURIComponent(postBookingCreated.airIqPNR)}&airlinePNR=${encodeURIComponent(postBookingCreated.airlinePNR)}`}
+									className="mt-2 inline-block text-sm font-medium text-green-700 hover:text-green-900 underline"
+								>
+									View confirmation page
+								</Link>
+							</div>
+						</section>
+					)}
+
 					{/* 2. Passenger Details Form */}
 					<section>
 						<PassengerDetails

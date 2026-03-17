@@ -29,6 +29,15 @@ export interface MealOption {
 	Destination: string;
 }
 
+/** Get numeric price from meal (handles API casing: Price or price). */
+function getMealPrice(meal: MealOption | Record<string, unknown>): number {
+	const m = meal as Record<string, unknown>;
+	const n = m?.Price ?? m?.price;
+	if (typeof n === "number" && !Number.isNaN(n)) return n;
+	if (typeof n === "string") return Number(n) || 0;
+	return 0;
+}
+
 interface MealSelectionProps {
 	mealData: MealOption[][];
 	passengers: PassengerDetail[];
@@ -102,9 +111,8 @@ export default function MealSelection({
 		return `Passenger ${passengerIndex + 1}`;
 	};
 
-	// Helper to categorize meals
-	const categorizeMeal = (description: string) => {
-		const lower = description.toLowerCase();
+	const categorizeMeal = (description: string | null | undefined) => {
+		const lower = (description ?? "").toString().toLowerCase();
 		if (lower.includes("veg") && !lower.includes("non-veg")) return "Veg";
 		if (
 			lower.includes("non-veg") ||
@@ -126,19 +134,17 @@ export default function MealSelection({
 		return "Other";
 	};
 
-	// Helper to shorten meal names
-	const shortenMealName = (name: string) => {
-		// Limit to 40 characters for display
-		if (name.length > 40) {
-			return name.substring(0, 37) + "...";
-		}
-		return name;
+	const shortenMealName = (name: string | null | undefined) => {
+		const s = (name ?? "").toString();
+		if (s.length > 40) return s.substring(0, 37) + "...";
+		return s;
 	};
 
 	const getFilteredMeals = (meals: MealOption[], category: string) => {
 		return meals.filter((meal) => {
-			const mealCat = categorizeMeal(meal.AirlineDescription);
-			const matchesSearch = meal.AirlineDescription.toLowerCase().includes(
+			const desc = meal.AirlineDescription ?? "";
+			const mealCat = categorizeMeal(desc);
+			const matchesSearch = desc.toLowerCase().includes(
 				searchQuery.toLowerCase()
 			);
 			return (category === "All" || mealCat === category) && matchesSearch;
@@ -170,14 +176,14 @@ export default function MealSelection({
 									</p>
 
 									<div className="space-y-2">
-										{topMeals.map((meal) => {
+										{topMeals.map((meal, mealIndex) => {
 											const isSelected = selected?.Code === meal.Code;
 											const mealCategory = categorizeMeal(
 												meal.AirlineDescription
 											);
 											return (
 												<div
-													key={meal.Code}
+													key={`${segmentIndex}-${passengerIndex}-${mealIndex}-${meal.Code}`}
 													onClick={() =>
 														onSelect(
 															passengerIndex,
@@ -212,7 +218,7 @@ export default function MealSelection({
 													</div>
 													<div className="flex items-center gap-3 flex-shrink-0">
 														<span className="text-sm font-bold text-gray-900">
-															₹{meal.Price.toLocaleString("en-IN")}
+															₹{getMealPrice(meal).toLocaleString("en-IN")}
 														</span>
 														{isSelected ? (
 															<CheckCircle2 className="h-5 w-5 text-blue-600" />
@@ -284,14 +290,14 @@ export default function MealSelection({
 											getFilteredMeals(
 												mealData[activeSegmentIndex],
 												category
-											).map((meal) => {
+											).map((meal, index) => {
 												const key = `${activePassengerIndex}-${activeSegmentIndex}`;
 												const isSelected =
 													selectedMeals[key]?.Code === meal.Code;
 
 												return (
 													<div
-														key={meal.Code}
+														key={`${activeSegmentIndex}-${category}-${index}-${meal.Code}`}
 														onClick={() => {
 															onSelect(
 																activePassengerIndex,
@@ -330,7 +336,7 @@ export default function MealSelection({
 														</div>
 														<div className="flex items-center gap-3 flex-shrink-0">
 															<span className="text-sm font-bold text-gray-900">
-																₹{meal.Price.toLocaleString("en-IN")}
+																₹{getMealPrice(meal).toLocaleString("en-IN")}
 															</span>
 															{isSelected ? (
 																<CheckCircle2 className="h-5 w-5 text-blue-600" />

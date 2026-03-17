@@ -13,6 +13,8 @@ import type {
 	FareQuoteResponse,
 	BookingRequest,
 	BookingResponse,
+	GetBookingDetailsRequest,
+	GetBookingDetailsResponse,
 	SeatMapRequest,
 	SeatMapResponse,
 	FareUpsellRequest,
@@ -21,9 +23,21 @@ import type {
 	PriceRBDResponse,
 	SSRRequest,
 	SSRResponse,
+	TicketRequest,
+	TicketResponse,
+	TicketApiResponse,
+	ReleasePNRRequest,
+	ReleasePNRResponse,
+	SendChangeRequestBody,
+	SendChangeResponse,
+	GetChangeRequestStatusRequest,
+	GetChangeRequestStatusResponse,
+	GetCancellationChargesRequest,
+	GetCancellationChargesResponse,
 } from "@/types/tbo";
 
 const API_BASE_URL = process.env.TEKTRAVELS_API_URL || "";
+// Booking base must end with /rest so endpoints (FareRule, Search, etc.) resolve to .../rest/FareRule, .../rest/Search
 const BOOKING_API_BASE_URL = process.env.TEKTRAVELS_BOOKING_API_URL || "";
 
 export interface TboRequestConfig {
@@ -347,7 +361,8 @@ export async function searchFlights(
 }
 
 /**
- * Get fare rules for a flight
+ * Get fare rules for a flight (TBO FareRule API).
+ * URL: {TEKTRAVELS_BOOKING_API_URL}/FareRule e.g. .../rest/FareRule
  */
 export async function getFareRules(
 	fareRuleParams: Omit<FareRuleRequest, "TokenId">
@@ -403,12 +418,12 @@ export async function bookFlight(
 }
 
 /**
- * Get booking details
+ * Get booking details (GetBookingDetails API). TokenId is injected server-side.
  */
 export async function getBookingDetails(
-	bookingParams: Record<string, unknown>
-) {
-	return tboRequest({
+	bookingParams: GetBookingDetailsRequest
+): Promise<GetBookingDetailsResponse> {
+	return tboRequest<GetBookingDetailsResponse>({
 		endpoint: "GetBookingDetails",
 		method: "POST",
 		body: bookingParams,
@@ -417,7 +432,26 @@ export async function getBookingDetails(
 }
 
 /**
- * Cancel booking
+ * Issue ticket (Ticket API). Generates ticket for already booked/hold itinerary (Non-LCC or LCC).
+ * TokenId is injected server-side. Returns the inner Ticket response (unwrap from Response.Response).
+ */
+export async function issueTicket(
+	params: Omit<TicketRequest, "TokenId">
+): Promise<TicketResponse> {
+	const result = await tboRequest<TicketApiResponse>({
+		endpoint: "Ticket",
+		method: "POST",
+		body: params,
+		service: "booking",
+	});
+	const inner = result?.Response?.Response;
+	if (inner) return inner;
+	// Fallback: some APIs may return payload at top level
+	return result as unknown as TicketResponse;
+}
+
+/**
+ * Cancel booking (legacy endpoint "Cancel"). For releasing hold bookings use releasePNR (ReleasePNRRequest) per TBO doc.
  */
 export async function cancelBooking(cancelParams: Record<string, unknown>) {
 	return tboRequest({
@@ -429,15 +463,73 @@ export async function cancelBooking(cancelParams: Record<string, unknown>) {
 }
 
 /**
- * Send change request for booking
+ * Release PNR – release a hold booking (no ticket yet). Doc: ReleasePNRRequest.
+ * TokenId is injected server-side. Returns unwrapped Response.
  */
-export async function sendChangeRequest(changeParams: Record<string, unknown>) {
-	return tboRequest({
-		endpoint: "SendChangeRequest",
+export async function releasePNR(
+	params: Omit<ReleasePNRRequest, "TokenId">
+): Promise<ReleasePNRResponse> {
+	const result = await tboRequest<{ Response?: ReleasePNRResponse }>({
+		endpoint: "ReleasePNRRequest",
 		method: "POST",
-		body: changeParams,
+		body: params,
 		service: "booking",
 	});
+	if (result?.Response) return result.Response;
+	return result as unknown as ReleasePNRResponse;
+}
+
+/**
+ * Send change request – full or partial cancellation of ticketed booking. Doc: SendChangeRequest.
+ * TokenId is injected server-side. Returns unwrapped Response.
+ */
+export async function sendChangeRequest(
+	params: Omit<SendChangeRequestBody, "TokenId">
+): Promise<SendChangeResponse> {
+	const result = await tboRequest<{ Response?: SendChangeResponse }>({
+		endpoint: "SendChangeRequest",
+		method: "POST",
+		body: params,
+		service: "booking",
+	});
+	if (result?.Response) return result.Response;
+	return result as unknown as SendChangeResponse;
+}
+
+/**
+ * Get change request status – cancellation status and refund/charges by ChangeRequestId. Doc: GetChangeRequestStatus.
+ * TokenId is injected server-side.
+ */
+export async function getChangeRequestStatus(
+	params: Omit<GetChangeRequestStatusRequest, "TokenId">
+): Promise<GetChangeRequestStatusResponse> {
+	const result = await tboRequest<
+		GetChangeRequestStatusResponse & { Response?: GetChangeRequestStatusResponse }
+	>({
+		endpoint: "GetChangeRequestStatus",
+		method: "POST",
+		body: params,
+		service: "booking",
+	});
+	if (result?.Response) return result.Response;
+	return result as GetChangeRequestStatusResponse;
+}
+
+/**
+ * Get cancellation charges – refund amount and cancellation charge before cancelling. Doc: GetCancellationCharges.
+ * TokenId is injected server-side. Returns unwrapped Response.
+ */
+export async function getCancellationCharges(
+	params: Omit<GetCancellationChargesRequest, "TokenId">
+): Promise<GetCancellationChargesResponse> {
+	const result = await tboRequest<{ Response?: GetCancellationChargesResponse }>({
+		endpoint: "GetCancellationCharges",
+		method: "POST",
+		body: params,
+		service: "booking",
+	});
+	if (result?.Response) return result.Response;
+	return result as unknown as GetCancellationChargesResponse;
 }
 
 /**

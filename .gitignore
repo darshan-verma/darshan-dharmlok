@@ -24,6 +24,7 @@ node_modules
 # misc
 .DS_Store
 *.pem
+*.md
 
 # debug
 npm-debug.log*
@@ -36,6 +37,9 @@ yarn-error.log*
 
 # AIRiQ token cache (sensitive data)
 /.cache/
+
+# Cursor plans
+.cursor/plans/
 
 # vercel
 .vercel

@@ -226,8 +226,16 @@ export default function SSRSelection({
 	// Baggage comes as [[bag1, bag2, ...]] - keep 2D structure for component
 	const baggageData = ssrData.Baggage || [];
 
-	// MealDynamic comes as [[meal1, meal2, ...]] - keep 2D structure for component
-	const mealData = ssrData.MealDynamic || [];
+	// MealDynamic comes as [[meal1, meal2, ...]] - keep 2D structure, normalize Price (API may send Price or price)
+	const rawMealDynamic = ssrData.MealDynamic || [];
+	const mealData: MealOption[][] = rawMealDynamic.map((segment) =>
+		(segment || []).map((m: MealOption & { price?: number }) => {
+			const raw = (m as MealOption & { price?: number });
+			const num = raw.Price ?? raw.price;
+			const price = typeof num === "number" && !Number.isNaN(num) ? num : Number(num) || 0;
+			return { ...raw, Price: price } as MealOption;
+		})
+	);
 
 	// SeatDynamic comes as [{SegmentSeat: [{RowSeats: [...]}]}]
 	const seatData = ssrData.SeatDynamic || [];

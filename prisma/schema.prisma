@@ -789,6 +789,15 @@ model TravelBooking {
   totalAmount   Float?      // Total booking amount
   date          DateTime    @default(now()) // Booking creation date
   status        String      @default("PENDING")
+  // TBO flight booking identifiers (for GetBookingDetails lookup)
+  source        String?     // e.g. "TBO", "AIRiQ"
+  tboBookingId  Int?        // TBO BookingId
+  tboPnr        String?     // TBO PNR
+  leadFirstName String?     // Lead passenger first name (for PNR lookup when BookingId is 0)
+  leadLastName  String?     // Lead passenger last name
+  // AiriQ flight booking identifiers (for RetrieveBooking lookup)
+  airIqPnr      String?     // AiriQ booking reference
+  airlinePnr    String?     // Airline PNR
 
   destination   Destination @relation(fields: [destinationId], references: [id])
   user          User        @relation(fields: [userId], references: [id])

@@ -38,6 +38,9 @@ export default function FareRulesView({ fareRules }: FareRulesViewProps) {
 						</AccordionTrigger>
 					</CardHeader>
 					<AccordionContent className="pt-2 px-6 pb-6">
+						<p className="text-xs text-muted-foreground mb-4 p-3 bg-muted/50 rounded border border-orange-100">
+							Fees mentioned are indicative per passenger per sector. GST, RAF and other applicable charges may apply in addition to airline charges. For domestic bookings, submit cancellation or reissue requests at least 2 hours before the airline&apos;s policy deadline; for international, at least 4 hours before.
+						</p>
 						{(() => {
 							if (miniFareRules && miniFareRules.length > 0) {
 								return (

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
 	getFareQuote,
-	getFareRules,
 	getFareUpsell,
 	getSSR,
 } from "@/lib/tboClient";
@@ -64,12 +63,24 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		);
 	}
 
-	// Continue with TBO booking flow
-
-	const fareRulePromise = getFareRules({
-		TraceId: traceId,
-		ResultIndex: resultIndex,
-		EndUserIp: "192.168.1.1",
+	// Continue with TBO booking flow (fare rules via API route for consistency)
+	const baseUrl =
+		process.env.NEXT_PUBLIC_APP_URL ||
+		(process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+	const fareRulePromise = fetch(`${baseUrl}/api/travel/fare-rules`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			TraceId: traceId,
+			ResultIndex: resultIndex,
+			EndUserIp: "192.168.1.1",
+		}),
+	}).then(async (res) => {
+		if (!res.ok) {
+			const err = await res.json().catch(() => ({ error: res.statusText }));
+			throw new Error(err.error || "Failed to fetch fare rules");
+		}
+		return res.json();
 	});
 
 	const fareUpsellPromise = isUpsellAllowed
@@ -143,6 +154,65 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		return (
 			<div className="p-4 text-red-500">
 				Error fetching flight details. The flight might no longer be available.
+			</div>
+		);
+	}
+
+	// TBO FareQuote Response.Error / ResponseStatus (doc: 1=Successfull, 2=Failed, 3=InValidRequest, 4=InValidSession, 5=InValidCredentials)
+	const responseError = fareQuoteResponse?.Response?.Error;
+	const responseStatus = fareQuoteResponse?.Response?.ResponseStatus;
+	if (responseError && responseError.ErrorCode !== 0) {
+		const msg = responseError.ErrorMessage || "Fare quote failed.";
+		return (
+			<div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+				<Card className="max-w-md w-full">
+					<CardHeader>
+						<CardTitle className="text-center text-red-600 flex items-center justify-center gap-2">
+							<XCircle className="h-6 w-6" />
+							Fare Quote Unavailable
+						</CardTitle>
+					</CardHeader>
+					<CardContent className="text-center space-y-4">
+						<p className="text-gray-600">{msg}</p>
+						<Button asChild className="w-full">
+							<Link href="/travel-portal">
+								<Search className="mr-2 h-4 w-4" />
+								Search Flights Again
+							</Link>
+						</Button>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
+	if (responseStatus !== undefined && responseStatus !== 1) {
+		const statusMessages: Record<number, string> = {
+			0: "Fare quote request could not be processed.",
+			2: "Fare quote failed.",
+			3: "Invalid request. Please search again.",
+			4: "Your session has expired. Please search again.",
+			5: "Invalid credentials.",
+		};
+		const msg = statusMessages[responseStatus] ?? "Fare quote is unavailable.";
+		return (
+			<div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+				<Card className="max-w-md w-full">
+					<CardHeader>
+						<CardTitle className="text-center text-red-600 flex items-center justify-center gap-2">
+							<XCircle className="h-6 w-6" />
+							Fare Quote Unavailable
+						</CardTitle>
+					</CardHeader>
+					<CardContent className="text-center space-y-4">
+						<p className="text-gray-600">{msg}</p>
+						<Button asChild className="w-full">
+							<Link href="/travel-portal">
+								<Search className="mr-2 h-4 w-4" />
+								Search Flights Again
+							</Link>
+						</Button>
+					</CardContent>
+				</Card>
 			</div>
 		);
 	}

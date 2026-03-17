@@ -70,6 +70,20 @@ interface CancellationResult {
 	sequenceID?: string;
 }
 
+/** TBO cancel API normalized response for display (mirrors AIRiQ pattern). */
+interface TboCancelResult {
+	responseStatus?: number;
+	remarks?: string;
+	refundAmount?: number;
+	cancellationCharge?: number;
+	refundedAmount?: number;
+	currency?: string;
+	traceId?: string;
+	changeRequestId?: number;
+	ticketCRInfo?: Array<{ Remarks?: string; RefundedAmount?: number; CancellationCharge?: number }>;
+	error?: string;
+}
+
 export default function ManageBookingPage() {
 	const searchParams = useSearchParams();
 	const initialPnr = searchParams.get("pnr") || "";
@@ -100,6 +114,20 @@ export default function ManageBookingPage() {
 	const [loadingHoldCancel, setLoadingHoldCancel] = useState(false);
 	const [holdCancelResult, setHoldCancelResult] =
 		useState<CancellationResult | null>(null);
+
+	// Provider selector: AIRiQ vs TBO
+	const [provider, setProvider] = useState<"AIRiQ" | "TBO">("AIRiQ");
+
+	// TBO cancel flow (mirror AIRiQ)
+	const [tboBookingId, setTboBookingId] = useState("");
+	const [tboSource, setTboSource] = useState("");
+	const [tboRemarks, setTboRemarks] = useState("");
+	const [loadingTboCharges, setLoadingTboCharges] = useState(false);
+	const [loadingTboCancel, setLoadingTboCancel] = useState(false);
+	const [loadingTboRelease, setLoadingTboRelease] = useState(false);
+	const [tboResult, setTboResult] = useState<TboCancelResult | null>(null);
+
+	const defaultEndUserIp = "192.168.1.1";
 
 	useEffect(() => {
 		if (initialPnr) {
@@ -423,17 +451,184 @@ export default function ManageBookingPage() {
 		});
 	};
 
+	const handleTboCharges = async () => {
+		const bid = tboBookingId.trim();
+		if (!bid) {
+			toast.error("Please enter Booking ID.");
+			return;
+		}
+		const bookingIdNum = parseInt(bid, 10);
+		if (Number.isNaN(bookingIdNum) || bookingIdNum <= 0) {
+			toast.error("Please enter a valid Booking ID.");
+			return;
+		}
+		setLoadingTboCharges(true);
+		setTboResult(null);
+		try {
+			const response = await fetch("/api/travel/tbo/cancel/cancellation-charges", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					EndUserIp: defaultEndUserIp,
+					BookingId: bookingIdNum,
+					BookingMode: 5,
+				}),
+			});
+			const data = await response.json();
+			if (!response.ok) {
+				toast.error(data.error || "Failed to get cancellation charges.");
+				setTboResult({ ...data, error: data.error });
+				return;
+			}
+			setTboResult({
+				responseStatus: data.responseStatus,
+				refundAmount: data.refundAmount,
+				cancellationCharge: data.cancellationCharge,
+				remarks: data.remarks,
+				currency: data.currency,
+				traceId: data.traceId,
+			});
+			toast.success("Cancellation charges loaded.");
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : "Request failed.";
+			toast.error(msg);
+		} finally {
+			setLoadingTboCharges(false);
+		}
+	};
+
+	const handleTboCancel = async () => {
+		const bid = tboBookingId.trim();
+		if (!bid) {
+			toast.error("Please enter Booking ID.");
+			return;
+		}
+		const bookingIdNum = parseInt(bid, 10);
+		if (Number.isNaN(bookingIdNum) || bookingIdNum <= 0) {
+			toast.error("Please enter a valid Booking ID.");
+			return;
+		}
+		const confirmed = window.confirm(
+			"This will attempt to cancel your ticketed booking. Do you want to continue?"
+		);
+		if (!confirmed) return;
+		setLoadingTboCancel(true);
+		setTboResult(null);
+		try {
+			const response = await fetch("/api/travel/tbo/cancel/send-change", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					EndUserIp: defaultEndUserIp,
+					BookingId: bookingIdNum,
+					RequestType: 1,
+					CancellationType: 3,
+					Remarks: tboRemarks.trim() || "Customer requested cancellation",
+				}),
+			});
+			const data = await response.json();
+			if (!response.ok) {
+				toast.error(data.error || "Cancel request failed.");
+				setTboResult({ ...data, error: data.error });
+				return;
+			}
+			setTboResult({
+				responseStatus: data.responseStatus,
+				remarks: data.remarks ?? data.ticketCRInfo?.[0]?.Remarks,
+				refundedAmount: data.refundedAmount ?? data.ticketCRInfo?.[0]?.RefundedAmount,
+				cancellationCharge: data.cancellationCharge ?? data.ticketCRInfo?.[0]?.CancellationCharge,
+				traceId: data.traceId,
+				ticketCRInfo: data.ticketCRInfo,
+			});
+			toast.success(data.remarks || "Cancellation request submitted successfully.");
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : "Request failed.";
+			toast.error(msg);
+		} finally {
+			setLoadingTboCancel(false);
+		}
+	};
+
+	const handleTboRelease = async () => {
+		const bid = tboBookingId.trim();
+		const src = tboSource.trim();
+		if (!bid) {
+			toast.error("Please enter Booking ID.");
+			return;
+		}
+		if (!src) {
+			toast.error("Please enter Source (e.g. 4).");
+			return;
+		}
+		const bookingIdNum = parseInt(bid, 10);
+		if (Number.isNaN(bookingIdNum) || bookingIdNum <= 0) {
+			toast.error("Please enter a valid Booking ID.");
+			return;
+		}
+		const confirmed = window.confirm(
+			"This will release the held PNR. Do you want to continue?"
+		);
+		if (!confirmed) return;
+		setLoadingTboRelease(true);
+		setTboResult(null);
+		try {
+			const response = await fetch("/api/travel/tbo/cancel/release-pnr", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					EndUserIp: defaultEndUserIp,
+					BookingId: bookingIdNum,
+					Source: src,
+				}),
+			});
+			const data = await response.json();
+			if (!response.ok) {
+				toast.error(data.error || "Release PNR failed.");
+				setTboResult({ ...data, error: data.error });
+				return;
+			}
+			setTboResult({
+				responseStatus: data.responseStatus,
+				traceId: data.traceId,
+				remarks: "Hold released successfully.",
+			});
+			toast.success("Hold released successfully.");
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : "Request failed.";
+			toast.error(msg);
+		} finally {
+			setLoadingTboRelease(false);
+		}
+	};
+
 	return (
 		<div className="min-h-screen bg-gradient-to-b from-background to-secondary/10">
 			<div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 				<div className="mb-8">
 					<h1 className="text-3xl font-bold mb-2">Manage Booking</h1>
 					<p className="text-muted-foreground">
-						Check cancellation charges or cancel your AIRiQ flight booking
-						using your AIRiQ PNR.
+						Check cancellation charges or cancel your flight booking. Choose your booking provider below.
 					</p>
+					<div className="flex gap-2 mt-4">
+						<Button
+							variant={provider === "AIRiQ" ? "default" : "outline"}
+							size="sm"
+							onClick={() => setProvider("AIRiQ")}
+						>
+							AIRiQ
+						</Button>
+						<Button
+							variant={provider === "TBO" ? "default" : "outline"}
+							size="sm"
+							onClick={() => setProvider("TBO")}
+						>
+							TBO
+						</Button>
+					</div>
 				</div>
 
+				{provider === "AIRiQ" && (
+				<>
 				<Card className="mb-6">
 					<CardHeader>
 						<CardTitle>Booking Details</CardTitle>
@@ -840,6 +1035,175 @@ export default function ManageBookingPage() {
 						)}
 					</CardContent>
 				</Card>
+				</>
+				)}
+
+				{provider === "TBO" && (
+				<>
+				<Card className="mb-6">
+					<CardHeader>
+						<CardTitle>TBO Booking Details</CardTitle>
+						<p className="text-sm text-muted-foreground">
+							Check cancellation charges or cancel a ticketed booking. For hold-only (no ticket), use Release hold below.
+						</p>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<div className="space-y-2">
+							<Label htmlFor="tbo-booking-id">Booking ID</Label>
+							<Input
+								id="tbo-booking-id"
+								placeholder="Enter TBO Booking ID"
+								value={tboBookingId}
+								onChange={(e) => setTboBookingId(e.target.value)}
+								type="number"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="tbo-source">Source (e.g. 4)</Label>
+							<Input
+								id="tbo-source"
+								placeholder="4"
+								value={tboSource}
+								onChange={(e) => setTboSource(e.target.value)}
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="tbo-remarks">Remarks (optional)</Label>
+							<Textarea
+								id="tbo-remarks"
+								placeholder="Add any remarks for your request"
+								value={tboRemarks}
+								onChange={(e) => setTboRemarks(e.target.value)}
+								rows={2}
+							/>
+						</div>
+						<div className="flex flex-col sm:flex-row gap-3 pt-2">
+							<Button
+								variant="outline"
+								className="w-full sm:w-auto"
+								onClick={handleTboCharges}
+								disabled={loadingTboCharges || loadingTboCancel || loadingTboRelease}
+							>
+								{loadingTboCharges && (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								)}
+								Check cancellation charges
+							</Button>
+							<Button
+								variant="destructive"
+								className="w-full sm:w-auto"
+								onClick={handleTboCancel}
+								disabled={loadingTboCharges || loadingTboCancel || loadingTboRelease}
+							>
+								{loadingTboCancel && (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								)}
+								Cancel booking
+							</Button>
+						</div>
+					</CardContent>
+				</Card>
+
+				<Card className="mb-6">
+					<CardHeader>
+						<CardTitle>TBO Release hold</CardTitle>
+						<p className="text-sm text-muted-foreground">
+							Release a held PNR (no ticket issued). Uses Booking ID and Source from above.
+						</p>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						<Button
+							variant="outline"
+							onClick={handleTboRelease}
+							disabled={loadingTboRelease || loadingTboCharges || loadingTboCancel || !tboBookingId.trim() || !tboSource.trim()}
+						>
+							{loadingTboRelease && (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							)}
+							Release hold
+						</Button>
+					</CardContent>
+				</Card>
+
+				<Card className="mb-6">
+					<CardHeader>
+						<CardTitle>TBO Cancellation Status</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-4">
+						{!tboResult && (
+							<p className="text-sm text-muted-foreground">
+								Results will appear here after you check charges, cancel the booking, or release a hold.
+							</p>
+						)}
+						{tboResult && (
+							<div className="space-y-4">
+								{tboResult.responseStatus !== undefined && (
+									<div className="flex items-center gap-2">
+										<Badge
+											variant={
+												tboResult.responseStatus === 1
+													? "default"
+													: tboResult.error
+														? "destructive"
+														: "secondary"
+											}
+										>
+											{tboResult.responseStatus === 1 ? "Success" : tboResult.error ? "Failed" : "Status " + tboResult.responseStatus}
+										</Badge>
+									</div>
+								)}
+								{(tboResult.remarks || tboResult.error) && (
+									<div className="flex items-start gap-2 text-sm">
+										{tboResult.responseStatus === 1 ? (
+											<ShieldCheck className="h-4 w-4 text-green-500 mt-0.5" />
+										) : (
+											<AlertCircle className="h-4 w-4 text-yellow-500 mt-0.5" />
+										)}
+										<p className="text-muted-foreground">
+											{tboResult.remarks || tboResult.error}
+										</p>
+									</div>
+								)}
+								{(tboResult.refundAmount != null || tboResult.cancellationCharge != null || tboResult.refundedAmount != null) && (
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+										{tboResult.refundAmount != null && (
+											<div className="rounded-md border px-3 py-2 bg-muted/40">
+												<div className="text-xs text-muted-foreground">Refund Amount</div>
+												<div className="font-semibold">
+													{tboResult.currency || "INR"} {tboResult.refundAmount}
+												</div>
+											</div>
+										)}
+										{tboResult.refundedAmount != null && (
+											<div className="rounded-md border px-3 py-2 bg-muted/40">
+												<div className="text-xs text-muted-foreground">Refunded Amount</div>
+												<div className="font-semibold">
+													{tboResult.currency || "INR"} {tboResult.refundedAmount}
+												</div>
+											</div>
+										)}
+										{tboResult.cancellationCharge != null && (
+											<div className="rounded-md border px-3 py-2 bg-muted/40">
+												<div className="text-xs text-muted-foreground">Cancellation Charge</div>
+												<div className="font-semibold">
+													{tboResult.currency || "INR"} {tboResult.cancellationCharge}
+												</div>
+											</div>
+										)}
+									</div>
+								)}
+								{tboResult.traceId && (
+									<div className="rounded-md border px-3 py-2 bg-muted/30 text-xs text-muted-foreground">
+										<span className="font-medium">Trace ID: </span>
+										<span>{tboResult.traceId}</span>
+									</div>
+								)}
+							</div>
+						)}
+					</CardContent>
+				</Card>
+				</>
+				)}
 			</div>
 		</div>
 	);
