@@ -2,6 +2,9 @@
 
 set -u
 
+# POST bodies may omit template.footer / report.brand_name; the Next.js route
+# merges Dharmlok branding before calling Prokerala (see dharmlok-branding.ts).
+
 BASE_URL="${BASE_URL:-http://localhost:3000}"
 API_BASE="${BASE_URL%/}/api/prokerala/report"
 

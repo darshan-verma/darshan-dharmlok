@@ -122,6 +122,7 @@ export default function Header() {
 			rightColumn: [
 				{ name: "Book Pooja", href: "/book-pooja" },
 				{ name: "Book Yoga Session", href: "/book-yoga" },
+				{ name: "Horoscope", href: "/horoscope" },
 				{ name: "Live Streams", href: "/live-streams" },
 				{ name: "E-Books", href: "/e-book" },
 				{ name: "Events", href: "/events" },

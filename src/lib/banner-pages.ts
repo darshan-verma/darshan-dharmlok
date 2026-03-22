@@ -19,6 +19,7 @@ export const BANNER_PAGE_SLUGS = [
 	{ value: "motivational-speaker", label: "Motivational Speaker" },
 	{ value: "services", label: "Services" },
 	{ value: "audio-library", label: "Audio Library" },
+	{ value: "horoscope", label: "Horoscope" },
 ] as const;
 
 export type BannerPageSlug = (typeof BANNER_PAGE_SLUGS)[number]["value"];

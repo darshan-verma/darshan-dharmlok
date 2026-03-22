@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { applyDharmlokReportBranding } from "@/app/api/prokerala/report/dharmlok-branding";
 import {
 	parseReportRequestBody,
 	reportProxyPost,
@@ -8,9 +9,10 @@ export async function POST(request: NextRequest) {
 	const parsed = await parseReportRequestBody(request, "personal");
 	if (!parsed.ok) return parsed.response;
 
+	const body = applyDharmlokReportBranding(parsed.body);
 	return reportProxyPost(
 		"report/personal-reading/instant",
-		parsed.body,
+		body,
 		"Personal reading report"
 	);
 }
