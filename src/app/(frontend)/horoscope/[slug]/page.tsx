@@ -15,6 +15,7 @@ import { NumerologyCalculatorForm } from "@/components/horoscope/NumerologyCalcu
 import { DailyPanchangCalculatorForm } from "@/components/horoscope/DailyPanchangCalculatorForm";
 import { CalendarCalculatorForm } from "@/components/horoscope/CalendarCalculatorForm";
 import { PdfReportForm } from "@/components/horoscope/PdfReportForm";
+import { HoroscopeCalculatorsRouter } from "@/components/horoscope/calculations";
 import { ArrowLeft } from "lucide-react";
 
 export function generateStaticParams() {
@@ -117,6 +118,8 @@ export default async function HoroscopeServicePage({ params }: PageProps) {
 							<div className="mt-8">
 								<PdfReportForm />
 							</div>
+						) : section.id === "horoscope-calculators" || section.id === "marriage" || section.id === "western" ? (
+							<HoroscopeCalculatorsRouter slug={slug} title={service.label} />
 						) : isPanchangSection ? (
 							<div className="mt-8 rounded-xl border border-dashed border-orange-300 bg-orange-50/50 p-8 text-center dark:border-orange-800 dark:bg-orange-950/25">
 								<p className="font-medium text-foreground">

@@ -115,14 +115,9 @@ export function CalendarCalculatorForm({
 
 	return (
 		<div className={cn("mx-auto w-full max-w-2xl", className)}>
-			<div className="overflow-hidden rounded-xl border border-violet-200/90 bg-white shadow-lg dark:border-violet-900/45 dark:bg-card">
-				<div
-					className="relative bg-[#7B2CBF] px-5 pb-8 pt-6 text-white"
-					style={{
-						clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 88%)",
-					}}
-				>
-					<h2 className="text-2xl font-light tracking-wide md:text-3xl">
+			<div className="overflow-hidden rounded-xl border border-orange-200/90 bg-white shadow-md dark:border-orange-900/45 dark:bg-card">
+				<div className="bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 px-4 py-4 text-center">
+					<h2 className="font-light tracking-wide text-white text-xl md:text-2xl">
 						{title}
 					</h2>
 				</div>
@@ -144,7 +139,7 @@ export function CalendarCalculatorForm({
 										<FormControl>
 											<Input
 												type="date"
-												className="max-w-md border-violet-200 dark:border-violet-800"
+												className="max-w-md border-orange-200 bg-background dark:border-orange-800 focus-visible:ring-orange-500/40"
 												{...field}
 											/>
 										</FormControl>
@@ -168,7 +163,7 @@ export function CalendarCalculatorForm({
 											value={field.value}
 										>
 											<FormControl>
-												<SelectTrigger className="w-full max-w-md border-violet-200 dark:border-violet-800">
+												<SelectTrigger className="w-full max-w-md border-orange-200 bg-background dark:border-orange-800 focus-visible:ring-orange-500/40">
 													<SelectValue placeholder="Select calendar" />
 												</SelectTrigger>
 											</FormControl>
@@ -200,7 +195,7 @@ export function CalendarCalculatorForm({
 											value={field.value}
 										>
 											<FormControl>
-												<SelectTrigger className="w-full max-w-md border-violet-200 dark:border-violet-800">
+												<SelectTrigger className="w-full max-w-md border-orange-200 bg-background dark:border-orange-800 focus-visible:ring-orange-500/40">
 													<SelectValue placeholder="Language" />
 												</SelectTrigger>
 											</FormControl>
@@ -222,7 +217,7 @@ export function CalendarCalculatorForm({
 							<Button
 								type="submit"
 								disabled={loading}
-								className="min-w-[140px] bg-[#FBC02D] font-semibold uppercase tracking-wide text-black hover:bg-[#f9a825]"
+								className="min-w-[140px] bg-orange-500 font-semibold text-white shadow-sm hover:bg-orange-600"
 							>
 								{loading ? (
 									<>
@@ -244,7 +239,7 @@ export function CalendarCalculatorForm({
 				)}
 
 				{result != null && !fetchError && (
-					<div className="border-t border-violet-100 px-6 py-8 dark:border-violet-900/45 md:px-8">
+					<div className="border-t border-orange-100 px-6 py-8 dark:border-orange-900/45 md:px-8">
 						<h3 className="mb-4 font-medium text-foreground">Result</h3>
 						<DailyPanchangResultDisplay data={result} />
 					</div>

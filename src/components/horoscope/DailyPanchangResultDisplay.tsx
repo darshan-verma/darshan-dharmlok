@@ -73,7 +73,7 @@ function renderPeriodCell(value: unknown): ReactNode {
 				{value.map((p, i) => (
 					<div
 						key={i}
-						className="rounded-md border border-violet-200/80 bg-violet-50/50 px-2 py-1.5 text-xs leading-snug dark:border-violet-800/60 dark:bg-violet-950/30"
+						className="rounded-md border border-orange-200/80 bg-orange-50/50 px-2 py-1.5 text-xs leading-snug dark:border-orange-800/60 dark:bg-orange-950/30"
 					>
 						<span className="text-muted-foreground">Start </span>
 						<span className="font-medium">{formatCompactIso(p.start)}</span>
@@ -161,7 +161,7 @@ function JsonValue({
 
 			const thClass =
 				variant === "panchang"
-					? "sticky top-0 z-[1] whitespace-nowrap border-b border-violet-200/90 bg-violet-100/95 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-violet-950/90 backdrop-blur-sm dark:border-violet-800/80 dark:bg-violet-950/90 dark:text-violet-100"
+					? "sticky top-0 z-[1] whitespace-nowrap border-b border-orange-200/90 bg-orange-100/95 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-orange-950/90 backdrop-blur-sm dark:border-orange-800/80 dark:bg-orange-950/90 dark:text-orange-100"
 					: "px-3 py-2 font-medium text-muted-foreground";
 
 			const tdClass =
@@ -180,7 +180,7 @@ function JsonValue({
 			return (
 				<div
 					className={cn(
-						"rounded-lg border border-violet-200/80 shadow-sm dark:border-violet-900/50",
+						"rounded-lg border border-orange-200/80 shadow-sm dark:border-orange-900/50",
 						variant === "panchang" && "overflow-hidden",
 						tableWrap
 					)}
@@ -196,7 +196,7 @@ function JsonValue({
 								<tr
 									className={
 										variant === "default"
-											? "border-b border-violet-200/80 bg-violet-50/80 dark:border-violet-900/50 dark:bg-violet-950/40"
+											? "border-b border-orange-200/80 bg-orange-50/80 dark:border-orange-900/50 dark:bg-orange-950/40"
 											: ""
 									}
 								>
