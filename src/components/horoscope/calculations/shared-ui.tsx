@@ -7,7 +7,70 @@ import { Button } from "@/components/ui/button";
 import { HoroscopeApiResultDisplay } from "@/components/horoscope/calculations/HoroscopeApiResultDisplay";
 import { cn } from "@/lib/utils";
 
-export async function geocodePlace(place: string): Promise<
+const svgResultClassName =
+	"overflow-auto rounded-lg border border-orange-200/80 bg-white p-4 shadow-sm dark:border-orange-900/50 dark:bg-card [&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto [&_svg]:max-w-full [&_svg]:overflow-visible";
+
+function normalizeProkeralaSvg(svg: string): string {
+	const svgTagMatch = svg.match(/<svg\b[^>]*>/i);
+	if (!svgTagMatch) return svg;
+
+	let normalized = svg;
+	const svgTag = svgTagMatch[0];
+	let nextTag = svgTag;
+
+	if (!/preserveAspectRatio=/i.test(nextTag)) {
+		nextTag = nextTag.replace(
+			/^<svg\b/i,
+			'<svg preserveAspectRatio="xMidYMid meet"',
+		);
+	}
+
+	if (!/style=/i.test(nextTag)) {
+		nextTag = nextTag.replace(/^<svg\b/i, '<svg style="overflow: visible;"');
+	} else {
+		nextTag = nextTag.replace(
+			/style=(['"])(.*?)\1/i,
+			(_match, quote, styleValue: string) => {
+				const trimmedStyle = styleValue.trim();
+				if (/overflow\s*:/i.test(trimmedStyle)) {
+					return `style=${quote}${trimmedStyle}${quote}`;
+				}
+				const suffix =
+					trimmedStyle.endsWith(";") || trimmedStyle.length === 0 ? "" : ";";
+				return `style=${quote}${trimmedStyle}${suffix} overflow: visible;${quote}`;
+			},
+		);
+	}
+
+	const viewBoxMatch = nextTag.match(/viewBox=(['"])([^'"]+)\1/i);
+	if (viewBoxMatch) {
+		const values = viewBoxMatch[2]
+			.trim()
+			.split(/\s+/)
+			.map((value) => Number(value));
+		if (
+			values.length === 4 &&
+			values.every((value) => Number.isFinite(value))
+		) {
+			const [minX, minY, width, height] = values;
+			const bottomPadding = Math.max(height * 0.12, 48);
+			nextTag = nextTag.replace(
+				/viewBox=(['"])[^'"]+\1/i,
+				`viewBox="${minX} ${minY} ${width} ${height + bottomPadding}"`,
+			);
+		}
+	}
+
+	if (nextTag !== svgTag) {
+		normalized = normalized.replace(svgTag, nextTag);
+	}
+
+	return normalized;
+}
+
+export async function geocodePlace(
+	place: string,
+): Promise<
 	{ ok: true; lat: number; lng: number } | { ok: false; message: string }
 > {
 	const res = await fetch(`/api/geocode?q=${encodeURIComponent(place.trim())}`);
@@ -23,14 +86,17 @@ export async function geocodePlace(place: string): Promise<
 		};
 	}
 	if (json.lat == null || json.lng == null) {
-		return { ok: false, message: "Could not resolve coordinates for that location." };
+		return {
+			ok: false,
+			message: "Could not resolve coordinates for that location.",
+		};
 	}
 	return { ok: true, lat: json.lat, lng: json.lng };
 }
 
-export async function fetchProkeralaJson(url: string): Promise<
-	{ ok: true; data: unknown } | { ok: false; error: string }
-> {
+export async function fetchProkeralaJson(
+	url: string,
+): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
 	const res = await fetch(url);
 	const text = await res.text();
 	let json: unknown;
@@ -41,22 +107,29 @@ export async function fetchProkeralaJson(url: string): Promise<
 	}
 	if (!res.ok) {
 		const err = json as { error?: string; details?: string };
-		const msg = [err.error, err.details].filter(Boolean).join(": ") || `HTTP ${res.status}`;
+		const msg =
+			[err.error, err.details].filter(Boolean).join(": ") ||
+			`HTTP ${res.status}`;
 		return { ok: false, error: msg };
 	}
-	if (json && typeof json === "object" && (json as { ok?: boolean }).ok === false) {
+	if (
+		json &&
+		typeof json === "object" &&
+		(json as { ok?: boolean }).ok === false
+	) {
 		const err = json as { error?: string; details?: string };
 		return {
 			ok: false,
-			error: [err.error, err.details].filter(Boolean).join(": ") || "Request failed",
+			error:
+				[err.error, err.details].filter(Boolean).join(": ") || "Request failed",
 		};
 	}
 	return { ok: true, data: json };
 }
 
-export async function fetchProkeralaSvg(url: string): Promise<
-	{ ok: true; svg: string } | { ok: false; error: string }
-> {
+export async function fetchProkeralaSvg(
+	url: string,
+): Promise<{ ok: true; svg: string } | { ok: false; error: string }> {
 	const res = await fetch(url);
 	const text = await res.text();
 	if (!res.ok) {
@@ -64,7 +137,9 @@ export async function fetchProkeralaSvg(url: string): Promise<
 			const j = JSON.parse(text) as { error?: string; details?: string };
 			return {
 				ok: false,
-				error: [j.error, j.details].filter(Boolean).join(": ") || `HTTP ${res.status}`,
+				error:
+					[j.error, j.details].filter(Boolean).join(": ") ||
+					`HTTP ${res.status}`,
 			};
 		} catch {
 			return { ok: false, error: text.slice(0, 300) || `HTTP ${res.status}` };
@@ -73,7 +148,7 @@ export async function fetchProkeralaSvg(url: string): Promise<
 	if (!text.trim().startsWith("<")) {
 		return { ok: false, error: "Expected SVG response" };
 	}
-	return { ok: true, svg: text };
+	return { ok: true, svg: normalizeProkeralaSvg(text) };
 }
 
 /** Matches Daily Panchang submit: min width, orange-500, right-aligned row. */
@@ -182,10 +257,7 @@ export function HoroscopeSvgResult({
 		<div className="border-t border-orange-100 px-6 py-8 dark:border-orange-900/45 md:px-8">
 			<h3 className="mb-4 font-medium text-foreground">{title}</h3>
 			<div
-				className={cn(
-					"overflow-auto rounded-lg border border-orange-200/80 bg-white p-4 shadow-sm dark:border-orange-900/50 dark:bg-card [&_svg]:max-w-full",
-					className
-				)}
+				className={cn(svgResultClassName, className)}
 				dangerouslySetInnerHTML={{ __html: svg }}
 			/>
 		</div>
