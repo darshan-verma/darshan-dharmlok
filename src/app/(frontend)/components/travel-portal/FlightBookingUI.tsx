@@ -13,6 +13,9 @@ import HotelLocationSelector from "./HotelLocationSelector";
 import HotelDateSelector from "./HotelDateSelector";
 import RoomGuestSelector, { RoomConfig } from "./RoomGuestSelector";
 import PriceRangeSelector from "./PriceRangeSelector";
+import CabSearchForm, {
+	type CabSearchData,
+} from "@/components/travel-portal/CabSearchForm";
 // icons imported in CategoryTabs; no direct icon needed here
 
 interface City {
@@ -107,9 +110,27 @@ export default function FlightBookingUI() {
 	const handleSearch = () => {
 		if (activeCategory === "Hotels") {
 			handleHotelSearch();
+		} else if (activeCategory === "Cabs") {
+			return;
 		} else {
 			handleFlightSearch();
 		}
+	};
+
+	const handleCabSearch = (searchData: CabSearchData) => {
+		const searchParams = new URLSearchParams();
+		searchParams.set("journeyType", searchData.journeyType);
+		searchParams.set("tripType", searchData.tripType);
+		searchParams.set("pickupDateTime", searchData.pickupDateTime);
+		searchParams.set("passengers", String(searchData.passengers));
+		searchParams.set("origin", JSON.stringify(searchData.origin));
+		searchParams.set("destination", JSON.stringify(searchData.destination));
+
+		if (searchData.returnDateTime) {
+			searchParams.set("returnDateTime", searchData.returnDateTime);
+		}
+
+		router.push(`/travel-portal/cab-search?${searchParams.toString()}`);
 	};
 
 	const handleFlightSearch = () => {
@@ -135,7 +156,7 @@ export default function FlightBookingUI() {
 			searchParams.set("destination", to.code);
 			searchParams.set(
 				"departureDate",
-				departureDate ? formatLocalDate(departureDate) : ""
+				departureDate ? formatLocalDate(departureDate) : "",
 			);
 
 			if (tripType === "round-trip" && returnDate) {
@@ -157,17 +178,17 @@ export default function FlightBookingUI() {
 		searchParams.set("infants", String(travellers.infants));
 		searchParams.set(
 			"journeyType",
-			tripType === "round-trip" ? "2" : tripType === "multi-city" ? "3" : "1"
+			tripType === "round-trip" ? "2" : tripType === "multi-city" ? "3" : "1",
 		);
 		searchParams.set(
 			"cabinClass",
 			travelClass === "Economy"
 				? "2"
 				: travelClass === "Premium Economy"
-				? "3"
-				: travelClass === "Business"
-				? "4"
-				: "1"
+					? "3"
+					: travelClass === "Business"
+						? "4"
+						: "1",
 		);
 
 		// Navigate to flight search page with parameters
@@ -216,7 +237,7 @@ export default function FlightBookingUI() {
 			if (room.children > 0) {
 				searchParams.set(
 					`room${index}ChildrenAges`,
-					room.childrenAges.join(",")
+					room.childrenAges.join(","),
 				);
 			}
 		});
@@ -433,6 +454,22 @@ export default function FlightBookingUI() {
 								</div>
 							</div>
 						</>
+					) : activeCategory === "Cabs" ? (
+						<>
+							<div className="rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 p-4">
+								<p className="text-sm font-medium text-amber-900">
+									TripJack cabs are now live on the travel portal for location
+									lookup and quote search.
+								</p>
+								<p className="mt-1 text-sm text-amber-800/80">
+									Search airport transfers, local rides, rentals and outstation
+									journeys using TripJack locations and real-time fare
+									responses.
+								</p>
+							</div>
+
+							<CabSearchForm onSearch={handleCabSearch} />
+						</>
 					) : (
 						<>
 							{/* Placeholder for other categories */}
@@ -461,7 +498,9 @@ export default function FlightBookingUI() {
 					)}
 
 					{/* Search Button */}
-					<SearchButton onSearch={handleSearch} />
+					{activeCategory !== "Cabs" && (
+						<SearchButton onSearch={handleSearch} />
+					)}
 
 					{/* Explore More - Only show for Flights */}
 					{activeCategory === "Flights" && (

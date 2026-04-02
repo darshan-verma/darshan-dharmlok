@@ -45,11 +45,27 @@ export interface HotelLogData {
 	bookingStatus?: string;
 }
 
+export interface CabLogData {
+	tripType?: string;
+	journeyType?: string;
+	origin?: string;
+	destination?: string;
+	pickupDate?: string;
+	returnDate?: string;
+	passengers?: number;
+	vehicleType?: string;
+	vehicleCategory?: string;
+	quoteId?: string;
+	bookingId?: string;
+	bookingStatus?: string;
+	totalFare?: number;
+}
+
 interface LogTravelActivityParams {
 	userId?: string;
 	userEmail?: string;
 	userName?: string;
-	logType: "flight" | "hotel";
+	logType: "flight" | "hotel" | "cab";
 	action: "booking" | "search" | "selection";
 	provider?: string;
 	flightData?: FlightLogData;
@@ -68,7 +84,7 @@ interface LogTravelActivityParams {
  * Log a travel activity (lightweight, minimal overhead)
  */
 export async function logTravelActivity(
-	params: LogTravelActivityParams
+	params: LogTravelActivityParams,
 ): Promise<void> {
 	try {
 		// Use fire-and-forget approach to minimize impact on booking flow
