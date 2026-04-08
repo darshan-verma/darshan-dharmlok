@@ -18,6 +18,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "@/lib/toast";
 import type { Room } from "@/types/hotelApi";
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
+import { TRIPJACK_HOTEL_PRICING_SESSION_KEY } from "@/lib/tripjackPricingNormalize";
+import TripjackHotelGuestForm from "@/components/travel-portal/TripjackHotelGuestForm";
 
 interface RoomData {
 	bookingCode: string;
@@ -77,12 +79,49 @@ function HotelBookingContent() {
 	const adults = searchParams.get("adults");
 	const children = searchParams.get("children");
 	const roomDataParam = searchParams.get("roomData");
+	const source = searchParams.get("source");
+	const reviewHash = searchParams.get("reviewHash");
+	const correlationId = searchParams.get("correlationId");
+	const isTripjack = source === "TRIPJACK";
 
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [roomData, setRoomData] = useState<RoomData | null>(null);
 	const [preBookResponse, setPreBookResponse] =
 		useState<PreBookResponse | null>(null);
+	const [tjReviewResponse, setTjReviewResponse] = useState<{
+		bookingId: string;
+		tjHotelId: string;
+		hotelName: string;
+		option: {
+			optionId: string;
+			pricing: {
+				totalPrice: number;
+				basePrice: number;
+				taxes: number;
+				mf: number;
+				mft: number;
+				currency: string;
+				discount: number;
+				strikethrough?: number;
+			};
+			cancellation: {
+				isRefundable: boolean;
+				penalties: { from: string; to: string; amount: number }[];
+			};
+			compliance: {
+				panRequired: boolean;
+				passportRequired: boolean;
+				gstType: string;
+			};
+			mealBasis: string;
+			roomInfo: { id: string; name: string }[];
+			inclusions: string[];
+			bookingNotes?: string;
+		};
+		ddt?: string; // deadlineDatetime for hold bookings
+		status: { success: boolean };
+	} | null>(null);
 	const [hotelInfo, setHotelInfo] = useState<{
 		name: string;
 		address: string;
@@ -90,6 +129,8 @@ function HotelBookingContent() {
 		country: string;
 		rating?: number;
 	} | null>(null);
+	const [showGuestForm, setShowGuestForm] = useState(false);
+	const [isBooking, setIsBooking] = useState(false);
 
 	useEffect(() => {
 		if (!bookingCode || !roomDataParam) {
@@ -136,51 +177,379 @@ function HotelBookingContent() {
 			});
 		}
 
-		// Fetch hotel details first, then call PreBook
+		// Fetch hotel details first, then call PreBook / Review
 		if (hotelCode) {
 			fetchHotelDetails()
 				.then(() => {
-					// Call PreBook after hotel details are fetched
-					callPreBook();
+					if (isTripjack) {
+						callTripjackReview();
+					} else {
+						callPreBook();
+					}
 				})
 				.catch(() => {
-					// Even if hotel details fail, try to prebook
-					callPreBook();
+					if (isTripjack) {
+						callTripjackReview();
+					} else {
+						callPreBook();
+					}
 				});
 		} else {
-			// Call PreBook even without hotel code
-			callPreBook();
+			if (isTripjack) {
+				callTripjackReview();
+			} else {
+				callPreBook();
+			}
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [bookingCode, roomDataParam, hotelCode]);
+	// Intentionally scoped to booking/session identifiers to avoid duplicate prebook/review calls.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [
+		bookingCode,
+		roomDataParam,
+		hotelCode,
+		correlationId,
+		reviewHash,
+		isTripjack,
+	]);
 
 	const fetchHotelDetails = async (): Promise<void> => {
 		if (!hotelCode) return;
 
 		try {
-			const response = await fetch(
-				`/api/travel/hotel/details?hotelCode=${hotelCode}&language=EN&isRoomDetailRequired=false`,
-			);
-			const result = await response.json();
-
-			if (result.success && result.data?.HotelDetails) {
-				let hotelDetails = result.data.HotelDetails;
-				if (Array.isArray(hotelDetails) && hotelDetails.length > 0) {
-					hotelDetails = hotelDetails[0];
+			if (isTripjack) {
+				// Fetch from TripJack static detail API
+				const response = await fetch(
+					"/api/travel/tripjack-hotel/static-detail",
+					{
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ hid: hotelCode }),
+					},
+				);
+				const result = await response.json();
+				if (result.success && result.data) {
+					const d = result.data;
+					setHotelInfo({
+						name: d.name || "Hotel",
+						address: d.locale?.address?.fulladdr || "",
+						city: d.locale?.address?.city || "",
+						country: d.locale?.address?.countryname || "",
+						rating: d.star_rating ? parseInt(String(d.star_rating)) : undefined,
+					});
 				}
-				setHotelInfo({
-					name: hotelDetails.HotelName || "Hotel",
-					address: hotelDetails.Address || "",
-					city: hotelDetails.CityName || "",
-					country: hotelDetails.CountryName || "",
-					rating: hotelDetails.HotelRating
-						? parseInt(String(hotelDetails.HotelRating))
-						: undefined,
-				});
+			} else {
+				const response = await fetch(
+					`/api/travel/hotel/details?hotelCode=${encodeURIComponent(hotelCode)}&language=EN&isRoomDetailRequired=false`,
+				);
+				const result = await response.json();
+
+				if (result.success && result.data?.HotelDetails) {
+					let hotelDetails = result.data.HotelDetails;
+					if (Array.isArray(hotelDetails) && hotelDetails.length > 0) {
+						hotelDetails = hotelDetails[0];
+					}
+					setHotelInfo({
+						name: hotelDetails.HotelName || "Hotel",
+						address: hotelDetails.Address || "",
+						city: hotelDetails.CityName || "",
+						country: hotelDetails.CountryName || "",
+						rating: hotelDetails.HotelRating
+							? parseInt(String(hotelDetails.HotelRating))
+							: undefined,
+					});
+				}
 			}
 		} catch (err) {
 			console.error("Error fetching hotel details:", err);
-			throw err; // Re-throw to allow caller to handle
+			throw err;
+		}
+	};
+
+	/** TripJack Review API — re-validates option availability & pricing before booking */
+	const callTripjackReview = async () => {
+		if (!bookingCode || !hotelCode) {
+			setError(
+				"Missing TripJack booking parameters (optionId, reviewHash, or hotelCode)",
+			);
+			setIsLoading(false);
+			return;
+		}
+
+		let reviewHashEffective = reviewHash?.trim() || "";
+		let corr = correlationId?.trim() || "";
+		if (typeof window !== "undefined") {
+			try {
+				const raw = sessionStorage.getItem(TRIPJACK_HOTEL_PRICING_SESSION_KEY);
+				if (raw) {
+					const o = JSON.parse(raw) as {
+						hid?: string;
+						reviewHash?: string;
+						correlationId?: string;
+					};
+					if (String(o.hid) === String(hotelCode)) {
+						if (!reviewHashEffective && o.reviewHash)
+							reviewHashEffective = String(o.reviewHash).trim();
+						if (!corr && o.correlationId)
+							corr = String(o.correlationId).trim();
+					}
+				}
+			} catch {
+				/* ignore */
+			}
+		}
+
+		if (!reviewHashEffective) {
+			setError(
+				"Missing TripJack reviewHash. Return to the hotel page, wait for prices to load, then book again — or start a new search.",
+			);
+			setIsLoading(false);
+			return;
+		}
+
+		if (!corr) {
+			setError(
+				"Missing TripJack correlationId (search session). Open this hotel from search results again, then book — pricing and review must share the same session id.",
+			);
+			setIsLoading(false);
+			return;
+		}
+
+		setIsLoading(true);
+		setError(null);
+
+		try {
+			const doReview = async (args: {
+				correlationId: string;
+				optionId: string;
+				reviewHash: string;
+				hid: string;
+			}) => {
+				const response = await fetch("/api/travel/tripjack-hotel/review", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(args),
+				});
+				const result = await response.json();
+				return { response, result };
+			};
+
+			const buildRoomsForPricing = () => {
+				const numRooms = Math.max(1, parseInt(rooms || "1", 10) || 1);
+				const numAdults = Math.max(1, parseInt(adults || "1", 10) || 1);
+				const numChildren = Math.max(0, parseInt(children || "0", 10) || 0);
+				const adultsPerRoom = Math.max(1, Math.floor(numAdults / numRooms));
+				const childrenPerRoom = Math.max(0, Math.floor(numChildren / numRooms));
+				return Array(numRooms)
+					.fill(null)
+					.map(() => ({
+						adults: adultsPerRoom,
+						...(childrenPerRoom > 0 && {
+							children: childrenPerRoom,
+							childAge: Array(childrenPerRoom).fill(5),
+						}),
+					}));
+			};
+
+			const tryRefreshContextAndRetry = async () => {
+				if (!hotelCode || !checkIn || !checkOut) return null;
+				const refreshedCorrelation =
+					(typeof crypto !== "undefined" && crypto.randomUUID
+						? crypto.randomUUID()
+						: `tj-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`);
+
+				const pricingResponse = await fetch("/api/travel/tripjack-hotel/pricing", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						hid: hotelCode,
+						checkIn,
+						checkOut,
+						rooms: buildRoomsForPricing(),
+						currency: "INR",
+						nationality: "106",
+						correlationId: refreshedCorrelation,
+					}),
+				});
+				const pricingResult = await pricingResponse.json();
+				if (!pricingResponse.ok || !pricingResult.status?.success) return null;
+
+				const options = Array.isArray(pricingResult.options)
+					? pricingResult.options
+					: [];
+				if (options.length === 0) return null;
+
+				// Pick the closest option to what user selected (same primary room name if possible)
+				const currentRoomName = (roomData?.name || "").toLowerCase().trim();
+				const matched =
+					options.find(
+						(o: {
+							optionId?: string;
+							roomInfo?: Array<{ name?: string }>;
+							mealBasis?: string;
+							inclusions?: string[];
+							pricing?: {
+								totalPrice?: number;
+								taxes?: number;
+								mf?: number;
+								mft?: number;
+							};
+							cancellation?: { isRefundable?: boolean };
+						}) => {
+						const n = String(o?.roomInfo?.[0]?.name || "")
+							.toLowerCase()
+							.trim();
+						return currentRoomName && n && n === currentRoomName;
+						},
+					) || options[0];
+
+				const nextReviewHash =
+					typeof pricingResult.reviewHash === "string"
+						? pricingResult.reviewHash
+						: "";
+				const nextCorrelation =
+					typeof pricingResult.correlationId === "string" &&
+					pricingResult.correlationId
+						? pricingResult.correlationId
+						: refreshedCorrelation;
+				const nextOptionId =
+					typeof matched?.optionId === "string" ? matched.optionId : "";
+
+				if (!nextReviewHash || !nextOptionId) return null;
+
+				// Keep session context fresh for retry / navigation.
+				if (typeof window !== "undefined") {
+					try {
+						sessionStorage.setItem(
+							TRIPJACK_HOTEL_PRICING_SESSION_KEY,
+							JSON.stringify({
+								hid: hotelCode,
+								reviewHash: nextReviewHash,
+								correlationId: nextCorrelation,
+								checkIn,
+								checkOut,
+							}),
+						);
+					} catch {
+						/* ignore */
+					}
+				}
+
+				// Update local room summary so user sees current option/price.
+				setRoomData((prev) =>
+					prev
+						? {
+								...prev,
+								bookingCode: nextOptionId,
+								name: matched?.roomInfo?.[0]?.name || prev.name,
+								totalFare:
+									typeof matched?.pricing?.totalPrice === "number"
+										? matched.pricing.totalPrice - (matched.pricing.taxes || 0)
+										: prev.totalFare,
+								totalTax:
+									typeof matched?.pricing?.taxes === "number"
+										? (matched.pricing.taxes || 0) +
+											(matched?.pricing?.mf || 0) +
+											(matched?.pricing?.mft || 0)
+										: prev.totalTax,
+								mealType: matched?.mealBasis || prev.mealType,
+								isRefundable:
+									typeof matched?.cancellation?.isRefundable === "boolean"
+										? matched.cancellation.isRefundable
+										: prev.isRefundable,
+								inclusion: Array.isArray(matched?.inclusions)
+									? matched.inclusions.join(", ")
+									: prev.inclusion,
+							}
+						: prev,
+				);
+
+				return {
+					correlationId: nextCorrelation,
+					optionId: nextOptionId,
+					reviewHash: nextReviewHash,
+					hid: hotelCode,
+				};
+			};
+
+			// Pre-refresh pricing context once to reduce stale optionId/reviewHash failures
+			// and avoid noisy initial 400s in browser console.
+			const preRefreshed = await tryRefreshContextAndRetry();
+			let { response, result } = await doReview(
+				preRefreshed || {
+					correlationId: corr,
+					optionId: bookingCode,
+					reviewHash: reviewHashEffective,
+					hid: hotelCode,
+				},
+			);
+
+			if (!response.ok || !result.status?.success) {
+				const providerErrCode =
+					result?.providerError?.errors?.[0]?.errCode ??
+					result?.providerError?.errorCode;
+				const providerErrMsg = String(result?.error || "");
+				const isOptionExpired =
+					String(providerErrCode) === "6001" ||
+					providerErrMsg.toLowerCase().includes("no longer available");
+
+				// Common TripJack case: selected option expires quickly; refresh pricing once and retry review.
+				if (isOptionExpired) {
+					const retryPayload = await tryRefreshContextAndRetry();
+					if (retryPayload) {
+						const retry = await doReview(retryPayload);
+						response = retry.response;
+						result = retry.result;
+					}
+				}
+			}
+
+			if (!response.ok || !result.status?.success) {
+				const errMsg =
+					result.error ||
+					"Failed to review hotel option. It may no longer be available.";
+				setError(errMsg);
+				setIsLoading(false);
+				return;
+			}
+
+			setTjReviewResponse(result);
+
+			// Update room data with confirmed pricing from Review response
+			if (result.option) {
+				const opt = result.option;
+				setRoomData((prev) =>
+					prev
+						? {
+								...prev,
+								totalFare: opt.pricing.totalPrice - opt.pricing.taxes,
+								totalTax:
+									opt.pricing.taxes +
+									(opt.pricing.mf || 0) +
+									(opt.pricing.mft || 0),
+								isRefundable: opt.cancellation.isRefundable,
+							}
+						: prev,
+				);
+			}
+
+			// Backfill hotel name from review response
+			if (result.hotelName && !hotelInfo?.name) {
+				setHotelInfo((prev) => ({
+					name: result.hotelName,
+					address: prev?.address || "",
+					city: prev?.city || "",
+					country: prev?.country || "",
+					rating: prev?.rating,
+				}));
+			}
+
+			setIsLoading(false);
+		} catch (err) {
+			console.error("Error calling TripJack Review:", err);
+			setError(
+				err instanceof Error ? err.message : "Failed to review hotel option",
+			);
+			setIsLoading(false);
 		}
 	};
 
@@ -464,8 +833,8 @@ function HotelBookingContent() {
 							</CardContent>
 						</Card>
 
-						{/* PreBook Response Info */}
-						{preBookResponse && (
+						{/* PreBook / Review Response Info */}
+						{(preBookResponse || tjReviewResponse) && (
 							<Card>
 								<CardHeader>
 									<CardTitle>Booking Information</CardTitle>
@@ -474,12 +843,130 @@ function HotelBookingContent() {
 									<Alert className="bg-green-50 border-green-200">
 										<CheckCircle className="h-4 w-4 text-green-600" />
 										<AlertDescription className="text-sm">
-											Room has been successfully pre-booked. Please complete
-											guest details to proceed.
+											{isTripjack && tjReviewResponse
+												? `Room reviewed and confirmed. Booking ID: ${tjReviewResponse.bookingId}. Please complete guest details to proceed.`
+												: "Room has been successfully pre-booked. Please complete guest details to proceed."}
 										</AlertDescription>
 									</Alert>
+									{isTripjack && tjReviewResponse?.option?.compliance && (
+										<div className="mt-3 flex flex-wrap gap-2">
+											{tjReviewResponse.option.compliance.panRequired && (
+												<span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+													PAN Card Required
+												</span>
+											)}
+											{tjReviewResponse.option.compliance.passportRequired && (
+												<span className="text-xs font-medium text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
+													Passport Required
+												</span>
+											)}
+											{tjReviewResponse.option.compliance.gstType !== "NA" && (
+												<span className="text-xs text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full">
+													GST: {tjReviewResponse.option.compliance.gstType}
+												</span>
+											)}
+										</div>
+									)}
 								</CardContent>
 							</Card>
+						)}
+
+						{/* TripJack Guest Form */}
+						{showGuestForm && isTripjack && tjReviewResponse && (
+							<TripjackHotelGuestForm
+								rooms={(() => {
+									const roomParam = rooms ? parseInt(rooms) : 1;
+									const adultParam = adults ? parseInt(adults) : 1;
+									const childParam = children ? parseInt(children) : 0;
+									// Distribute guests across rooms
+									const perRoom = Math.floor(adultParam / roomParam);
+									const extraAdults = adultParam % roomParam;
+									const perRoomChild = Math.floor(childParam / roomParam);
+									const extraChildren = childParam % roomParam;
+									return Array.from({ length: roomParam }, (_, i) => ({
+										adults: perRoom + (i < extraAdults ? 1 : 0),
+										children: perRoomChild + (i < extraChildren ? 1 : 0),
+									}));
+								})()}
+								panRequired={
+									tjReviewResponse.option?.compliance?.panRequired || false
+								}
+								passportRequired={
+									tjReviewResponse.option?.compliance?.passportRequired || false
+								}
+								totalAmount={totalPrice}
+								currency={tjReviewResponse.option?.pricing?.currency || "INR"}
+								isSubmitting={isBooking}
+								onSubmit={async ({
+									roomTravellerInfo,
+									deliveryInfo,
+									isHoldBooking,
+								}) => {
+									setIsBooking(true);
+									try {
+										const response = await fetch(
+											"/api/travel/tripjack-hotel/book",
+											{
+												method: "POST",
+												headers: { "Content-Type": "application/json" },
+												body: JSON.stringify({
+													bookingId: tjReviewResponse.bookingId,
+													roomTravellerInfo,
+													deliveryInfo,
+													...(!isHoldBooking && {
+														paymentInfos: [{ amount: totalPrice }],
+													}),
+													type: "HOTEL",
+													hotelMeta: {
+														hotelName:
+															hotelInfo?.name || tjReviewResponse.hotelName,
+														hotelCode: hotelCode || tjReviewResponse.tjHotelId,
+														checkIn,
+														checkOut,
+														rooms: rooms ? parseInt(rooms) : 1,
+														adults: adults ? parseInt(adults) : 1,
+														children: children ? parseInt(children) : 0,
+														totalAmount: totalPrice,
+														currency:
+															tjReviewResponse.option?.pricing?.currency ||
+															"INR",
+														cancellationPolicy:
+															tjReviewResponse.option?.cancellation,
+														optionSnapshot: tjReviewResponse.option,
+														...(isHoldBooking &&
+															tjReviewResponse.ddt && {
+																holdDeadline: tjReviewResponse.ddt,
+															}),
+													},
+												}),
+											},
+										);
+										const result = await response.json();
+										if (!response.ok || !result.status?.success) {
+											toast.error(
+												result.error || "Booking failed. Please try again.",
+											);
+											setIsBooking(false);
+											return;
+										}
+										toast.success(
+											"Booking submitted! Redirecting to confirmation...",
+										);
+										const bookId =
+											result.bookingId || tjReviewResponse.bookingId;
+										router.push(
+											`/travel-portal/hotel-booking-confirmation?bookingId=${encodeURIComponent(bookId)}&hotelName=${encodeURIComponent(hotelInfo?.name || tjReviewResponse.hotelName)}&checkIn=${checkIn}&checkOut=${checkOut}`,
+										);
+									} catch (err) {
+										toast.error(
+											err instanceof Error
+												? err.message
+												: "Booking request failed",
+										);
+										setIsBooking(false);
+									}
+								}}
+							/>
 						)}
 					</div>
 
@@ -587,8 +1074,8 @@ function HotelBookingContent() {
 								size="lg"
 								className="bg-blue-600 hover:bg-blue-700 px-8"
 								onClick={() => {
-									toast.success("Proceeding to passenger details...");
-									// TODO: Navigate to passenger details form
+									setShowGuestForm(true);
+									window.scrollTo({ top: 0, behavior: "smooth" });
 								}}
 							>
 								Continue Booking

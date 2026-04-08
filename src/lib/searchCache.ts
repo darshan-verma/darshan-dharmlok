@@ -35,7 +35,7 @@ export interface HotelCacheEntry {
 }
 
 const FLIGHT_CACHE_EXPIRY = 15 * 60 * 1000; // 15 minutes
-const HOTEL_CACHE_EXPIRY = 30 * 60 * 1000; // 30 minutes
+export const HOTEL_CACHE_EXPIRY = 30 * 60 * 1000; // 30 minutes
 const FLIGHT_CACHE_KEY = "flightSearchCache";
 const HOTEL_CACHE_KEY = "hotelSearchCache";
 const LAST_SEARCH_KEY = "lastSearchParams";

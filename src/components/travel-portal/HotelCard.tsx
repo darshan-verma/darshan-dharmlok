@@ -26,9 +26,10 @@ interface HotelCardProps {
 	onViewDetails: (hotelCode: string) => void;
 	priceRange?: { min: number; max: number };
 	roomCount?: number;
+	source?: "TBO" | "TRIPJACK";
 }
 
-export default function HotelCard({
+function HotelCard({
 	hotelCode,
 	hotelName,
 	location,
@@ -42,6 +43,7 @@ export default function HotelCard({
 	onViewDetails,
 	priceRange,
 	roomCount,
+	source,
 }: HotelCardProps) {
 	const totalPrice = room.TotalFare + room.TotalTax;
 	const displayPrice = priceRange ? priceRange.min : totalPrice;
@@ -90,12 +92,22 @@ export default function HotelCard({
 						<div className="flex-1">
 							{/* Hotel Name & Rating */}
 							<div className="mb-2">
-								<div className="flex items-center gap-2 mb-1">
+								<div className="flex items-center gap-2 mb-1 flex-wrap">
 									<h3 className="text-xl font-bold text-gray-900">
 										{hotelName}
 									</h3>
 									{isDetailsLoading && (
 										<Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+									)}
+									{source === "TBO" && (
+										<Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700 border border-blue-300 font-semibold">
+											TBO
+										</Badge>
+									)}
+									{source === "TRIPJACK" && (
+										<Badge className="text-[10px] px-1.5 py-0 bg-purple-100 text-purple-700 border border-purple-300 font-semibold">
+											TripJack
+										</Badge>
 									)}
 								</div>
 								{starRating && starRating > 0 && (
@@ -216,8 +228,8 @@ export default function HotelCard({
 									</p>
 								) : (
 									<p className="text-xs text-gray-600 mb-1">
-										+ ₹ {Math.round(room.TotalTax).toLocaleString("en-IN")} taxes
-										& fees
+										+ ₹ {Math.round(room.TotalTax).toLocaleString("en-IN")}{" "}
+										taxes & fees
 									</p>
 								)}
 								<p className="text-sm text-gray-700 mb-4">
@@ -246,3 +258,5 @@ export default function HotelCard({
 		</Card>
 	);
 }
+
+export default React.memo(HotelCard);

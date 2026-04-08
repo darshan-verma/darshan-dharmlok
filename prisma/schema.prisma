@@ -62,6 +62,7 @@ model User {
 
     // Travel bookings
     travelBookings TravelBooking[]
+    hotelBookings  HotelBooking[]
 
     // Optimized indexes for user-type specific API queries
     @@index([userType]) // Primary index for user type filtering
@@ -803,6 +804,36 @@ model TravelBooking {
   user          User        @relation(fields: [userId], references: [id])
 }
 
+// TripJack / TBO Hotel Booking
+model HotelBooking {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String    @db.ObjectId
+  source              String    // "TRIPJACK" or "TBO"
+  tripjackBookingId   String?   @unique // bookingId from TripJack Review/Book API
+  hotelName           String
+  hotelCode           String    // tjHotelId or TBO hotelCode
+  checkIn             DateTime
+  checkOut            DateTime
+  rooms               Int       @default(1)
+  adults              Int       @default(1)
+  children            Int       @default(0)
+  totalAmount         Float
+  currency            String    @default("INR")
+  status              String    @default("PENDING") // Maps to TripJack booking statuses
+  holdDeadline        DateTime? // ddt for ON_HOLD bookings
+  guestDetails        Json?     // roomTravellerInfo array
+  deliveryInfo        Json?     // emails, contacts, code
+  cancellationPolicy  Json?     // penalties array from option
+  optionSnapshot      Json?     // Full option snapshot at time of booking
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user                User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
 // TBO Hotel Search System Models
 // Country model - Master list of countries from TBO
 model TboCountry {
@@ -845,6 +876,29 @@ model TboHotel {
   description  String?
   facilities   String[] // Array of facilities
   images       String[] // Array of image URLs
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([hotelName])
+  @@index([cityCode])
+  @@index([countryCode])
+  @@index([cityCode, hotelName])
+  @@index([countryCode, cityName])
+}
+
+// Hotel model - Hotels from TripJack with TripJack hotel IDs
+model TripjackHotel {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  tjHotelId    String   @unique   // TripJack hotel identifier (tjHotelId)
+  hotelName    String
+  cityCode     String              // TBO-compatible city code for cross-reference
+  cityName     String
+  countryCode  String
+  countryName  String
+  latitude     String?
+  longitude    String?
+  hotelRating  String?
+  address      String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

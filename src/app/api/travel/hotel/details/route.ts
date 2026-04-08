@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 					success: false,
 					error: "hotelCode is required",
 				},
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 					success: false,
 					error: "hotelCode must be a valid number",
 				},
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 
@@ -43,13 +43,13 @@ export async function GET(request: NextRequest) {
 		const result = await getHotelDetails(
 			hotelCode, // Pass as string
 			language,
-			isRoomDetailRequired
+			isRoomDetailRequired,
 		);
 
 		// Log the full response to see the structure
 		console.log(
 			"✅ Hotel Details API full response:",
-			JSON.stringify(result, null, 2)
+			JSON.stringify(result, null, 2),
 		);
 		console.log("✅ Hotel Details API response:", {
 			hotelCode,
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
 						success: false,
 						error: status.Description || "Hotel details API returned an error",
 					},
-					{ status: 400 }
+					{ status: 400 },
 				);
 			}
 		}
@@ -92,10 +92,14 @@ export async function GET(request: NextRequest) {
 			) {
 				// HotelDetails is an array, get the first element
 				hotelDetailsData = result.HotelDetails[0];
-			} else if (typeof result.HotelDetails === "object") {
-				// HotelDetails is already an object
+			} else if (
+				!Array.isArray(result.HotelDetails) &&
+				typeof result.HotelDetails === "object"
+			) {
+				// HotelDetails is already a plain object
 				hotelDetailsData = result.HotelDetails;
 			}
+			// If HotelDetails is an empty array [], hotelDetailsData stays null → 404 below
 		}
 
 		if (!hotelDetailsData) {
@@ -104,7 +108,7 @@ export async function GET(request: NextRequest) {
 					success: false,
 					error: "Hotel details not found in response",
 				},
-				{ status: 404 }
+				{ status: 404 },
 			);
 		}
 
@@ -125,7 +129,7 @@ export async function GET(request: NextRequest) {
 						? error.message
 						: "Failed to fetch hotel details",
 			},
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }

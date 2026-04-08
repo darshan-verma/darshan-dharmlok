@@ -149,6 +149,20 @@ export interface HotelResult {
 	HotelCode: string;
 	Currency: string;
 	Rooms: Room[];
+	/** Identifies the provider. Defaults to TBO when absent. */
+	source?: "TBO" | "TRIPJACK";
+	/** TripJack-specific: reviewHash from the pricing (detail) response */
+	reviewHash?: string;
+	/** Hotel name — present when TBO returns IsDetailedResponse:true, or after TripJack normalization */
+	HotelName?: string;
+	/** Primary hotel image URL when available in listing responses */
+	HotelImage?: string;
+	/** Star rating — may be included in detailed TBO search responses */
+	StarRating?: string | number;
+	/** City name — may be included in detailed TBO search responses */
+	CityName?: string;
+	/** Country name — may be included in detailed TBO search responses */
+	CountryName?: string;
 }
 
 export interface Room {

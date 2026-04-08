@@ -186,18 +186,23 @@ export async function POST(request: NextRequest) {
 						ncrCityCodes,
 					);
 
-					// Get all hotels from NCR cities
-					const hotels = await prisma.tboHotel.findMany({
-						where: { cityCode: { in: ncrCityCodes } },
-						orderBy: { hotelName: "asc" },
-					});
+					// Get TBO hotels, TripJack hids, and city info in parallel
+					const [hotels, tjHotels, city] = await Promise.all([
+						prisma.tboHotel.findMany({
+							where: { cityCode: { in: ncrCityCodes } },
+							orderBy: { hotelName: "asc" },
+						}),
+						prisma.tripjackHotel.findMany({
+							where: { cityCode: { in: ncrCityCodes } },
+							select: { tjHotelId: true },
+						}),
+						prisma.tboCity.findUnique({ where: { cityCode: code } }),
+					]);
 
-					console.log(`📊 Found ${hotels.length} hotels across Delhi NCR`);
-
-					// Get the Delhi NCR city info
-					const city = await prisma.tboCity.findUnique({
-						where: { cityCode: code },
-					});
+					const tripjackHids = tjHotels.map((h) => h.tjHotelId);
+					console.log(
+						`📊 Found ${hotels.length} TBO hotels and ${tjHotels.length} TripJack hotels across Delhi NCR`,
+					);
 
 					if (city) {
 						const country = await prisma.tboCountry.findUnique({
@@ -208,6 +213,7 @@ export async function POST(request: NextRequest) {
 							...city,
 							country,
 							hotels,
+							tripjackHids,
 						};
 					} else {
 						// Fallback: create a synthetic result even if city not in DB
@@ -217,6 +223,7 @@ export async function POST(request: NextRequest) {
 							countryCode: "IN",
 							countryName: "India",
 							hotels,
+							tripjackHids,
 						};
 					}
 					break;
@@ -226,22 +233,30 @@ export async function POST(request: NextRequest) {
 					where: { cityCode: code },
 				});
 
-				// Get country and hotels for this city
+				// Get country, TBO hotels, and TripJack hids for this city in parallel
 				if (result) {
 					const city = result as {
 						countryCode: string;
 						country?: unknown;
 						hotels?: unknown;
+						tripjackHids?: string[];
 					};
-					const country = await prisma.tboCountry.findUnique({
-						where: { countryCode: city.countryCode },
-					});
-					const hotels = await prisma.tboHotel.findMany({
-						where: { cityCode: code },
-						orderBy: { hotelName: "asc" },
-					});
+					const [country, hotels, tjHotels] = await Promise.all([
+						prisma.tboCountry.findUnique({
+							where: { countryCode: city.countryCode },
+						}),
+						prisma.tboHotel.findMany({
+							where: { cityCode: code },
+							orderBy: { hotelName: "asc" },
+						}),
+						prisma.tripjackHotel.findMany({
+							where: { cityCode: code },
+							select: { tjHotelId: true },
+						}),
+					]);
 					city.country = country;
 					city.hotels = hotels;
+					city.tripjackHids = tjHotels.map((h) => h.tjHotelId);
 				}
 				break;
 

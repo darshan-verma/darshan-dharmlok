@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
 				port: "",
 				pathname: "/**",
 			},
-			// TBO Hotel Images - common image hosting domains
+			// TBO Hotel Images
 			{
 				protocol: "https",
 				hostname: "*.tbotechnology.in",
@@ -43,6 +43,32 @@ const nextConfig: NextConfig = {
 			{
 				protocol: "http",
 				hostname: "*.tbotechnology.in",
+				pathname: "/**",
+			},
+			{
+				protocol: "https",
+				hostname: "www.tboholidays.com",
+				pathname: "/**",
+			},
+			{
+				protocol: "http",
+				hostname: "www.tboholidays.com",
+				pathname: "/**",
+			},
+			// TripJack / Expedia hotel images
+			{
+				protocol: "https",
+				hostname: "i.travelapi.com",
+				pathname: "/**",
+			},
+			{
+				protocol: "https",
+				hostname: "static-images.webbeds.com",
+				pathname: "/**",
+			},
+			{
+				protocol: "https",
+				hostname: "*.travelapi.com",
 				pathname: "/**",
 			},
 			{
