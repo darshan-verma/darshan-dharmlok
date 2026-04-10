@@ -135,8 +135,21 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
+		// Strip extra fields (e.g. placeId) from location objects before
+		// forwarding to TripJack — their API only expects LocationDto shape.
+		const stripLocation = (loc: Record<string, unknown>) => {
+			const { placeId: _p, ...rest } = loc;
+			return rest;
+		};
+
+		const sanitisedBody = {
+			...body,
+			origin: stripLocation(body.origin as Record<string, unknown>),
+			destination: stripLocation(body.destination as Record<string, unknown>),
+		};
+
 		const result = await getTripjackQuotes(
-			body as unknown as TripjackQuoteRequest,
+			sanitisedBody as unknown as TripjackQuoteRequest,
 		);
 
 		try {

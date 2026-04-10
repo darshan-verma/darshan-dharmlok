@@ -143,7 +143,7 @@ export interface FlightResult {
 	AirlineRemark: string;
 	Fare?: Fare;
 	ReturnResultIndex?: string; // Added for round-trip flights
-	ApiSource?: "TBO" | "AIRiQ"; // API source identifier
+	ApiSource?: "TBO" | "AIRiQ" | "TRIPJACK"; // API source identifier
 	FareBreakdown: Array<{
 		Currency?: string;
 		PassengerType: number;

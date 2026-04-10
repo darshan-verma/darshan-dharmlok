@@ -492,7 +492,7 @@ AiriqBookingClientProps) {
 	}
 
 	return (
-		<div className="container mx-auto py-6 px-4 md:px-6 lg:px-8 max-w-7xl">
+		<div className="container mx-auto py-6 px-4 md:px-6 lg:px-8 max-w-7xl pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-[calc(8rem+env(safe-area-inset-bottom))]">
 			<h1 className="text-3xl font-bold mb-8 text-gray-900 border-b pb-4">
 				Complete Your Booking
 			</h1>

@@ -576,6 +576,7 @@ export default function PassengerDetails({
 					</div>
 				</div>
 			</div>
+
 		</>
 	);
 }

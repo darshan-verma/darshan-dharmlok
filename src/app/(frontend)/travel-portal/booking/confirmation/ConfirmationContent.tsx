@@ -5,7 +5,11 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { NormalizedBookingDetails } from "@/types/booking-details";
 import type { TicketResponse } from "@/types/tbo";
-import { tboItineraryToNormalized, airiqRetrieveResponseToNormalized } from "@/lib/booking-details-mappers";
+import {
+	tboItineraryToNormalized,
+	airiqRetrieveResponseToNormalized,
+	tripjackBookingDetailToNormalized,
+} from "@/lib/booking-details-mappers";
 
 export default function ConfirmationContent() {
 	const searchParams = useSearchParams();
@@ -58,6 +62,44 @@ export default function ConfirmationContent() {
 				})
 				.catch((err) => {
 					setError(err instanceof Error ? err.message : "Failed to load booking details");
+					setDetails(null);
+				})
+				.finally(() => setLoading(false));
+			return;
+		}
+
+		if (source === "tripjack") {
+			const bookingId = bookingIdParam?.trim() ?? "";
+			if (!bookingId) {
+				setError("Missing bookingId for TripJack confirmation");
+				setLoading(false);
+				return;
+			}
+			setLoading(true);
+			setError(null);
+			fetch("/api/travel/tripjack-flight/booking-details", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ bookingId }),
+			})
+				.then((res) => res.json())
+				.then((data) => {
+					if (!data?.success) {
+						setError(data?.error || "Failed to load TripJack booking details");
+						setDetails(null);
+						return;
+					}
+					const normalized =
+						data.normalized ?? tripjackBookingDetailToNormalized(data.data);
+					setDetails(normalized ?? null);
+					if (!normalized) setError("No TripJack booking details found");
+				})
+				.catch((err) => {
+					setError(
+						err instanceof Error
+							? err.message
+							: "Failed to load TripJack booking details",
+					);
 					setDetails(null);
 				})
 				.finally(() => setLoading(false));

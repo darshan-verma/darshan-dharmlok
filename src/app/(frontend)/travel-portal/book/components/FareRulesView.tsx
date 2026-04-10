@@ -1,6 +1,6 @@
 "use client";
 
-import { ScrollText } from "lucide-react";
+import { Loader2, ScrollText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import type { FareRuleResponse } from "@/types/tbo";
@@ -13,9 +13,11 @@ import {
 
 interface FareRulesViewProps {
 	fareRules: FareRuleResponse | null;
+	/** When true, fare rules are still being fetched (do not treat null as failure). */
+	isLoading?: boolean;
 }
 
-export default function FareRulesView({ fareRules }: FareRulesViewProps) {
+export default function FareRulesView({ fareRules, isLoading }: FareRulesViewProps) {
 	const miniFareRules =
 		fareRules?.Response?.Results?.MiniFareRules ||
 		fareRules?.Response?.MiniFareRules;
@@ -42,6 +44,14 @@ export default function FareRulesView({ fareRules }: FareRulesViewProps) {
 							Fees mentioned are indicative per passenger per sector. GST, RAF and other applicable charges may apply in addition to airline charges. For domestic bookings, submit cancellation or reissue requests at least 2 hours before the airline&apos;s policy deadline; for international, at least 4 hours before.
 						</p>
 						{(() => {
+							if (isLoading) {
+								return (
+									<div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+										<Loader2 className="h-5 w-5 animate-spin" />
+										<span>Loading fare rules…</span>
+									</div>
+								);
+							}
 							if (miniFareRules && miniFareRules.length > 0) {
 								return (
 									<div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">

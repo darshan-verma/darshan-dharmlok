@@ -652,7 +652,7 @@ function HotelBookingContent() {
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 pb-24">
+		<div className="min-h-screen bg-gray-50 pb-[calc(9.5rem+env(safe-area-inset-bottom))] md:pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
 			{/* Header */}
 			<div className="bg-white border-b sticky top-0 z-10 shadow-sm">
 				<div className="container mx-auto px-4 py-4">
@@ -1050,29 +1050,29 @@ function HotelBookingContent() {
 
 			{/* Bottom Navbar - Fixed at bottom */}
 			<div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
-				<div className="container mx-auto px-4 py-4">
-					<div className="flex items-center justify-between">
-						<div className="flex-1">
+				<div className="container mx-auto px-4 py-3 md:py-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-[calc(1rem+env(safe-area-inset-bottom))]">
+					<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+						<div className="min-w-0 flex-1">
 							<div className="text-sm text-gray-600 mb-1">
 								{hotelInfo?.name || "Hotel"}
 							</div>
-							<div className="text-xs text-gray-500">
+							<div className="text-xs text-gray-500 truncate">
 								{checkIn} - {checkOut} • {rooms} Room(s) • {adults} Adults
 								{children && parseInt(children) > 0
 									? `, ${children} Children`
 									: ""}
 							</div>
 						</div>
-						<div className="flex items-center gap-6">
+						<div className="flex items-center justify-between gap-4 md:gap-6">
 							<div className="text-right">
 								<div className="text-sm text-gray-600">Total Price</div>
-								<div className="text-2xl font-bold text-blue-600">
+								<div className="text-xl md:text-2xl font-bold text-blue-600">
 									₹{totalPrice.toLocaleString("en-IN")}
 								</div>
 							</div>
 							<Button
 								size="lg"
-								className="bg-blue-600 hover:bg-blue-700 px-8"
+								className="bg-blue-600 hover:bg-blue-700 px-6 md:px-8"
 								onClick={() => {
 									setShowGuestForm(true);
 									window.scrollTo({ top: 0, behavior: "smooth" });

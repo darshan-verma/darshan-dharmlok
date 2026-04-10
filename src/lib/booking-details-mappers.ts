@@ -4,6 +4,7 @@
  */
 
 import type { TboGetBookingDetailsFlightItinerary } from "@/types/tbo";
+import type { TripjackBookingDetailResponse } from "@/types/tripjackFlight";
 import type {
 	NormalizedBookingDetails,
 	NormalizedBookingSegment,
@@ -194,4 +195,54 @@ export function airiqRetrieveResponseToNormalized(
 	// Minimal success: just PNR/ref from request if API returned success but no body
 	if (pnr || bookingId) return { pnr, bookingId, status };
 	return null;
+}
+
+export function tripjackBookingDetailToNormalized(
+	response: TripjackBookingDetailResponse | null | undefined,
+): NormalizedBookingDetails | null {
+	if (!response) return null;
+	const air = response.itemInfos?.AIR;
+	const onward = air?.tripInfos?.ONWARD?.[0];
+	const segs = onward?.sI ?? [];
+	const segments: NormalizedBookingSegment[] = segs.map((seg) => ({
+		originCode: seg.da?.code || "",
+		originCity: seg.da?.city,
+		destCode: seg.aa?.code || "",
+		destCity: seg.aa?.city,
+		airlineName: seg.fD?.aI?.name,
+		airlineCode: seg.fD?.aI?.code,
+		flightNumber: seg.fD?.fN,
+		depTime: seg.dt,
+		arrTime: seg.at,
+	}));
+
+	const passengers: NormalizedBookingPassenger[] =
+		response.travellerInfos?.map((t) => ({
+			title: t.ti,
+			firstName: t.fN,
+			lastName: t.lN,
+		})) ?? [];
+
+	const firstTraveller = response.travellerInfos?.[0];
+	const firstPnr = firstTraveller?.pnrDetails
+		? Object.values(firstTraveller.pnrDetails).find(
+				(v) => typeof v === "string" && v.trim(),
+			)
+		: undefined;
+
+	const amount = air?.totalPriceInfo?.totalFareDetail?.fc?.TF;
+	return {
+		pnr: typeof firstPnr === "string" ? firstPnr : undefined,
+		bookingId: response.order?.bookingId,
+		status: response.order?.status,
+		segments: segments.length ? segments : undefined,
+		passengers: passengers.length ? passengers : undefined,
+		fare:
+			typeof amount === "number"
+				? {
+						currency: "INR",
+						amount,
+					}
+				: undefined,
+	};
 }

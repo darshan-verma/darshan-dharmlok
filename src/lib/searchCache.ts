@@ -18,6 +18,11 @@ export function normalizeDate(date: Date | string): string {
 export interface FlightCacheEntry {
 	results: unknown[];
 	createdAt: number;
+	providerResults?: {
+		tbo?: unknown[];
+		airiq?: unknown[];
+		tripjack?: unknown[];
+	};
 }
 
 export interface HotelCacheEntry {

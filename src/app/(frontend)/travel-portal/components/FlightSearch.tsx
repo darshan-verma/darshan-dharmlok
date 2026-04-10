@@ -5,7 +5,15 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,6 +54,7 @@ import {
 	normalizeDate,
 } from "@/lib/searchCache";
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
+import { tripjackRoundTripFaresPairable } from "@/lib/tripjackFlightSearch";
 import MinimalFlightSearch from "@/components/travel-portal/MinimalFlightSearch";
 
 interface City {
@@ -74,6 +83,10 @@ interface FlightSearchForm {
 	journeyType: "1" | "2" | "3"; // 1: OneWay, 2: Return, 3: MultiCity
 	directFlight: boolean;
 	oneStopFlight: boolean;
+	/** TripJack searchModifiers.pft — Regular omits pft on API */
+	fareProfile: "REGULAR" | "STUDENT" | "SENIOR_CITIZEN";
+	/** Comma-separated IATA airline codes (max 10) for TripJack / TBO */
+	preferredAirlines: string;
 }
 
 interface FlightSegment {
@@ -95,6 +108,8 @@ interface FlightSearchParams {
 	Destination?: string;
 	PreferredDepartureTime?: string;
 	ReturnPreferredDepartureTime?: string;
+	pft?: "STUDENT" | "SENIOR_CITIZEN";
+	PreferredAirlines?: string[] | null;
 }
 
 const timeSlots = [
@@ -310,6 +325,8 @@ export default function FlightSearch() {
 			journeyType: "1",
 			directFlight: true,
 			oneStopFlight: false,
+			fareProfile: "REGULAR",
+			preferredAirlines: "",
 		},
 	});
 
@@ -355,9 +372,21 @@ export default function FlightSearch() {
 				journeyType?: string;
 				cabinClass?: string;
 				segments?: FlightSegment[];
+				fareProfile?: "REGULAR" | "STUDENT" | "SENIOR_CITIZEN";
+				preferredAirlines?: string;
 			} | null;
 			if (lastSearchParams) {
 				hasLoadedCacheRef.current = true;
+
+				if (lastSearchParams.fareProfile) {
+					form.setValue("fareProfile", lastSearchParams.fareProfile);
+				}
+				if (lastSearchParams.preferredAirlines != null) {
+					form.setValue(
+						"preferredAirlines",
+						lastSearchParams.preferredAirlines,
+					);
+				}
 
 				// Restore form from lastSearch (UI state only)
 				if (lastSearchParams.origin && lastSearchParams.destination) {
@@ -512,6 +541,8 @@ export default function FlightSearch() {
 				journeyType: "3",
 				directFlight: true,
 				oneStopFlight: false,
+				fareProfile: "REGULAR",
+				preferredAirlines: "",
 			});
 		} else if (origin && destination && departureDate) {
 			// One-way or round-trip search
@@ -552,6 +583,8 @@ export default function FlightSearch() {
 				journeyType: (journeyType as "1" | "2") || "1",
 				directFlight: true,
 				oneStopFlight: false,
+				fareProfile: "REGULAR",
+				preferredAirlines: "",
 			});
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -982,6 +1015,18 @@ export default function FlightSearch() {
 				}
 			}
 
+			const preferredCodes = searchData.preferredAirlines
+				.split(/[\s,]+/)
+				.map((c) => c.trim().toUpperCase())
+				.filter((c) => c.length >= 2)
+				.slice(0, 10);
+			if (preferredCodes.length) {
+				searchParams.PreferredAirlines = preferredCodes;
+			}
+			if (searchData.fareProfile !== "REGULAR") {
+				searchParams.pft = searchData.fareProfile;
+			}
+
 			// Create cache key from search parameters (hashed) - use normalized dates for cache key
 			const cacheKeyParams: Record<
 				string,
@@ -994,6 +1039,8 @@ export default function FlightSearch() {
 				JourneyType: searchData.journeyType,
 				DirectFlight: String(searchData.directFlight),
 				OneStopFlight: String(searchData.oneStopFlight),
+				fareProfile: searchData.fareProfile,
+				preferredAirlinesKey: preferredCodes.join(","),
 			};
 
 			if (searchData.journeyType === "3" && searchData.segments) {
@@ -1132,7 +1179,9 @@ export default function FlightSearch() {
 						// Find matching return flight from same API source
 						// DO NOT mix TBO and AirIQ flights - they must stay separate
 						const returnFlight = returnFlights.find(
-							(rf: FlightResult) => rf.ApiSource === apiSource,
+							(rf: FlightResult) =>
+								rf.ApiSource === apiSource &&
+								tripjackRoundTripFaresPairable(outboundFlight, rf),
 						);
 
 						// If no matching return flight from same API source, skip this combination
@@ -1229,6 +1278,11 @@ export default function FlightSearch() {
 			flightCache.set(cacheKey, {
 				results: flightResults,
 				createdAt: Date.now(),
+				providerResults: {
+					tbo: result.data?.Response?.TboResults || [],
+					airiq: result.data?.Response?.AiriqResults || [],
+					tripjack: result.data?.Response?.TripjackResults || [],
+				},
 			});
 
 			// Save last search parameters for form restoration (UI state only)
@@ -1243,6 +1297,8 @@ export default function FlightSearch() {
 				infants: searchData.infants,
 				journeyType: searchData.journeyType,
 				cabinClass: searchData.cabinClass,
+				fareProfile: searchData.fareProfile,
+				preferredAirlines: searchData.preferredAirlines,
 			};
 
 			if (searchData.journeyType === "3" && searchData.segments) {
@@ -1347,6 +1403,13 @@ export default function FlightSearch() {
 			JourneyType: data.journeyType,
 			DirectFlight: String(data.directFlight),
 			OneStopFlight: String(data.oneStopFlight),
+			fareProfile: data.fareProfile,
+			preferredAirlinesKey: data.preferredAirlines
+				.split(/[\s,]+/)
+				.map((c) => c.trim().toUpperCase())
+				.filter((c) => c.length >= 2)
+				.slice(0, 10)
+				.join(","),
 		};
 
 		if (data.journeyType === "3" && data.segments) {
@@ -1601,6 +1664,48 @@ export default function FlightSearch() {
 									<SearchButton
 										onSearch={form.handleSubmit(onSubmit)}
 										loading={loading}
+									/>
+								</div>
+							</div>
+
+							<div className="flex flex-wrap gap-4 items-end pt-2 border-t border-slate-100">
+								<div className="space-y-1.5 min-w-[200px]">
+									<Label className="text-xs text-muted-foreground">
+										Fare type (TripJack)
+									</Label>
+									<Select
+										value={form.watch("fareProfile")}
+										onValueChange={(v) =>
+											form.setValue(
+												"fareProfile",
+												v as FlightSearchForm["fareProfile"],
+											)
+										}
+									>
+										<SelectTrigger className="w-[220px]" size="sm">
+											<SelectValue placeholder="Regular" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="REGULAR">Regular</SelectItem>
+											<SelectItem value="STUDENT">Student</SelectItem>
+											<SelectItem value="SENIOR_CITIZEN">
+												Senior citizen
+											</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="space-y-1.5 flex-1 min-w-[220px] max-w-md">
+									<Label
+										htmlFor="preferredAirlines"
+										className="text-xs text-muted-foreground"
+									>
+										Preferred airlines (IATA codes, comma-separated, max 10)
+									</Label>
+									<Input
+										id="preferredAirlines"
+										placeholder="e.g. 6E, SG, AI"
+										{...form.register("preferredAirlines")}
+										className="h-9"
 									/>
 								</div>
 							</div>
@@ -1957,6 +2062,9 @@ export default function FlightSearch() {
 														const airiqCount = flights.filter(
 															(f) => f.ApiSource === "AIRiQ",
 														).length;
+														const tripjackCount = flights.filter(
+															(f) => f.ApiSource === "TRIPJACK",
+														).length;
 														return (
 															<>
 																{tboCount > 0 && (
@@ -1969,6 +2077,12 @@ export default function FlightSearch() {
 																	<div className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded border border-green-300 font-medium">
 																		<span className="w-2 h-2 rounded-full bg-green-500"></span>
 																		AIRiQ: {airiqCount}
+																	</div>
+																)}
+																{tripjackCount > 0 && (
+																	<div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-900 rounded border border-amber-300 font-medium">
+																		<span className="w-2 h-2 rounded-full bg-amber-500"></span>
+																		TripJack: {tripjackCount}
 																	</div>
 																)}
 															</>

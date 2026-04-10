@@ -9,6 +9,7 @@ import { XCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import BookingClient from "./BookingClient";
+import TripjackBookingClient from "./TripjackBookingClient";
 
 interface PageProps {
 	searchParams: Promise<{
@@ -43,6 +44,19 @@ export default async function BookingPage({ searchParams }: PageProps) {
 			<div className="p-4">
 				Missing booking details. Please search for a flight first.
 			</div>
+		);
+	}
+
+	if (apiSource === "TRIPJACK") {
+		return (
+			<TripjackBookingClient
+				traceId={traceId}
+				priceId={resultIndex}
+				returnPriceId={returnResultIndex}
+				adultCount={parseInt(adultCount)}
+				childCount={parseInt(childCount)}
+				infantCount={parseInt(infantCount)}
+			/>
 		);
 	}
 

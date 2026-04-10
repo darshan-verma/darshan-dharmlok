@@ -1,4 +1,22 @@
 import type {
+	TripjackAirSearchRequest,
+	TripjackAirSearchResponse,
+	TripjackBookRequest,
+	TripjackBookResponse,
+	TripjackBookingDetailRequest,
+	TripjackBookingDetailResponse,
+	TripjackConfirmBookRequest,
+	TripjackFareValidateRequest,
+	TripjackFareValidateResponse,
+	TripjackFareRuleRequest,
+	TripjackFareRuleResponse,
+	TripjackReleasePnrRequest,
+	TripjackReviewRequest,
+	TripjackReviewResponse,
+	TripjackSeatMapRequest,
+	TripjackSeatMapResponse,
+} from "@/types/tripjackFlight";
+import type {
 	TripjackAmendmentRequest,
 	TripjackAmendmentResponse,
 	TripjackBookingRequest,
@@ -41,7 +59,10 @@ import {
 export type { TripjackStaticDetailNormalizeResult };
 
 const TRIPJACK_API_URL = process.env.TRIPJACK_API_URL || "";
+const TRIPJACK_CABS_API_URL = process.env.TRIPJACK_CABS_API_URL || "";
 const TRIPJACK_STATIC_API_URL = process.env.TRIPJACK_STATIC_API_URL || "";
+/** Flight Management System (`/fms/…`) — usually `https://apitest.tripjack.com`, not the HMS host. */
+const TRIPJACK_FMS_API_URL = process.env.TRIPJACK_FMS_API_URL || "";
 const TRIPJACK_API_KEY = process.env.TRIPJACK_API_KEY || "";
 
 export interface TripjackRequestConfig {
@@ -70,9 +91,27 @@ export class TripjackApiError extends Error {
 	}
 }
 
-function ensureTripjackConfig(): void {
-	if (!TRIPJACK_API_URL) {
-		throw new Error("Missing TRIPJACK_API_URL environment variable");
+function tripjackFmsBaseUrl(): string {
+	return TRIPJACK_FMS_API_URL || TRIPJACK_STATIC_API_URL || TRIPJACK_API_URL;
+}
+
+function ensureTripjackConfig(endpoint: string): void {
+	const isCabsEndpoint = endpoint.startsWith("/cabs/");
+	const isFmsEndpoint = endpoint.startsWith("/fms/");
+	const hasPrimaryBase = isCabsEndpoint
+		? Boolean(TRIPJACK_CABS_API_URL || TRIPJACK_API_URL)
+		: isFmsEndpoint
+			? Boolean(tripjackFmsBaseUrl())
+			: Boolean(TRIPJACK_API_URL);
+
+	if (!hasPrimaryBase) {
+		throw new Error(
+			isCabsEndpoint
+				? "Missing TRIPJACK_CABS_API_URL or TRIPJACK_API_URL environment variable"
+				: isFmsEndpoint
+					? "Missing TRIPJACK_FMS_API_URL, TRIPJACK_STATIC_API_URL, or TRIPJACK_API_URL for flight search"
+					: "Missing TRIPJACK_API_URL environment variable",
+		);
 	}
 
 	if (!TRIPJACK_API_KEY) {
@@ -85,7 +124,14 @@ function buildTripjackUrl(endpoint: string): string {
 		return endpoint;
 	}
 
-	const base = TRIPJACK_API_URL.replace(/\/$/, "");
+	const isCabsEndpoint = endpoint.startsWith("/cabs/");
+	const isFmsEndpoint = endpoint.startsWith("/fms/");
+	const baseUrl = isCabsEndpoint
+		? TRIPJACK_CABS_API_URL || TRIPJACK_API_URL
+		: isFmsEndpoint
+			? tripjackFmsBaseUrl()
+			: TRIPJACK_API_URL;
+	const base = baseUrl.replace(/\/$/, "");
 	const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 	return `${base}${path}`;
 }
@@ -101,18 +147,22 @@ async function sleep(ms: number): Promise<void> {
 export async function tripjackRequest<T = unknown>(
 	config: TripjackRequestConfig,
 ): Promise<T> {
-	ensureTripjackConfig();
-
 	const { endpoint, method = "POST", body, headers = {} } = config;
+	ensureTripjackConfig(endpoint);
 	const url = buildTripjackUrl(endpoint);
+
+	const isCabsEndpoint = endpoint.startsWith("/cabs/");
+	const baseHeaders: Record<string, string> = {
+		"Content-Type": "application/json",
+		...(isCabsEndpoint
+			? { "x-api-key": TRIPJACK_API_KEY }
+			: { apikey: TRIPJACK_API_KEY }),
+		...headers,
+	};
 
 	const requestOptions: RequestInit = {
 		method,
-		headers: {
-			"Content-Type": "application/json",
-			apikey: TRIPJACK_API_KEY,
-			...headers,
-		},
+		headers: baseHeaders,
 	};
 
 	if (body && (method === "POST" || method === "PUT")) {
@@ -144,11 +194,23 @@ export async function tripjackRequest<T = unknown>(
 				: payload?.error?.message) ||
 			`TripJack API request failed with status ${response.status}`;
 
+		// 403/401: almost always key, base URL, or IP allowlist — log body snippet when empty/non-JSON
+		if (response.status === 403 || response.status === 401) {
+			const snippet = rawBody
+				? rawBody.length > 800
+					? `${rawBody.slice(0, 800)}…`
+					: rawBody
+				: "(empty response body)";
+			console.warn(
+				`[TripJack] ${response.status} ${method} ${url} — body: ${snippet}`,
+			);
+		}
+
 		lastError = new TripjackApiError({
 			message: providerMessage,
 			status: response.status,
 			endpoint,
-			providerPayload: parsedBody,
+			providerPayload: parsedBody ?? (rawBody || null),
 		});
 
 		// 429 Rate Limited — honour Retry-After header, retry once
@@ -180,6 +242,106 @@ export async function tripjackRequest<T = unknown>(
 	}
 
 	throw lastError!;
+}
+
+export async function searchTripjackFlights(
+	payload: TripjackAirSearchRequest,
+): Promise<TripjackAirSearchResponse> {
+	return tripjackRequest<TripjackAirSearchResponse>({
+		endpoint: "/fms/v1/air-search-all",
+		method: "POST",
+		body: payload,
+	});
+}
+
+export async function getTripjackFareRule(
+	payload: TripjackFareRuleRequest,
+): Promise<TripjackFareRuleResponse> {
+	return tripjackRequest<TripjackFareRuleResponse>({
+		endpoint: "/fms/v2/farerule",
+		method: "POST",
+		body: payload,
+	});
+}
+
+export async function reviewTripjackFlight(
+	payload: TripjackReviewRequest,
+): Promise<TripjackReviewResponse> {
+	return tripjackRequest<TripjackReviewResponse>({
+		endpoint: "/fms/v1/review",
+		method: "POST",
+		body: payload,
+	});
+}
+
+export async function getTripjackSeatMap(
+	payload: TripjackSeatMapRequest,
+): Promise<TripjackSeatMapResponse> {
+	return tripjackRequest<TripjackSeatMapResponse>({
+		endpoint: "/fms/v1/seat",
+		method: "POST",
+		body: payload,
+	});
+}
+
+export async function fareValidateTripjackFlight(
+	payload: TripjackFareValidateRequest,
+): Promise<TripjackFareValidateResponse> {
+	return tripjackRequest<TripjackFareValidateResponse>({
+		endpoint: "/oms/v1/air/book/fare-validate",
+		method: "POST",
+		body: payload,
+	});
+}
+
+export async function bookTripjackFlight(
+	payload: TripjackBookRequest,
+): Promise<TripjackBookResponse> {
+	return tripjackRequest<TripjackBookResponse>({
+		endpoint: "/oms/v1/air/book",
+		method: "POST",
+		body: payload,
+	});
+}
+
+export async function confirmFareTripjackFlight(
+	payload: { bookingId: string },
+): Promise<TripjackBookResponse> {
+	return tripjackRequest<TripjackBookResponse>({
+		endpoint: "/oms/v1/air/fare-validate",
+		method: "POST",
+		body: payload,
+	});
+}
+
+export async function confirmBookTripjackFlight(
+	payload: TripjackConfirmBookRequest,
+): Promise<TripjackBookResponse> {
+	return tripjackRequest<TripjackBookResponse>({
+		endpoint: "/oms/v1/air/book/confirm-book",
+		method: "POST",
+		body: payload,
+	});
+}
+
+export async function getTripjackFlightBookingDetails(
+	payload: TripjackBookingDetailRequest,
+): Promise<TripjackBookingDetailResponse> {
+	return tripjackRequest<TripjackBookingDetailResponse>({
+		endpoint: "/oms/v1/booking-details",
+		method: "POST",
+		body: payload,
+	});
+}
+
+export async function releaseTripjackPnr(
+	payload: TripjackReleasePnrRequest,
+): Promise<TripjackBookResponse> {
+	return tripjackRequest<TripjackBookResponse>({
+		endpoint: "/oms/v1/air/unhold",
+		method: "POST",
+		body: payload,
+	});
 }
 
 export async function getTripjackQuotes(
@@ -313,13 +475,16 @@ export async function getTripjackHotelStaticDetail(
 	);
 	const apiBase = TRIPJACK_API_URL.replace(/\/$/, "");
 
-	const parseEmbeddedProviderError = (payload: unknown): TripjackApiError | null => {
+	const parseEmbeddedProviderError = (
+		payload: unknown,
+	): TripjackApiError | null => {
 		if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
 			return null;
 		}
 		const obj = payload as Record<string, unknown>;
 		const status = obj.status;
-		if (!status || typeof status !== "object" || Array.isArray(status)) return null;
+		if (!status || typeof status !== "object" || Array.isArray(status))
+			return null;
 
 		const statusObj = status as Record<string, unknown>;
 		if (statusObj.success !== false) return null;

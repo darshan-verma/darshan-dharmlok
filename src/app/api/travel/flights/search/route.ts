@@ -1,10 +1,17 @@
+import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { searchFlights } from "@/lib/tboClient";
+import { searchTripjackFlights } from "@/lib/tripjackClient";
 import {
 	searchFlights as searchAiriqFlights,
 	convertTboToAiriqParams,
 	convertAiriqToTboFormat,
 } from "@/lib/airiqClient";
+import {
+	buildTripjackAirSearchRequest,
+	convertTripjackSearchToTboFormat,
+	isTripjackConfigured,
+} from "@/lib/tripjackFlightSearch";
 import { calculateNetPayable } from "@/lib/tboFareCalculations";
 import type { FlightSegment, FlightSearchResponse } from "@/types/tbo";
 import type { AiriqFlightSearchResponse } from "@/types/airiq";
@@ -161,10 +168,21 @@ export async function POST(request: NextRequest) {
 			airiqParams = null;
 		}
 
-		const [tboResult, airiqResult] = await Promise.allSettled([
+		const tripjackPayload = isTripjackConfigured()
+			? buildTripjackAirSearchRequest(body)
+			: null;
+		const tripjackTraceId = randomUUID();
+
+		const [tboResult, airiqResult, tripjackResult] = await Promise.allSettled([
 			searchFlights(searchParams),
 			airiqParams
 				? searchAiriqFlights(airiqParams).catch(() => null)
+				: Promise.resolve(null),
+			tripjackPayload
+				? searchTripjackFlights(tripjackPayload).catch((err) => {
+						console.error("TripJack search failed:", err);
+						return null;
+					})
 				: Promise.resolve(null),
 		]);
 
@@ -219,23 +237,62 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
-		// Merge results from both APIs
+		// Process TripJack results
+		let tripjackFlights: FlightSearchResponse | null = null;
+		if (
+			tripjackResult.status === "fulfilled" &&
+			tripjackResult.value &&
+			tripjackPayload
+		) {
+			const adults = parseInt(body.AdultCount || "1", 10);
+			const children = parseInt(body.ChildCount || "0", 10);
+			const infants = parseInt(body.InfantCount || "0", 10);
+			tripjackFlights = convertTripjackSearchToTboFormat(
+				tripjackResult.value,
+				body.JourneyType || "1",
+				tripjackTraceId,
+				{ adults, children, infants },
+			) as FlightSearchResponse;
+
+			if (tripjackFlights?.Response?.Results) {
+				for (const resultArray of tripjackFlights.Response.Results) {
+					if (resultArray && Array.isArray(resultArray)) {
+						for (const flight of resultArray) {
+							if (flight?.Fare) {
+								flight.Fare.NetPayable = calculateNetPayable(flight.Fare);
+								flight.ApiSource = "TRIPJACK";
+							}
+						}
+					}
+				}
+			}
+		} else if (tripjackResult.status === "rejected") {
+			console.error("TripJack search rejected:", tripjackResult.reason);
+		}
+
+		// Merge results from all APIs
 		interface MergedResponse {
 			Response: {
 				TraceId: string;
 				Results: FlightSearchResponse["Response"]["Results"];
 				TboResults: FlightSearchResponse["Response"]["Results"];
 				AiriqResults: FlightSearchResponse["Response"]["Results"];
+				TripjackResults: FlightSearchResponse["Response"]["Results"];
 				Error?: unknown;
 			};
 		}
 
 		const mergedResults: MergedResponse = {
 			Response: {
-				TraceId: tboFlights?.Response?.TraceId || "",
+				TraceId:
+					tboFlights?.Response?.TraceId ||
+					airiqFlights?.Response?.TraceId ||
+					tripjackFlights?.Response?.TraceId ||
+					"",
 				Results: [],
 				TboResults: tboFlights?.Response?.Results || [],
 				AiriqResults: airiqFlights?.Response?.Results || [],
+				TripjackResults: tripjackFlights?.Response?.Results || [],
 				Error:
 					(tboFlights as { Response?: { Error?: unknown } })?.Response?.Error ||
 					(airiqFlights as { Response?: { Error?: unknown } })?.Response?.Error,
@@ -272,9 +329,31 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
+		if (
+			tripjackFlights?.Response?.Results &&
+			Array.isArray(tripjackFlights.Response.Results)
+		) {
+			if (mergedResults.Response.Results.length === 0) {
+				mergedResults.Response.Results = [...tripjackFlights.Response.Results];
+			} else {
+				for (let i = 0; i < tripjackFlights.Response.Results.length; i++) {
+					if (mergedResults.Response.Results[i]) {
+						mergedResults.Response.Results[i] = [
+							...mergedResults.Response.Results[i],
+							...tripjackFlights.Response.Results[i],
+						];
+					} else {
+						mergedResults.Response.Results[i] =
+							tripjackFlights.Response.Results[i];
+					}
+				}
+			}
+		}
+
 		// Count flights from each API source
 		let tboFlightCount = 0;
 		let airiqFlightCount = 0;
+		let tripjackFlightCount = 0;
 
 		if (mergedResults?.Response?.Results) {
 			for (const resultArray of mergedResults.Response.Results) {
@@ -285,6 +364,8 @@ export async function POST(request: NextRequest) {
 							tboFlightCount++;
 						} else if (flightWithSource.ApiSource === "AIRiQ") {
 							airiqFlightCount++;
+						} else if (flightWithSource.ApiSource === "TRIPJACK") {
+							tripjackFlightCount++;
 						}
 					}
 				}
@@ -324,6 +405,13 @@ export async function POST(request: NextRequest) {
 				infantCount: parseInt(body.InfantCount || "0"),
 			};
 
+			const providers: string[] = [];
+			if (tboResult.status === "fulfilled") providers.push("TBO");
+			if (airiqResult.status === "fulfilled" && airiqResult.value)
+				providers.push("AIRiQ");
+			if (tripjackResult.status === "fulfilled" && tripjackResult.value)
+				providers.push("TripJack");
+
 			// Log search activity
 			logTravelActivity({
 				userId,
@@ -331,16 +419,16 @@ export async function POST(request: NextRequest) {
 				userName,
 				logType: "flight",
 				action: "search",
-				provider: mergedResults?.Response?.Results ? 
-					(tboResult.status === "fulfilled" && airiqResult.status === "fulfilled" ? "TBO+AIRiQ" : 
-					 tboResult.status === "fulfilled" ? "TBO" : "AIRiQ") : undefined,
+				provider: providers.length ? providers.join("+") : undefined,
 				flightData: flightLogData,
 				traceId: mergedResults?.Response?.TraceId || undefined,
 				metadata: {
 					journeyType: body.JourneyType || "1",
-					resultCount: tboFlightCount + airiqFlightCount,
+					resultCount:
+						tboFlightCount + airiqFlightCount + tripjackFlightCount,
 					tboResults: tboFlightCount,
 					airiqResults: airiqFlightCount,
+					tripjackResults: tripjackFlightCount,
 				},
 				ipAddress: getIpAddress(request),
 				userAgent: getUserAgent(request),
@@ -356,11 +444,15 @@ export async function POST(request: NextRequest) {
 			sources: {
 				tbo: tboResult.status === "fulfilled",
 				airiq: airiqResult.status === "fulfilled" && !!airiqResult.value,
+				tripjack:
+					tripjackResult.status === "fulfilled" && !!tripjackResult.value,
 			},
 			stats: {
 				tboFlightCount,
 				airiqFlightCount,
-				totalFlightCount: tboFlightCount + airiqFlightCount,
+				tripjackFlightCount,
+				totalFlightCount:
+					tboFlightCount + airiqFlightCount + tripjackFlightCount,
 			},
 		});
 	} catch (error) {
