@@ -17,6 +17,7 @@ import type {
 	TripjackQuoteItem,
 	TripjackQuotesGroup,
 } from "@/types/tripjack";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 
 interface CabQuoteCardProps {
 	group: TripjackQuotesGroup;
@@ -36,11 +37,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^\+?[0-9\s-]{8,20}$/;
 
 function formatCurrency(value: number) {
-	return new Intl.NumberFormat("en-IN", {
-		style: "currency",
-		currency: "INR",
-		maximumFractionDigits: 0,
-	}).format(value);
+	return `₹${formatTravelPriceInr(value)}`;
 }
 
 function getHighlights(policies?: TripjackPolicies) {

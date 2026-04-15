@@ -46,6 +46,7 @@ import MultiCitySelector from "../../components/travel-portal/MultiCitySelector"
 import UpsellModal from "./UpsellModal";
 import { Separator } from "@/components/ui/separator";
 import { getFareBreakdown } from "@/lib/tboFareCalculations";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 import AirlineLogo from "@/components/travel-portal/AirlineLogo";
 import {
 	flightCache,
@@ -1891,8 +1892,8 @@ export default function FlightSearch() {
 														className="w-full"
 													/>
 													<div className="flex justify-between text-xs text-muted-foreground mt-1">
-														<span>₹{priceRange[0].toLocaleString()}</span>
-														<span>₹{priceRange[1].toLocaleString()}</span>
+														<span>₹{formatTravelPriceInr(priceRange[0])}</span>
+														<span>₹{formatTravelPriceInr(priceRange[1])}</span>
 													</div>
 												</div>
 											</div>
@@ -2340,7 +2341,9 @@ export default function FlightSearch() {
 																						flight.Fare,
 																						0,
 																					);
-																					return breakdown.publishedFare.toLocaleString();
+																					return formatTravelPriceInr(
+																					breakdown.publishedFare,
+																				);
 																				})()}
 																			</div>
 																			{/* Fare Class (RBD) */}
@@ -2644,18 +2647,20 @@ export default function FlightSearch() {
 																					<span>Base Fare</span>
 																					<span className="font-medium text-gray-900">
 																						{flight.Fare.Currency}{" "}
-																						{breakdown.baseFare.toLocaleString()}
+																						{formatTravelPriceInr(
+																							breakdown.baseFare,
+																						)}
 																					</span>
 																				</div>
 																				<div className="flex justify-between text-gray-600">
 																					<span>Tax & Charges</span>
 																					<span className="font-medium text-gray-900">
 																						{flight.Fare.Currency}{" "}
-																						{(
+																						{formatTravelPriceInr(
 																							breakdown.tax +
-																							breakdown.gst.total +
-																							breakdown.otherCharges
-																						).toLocaleString()}
+																								breakdown.gst.total +
+																								breakdown.otherCharges,
+																						)}
 																					</span>
 																				</div>
 																				<Separator className="my-2" />
@@ -2663,7 +2668,9 @@ export default function FlightSearch() {
 																					<span>Total Amount</span>
 																					<span className="flex items-center">
 																						<IndianRupee className="h-4 w-4 mr-1" />
-																						{breakdown.publishedFare.toLocaleString()}
+																						{formatTravelPriceInr(
+																							breakdown.publishedFare,
+																						)}
 																					</span>
 																				</div>
 																			</div>

@@ -9,6 +9,7 @@ import {
 	getFareBreakdown,
 	validateFareCalculations,
 } from "@/lib/tboFareCalculations";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 import {
 	Tooltip,
 	TooltipContent,
@@ -225,7 +226,7 @@ export default function FareBreakdown({
 								<InfoTooltip content="Total amount payable by customer (Published Fare)" />
 							</div>
 							<div className="text-3xl font-bold text-blue-700">
-								₹{totalFareWithSSR.toLocaleString()}
+								₹{formatTravelPriceInr(totalFareWithSSR)}
 							</div>
 						</div>
 					</div>
@@ -240,7 +241,7 @@ export default function FareBreakdown({
 										<InfoTooltip content="Total amount payable by customer (Published Fare)" />
 									</div>
 									<div className="text-3xl font-bold text-blue-700">
-										₹{totalFareWithSSR.toLocaleString()}
+										₹{formatTravelPriceInr(totalFareWithSSR)}
 									</div>
 								</div>
 							</div>
@@ -257,7 +258,7 @@ export default function FareBreakdown({
 									<div className="flex justify-between">
 										<span className="text-gray-600">Base Fare</span>
 										<span className="font-medium">
-											₹{breakdown.baseFare.toLocaleString()}
+											₹{formatTravelPriceInr(breakdown.baseFare)}
 										</span>
 									</div>
 									<div className="flex justify-between">
@@ -266,7 +267,7 @@ export default function FareBreakdown({
 											<InfoTooltip content="Fuel surcharges and other airline fees" />
 										</span>
 										<span className="font-medium">
-											₹{breakdown.yqTax.toLocaleString()}
+											₹{formatTravelPriceInr(breakdown.yqTax)}
 										</span>
 									</div>
 									<div className="flex justify-between">
@@ -274,7 +275,7 @@ export default function FareBreakdown({
 											Govt. Taxes (GST, Cess)
 										</span>
 										<span className="font-medium">
-											₹{(breakdown.tax + breakdown.gst.total).toLocaleString()}
+											₹{formatTravelPriceInr(breakdown.tax + breakdown.gst.total)}
 										</span>
 									</div>
 									<div className="flex justify-between">
@@ -283,7 +284,7 @@ export default function FareBreakdown({
 											<InfoTooltip content="User Development Fee / Passenger Service Fee" />
 										</span>
 										<span className="font-medium">
-											₹{breakdown.otherCharges.toLocaleString()}
+											₹{formatTravelPriceInr(breakdown.otherCharges)}
 										</span>
 									</div>
 								</div>
@@ -303,7 +304,7 @@ export default function FareBreakdown({
 											<div className="flex justify-between">
 												<span className="text-gray-600">Extra Baggage</span>
 												<span className="font-medium">
-													₹{ssrTotals.baggage.toLocaleString()}
+													₹{formatTravelPriceInr(ssrTotals.baggage)}
 												</span>
 											</div>
 										)}
@@ -311,7 +312,7 @@ export default function FareBreakdown({
 											<div className="flex justify-between">
 												<span className="text-gray-600">Meals</span>
 												<span className="font-medium">
-													₹{ssrTotals.meals.toLocaleString()}
+													₹{formatTravelPriceInr(ssrTotals.meals)}
 												</span>
 											</div>
 										)}
@@ -319,7 +320,7 @@ export default function FareBreakdown({
 											<div className="flex justify-between">
 												<span className="text-gray-600">Seat Selection</span>
 												<span className="font-medium">
-													₹{ssrTotals.seats.toLocaleString()}
+													₹{formatTravelPriceInr(ssrTotals.seats)}
 												</span>
 											</div>
 										)}
@@ -327,7 +328,7 @@ export default function FareBreakdown({
 											<div className="flex justify-between">
 												<span className="text-gray-600">Special Services</span>
 												<span className="font-medium">
-													₹{ssrTotals.specialServices.toLocaleString()}
+													₹{formatTravelPriceInr(ssrTotals.specialServices)}
 												</span>
 											</div>
 										)}
@@ -336,7 +337,7 @@ export default function FareBreakdown({
 												Total Additional Services
 											</span>
 											<span className="font-bold text-blue-600">
-												₹{ssrTotals.total.toLocaleString()}
+												₹{formatTravelPriceInr(ssrTotals.total)}
 											</span>
 										</div>
 									</div>
@@ -357,13 +358,13 @@ export default function FareBreakdown({
 											Convenience Fee (OTA Fee)
 										</span>
 										<span className="font-medium">
-											₹{breakdown.fees.serviceFee.toLocaleString()}
+											₹{formatTravelPriceInr(breakdown.fees.serviceFee)}
 										</span>
 									</div>
 									<div className="flex justify-between">
 										<span className="text-gray-600">Payment Gateway / UDF</span>
 										<span className="font-medium">
-											₹{breakdown.fees.additionalTxnFeePub.toLocaleString()}
+											₹{formatTravelPriceInr(breakdown.fees.additionalTxnFeePub)}
 										</span>
 									</div>
 									<div className="flex justify-between">
@@ -371,7 +372,7 @@ export default function FareBreakdown({
 											Airline Transaction Fee
 										</span>
 										<span className="font-medium">
-											₹{breakdown.fees.airlineTransFee.toLocaleString()}
+											₹{formatTravelPriceInr(breakdown.fees.airlineTransFee)}
 										</span>
 									</div>
 								</div>
@@ -390,7 +391,7 @@ export default function FareBreakdown({
 										<div className="flex justify-between">
 											<span className="text-gray-600">Commission</span>
 											<span className="text-green-600 font-medium">
-												₹{breakdown.commission.commission.toLocaleString()}
+												₹{formatTravelPriceInr(breakdown.commission.commission)}
 											</span>
 										</div>
 										<div className="flex justify-between">
@@ -399,7 +400,7 @@ export default function FareBreakdown({
 												<InfoTooltip content="Productivity Linked Bonus" />
 											</span>
 											<span className="text-green-600 font-medium">
-												₹{breakdown.commission.plb.toLocaleString()}
+												₹{formatTravelPriceInr(breakdown.commission.plb)}
 											</span>
 										</div>
 										<div className="flex justify-between">
@@ -408,7 +409,7 @@ export default function FareBreakdown({
 												<InfoTooltip content="Additional performance-based incentive" />
 											</span>
 											<span className="text-green-600 font-medium">
-												₹{breakdown.commission.incentive.toLocaleString()}
+												₹{formatTravelPriceInr(breakdown.commission.incentive)}
 											</span>
 										</div>
 									</div>
@@ -417,7 +418,7 @@ export default function FareBreakdown({
 											Total Income
 										</span>
 										<span className="text-base font-bold text-green-700">
-											₹{breakdown.commission.total.toLocaleString()}
+											₹{formatTravelPriceInr(breakdown.commission.total)}
 										</span>
 									</div>
 								</div>
@@ -438,25 +439,25 @@ export default function FareBreakdown({
 											<InfoTooltip content="Tax Deducted at Source on Commission" />
 										</span>
 										<span className="text-red-600 font-medium">
-											₹{breakdown.tds.onCommission.toLocaleString()}
+											₹{formatTravelPriceInr(breakdown.tds.onCommission)}
 										</span>
 									</div>
 									<div className="flex justify-between">
 										<span className="text-gray-600">TDS on PLB</span>
 										<span className="text-red-600 font-medium">
-											₹{breakdown.tds.onPLB.toLocaleString()}
+											₹{formatTravelPriceInr(breakdown.tds.onPLB)}
 										</span>
 									</div>
 									<div className="flex justify-between">
 										<span className="text-gray-600">TDS on Incentive</span>
 										<span className="text-red-600 font-medium">
-											₹{breakdown.tds.onIncentive.toLocaleString()}
+											₹{formatTravelPriceInr(breakdown.tds.onIncentive)}
 										</span>
 									</div>
 									<div className="flex justify-between border-t pt-1 mt-1 col-span-2">
 										<span className="font-medium text-gray-700">Total TDS</span>
 										<span className="text-red-600 font-bold">
-											₹{breakdown.tds.total.toLocaleString()}
+											₹{formatTravelPriceInr(breakdown.tds.total)}
 										</span>
 									</div>
 								</div>
@@ -475,17 +476,17 @@ export default function FareBreakdown({
 							<div className="bg-gray-50 p-4 rounded-lg space-y-2 text-sm">
 								<div className="flex justify-between text-gray-600">
 									<span>Gross Fare</span>
-									<span>₹{totalFareWithSSR.toLocaleString()}</span>
+									<span>₹{formatTravelPriceInr(totalFareWithSSR)}</span>
 								</div>
 								<div className="flex justify-between text-green-600">
 									<span>– Commission & Incentives</span>
-									<span>-₹{breakdown.commission.total.toLocaleString()}</span>
+									<span>-₹{formatTravelPriceInr(breakdown.commission.total)}</span>
 								</div>
 								{breakdown.fees.additionalTxnFeePub > 0 && (
 									<div className="flex justify-between text-green-600">
 										<span>– Additional Txn Fee</span>
 										<span>
-											-₹{breakdown.fees.additionalTxnFeePub.toLocaleString()}
+											-₹{formatTravelPriceInr(breakdown.fees.additionalTxnFeePub)}
 										</span>
 									</div>
 								)}
@@ -494,7 +495,7 @@ export default function FareBreakdown({
 										Net Payable to Supplier
 									</span>
 									<span className="text-xl font-bold text-blue-700">
-										₹{breakdown.netPayable.toLocaleString()}
+										₹{formatTravelPriceInr(breakdown.netPayable)}
 									</span>
 								</div>
 								<div className="text-xs text-gray-500 text-right">

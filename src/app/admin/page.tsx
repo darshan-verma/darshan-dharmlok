@@ -1186,6 +1186,8 @@ export default function AdminPage() {
 																			<Image
 																				src={product.image}
 																				alt={product.product}
+																				width={36}
+																				height={36}
 																				className="h-full w-full object-cover"
 																			/>
 																		) : (

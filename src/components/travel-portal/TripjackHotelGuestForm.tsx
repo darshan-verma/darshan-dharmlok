@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Users, Mail, Phone, AlertCircle } from "lucide-react";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 
 interface TravellerFormData {
 	ti: string;
@@ -410,8 +411,9 @@ export default function TripjackHotelGuestForm({
 				<div>
 					<p className="text-sm text-gray-600">Total Amount</p>
 					<p className="text-2xl font-bold text-blue-600">
-						{currency === "INR" ? "₹" : currency}{" "}
-						{totalAmount.toLocaleString("en-IN")}
+						{currency === "INR"
+							? `₹${formatTravelPriceInr(totalAmount)}`
+							: `${currency} ${Math.round(totalAmount).toLocaleString("en-US", { maximumFractionDigits: 0 })}`}
 					</p>
 				</div>
 				<Button

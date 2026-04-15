@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 
 export interface FilterState {
 	priceRange: [number, number];
@@ -111,12 +112,8 @@ export default function HotelFilters({
 							className="w-full"
 						/>
 						<div className="flex justify-between text-sm text-gray-600">
-							<span>
-								₹ {localFilters.priceRange[0].toLocaleString("en-IN")}
-							</span>
-							<span>
-								₹ {localFilters.priceRange[1].toLocaleString("en-IN")}
-							</span>
+							<span>₹ {formatTravelPriceInr(localFilters.priceRange[0])}</span>
+							<span>₹ {formatTravelPriceInr(localFilters.priceRange[1])}</span>
 						</div>
 					</div>
 				</CardContent>

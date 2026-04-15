@@ -21,6 +21,7 @@ import {
 	Calendar,
 	AlertTriangle,
 } from "lucide-react";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 
 const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_DURATION_MS = 180000;
@@ -243,9 +244,9 @@ function ConfirmationContent() {
 								<div>
 									<p className="text-sm text-gray-500">Amount</p>
 									<p className="font-medium text-blue-600">
-										₹
-										{bookingDetails?.order?.amount?.toLocaleString("en-IN") ||
-											"—"}
+										{bookingDetails?.order?.amount != null
+											? `₹${formatTravelPriceInr(bookingDetails.order.amount)}`
+											: "—"}
 									</p>
 								</div>
 								{(checkIn || checkOut) && (
@@ -276,7 +277,7 @@ function ConfirmationContent() {
 										<div key={idx} className="bg-gray-50 rounded-lg p-3 mb-2">
 											<p className="font-medium">{room.rc}</p>
 											<p className="text-sm text-gray-500">
-												{room.mb} — ₹{room.tp.toLocaleString("en-IN")}
+												{room.mb} — ₹{formatTravelPriceInr(room.tp)}
 											</p>
 											{room.ti && (
 												<p className="text-sm text-gray-600 mt-1">
@@ -349,9 +350,9 @@ function ConfirmationContent() {
 								<div>
 									<p className="text-sm text-gray-500">Amount</p>
 									<p className="font-medium text-blue-600">
-										₹
-										{bookingDetails?.order?.amount?.toLocaleString("en-IN") ||
-											"—"}
+										{bookingDetails?.order?.amount != null
+											? `₹${formatTravelPriceInr(bookingDetails.order.amount)}`
+											: "—"}
 									</p>
 								</div>
 							</div>

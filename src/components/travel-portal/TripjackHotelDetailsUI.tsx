@@ -35,6 +35,7 @@ import type {
 	TripjackHotelRoomType,
 	TripjackHotelPricingOption,
 } from "@/types/tripjack";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -132,10 +133,15 @@ function fmtPrice(amount: number, currency?: string): string {
 		SGD: "S$",
 		AUD: "A$",
 	};
+	const code = (currency || "INR").toUpperCase();
 	const sym = currency
 		? (symbols[currency.toUpperCase()] ?? `${currency} `)
 		: "₹";
-	return `${sym}${Math.round(amount).toLocaleString("en-IN")}`;
+	if (code === "INR") {
+		return `${sym}${formatTravelPriceInr(amount)}`;
+	}
+	const whole = Math.round(Number(amount));
+	return `${sym}${whole.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
 /** Return a contextual icon for an amenity name */

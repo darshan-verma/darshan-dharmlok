@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import AirlineLogo from "@/components/travel-portal/AirlineLogo";
 import { TrendingUp } from "lucide-react";
 import type { FlightResult } from "@/types/tbo";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 
 interface Props {
 	upsellOptions: FlightResult[];
@@ -264,7 +265,7 @@ export default function FareUpsellList({
 												<div className="text-lg font-bold text-gray-900 leading-none">
 													{deal.Fare?.Currency || fallbackFareCurrency}{" "}
 													{priceVal !== null
-														? Number(priceVal).toLocaleString()
+														? formatTravelPriceInr(priceVal)
 														: "--"}
 												</div>
 											</div>

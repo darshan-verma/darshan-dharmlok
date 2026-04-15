@@ -16,6 +16,7 @@ import PriceRangeSelector from "./PriceRangeSelector";
 import CabSearchForm, {
 	type CabSearchData,
 } from "@/components/travel-portal/CabSearchForm";
+import CruiseInquiryForm from "@/components/travel-portal/CruiseInquiryForm";
 // icons imported in CategoryTabs; no direct icon needed here
 
 interface City {
@@ -249,8 +250,6 @@ export default function FlightBookingUI() {
 	// Map active category to a transportType id used by TravellerSelector
 	const transportTypeMap: Record<string, string | undefined> = {
 		Flights: "air",
-		Trains: "train",
-		Buses: "bus",
 		Cabs: "road",
 	};
 
@@ -470,36 +469,15 @@ export default function FlightBookingUI() {
 
 							<CabSearchForm onSearch={handleCabSearch} />
 						</>
-					) : (
-						<>
-							{/* Placeholder for other categories */}
-							<div className="text-center py-12">
-								<div className="text-gray-400 mb-4">
-									<svg
-										className="w-16 h-16 mx-auto"
-										fill="none"
-										stroke="currentColor"
-										viewBox="0 0 24 24"
-									>
-										<path
-											strokeLinecap="round"
-											strokeLinejoin="round"
-											strokeWidth={2}
-											d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-										/>
-									</svg>
-								</div>
-								<h3 className="text-xl font-semibold text-gray-700 mb-2">
-									{activeCategory} Booking
-								</h3>
-								<p className="text-gray-500">Coming soon...</p>
-							</div>
-						</>
-					)}
+					) : activeCategory === "Cruise" ? (
+						<CruiseInquiryForm />
+					) : null}
 
 					{/* Search Button */}
-					{activeCategory !== "Cabs" && (
-						<SearchButton onSearch={handleSearch} />
+					{activeCategory !== "Cabs" && activeCategory !== "Cruise" && (
+						<div className="flex justify-center">
+							<SearchButton onSearch={handleSearch} />
+						</div>
 					)}
 
 					{/* Explore More - Only show for Flights */}

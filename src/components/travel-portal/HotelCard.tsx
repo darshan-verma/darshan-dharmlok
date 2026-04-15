@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Star, MapPin, CheckCircle, Utensils, Loader2 } from "lucide-react";
 import type { Room } from "@/types/hotelApi";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 
 interface HotelCardProps {
 	hotelCode: string;
@@ -213,12 +214,12 @@ function HotelCard({
 										<div>
 											<span className="text-sm text-gray-600">from </span>
 											<span className="text-2xl font-bold text-gray-900">
-												₹ {Math.round(priceRange.min).toLocaleString("en-IN")}
+												₹ {formatTravelPriceInr(priceRange.min)}
 											</span>
 										</div>
 									) : (
 										<span className="text-2xl font-bold text-gray-900">
-											₹ {Math.round(displayPrice).toLocaleString("en-IN")}
+											₹ {formatTravelPriceInr(displayPrice)}
 										</span>
 									)}
 								</div>
@@ -228,7 +229,7 @@ function HotelCard({
 									</p>
 								) : (
 									<p className="text-xs text-gray-600 mb-1">
-										+ ₹ {Math.round(room.TotalTax).toLocaleString("en-IN")}{" "}
+										+ ₹ {formatTravelPriceInr(room.TotalTax)}{" "}
 										taxes & fees
 									</p>
 								)}

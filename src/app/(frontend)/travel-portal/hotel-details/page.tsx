@@ -33,6 +33,7 @@ import type {
 	TripjackHotelPricingOption,
 } from "@/types/tripjack";
 import { TRIPJACK_HOTEL_PRICING_SESSION_KEY } from "@/lib/tripjackPricingNormalize";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 import { useSearchSession } from "@/hooks/useSearchSession";
 
 // Hotel Map Component — embeds Google Maps when API key is set (requires Maps Embed API enabled in Cloud Console)
@@ -1418,16 +1419,12 @@ function HotelDetailsContent() {
 																		<div className="mb-2">
 																			<span className="text-3xl font-bold text-gray-900">
 																				₹{" "}
-																				{Math.round(totalPrice).toLocaleString(
-																					"en-IN",
-																				)}
+																				{formatTravelPriceInr(totalPrice)}
 																			</span>
 																		</div>
 																		<p className="text-xs text-gray-600 mb-1">
 																			+ ₹{" "}
-																			{Math.round(room.TotalTax).toLocaleString(
-																				"en-IN",
-																			)}{" "}
+																			{formatTravelPriceInr(room.TotalTax)}{" "}
 																			taxes & fees
 																		</p>
 																		<p className="text-sm text-gray-700 mb-4">
@@ -1869,7 +1866,7 @@ function HotelDetailsContent() {
 																				</span>
 																				{fee.Amount && (
 																					<span className="text-sm font-bold text-red-600">
-																						₹{fee.Amount}
+																						₹{formatTravelPriceInr(fee.Amount)}
 																					</span>
 																				)}
 																			</div>
@@ -1896,7 +1893,7 @@ function HotelDetailsContent() {
 																				</span>
 																				{fee.Amount && (
 																					<span className="text-sm font-bold text-blue-600">
-																						₹{fee.Amount}
+																						₹{formatTravelPriceInr(fee.Amount)}
 																					</span>
 																				)}
 																			</div>

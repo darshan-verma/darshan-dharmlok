@@ -66,7 +66,6 @@ export default function TripjackBookingClient({
 	const [review, setReview] = useState<TripjackReviewResponse | null>(null);
 	const [fareRules, setFareRules] = useState<FareRuleResponse | null>(null);
 	const [fareRulesLoading, setFareRulesLoading] = useState(false);
-	const [tripType, setTripType] = useState<"instant" | "hold">("instant");
 	const [tjSsrPicks, setTjSsrPicks] = useState<TripjackSsrPickState>(emptyTripjackSsrPickState);
 	const [passengers, setPassengers] = useState<PassengerDetail[]>([]);
 	/** One in-flight review per priceIds key so React Strict Mode / HMR cannot fire two TripJack reviews (second often returns 400). */
@@ -263,7 +262,6 @@ export default function TripjackBookingClient({
 				};
 			});
 
-			const paymentInfos = tripType === "instant" ? [{ amount: totalAmount }] : undefined;
 			const bookRes = await fetch("/api/travel/tripjack-flight/book", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -271,7 +269,7 @@ export default function TripjackBookingClient({
 					bookingId: review.bookingId,
 					travellerInfo: travellers,
 					deliveryInfo: { emails: [lead.Email], contacts: [lead.ContactNo] },
-					paymentInfos,
+					paymentInfos: [{ amount: totalAmount }],
 				}),
 			});
 			const bookData = await bookRes.json();
@@ -280,30 +278,6 @@ export default function TripjackBookingClient({
 			}
 
 			const finalBookingId = review.bookingId;
-			if (tripType === "hold") {
-				const confirmFareRes = await fetch("/api/travel/tripjack-flight/confirm-fare", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ bookingId: finalBookingId }),
-				});
-				const confirmFareData = await confirmFareRes.json();
-				if (!confirmFareRes.ok) {
-					throw new Error(confirmFareData?.error || "Confirm fare failed");
-				}
-
-				const confirmBookRes = await fetch("/api/travel/tripjack-flight/confirm-book", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						bookingId: finalBookingId,
-						paymentInfos: [{ amount: totalAmount }],
-					}),
-				});
-				const confirmBookData = await confirmBookRes.json();
-				if (!confirmBookRes.ok) {
-					throw new Error(confirmBookData?.error || "Confirm booking failed");
-				}
-			}
 
 			toast.success("TripJack booking completed successfully");
 			router.push(
@@ -367,28 +341,6 @@ export default function TripjackBookingClient({
 					</section>
 
 					<section>
-						<div className="mb-4 flex items-center gap-6 rounded-lg border border-gray-200 bg-white p-4">
-							<label className="text-sm">
-								<input
-									type="radio"
-									name="tripType"
-									className="mr-2"
-									checked={tripType === "instant"}
-									onChange={() => setTripType("instant")}
-								/>
-								Instant Ticket
-							</label>
-							<label className="text-sm">
-								<input
-									type="radio"
-									name="tripType"
-									className="mr-2"
-									checked={tripType === "hold"}
-									onChange={() => setTripType("hold")}
-								/>
-								Hold + Confirm
-							</label>
-						</div>
 						<PassengerDetails
 							adultCount={adultCount}
 							childCount={childCount}

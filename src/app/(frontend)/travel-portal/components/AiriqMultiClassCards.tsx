@@ -12,6 +12,7 @@ import type {
 	AiriqGetMultiClassFareResponse,
 } from "@/types/airiq";
 import { toast } from "@/lib/toast";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 
 export type MulticlassCardItem = AiriqGetMultiClassClass & {
 	origin: string;
@@ -270,7 +271,8 @@ export default function AiriqMultiClassCards({
 												<div className="flex items-end justify-between mb-3">
 													<div className="text-[10px] text-gray-500">Total</div>
 													<div className="text-lg font-bold text-gray-900 leading-none">
-														{priceInfo.currency} {Number(priceInfo.grossAmount).toLocaleString()}
+														{priceInfo.currency}{" "}
+														{formatTravelPriceInr(priceInfo.grossAmount)}
 													</div>
 												</div>
 												{onSelectFare && (

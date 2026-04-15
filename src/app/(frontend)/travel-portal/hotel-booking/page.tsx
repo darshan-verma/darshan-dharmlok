@@ -19,6 +19,7 @@ import { toast } from "@/lib/toast";
 import type { Room } from "@/types/hotelApi";
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 import { TRIPJACK_HOTEL_PRICING_SESSION_KEY } from "@/lib/tripjackPricingNormalize";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 import TripjackHotelGuestForm from "@/components/travel-portal/TripjackHotelGuestForm";
 
 interface RoomData {
@@ -982,13 +983,13 @@ function HotelBookingContent() {
 										<div className="flex justify-between text-sm">
 											<span className="text-gray-600">Room Fare</span>
 											<span className="font-medium">
-												₹{roomData.totalFare.toLocaleString("en-IN")}
+												₹{formatTravelPriceInr(roomData.totalFare)}
 											</span>
 										</div>
 										<div className="flex justify-between text-sm">
 											<span className="text-gray-600">Taxes & Fees</span>
 											<span className="font-medium">
-												₹{roomData.totalTax.toLocaleString("en-IN")}
+												₹{formatTravelPriceInr(roomData.totalTax)}
 											</span>
 										</div>
 									</div>
@@ -998,7 +999,7 @@ function HotelBookingContent() {
 												Total
 											</span>
 											<span className="text-2xl font-bold text-blue-600">
-												₹{totalPrice.toLocaleString("en-IN")}
+												₹{formatTravelPriceInr(totalPrice)}
 											</span>
 										</div>
 									</div>
@@ -1067,7 +1068,7 @@ function HotelBookingContent() {
 							<div className="text-right">
 								<div className="text-sm text-gray-600">Total Price</div>
 								<div className="text-xl md:text-2xl font-bold text-blue-600">
-									₹{totalPrice.toLocaleString("en-IN")}
+									₹{formatTravelPriceInr(totalPrice)}
 								</div>
 							</div>
 							<Button

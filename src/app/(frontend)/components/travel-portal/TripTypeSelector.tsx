@@ -3,11 +3,13 @@
 interface TripTypeSelectorProps {
 	tripType: string;
 	onTripTypeChange: (type: string) => void;
+	align?: "left" | "center";
 }
 
 export default function TripTypeSelector({
 	tripType,
 	onTripTypeChange,
+	align = "center",
 }: TripTypeSelectorProps) {
 	const options = [
 		{ value: "one-way", label: "One Way" },
@@ -16,7 +18,11 @@ export default function TripTypeSelector({
 	];
 
 	return (
-		<div className="flex items-center gap-4">
+		<div
+			className={`flex flex-wrap items-center gap-4 ${
+				align === "center" ? "justify-center" : "justify-start"
+			}`}
+		>
 			{options.map((option) => (
 				<label
 					key={option.value}

@@ -26,6 +26,7 @@ import type {
 	TicketResponse,
 } from "@/types/tbo";
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 // import { Button } from "@/components/ui/button"; // Assuming available if needed later, but PassengerDetails has the button
 
 interface BookingClientProps {
@@ -563,7 +564,16 @@ export default function BookingClient({
 										{bookingDetails.Fare && (
 											<div className="text-sm">
 												<span className="text-gray-500">Fare </span>
-												<span>{bookingDetails.Fare.Currency} {(bookingDetails.Fare.OfferedFare ?? bookingDetails.Fare.PublishedFare) ?? "—"}</span>
+												<span>
+													{bookingDetails.Fare.Currency}{" "}
+													{bookingDetails.Fare.OfferedFare != null ||
+													bookingDetails.Fare.PublishedFare != null
+														? formatTravelPriceInr(
+																bookingDetails.Fare.OfferedFare ??
+																	bookingDetails.Fare.PublishedFare,
+															)
+														: "—"}
+												</span>
 											</div>
 										)}
 									</div>

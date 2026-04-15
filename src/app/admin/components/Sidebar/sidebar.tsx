@@ -19,6 +19,7 @@ import {
 	Mic,
 	FileText,
 	Plane,
+	Ship,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -464,6 +465,19 @@ export function AdminSidebar({ className }: { className?: string }) {
 							<Link href="/admin/travel-logs">
 								<Plane className="h-5 w-5 text-sky-500" />
 								<span>Travel Logs</span>
+							</Link>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+
+					<SidebarMenuItem>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/travel-queries"}
+							asChild
+						>
+							<Link href="/admin/travel-queries">
+								<Ship className="h-5 w-5 text-indigo-500" />
+								<span>Travel Queries</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>

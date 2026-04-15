@@ -1,32 +1,11 @@
 "use client";
-import {
-	Plane,
-	Building,
-	Home,
-	Package,
-	Train,
-	Bus,
-	Car,
-	MapPin,
-	CreditCard,
-	Ship,
-	Banknote,
-	Shield,
-} from "lucide-react";
+import { Plane, Building, Car, Ship } from "lucide-react";
 
 const categories = [
 	{ name: "Flights", icon: Plane, badge: null },
 	{ name: "Hotels", icon: Building, badge: null },
-	{ name: "Homestays", icon: Home, badge: null },
-	{ name: "Holiday Packages", icon: Package, badge: null },
-	{ name: "Trains", icon: Train, badge: null },
-	{ name: "Buses", icon: Bus, badge: null },
 	{ name: "Cabs", icon: Car, badge: null },
-	{ name: "Tours & Attractions", icon: MapPin, badge: null },
-	{ name: "Visa", icon: CreditCard, badge: null },
-	{ name: "Cruise", icon: Ship, badge: "NEW" },
-	{ name: "Forex Card & Currency", icon: Banknote, badge: null },
-	{ name: "Travel Insurance", icon: Shield, badge: "NEW" },
+	{ name: "Cruise", icon: Ship, badge: null },
 ];
 
 interface CategoryTabsProps {
@@ -40,7 +19,7 @@ export default function CategoryTabs({
 }: CategoryTabsProps) {
 	return (
 		<div className="bg-white rounded-t-3xl pt-4">
-			<div className="flex overflow-x-auto gap-6 pb-1 px-4 sm:px-6 lg:px-8 scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+			<div className="flex overflow-x-auto gap-6 pb-1 px-4 sm:px-6 lg:px-8 justify-start md:justify-center scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
 				{categories.map((category) => {
 					const isActive = activeCategory === category.name;
 					return (

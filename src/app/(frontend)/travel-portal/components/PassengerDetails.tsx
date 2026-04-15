@@ -27,6 +27,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { getFareBreakdown } from "@/lib/tboFareCalculations";
+import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 
 interface FormPassenger {
 	type: string;
@@ -495,7 +496,7 @@ export default function PassengerDetails({
 										{flightResult.Fare?.Currency || "INR"}
 									</span>
 									<span className="text-2xl font-bold text-blue-600">
-										{calculateTotalFare().toLocaleString()}
+										{formatTravelPriceInr(calculateTotalFare())}
 									</span>
 								</div>
 							</div>

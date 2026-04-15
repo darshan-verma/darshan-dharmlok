@@ -63,6 +63,7 @@ model User {
     // Travel bookings
     travelBookings TravelBooking[]
     hotelBookings  HotelBooking[]
+    travelPortalQueries TravelPortalQuery[]
 
     // Optimized indexes for user-type specific API queries
     @@index([userType]) // Primary index for user type filtering
@@ -832,6 +833,28 @@ model HotelBooking {
 
   @@index([userId])
   @@index([status])
+}
+
+// Cruise / travel portal lead forms (submitted from public travel home)
+model TravelPortalQuery {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  queryType         String   @default("cruise") // e.g. cruise
+  userId            String?  @db.ObjectId
+  user              User?    @relation(fields: [userId], references: [id])
+  contactName       String
+  email             String
+  phone             String?
+  preferredRegion   String?
+  departurePort     String?
+  travelMonth       String?
+  passengers        Int      @default(1)
+  cabinPreference   String?
+  message           String?
+  createdAt         DateTime @default(now())
+
+  @@index([queryType])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 // TBO Hotel Search System Models
