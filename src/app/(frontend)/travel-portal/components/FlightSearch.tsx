@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,6 @@ import {
 	normalizeDate,
 } from "@/lib/searchCache";
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
-import { tripjackRoundTripFaresPairable } from "@/lib/tripjackFlightSearch";
 import MinimalFlightSearch from "@/components/travel-portal/MinimalFlightSearch";
 
 interface City {
@@ -119,6 +118,9 @@ const timeSlots = [
 	{ label: "12PM - 6PM", icon: Sunset, range: [12, 18] },
 	{ label: "After 6PM", icon: Moon, range: [18, 24] },
 ];
+
+const FLIGHT_LIST_INITIAL = 25;
+const FLIGHT_LIST_STEP = 25;
 
 const cabinClassMapping: { [key: string]: string } = {
 	Economy: "1",
@@ -305,6 +307,21 @@ export default function FlightSearch() {
 	);
 
 	const [filteredFlights, setFilteredFlights] = useState<FlightResult[]>([]);
+	const [visibleFlightCount, setVisibleFlightCount] =
+		useState(FLIGHT_LIST_INITIAL);
+	const flightListSentinelRef = useRef<HTMLDivElement | null>(null);
+	const [flightSearchSessionId, setFlightSearchSessionId] = useState<
+		string | null
+	>(null);
+	const [serverFlightTotal, setServerFlightTotal] = useState<number | null>(
+		null,
+	);
+	const [mergePollSessionId, setMergePollSessionId] = useState<string | null>(
+		null,
+	);
+	const [loadingMoreFlights, setLoadingMoreFlights] = useState(false);
+	const loadingMoreFlightsRef = useRef(false);
+	const flightCacheKeyRef = useRef<string | null>(null);
 	const [expandedFareBreakdown, setExpandedFareBreakdown] = useState<
 		string | null
 	>(null);
@@ -724,6 +741,186 @@ export default function FlightSearch() {
 		tripType,
 	]);
 
+	useEffect(() => {
+		setVisibleFlightCount(
+			Math.min(FLIGHT_LIST_INITIAL, filteredFlights.length || 0),
+		);
+	}, [filteredFlights]);
+
+	const visibleFlights = useMemo(
+		() => filteredFlights.slice(0, visibleFlightCount),
+		[filteredFlights, visibleFlightCount],
+	);
+
+	useEffect(() => {
+		const el = flightListSentinelRef.current;
+		if (!el || filteredFlights.length === 0) return;
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (!entries[0]?.isIntersecting) return;
+
+				const sid = flightSearchSessionId;
+				const total = serverFlightTotal;
+
+				if (
+					sid &&
+					total != null &&
+					flights.length < total &&
+					!loadingMoreFlightsRef.current
+				) {
+					loadingMoreFlightsRef.current = true;
+					setLoadingMoreFlights(true);
+					const offset = flights.length;
+					const limit = total - offset;
+					void (async () => {
+						try {
+							const res = await fetch(
+								`/api/travel/flights/search/more?searchSessionId=${encodeURIComponent(
+									sid,
+								)}&offset=${offset}&limit=${limit}`,
+							);
+							if (!res.ok) {
+								throw new Error("Failed to load more flights");
+							}
+							const more = await res.json();
+							if (!more.success) {
+								throw new Error(more.error || "Failed to load more flights");
+							}
+							const chunk = (more.data?.Response?.Results?.[0] ||
+								[]) as FlightResult[];
+							setFlights((prev) => {
+								const next = [...prev, ...chunk];
+								if (flightCacheKeyRef.current) {
+									flightCache.set(flightCacheKeyRef.current, {
+										results: next,
+										createdAt: Date.now(),
+									});
+								}
+								return next;
+							});
+							if (!more.pagination?.hasMore) {
+								setFlightSearchSessionId(null);
+							}
+						} catch (e) {
+							console.error(e);
+							toast.error("Could not load more flights");
+						} finally {
+							loadingMoreFlightsRef.current = false;
+							setLoadingMoreFlights(false);
+						}
+					})();
+					return;
+				}
+
+				setVisibleFlightCount((prev) =>
+					Math.min(prev + FLIGHT_LIST_STEP, filteredFlights.length),
+				);
+			},
+			{ rootMargin: "120px" },
+		);
+
+		observer.observe(el);
+		return () => observer.disconnect();
+	}, [
+		filteredFlights.length,
+		visibleFlightCount,
+		flightSearchSessionId,
+		serverFlightTotal,
+		flights.length,
+	]);
+
+	useEffect(() => {
+		if (!mergePollSessionId) return;
+		let cancelled = false;
+		let inFlight = false;
+
+		const refreshFromMergedSession = async () => {
+			if (inFlight) return;
+			inFlight = true;
+			try {
+				const sid = mergePollSessionId;
+				const statusRes = await fetch(
+					`/api/travel/flights/search/merge-status?searchSessionId=${encodeURIComponent(sid)}`,
+				);
+				const statusJson = (await statusRes.json()) as {
+					success?: boolean;
+					ready?: boolean;
+					searchSessionId?: string;
+					total?: number;
+					traceId?: string;
+				};
+				if (cancelled || !statusJson.success || !statusJson.ready) return;
+
+				let moreJson: {
+					success?: boolean;
+					pending?: boolean;
+					data?: { Response?: { Results?: FlightResult[][]; TraceId?: string } };
+					pagination?: { total?: number; hasMore?: boolean };
+				} = {};
+
+				for (let attempt = 0; attempt < 8; attempt++) {
+					const moreRes = await fetch(
+						`/api/travel/flights/search/more?searchSessionId=${encodeURIComponent(sid)}&offset=0&limit=25`,
+					);
+					moreJson = await moreRes.json();
+					if (moreJson.success && !moreJson.pending) break;
+					await new Promise((r) => setTimeout(r, 350));
+				}
+
+				if (cancelled || !moreJson.success || moreJson.pending) return;
+
+				const chunk = (moreJson.data?.Response?.Results?.[0] ||
+					[]) as FlightResult[];
+				const trace =
+					moreJson.data?.Response?.TraceId || statusJson.traceId || "";
+				const total =
+					moreJson.pagination?.total ?? statusJson.total ?? chunk.length;
+
+				if (trace) {
+					setTraceId(trace);
+					const ck = flightCacheKeyRef.current;
+					if (ck) flightCache.setTraceId(ck, trace);
+				}
+
+				setFlights(chunk);
+				const ck = flightCacheKeyRef.current;
+				if (ck) {
+					flightCache.set(ck, { results: chunk, createdAt: Date.now() });
+				}
+
+				setMergePollSessionId(null);
+
+				if (
+					moreJson.pagination?.hasMore === true &&
+					(moreJson.pagination.total ?? 0) > chunk.length
+				) {
+					setFlightSearchSessionId(sid);
+					setServerFlightTotal(moreJson.pagination.total ?? total);
+				} else {
+					setFlightSearchSessionId(null);
+					setServerFlightTotal(null);
+				}
+
+				toast.success(
+					`Found ${total} flight option${total !== 1 ? "s" : ""}${moreJson.pagination?.hasMore ? ". Scroll to load more." : ""}`,
+				);
+			} finally {
+				inFlight = false;
+			}
+		};
+
+		const interval = setInterval(() => {
+			void refreshFromMergedSession();
+		}, 1600);
+		void refreshFromMergedSession();
+
+		return () => {
+			cancelled = true;
+			clearInterval(interval);
+		};
+	}, [mergePollSessionId]);
+
 	// Update price range when new flights are loaded
 	useEffect(() => {
 		if (flights.length > 0) {
@@ -973,6 +1170,9 @@ export default function FlightSearch() {
 
 		setLoading(true);
 		setSearchPerformed(true);
+		setFlightSearchSessionId(null);
+		setServerFlightTotal(null);
+		setMergePollSessionId(null);
 
 		try {
 			// Helper function to format date for API (YYYY-MM-DDT00:00:00)
@@ -1067,11 +1267,15 @@ export default function FlightSearch() {
 			}
 
 			const cacheKey = await generateCacheKey(cacheKeyParams);
+			flightCacheKeyRef.current = cacheKey;
 
 			// Check cache (unless forced refresh requested)
 			if (!forceRefresh) {
 				const cached = flightCache.get(cacheKey);
 				if (cached) {
+					setFlightSearchSessionId(null);
+					setServerFlightTotal(null);
+					setMergePollSessionId(null);
 					setFlights(cached.results as FlightResult[]);
 					// Get traceId from separate storage (not from cache structure)
 					const cachedTraceId = flightCache.getTraceId(cacheKey);
@@ -1160,130 +1364,39 @@ export default function FlightSearch() {
 				flightCache.setTraceId(cacheKey, newTraceId);
 			}
 
-			// Extract flights from the response
-			let flightResults: FlightResult[] = [];
+			const paginationMeta = result.pagination as {
+				searchSessionId: string;
+				total: number;
+				loaded: number;
+				pageSize: number;
+				hasMore: boolean;
+			} | null;
 
-			if (searchParams.JourneyType === "2") {
-				// Round trip - combine outbound and return flights
-				const outboundFlights = result.data?.Response?.Results?.[0] || [];
-				const returnFlights = result.data?.Response?.Results?.[1] || [];
+			const mergePending = result.mergePending === true;
+			const mergeSessionId = result.mergeSessionId as string | undefined;
 
-				// For round trips, create combined flight results
-				// Each result will have both outbound and return segments
-				// We manually combine all fare components to ensure consistency with pricing formulas
-				// IMPORTANT: Only pair flights from the same API source (TBO with TBO, AirIQ with AirIQ)
-				flightResults = outboundFlights
-					.map((outboundFlight: FlightResult) => {
-						// Filter return flights to match the same API source
-						const apiSource = outboundFlight.ApiSource;
-
-						// Find matching return flight from same API source
-						// DO NOT mix TBO and AirIQ flights - they must stay separate
-						const returnFlight = returnFlights.find(
-							(rf: FlightResult) =>
-								rf.ApiSource === apiSource &&
-								tripjackRoundTripFaresPairable(outboundFlight, rf),
-						);
-
-						// If no matching return flight from same API source, skip this combination
-						if (!returnFlight) {
-							console.warn(
-								`⚠️ No matching return flight found for ${apiSource} outbound flight. Skipping combination.`,
-							);
-							return null;
-						}
-
-						let combinedFare = outboundFlight.Fare;
-						let returnResultIndex = undefined;
-
-						if (outboundFlight.Fare && returnFlight.Fare) {
-							returnResultIndex = returnFlight.ResultIndex;
-							const f1 = outboundFlight.Fare;
-							const f2 = returnFlight.Fare;
-
-							// Combine ALL fare components as per TBO pricing formula
-							combinedFare = {
-								...f1,
-								BaseFare: Number(f1.BaseFare) + Number(f2.BaseFare),
-								Tax: Number(f1.Tax) + Number(f2.Tax),
-								YQTax: Number(f1.YQTax) + Number(f2.YQTax),
-								AdditionalTxnFeeOfrd:
-									Number(f1.AdditionalTxnFeeOfrd) +
-									Number(f2.AdditionalTxnFeeOfrd),
-								AdditionalTxnFeePub:
-									Number(f1.AdditionalTxnFeePub) +
-									Number(f2.AdditionalTxnFeePub),
-								PGCharge: Number(f1.PGCharge) + Number(f2.PGCharge),
-								OtherCharges: Number(f1.OtherCharges) + Number(f2.OtherCharges),
-								Discount: Number(f1.Discount) + Number(f2.Discount),
-								PublishedFare:
-									Number(f1.PublishedFare) + Number(f2.PublishedFare),
-								CommissionEarned:
-									Number(f1.CommissionEarned) + Number(f2.CommissionEarned),
-								PLBEarned: Number(f1.PLBEarned) + Number(f2.PLBEarned),
-								IncentiveEarned:
-									Number(f1.IncentiveEarned) + Number(f2.IncentiveEarned),
-								OfferedFare: Number(f1.OfferedFare) + Number(f2.OfferedFare),
-								TdsOnCommission:
-									Number(f1.TdsOnCommission) + Number(f2.TdsOnCommission),
-								TdsOnPLB: Number(f1.TdsOnPLB) + Number(f2.TdsOnPLB),
-								TdsOnIncentive:
-									Number(f1.TdsOnIncentive) + Number(f2.TdsOnIncentive),
-								ServiceFee: Number(f1.ServiceFee) + Number(f2.ServiceFee),
-								TotalBaggageCharges:
-									Number(f1.TotalBaggageCharges) +
-									Number(f2.TotalBaggageCharges),
-								TotalMealCharges:
-									Number(f1.TotalMealCharges) + Number(f2.TotalMealCharges),
-								TotalSeatCharges:
-									Number(f1.TotalSeatCharges) + Number(f2.TotalSeatCharges),
-								TotalSpecialServiceCharges:
-									Number(f1.TotalSpecialServiceCharges) +
-									Number(f2.TotalSpecialServiceCharges),
-								IGSTAmount:
-									(Number(f1.IGSTAmount) || 0) + (Number(f2.IGSTAmount) || 0),
-								CGSTAmount:
-									(Number(f1.CGSTAmount) || 0) + (Number(f2.CGSTAmount) || 0),
-								SGSTAmount:
-									(Number(f1.SGSTAmount) || 0) + (Number(f2.SGSTAmount) || 0),
-								CessAmount:
-									(Number(f1.CessAmount) || 0) + (Number(f2.CessAmount) || 0),
-								AirlineTransFee:
-									(Number(f1.AirlineTransFee) || 0) +
-									(Number(f2.AirlineTransFee) || 0),
-							};
-						}
-
-						return {
-							...outboundFlight,
-							ReturnResultIndex: returnResultIndex,
-							Fare: combinedFare,
-							Segments: [
-								outboundFlight.Segments[0], // Outbound segments
-								returnFlight.Segments[0], // Return segments (always exists at this point)
-							],
-						};
-					})
-					.filter(
-						(flight: FlightResult | null): flight is FlightResult =>
-							flight !== null,
-					);
+			if (mergePending && mergeSessionId) {
+				setMergePollSessionId(mergeSessionId);
+				setFlightSearchSessionId(null);
+				setServerFlightTotal(null);
 			} else {
-				// One-way and Multi-city
-				// For multi-city, TBO API returns flights with all segments already combined in one flight object
-				// The fare breakdown is already calculated for all legs combined
-				flightResults = result.data?.Response?.Results?.[0] || [];
+				setMergePollSessionId(null);
+				if (paginationMeta?.hasMore && paginationMeta.searchSessionId) {
+					setFlightSearchSessionId(paginationMeta.searchSessionId);
+					setServerFlightTotal(paginationMeta.total);
+				} else {
+					setFlightSearchSessionId(null);
+					setServerFlightTotal(null);
+				}
 			}
 
-			// Save to cache (only results and createdAt, no traceId)
+			// Round-trip itineraries are paired server-side; one-way and multi-city use Results[0]
+			const flightResults: FlightResult[] =
+				result.data?.Response?.Results?.[0] || [];
+
 			flightCache.set(cacheKey, {
 				results: flightResults,
 				createdAt: Date.now(),
-				providerResults: {
-					tbo: result.data?.Response?.TboResults || [],
-					airiq: result.data?.Response?.AiriqResults || [],
-					tripjack: result.data?.Response?.TripjackResults || [],
-				},
 			});
 
 			// Save last search parameters for form restoration (UI state only)
@@ -1343,8 +1456,16 @@ export default function FlightSearch() {
 
 			if (flightResults.length === 0) {
 				toast.info("No flights found for the selected criteria");
+			} else if (mergePending) {
+				toast.success(
+					`Showing first results — updating when all suppliers finish…`,
+				);
 			} else {
-				toast.success(`Found ${flightResults.length} flight options`);
+				const totalOptions = paginationMeta?.total ?? flightResults.length;
+				const hasMorePages = Boolean(paginationMeta?.hasMore);
+				toast.success(
+					`Found ${totalOptions} flight option${totalOptions !== 1 ? "s" : ""}${hasMorePages ? ". Scroll to load more." : ""}`,
+				);
 			}
 		} catch (error) {
 			console.error("Flight search error:", error);
@@ -1385,6 +1506,9 @@ export default function FlightSearch() {
 			}
 
 			setFlights([]);
+			setFlightSearchSessionId(null);
+			setServerFlightTotal(null);
+			setMergePollSessionId(null);
 		} finally {
 			setLoading(false);
 		}
@@ -1450,9 +1574,6 @@ export default function FlightSearch() {
 
 	const formatTime = (dateString: string | undefined) => {
 		if (!dateString) return "--:--";
-		if (!dateString) return "N/A";
-
-		console.log("Raw date string:", dateString);
 
 		try {
 			// Handle various date formats that TBO might return
@@ -2050,9 +2171,20 @@ export default function FlightSearch() {
 									<div className="flex items-center justify-between flex-wrap gap-3">
 										<div className="flex flex-col gap-2">
 											<CardTitle>
-												Flight Results ({filteredFlights.length} of{" "}
-												{flights.length})
+												Flight Results (
+												{Math.min(visibleFlightCount, filteredFlights.length)}{" "}
+												of {filteredFlights.length}
+												{filteredFlights.length !== flights.length
+													? ` • ${flights.length} total`
+													: ""}
+												)
 											</CardTitle>
+											{mergePollSessionId ? (
+												<p className="text-sm text-muted-foreground flex items-center gap-2">
+													<Loader2 className="h-4 w-4 animate-spin shrink-0" />
+													Finding better prices from other suppliers…
+												</p>
+											) : null}
 											{/* API Source Breakdown */}
 											{flights.length > 0 && (
 												<div className="flex gap-2 items-center text-xs">
@@ -2122,7 +2254,7 @@ export default function FlightSearch() {
 										</div>
 									) : (
 										<div className="space-y-4">
-											{filteredFlights.map((flight, index) => (
+											{visibleFlights.map((flight, index) => (
 												<Card
 													key={flight.ResultIndex || index}
 													className="shadow-sm hover:shadow-md transition-all duration-200"
@@ -2681,6 +2813,19 @@ export default function FlightSearch() {
 														)}
 												</Card>
 											))}
+											{(visibleFlightCount < filteredFlights.length ||
+												(flightSearchSessionId != null &&
+													serverFlightTotal != null &&
+													flights.length < serverFlightTotal)) && (
+												<div
+													ref={flightListSentinelRef}
+													className="flex justify-center py-6"
+												>
+													<Loader2
+														className={`h-6 w-6 text-orange-500 ${loadingMoreFlights ? "animate-spin" : ""}`}
+													/>
+												</div>
+											)}
 										</div>
 									)}
 								</CardContent>

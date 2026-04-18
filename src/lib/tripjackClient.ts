@@ -151,12 +151,9 @@ export async function tripjackRequest<T = unknown>(
 	ensureTripjackConfig(endpoint);
 	const url = buildTripjackUrl(endpoint);
 
-	const isCabsEndpoint = endpoint.startsWith("/cabs/");
 	const baseHeaders: Record<string, string> = {
 		"Content-Type": "application/json",
-		...(isCabsEndpoint
-			? { "x-api-key": TRIPJACK_API_KEY }
-			: { apikey: TRIPJACK_API_KEY }),
+		apikey: TRIPJACK_API_KEY,
 		...headers,
 	};
 
