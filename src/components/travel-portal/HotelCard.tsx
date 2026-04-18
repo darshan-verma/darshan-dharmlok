@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,11 @@ function HotelCard({
 	roomCount,
 	source,
 }: HotelCardProps) {
+	const [imageFailed, setImageFailed] = useState(false);
+	useEffect(() => {
+		setImageFailed(false);
+	}, [hotelImage]);
+
 	const totalPrice = room.TotalFare + room.TotalTax;
 	const displayPrice = priceRange ? priceRange.min : totalPrice;
 
@@ -58,16 +63,17 @@ function HotelCard({
 			<div className="flex flex-col md:flex-row">
 				{/* Hotel Image */}
 				<div className="relative w-full md:w-72 h-48 md:h-auto bg-gray-200">
-					{hotelImage ? (
+					{hotelImage && !imageFailed ? (
 						<Image
 							src={hotelImage}
 							alt={hotelName}
 							fill
 							className="object-cover"
 							unoptimized
-							onError={(e) => {
+							loading="lazy"
+							onError={() => {
 								console.error("Image failed to load:", hotelImage);
-								e.currentTarget.style.display = "none";
+								setImageFailed(true);
 							}}
 						/>
 					) : (

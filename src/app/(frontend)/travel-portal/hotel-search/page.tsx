@@ -30,6 +30,99 @@ import {
 } from "@/lib/searchCache";
 import { useSearchSession } from "@/hooks/useSearchSession";
 
+/** Faster first paint: aggressive caps, never block UI on image APIs */
+const INITIAL_HOTEL_DISPLAY = 25;
+const HOTEL_SCROLL_CHUNK = 25;
+const TBO_HOTEL_SEARCH_CAP = 60;
+const TRIPJACK_HID_CAP = 100;
+const TRIPJACK_LISTING_BATCH_CAP = 2;
+const BACKGROUND_IMAGE_CHUNK = 25;
+const BACKGROUND_IMAGE_PACE_MS = 300;
+/** Above-the-fold image static-detail/detail calls; rest deferred */
+const IMAGE_PREFETCH_FIRST_WAVE = 8;
+const IMAGE_PREFETCH_SECOND_WAVE_DELAY_MS = 1000;
+const SKELETON_INITIAL_ROWS = 8;
+const SKELETON_TRIPJACK_PENDING_ROWS = 2;
+
+function minRoomPrice(hotel: HotelResult): number {
+	return hotel.Rooms.reduce(
+		(min, room) => Math.min(min, room.TotalFare + room.TotalTax),
+		Infinity,
+	);
+}
+
+/** Same grouping, filter, and sort as the results useEffect — used for image prefetch ordering. */
+function computeFilteredHotelResults(
+	raw: HotelResult[],
+	filters: FilterState,
+	sortBy: string,
+	specificHotelCode: string | null,
+): HotelResult[] {
+	let results = [...raw];
+	if (specificHotelCode) {
+		results = results.filter(
+			(hotel) => String(hotel.HotelCode) === specificHotelCode,
+		);
+	}
+
+	const hotelMap = new Map<string, HotelResult>();
+	results.forEach((hotel) => {
+		const hotelCode = String(hotel.HotelCode);
+		if (!hotelMap.has(hotelCode)) {
+			hotelMap.set(hotelCode, hotel);
+		} else {
+			const existing = hotelMap.get(hotelCode)!;
+			existing.Rooms = [...existing.Rooms, ...hotel.Rooms];
+		}
+	});
+
+	let grouped = Array.from(hotelMap.values());
+
+	grouped = grouped.filter((hotel) => {
+		const hotelPrice = minRoomPrice(hotel);
+		if (
+			hotelPrice < filters.priceRange[0] ||
+			hotelPrice > filters.priceRange[1]
+		) {
+			return false;
+		}
+		if (filters.refundable) {
+			const hasRefundableRoom = hotel.Rooms.some((room) => room.IsRefundable);
+			if (!hasRefundableRoom) return false;
+		}
+		if (filters.mealTypes.length > 0) {
+			const hasMealType = hotel.Rooms.some((room) =>
+				filters.mealTypes.includes(room.MealType),
+			);
+			if (!hasMealType) return false;
+		}
+		return true;
+	});
+
+	grouped.sort((a, b) => {
+		const priceA = minRoomPrice(a);
+		const priceB = minRoomPrice(b);
+		switch (sortBy) {
+			case "price-low":
+				return priceA - priceB;
+			case "price-high":
+				return priceB - priceA;
+			default:
+				return 0;
+		}
+	});
+
+	return grouped;
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+	const out: T[][] = [];
+	for (let i = 0; i < arr.length; i += size) {
+		out.push(arr.slice(i, i + size));
+	}
+	return out;
+}
+
 const HOTEL_UI_SNAPSHOT_KEY = "hotelSearchUiSnapshot.v1";
 const HOTEL_HYDRATION_SNAPSHOT_KEY = "hotelSearchHydration.v1";
 const SNAPSHOT_VERSION = 1;
@@ -70,6 +163,8 @@ function HotelSearchContent() {
 		useState<HotelSearchResponse | null>(null);
 	const [filteredResults, setFilteredResults] = useState<HotelResult[]>([]);
 	const [isLoading, setIsLoading] = useState(false);
+	/** TBO shown; TripJack listing still in flight */
+	const [isTripjackPending, setIsTripjackPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [sortBy, setSortBy] = useState<string>("price-low");
 	/** Same correlationId for all TripJack listing batches; passed through to details → pricing → review */
@@ -90,7 +185,10 @@ function HotelSearchContent() {
 	>({});
 	const [loadingDetails, setLoadingDetails] = useState<Set<string>>(new Set());
 	const [hotelImageMap, setHotelImageMap] = useState<Record<string, string>>({});
-	const [displayCount, setDisplayCount] = useState(20);
+	const hotelCardImageCacheRef = useRef<Map<string, string>>(new Map());
+	/** First successful card URL per hotel; prevents src swapping (flicker) as details/map update */
+	const stableCardImageUrlRef = useRef<Map<string, string>>(new Map());
+	const [displayCount, setDisplayCount] = useState(INITIAL_HOTEL_DISPLAY);
 	const sentinelRef = useRef<HTMLDivElement | null>(null);
 	const hasLoadedCacheRef = React.useRef(false);
 	const currentCacheKeyRef = useRef<string | null>(null);
@@ -312,7 +410,7 @@ function HotelSearchContent() {
 					typeof scrollYOverride === "number"
 						? scrollYOverride
 						: window.scrollY || 0,
-				displayCount: Math.max(20, displayCount),
+				displayCount: Math.max(INITIAL_HOTEL_DISPLAY, displayCount),
 				sortBy,
 				filters,
 				specificHotelCode,
@@ -355,9 +453,11 @@ function HotelSearchContent() {
 	// Perform search
 	const performSearch = async (data: HotelSearchData, forceRefresh = false) => {
 		setIsLoading(true);
+		setIsTripjackPending(false);
 		setError(null);
 		clearSession();
 		setTripjackListingCorrelationId(null);
+		stableCardImageUrlRef.current.clear();
 
 		try {
 			// Generate cache key
@@ -375,6 +475,7 @@ function HotelSearchContent() {
 			if (!forceRefresh) {
 				const cached = hotelCache.get(cacheKey);
 				if (cached) {
+					stableCardImageUrlRef.current.clear();
 					const results = cached.results as HotelSearchResponse | null;
 					setSearchResults(results);
 					const hotelResults =
@@ -430,9 +531,7 @@ function HotelSearchContent() {
 					return [];
 				}
 
-				const totalHotelsInCity = cityDetailsData.data.hotels.length;
-				const maxHotels = totalHotelsInCity <= 800 ? totalHotelsInCity : 500;
-				const hotels = cityDetailsData.data.hotels.slice(0, maxHotels);
+				const hotels = cityDetailsData.data.hotels.slice(0, TBO_HOTEL_SEARCH_CAP);
 				const hotelCodes = hotels
 					.map((h: { hotelCode: string }) => h.hotelCode)
 					.join(",");
@@ -484,7 +583,8 @@ function HotelSearchContent() {
 
 			// ── TripJack search ───────────────────────────────────────────────────
 			const tripjackSearchPromise = (async (): Promise<HotelResult[]> => {
-				const tjHids: string[] = cityDetailsData.data?.tripjackHids ?? [];
+				const tjHidsAll: string[] = cityDetailsData.data?.tripjackHids ?? [];
+				const tjHids = tjHidsAll.slice(0, TRIPJACK_HID_CAP);
 				if (tjHids.length === 0) {
 					console.log("ℹ️ No TripJack hotel IDs for city:", data.cityCode);
 					return [];
@@ -498,19 +598,19 @@ function HotelSearchContent() {
 					}),
 				}));
 
-				// Batch into groups of 100 (TripJack limit), run up to 5 batches in parallel
+				// Batch into groups of 100 (TripJack limit); cap parallel listing calls
 				const batches: string[][] = [];
 				for (let i = 0; i < tjHids.length; i += 100) {
 					batches.push(tjHids.slice(i, i + 100));
 				}
 
 				console.log(
-					`🔍 TripJack: ${tjHids.length} hotel IDs in ${batches.length} batch(es)`,
+					`🔍 TripJack: ${tjHids.length} hotel IDs (capped) in ${batches.length} batch(es), running ${Math.min(batches.length, TRIPJACK_LISTING_BATCH_CAP)} listing request(s)`,
 				);
 
 				const listingCorrelationSeed = crypto.randomUUID();
 				const batchResults = await Promise.all(
-					batches.slice(0, 5).map(async (batchHids) => {
+					batches.slice(0, TRIPJACK_LISTING_BATCH_CAP).map(async (batchHids) => {
 						const response = await fetch("/api/travel/tripjack-hotel/listing", {
 							method: "POST",
 							headers: { "Content-Type": "application/json" },
@@ -575,53 +675,45 @@ function HotelSearchContent() {
 				return allTjResults;
 			})();
 
-			// ── Run both in parallel ──────────────────────────────────────────────
-			const [tboResults, tripjackResults] = await Promise.all([
-				tboSearchPromise.catch((err) => {
-					console.error("❌ TBO search error:", err);
-					return [] as HotelResult[];
-				}),
-				tripjackSearchPromise.catch((err) => {
-					console.error("❌ TripJack search error:", err);
-					return [] as HotelResult[];
-				}),
-			]);
+			// ── TBO first (non-blocking TripJack): listings start in parallel, but we
+			//    only await TBO so the UI can render without waiting for TripJack.
+			const tboResults = await tboSearchPromise.catch((err) => {
+				console.error("❌ TBO search error:", err);
+				return [] as HotelResult[];
+			});
 
-			console.log(
-				`📊 TBO: ${tboResults.length} hotels, TripJack: ${tripjackResults.length} hotels`,
-			);
+			const cachePayload = {
+				timestamp: Date.now(),
+				searchData: {
+					location: data.location,
+					cityCode: data.cityCode,
+					checkIn: formatDate(data.checkIn),
+					checkOut: formatDate(data.checkOut),
+					rooms: data.rooms,
+					adults: data.adults,
+					children: data.children,
+				},
+			};
 
-			const mergedResults = [...tboResults, ...tripjackResults];
-
-			if (mergedResults.length === 0) {
-				setError(
-					"No hotels available for the selected dates and criteria. Please try different dates or adjust your search.",
-				);
-			} else {
-				setError(null);
-				// Build a synthetic HotelSearchResponse for state & cache compatibility
+			const applyMergedResults = (mergedResults: HotelResult[]) => {
 				const syntheticResponse: HotelSearchResponse = {
 					Status: { Code: 1, Description: "Successful" },
 					HotelResult: mergedResults,
 				};
+				const visibleList = computeFilteredHotelResults(
+					mergedResults,
+					filters,
+					sortBy,
+					specificHotelCode,
+				);
 				setSearchResults(syntheticResponse);
-				setFilteredResults(mergedResults);
+				setFilteredResults(visibleList);
+				setError(null);
 				startSession();
-
 				hotelCache.set(cacheKey, {
 					results: syntheticResponse,
-					timestamp: Date.now(),
-					searchData: {
-						location: data.location,
-						cityCode: data.cityCode,
-						checkIn: formatDate(data.checkIn),
-						checkOut: formatDate(data.checkOut),
-						rooms: data.rooms,
-						adults: data.adults,
-						children: data.children,
-					},
+					...cachePayload,
 				});
-
 				lastSearch.save("hotel", {
 					location: data.location,
 					cityCode: data.cityCode,
@@ -632,8 +724,44 @@ function HotelSearchContent() {
 					children: data.children,
 				});
 				persistUiSnapshot(0);
+				scheduleProgressiveHotelCardImages(visibleList);
+			};
 
-				// Image fetch is handled by the filteredResults useEffect
+			if (tboResults.length > 0) {
+				console.log(
+					`📊 TBO first: ${tboResults.length} hotels — showing now; TripJack loading in background`,
+				);
+				setIsTripjackPending(true);
+				applyMergedResults([...tboResults]);
+
+				void tripjackSearchPromise
+					.then((tripjackResults) => {
+						setIsTripjackPending(false);
+						const mergedResults = [...tboResults, ...tripjackResults];
+						console.log(
+							`📊 Merged: TBO ${tboResults.length} + TripJack ${tripjackResults.length} hotels`,
+						);
+						applyMergedResults(mergedResults);
+					})
+					.catch((err) => {
+						setIsTripjackPending(false);
+						console.error("❌ TripJack search error:", err);
+					});
+			} else {
+				const tripjackResults = await tripjackSearchPromise.catch((err) => {
+					console.error("❌ TripJack search error:", err);
+					return [] as HotelResult[];
+				});
+				setIsTripjackPending(false);
+				console.log(`📊 TBO empty; TripJack: ${tripjackResults.length} hotels`);
+
+				if (tripjackResults.length === 0) {
+					setError(
+						"No hotels available for the selected dates and criteria. Please try different dates or adjust your search.",
+					);
+				} else {
+					applyMergedResults(tripjackResults);
+				}
 			}
 		} catch (err) {
 			console.error("❌ Search error:", err);
@@ -837,10 +965,14 @@ function HotelSearchContent() {
 
 	// Lightweight image prefetch for hotel search cards (both TBO + TripJack).
 	// Accumulates all results and performs a single setHotelImageMap call per pass
-	// to minimise re-renders.
-	const fetchHotelCardImagesBatch = async (hotels: HotelResult[]) => {
+	// to minimise re-renders. Uses a ref cache to avoid duplicate provider calls.
+	const fetchHotelCardImagesBatch = async (
+		hotels: HotelResult[],
+		options?: { maxTargets?: number },
+	) => {
 		type CodeEntry = { code: string; source: "TBO" | "TRIPJACK" };
 
+		const maxTargets = options?.maxTargets ?? 80;
 		const seen = new Set<string>();
 		const targets: CodeEntry[] = [];
 
@@ -848,13 +980,13 @@ function HotelSearchContent() {
 			const code = String(h.HotelCode);
 			if (seen.has(code)) continue;
 			seen.add(code);
-			if (hotelImageMap[code]) continue;
+			if (hotelCardImageCacheRef.current.has(code)) continue;
 			if (h.HotelImage && normalizeImageUrl(h.HotelImage)) continue;
 			if (hotelDetailsMap[code]?.Images) continue;
 			targets.push({ code, source: h.source ?? "TBO" });
 		}
 
-		const capped = targets.slice(0, 50);
+		const capped = targets.slice(0, maxTargets);
 		if (capped.length === 0) return;
 
 		const fetchImageForHotel = async (
@@ -936,13 +1068,18 @@ function HotelSearchContent() {
 		}
 
 		if (Object.keys(accumulated).length > 0) {
+			for (const [k, v] of Object.entries(accumulated)) {
+				hotelCardImageCacheRef.current.set(k, v);
+			}
 			setHotelImageMap((prev) => ({ ...prev, ...accumulated }));
 		}
 
 		if (failedEntries.length > 0) {
 			const retryAccumulated: Record<string, string> = {};
 			const retryTargets = failedEntries.filter(
-				(e) => !accumulated[e.code] && !hotelImageMap[e.code],
+				(e) =>
+					!accumulated[e.code] &&
+					!hotelCardImageCacheRef.current.has(e.code),
 			);
 			for (let i = 0; i < retryTargets.length; i += batchSize) {
 				const batch = retryTargets.slice(i, i + batchSize);
@@ -956,9 +1093,37 @@ function HotelSearchContent() {
 				}
 			}
 			if (Object.keys(retryAccumulated).length > 0) {
+				for (const [k, v] of Object.entries(retryAccumulated)) {
+					hotelCardImageCacheRef.current.set(k, v);
+				}
 				setHotelImageMap((prev) => ({ ...prev, ...retryAccumulated }));
 			}
 		}
+	};
+
+	/** Never block UI: small first wave of static image APIs, then rest after a delay, then paced remainder. */
+	const scheduleProgressiveHotelCardImages = (visibleList: HotelResult[]) => {
+		const top25 = visibleList.slice(0, INITIAL_HOTEL_DISPLAY);
+		void fetchHotelCardImagesBatch(
+			top25.slice(0, IMAGE_PREFETCH_FIRST_WAVE),
+			{ maxTargets: IMAGE_PREFETCH_FIRST_WAVE },
+		);
+		window.setTimeout(() => {
+			const secondWave = top25.slice(IMAGE_PREFETCH_FIRST_WAVE);
+			if (secondWave.length === 0) return;
+			void fetchHotelCardImagesBatch(secondWave, {
+				maxTargets: secondWave.length,
+			});
+		}, IMAGE_PREFETCH_SECOND_WAVE_DELAY_MS);
+
+		const remainder = visibleList.slice(INITIAL_HOTEL_DISPLAY);
+		if (remainder.length === 0) return;
+		void (async () => {
+			for (const chunk of chunkArray(remainder, BACKGROUND_IMAGE_CHUNK)) {
+				void fetchHotelCardImagesBatch(chunk, { maxTargets: chunk.length });
+				await new Promise((r) => setTimeout(r, BACKGROUND_IMAGE_PACE_MS));
+			}
+		})();
 	};
 
 	// Initial search on mount if URL params exist OR load from cache on back navigation
@@ -1015,8 +1180,11 @@ function HotelSearchContent() {
 				setSortBy(uiSnapshot.sortBy);
 				setFilters(uiSnapshot.filters);
 				setSpecificHotelCode(uiSnapshot.specificHotelCode);
-				setDisplayCount(Math.max(20, uiSnapshot.displayCount));
-				restoreDisplayCountRef.current = Math.max(20, uiSnapshot.displayCount);
+				setDisplayCount(Math.max(INITIAL_HOTEL_DISPLAY, uiSnapshot.displayCount));
+				restoreDisplayCountRef.current = Math.max(
+					INITIAL_HOTEL_DISPLAY,
+					uiSnapshot.displayCount,
+				);
 				restoreScrollYRef.current = Math.max(0, uiSnapshot.scrollY || 0);
 			}
 			const hydrationSnapshot = loadHydrationSnapshot(cacheKey);
@@ -1026,6 +1194,7 @@ function HotelSearchContent() {
 			}
 
 			if (cached) {
+				stableCardImageUrlRef.current.clear();
 				const results = cached.results as HotelSearchResponse | null;
 				setSearchResults(results);
 				const hotelResults =
@@ -1050,7 +1219,7 @@ function HotelSearchContent() {
 		hasRestoredScrollRef.current = false;
 		restoreScrollYRef.current = null;
 		restoreDisplayCountRef.current = null;
-		setDisplayCount(20);
+		setDisplayCount(INITIAL_HOTEL_DISPLAY);
 
 		// Clear specific hotel filter when doing a new search
 		setSpecificHotelCode(null);
@@ -1086,111 +1255,55 @@ function HotelSearchContent() {
 	useEffect(() => {
 		if (!searchResults?.HotelResult) return;
 
-		let results = [...searchResults.HotelResult];
 		if (specificHotelCode) {
-			results = results.filter(
-				(hotel: HotelResult) => String(hotel.HotelCode) === specificHotelCode,
+			const pre = [...searchResults.HotelResult].filter(
+				(hotel) => String(hotel.HotelCode) === specificHotelCode,
 			);
 			console.log(
-				`🎯 Filtering for specific hotel: ${specificHotelCode}, found ${results.length} rooms`,
+				`🎯 Filtering for specific hotel: ${specificHotelCode}, found ${pre.length} rows`,
 			);
 		}
 
-		// Group hotels by hotel code (each hotel should appear only once)
-		const hotelMap = new Map<string, HotelResult>();
-
-		results.forEach((hotel) => {
-			const hotelCode = String(hotel.HotelCode);
-
-			if (!hotelMap.has(hotelCode)) {
-				// First time seeing this hotel, add it
-				hotelMap.set(hotelCode, hotel);
-			} else {
-				// Hotel already exists, merge rooms
-				const existingHotel = hotelMap.get(hotelCode)!;
-				existingHotel.Rooms = [...existingHotel.Rooms, ...hotel.Rooms];
-			}
-		});
-
-		// Convert map back to array
-		let groupedResults = Array.from(hotelMap.values());
-
-		// Apply filters
-		groupedResults = groupedResults.filter((hotel) => {
-			// Filter by price - use minimum price from all rooms
-			const hotelPrice = hotel.Rooms.reduce(
-				(min, room) => Math.min(min, room.TotalFare + room.TotalTax),
-				Infinity,
-			);
-
-			if (
-				hotelPrice < filters.priceRange[0] ||
-				hotelPrice > filters.priceRange[1]
-			) {
-				return false;
-			}
-
-			// Filter by refundable
-			if (filters.refundable) {
-				const hasRefundableRoom = hotel.Rooms.some((room) => room.IsRefundable);
-				if (!hasRefundableRoom) return false;
-			}
-
-			// Filter by meal type
-			if (filters.mealTypes.length > 0) {
-				const hasMealType = hotel.Rooms.some((room) =>
-					filters.mealTypes.includes(room.MealType),
-				);
-				if (!hasMealType) return false;
-			}
-
-			return true;
-		});
-
-		// Apply sorting - use minimum price from all rooms
-		groupedResults.sort((a, b) => {
-			const priceA = a.Rooms.reduce(
-				(min, room) => Math.min(min, room.TotalFare + room.TotalTax),
-				Infinity,
-			);
-			const priceB = b.Rooms.reduce(
-				(min, room) => Math.min(min, room.TotalFare + room.TotalTax),
-				Infinity,
-			);
-
-			switch (sortBy) {
-				case "price-low":
-					return priceA - priceB;
-				case "price-high":
-					return priceB - priceA;
-				default:
-					return 0;
-			}
-		});
-
-		setFilteredResults(groupedResults);
+		setFilteredResults(
+			computeFilteredHotelResults(
+				searchResults.HotelResult,
+				filters,
+				sortBy,
+				specificHotelCode,
+			),
+		);
 	}, [searchResults, filters, sortBy, specificHotelCode]);
+
+	// Keep in-memory image cache aligned with persisted / hydrated map
+	useEffect(() => {
+		for (const [k, v] of Object.entries(hotelImageMap)) {
+			if (typeof v === "string" && v) hotelCardImageCacheRef.current.set(k, v);
+		}
+	}, [hotelImageMap]);
 
 	// Fetch images for current visible hotels
 	useEffect(() => {
 		if (filteredResults.length > 0) {
 			const targetCount = Math.max(
-				20,
+				INITIAL_HOTEL_DISPLAY,
 				restoreDisplayCountRef.current ?? displayCount,
 			);
-			void fetchHotelCardImagesBatch(filteredResults.slice(0, targetCount));
+			void fetchHotelCardImagesBatch(filteredResults.slice(0, targetCount), {
+				maxTargets: targetCount,
+			});
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [filteredResults]);
 
 	// Fetch images for newly visible hotels when user scrolls
-	const prevDisplayCountRef = useRef(20);
+	const prevDisplayCountRef = useRef(INITIAL_HOTEL_DISPLAY);
 	useEffect(() => {
 		const prev = prevDisplayCountRef.current;
 		prevDisplayCountRef.current = displayCount;
 		if (displayCount > prev && filteredResults.length > prev) {
 			void fetchHotelCardImagesBatch(
 				filteredResults.slice(prev, displayCount),
+				{ maxTargets: displayCount - prev },
 			);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1261,7 +1374,7 @@ function HotelSearchContent() {
 		const observer = new IntersectionObserver(
 			(entries) => {
 				if (entries[0]?.isIntersecting) {
-					setDisplayCount((prev) => prev + 20);
+					setDisplayCount((prev) => prev + HOTEL_SCROLL_CHUNK);
 				}
 			},
 			{ rootMargin: "200px" },
@@ -1447,20 +1560,31 @@ function HotelSearchContent() {
 							</div>
 						</div>
 
-						{/* Loading State */}
+						{/* Loading: skeletons + spinner — never blocks on images after TBO returns */}
 						{isLoading && (
 							<div className="space-y-4">
-								{[1, 2, 3].map((i) => (
-									<div key={i} className="bg-white rounded-lg p-6">
-										<Skeleton className="h-48 w-full" />
+								{Array.from({ length: SKELETON_INITIAL_ROWS }, (_, i) => (
+									<div key={i} className="bg-white rounded-lg p-6 shadow-sm">
+										<Skeleton className="h-48 w-full rounded-md" />
+										<div className="mt-4 space-y-2">
+											<Skeleton className="h-5 w-2/3" />
+											<Skeleton className="h-4 w-1/2" />
+										</div>
 									</div>
 								))}
-								<div className="flex items-center justify-center py-8">
+								<div className="flex items-center justify-center py-6">
 									<Loader2 className="w-8 h-8 animate-spin text-blue-600" />
 									<span className="ml-2 text-gray-600">
 										Searching hotels...
 									</span>
 								</div>
+							</div>
+						)}
+
+						{isTripjackPending && !isLoading && (
+							<div className="flex items-center gap-2 text-sm text-gray-600 mb-3 px-1">
+								<Loader2 className="h-4 w-4 shrink-0 animate-spin text-orange-500" />
+								<span>Loading more properties (TripJack)…</span>
 							</div>
 						)}
 
@@ -1521,51 +1645,46 @@ function HotelSearchContent() {
 									return roomPrice < cheapestPrice ? room : cheapest;
 								}, hotel.Rooms[0]);
 
-								// Parse images from HotelDetails API response
-								let hotelImage: string | undefined;
+								// Thumbnail: prefer prefetch map → listing (no flicker) → details fallback.
+								// Parse details for gallery count and last-resort URL only.
+								let detailsThumb: string | undefined;
 								let imageCount = 0;
 
 								if (hotelDetails?.Images) {
 									try {
-										// Images might be a string or array
 										const imagesValue = hotelDetails.Images;
 
 										if (typeof imagesValue === "string") {
-											// Try parsing as JSON first
 											try {
 												const parsed = JSON.parse(imagesValue);
 												if (Array.isArray(parsed)) {
 													if (parsed.length > 0) {
-														hotelImage = parsed[0];
+														detailsThumb = pickImageFromUnknown(parsed[0]);
 														imageCount = parsed.length;
 													}
 												} else {
-													// Parsed but not an array, try comma-separated
 													const imageArray = imagesValue
 														.split(",")
 														.map((img: string) => img.trim())
 														.filter(Boolean);
 													if (imageArray.length > 0) {
-														hotelImage = imageArray[0];
+														detailsThumb = normalizeImageUrl(imageArray[0]);
 														imageCount = imageArray.length;
 													} else if (imagesValue.startsWith("http")) {
-														// Single URL
-														hotelImage = imagesValue;
+														detailsThumb = normalizeImageUrl(imagesValue);
 														imageCount = 1;
 													}
 												}
 											} catch {
-												// If not JSON, try comma-separated
 												const imageArray = imagesValue
 													.split(",")
 													.map((img: string) => img.trim())
 													.filter(Boolean);
 												if (imageArray.length > 0) {
-													hotelImage = imageArray[0];
+													detailsThumb = normalizeImageUrl(imageArray[0]);
 													imageCount = imageArray.length;
 												} else if (imagesValue.startsWith("http")) {
-													// Single URL
-													hotelImage = imagesValue;
+													detailsThumb = normalizeImageUrl(imagesValue);
 													imageCount = 1;
 												}
 											}
@@ -1573,8 +1692,7 @@ function HotelSearchContent() {
 											Array.isArray(imagesValue) &&
 											imagesValue.length > 0
 										) {
-											const first = pickImageFromUnknown(imagesValue[0]);
-											if (first) hotelImage = first;
+											detailsThumb = pickImageFromUnknown(imagesValue[0]);
 											imageCount = imagesValue.length;
 										}
 									} catch (e) {
@@ -1582,23 +1700,29 @@ function HotelSearchContent() {
 											`Error parsing images for hotel ${hotelCodeKey}:`,
 											e,
 										);
-										// If parsing fails, try to use it as a single image URL
 										const imagesValue = hotelDetails.Images;
 										if (
 											typeof imagesValue === "string" &&
 											imagesValue.startsWith("http")
 										) {
-											hotelImage = imagesValue;
+											detailsThumb = normalizeImageUrl(imagesValue);
 											imageCount = 1;
 										}
 									}
 								}
 
-								if (!hotelImage && hotel.HotelImage) {
-									hotelImage = normalizeImageUrl(hotel.HotelImage);
-								}
-								if (!hotelImage && hotelImageMap[hotelCodeKey]) {
-									hotelImage = hotelImageMap[hotelCodeKey];
+								const fromMap = normalizeImageUrl(hotelImageMap[hotelCodeKey]);
+								const fromListing = normalizeImageUrl(hotel.HotelImage);
+								const fromDetails = detailsThumb;
+								const candidate = fromMap || fromListing || fromDetails;
+
+								const locked = stableCardImageUrlRef.current.get(hotelCodeKey);
+								let hotelImage: string | undefined;
+								if (locked) {
+									hotelImage = locked;
+								} else if (candidate) {
+									stableCardImageUrlRef.current.set(hotelCodeKey, candidate);
+									hotelImage = candidate;
 								}
 
 								// Get hotel name - prefer details map, then direct search result field, then fallback
@@ -1656,6 +1780,21 @@ function HotelSearchContent() {
 									/>
 								);
 							})}
+							{isTripjackPending &&
+								!isLoading &&
+								Array.from({ length: SKELETON_TRIPJACK_PENDING_ROWS }, (_, i) => (
+									<div
+										key={`tj-pending-${i}`}
+										className="bg-white rounded-lg p-6 shadow-sm"
+									>
+										<Skeleton className="h-48 w-full rounded-md" />
+										<div className="mt-4 space-y-2">
+											<Skeleton className="h-5 w-2/3" />
+											<Skeleton className="h-4 w-1/2" />
+										</div>
+									</div>
+								))}
+
 							{displayCount < filteredResults.length && (
 								<div
 									ref={sentinelRef}
