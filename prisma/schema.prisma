@@ -150,6 +150,10 @@ enum BalVidhyaStatus {
     Inactive
 }
 enum BalVidhyaCategory {
+    Sanatan
+    Buddhism
+    Sikh
+    Jain
     BhagavadGita
     Ramayana
     Mahabharata
@@ -407,8 +411,8 @@ model Dharamshala {
     state          String
     city           String
     status         String      // e.g. "active", "inactive"
-    imageFile      String?     // image of temple 
-    videoFile      String?     // video file for temple video
+    imageFile      Json?       // image URLs (legacy stringified JSON or array)
+    videoFile      Json?       // video URLs (legacy stringified JSON or array)
     bannerImage    String?     // NEW: URL for banner image
     coverImage     String?     // NEW: URL for cover image
     // Location (map)
@@ -418,12 +422,12 @@ model Dharamshala {
     description    String?
     additionalInfo String?
     // Travel
-    travelByAir    String?     // Best way by air
-    travelByTrain  String?     // Best way by train
-    travelByBus    String?     // Best way by bus
-    travelByRoad   String?     // Best way by road
+    travelByAir    Json?       // Best way by air
+    travelByTrain  Json?       // Best way by train
+    travelByBus    Json?       // Best way by bus
+    travelByRoad   Json?       // Best way by road
     timings        String?     // Opening/closing times, special schedules
-    amenities      String?     // JSON string or delimited list for nearby amenities
+    amenities      Json?       // Nearby amenities
     // FAQ
     dharamshalaFaqs           DharamshalaFaq[]       @relation("DharamshalaFaqs")
     createdAt      DateTime    @default(now())

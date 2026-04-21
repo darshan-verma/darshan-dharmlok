@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { Video as PrismaVideo } from "@prisma/client";
 
 export interface Video {
 	id: string;
@@ -16,19 +15,64 @@ export interface Video {
 	updatedAt?: string;
 }
 
-function toVideoApi(video: PrismaVideo): Video {
+const LAUNCH_VIDEO_SOURCES = [
+	"launch-video",
+	"launch video",
+	"launch videos",
+];
+const NORMALIZED_LAUNCH_VIDEO_SOURCE = "launch-video";
+
+function normalizeDateValue(value: unknown): string {
+	if (!value) return "";
+	if (value instanceof Date) return value.toISOString();
+	if (typeof value === "string") {
+		const parsed = new Date(value);
+		return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+	}
+	if (typeof value === "object" && value !== null) {
+		const maybeDate = (value as { $date?: string | number | Date }).$date;
+		if (maybeDate) {
+			const parsed = new Date(maybeDate);
+			return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+		}
+	}
+	return "";
+}
+
+function getObjectId(value: unknown): string {
+	if (typeof value === "string") return value;
+	if (typeof value === "object" && value !== null) {
+		const oid = (value as { $oid?: string }).$oid;
+		if (typeof oid === "string") return oid;
+	}
+	return "";
+}
+
+function toVideoApi(video: Record<string, unknown>): Video {
+	const legacy =
+		typeof video._legacy === "object" && video._legacy !== null
+			? (video._legacy as Record<string, unknown>)
+			: {};
+
+	const createdAt = normalizeDateValue(video.createdAt ?? legacy.createdAt);
+	const updatedAt = normalizeDateValue(video.updatedAt ?? legacy.updatedAt);
+
 	return {
-		id: video.id,
-		title: video.title,
-		date: video.date?.toISOString?.() ?? "",
-		description: video.description,
-		category: video.category,
-		type: video.type,
-		status: video.status,
-		videoFile: video.videoFile ?? "",
-		thumbnailUrl: video.thumbnailUrl,
-		createdAt: video.createdAt?.toISOString?.(),
-		updatedAt: video.updatedAt?.toISOString?.(),
+		id: getObjectId(video._id) || String(video.id ?? ""),
+		title: String(video.title ?? legacy.title ?? ""),
+		date: normalizeDateValue(
+			video.date ?? video.createdAt ?? legacy.createdAt ?? video.updatedAt
+		),
+		description: String(video.description ?? legacy.description ?? ""),
+		category: String(video.category ?? legacy.category ?? "Other"),
+		type: String(video.type ?? legacy.type ?? "MP4"),
+		status: String(video.status ?? legacy.status ?? "Draft"),
+		videoFile: String(
+			video.videoFile ?? video.videoUrl ?? legacy.videoFile ?? legacy.videoUrl ?? ""
+		),
+		thumbnailUrl: String(video.thumbnailUrl ?? legacy.thumbnailUrl ?? ""),
+		createdAt,
+		updatedAt,
 	};
 }
 
@@ -36,43 +80,64 @@ function toVideoApi(video: PrismaVideo): Video {
 export async function GET(req: NextRequest) {
 	try {
 		const { searchParams } = new URL(req.url);
-		const page = parseInt(searchParams.get("page") || "1", 10);
-		const limit = parseInt(searchParams.get("limit") || "50", 10);
-		const skip = (page - 1) * limit;
+		const pageParam = searchParams.get("page");
+		const limitParam = searchParams.get("limit");
+		const hasPaginationParams = pageParam !== null || limitParam !== null;
 
-		console.log(
-			"[GET /api/launch-video] page:",
-			page,
-			"limit:",
-			limit,
-			"skip:",
-			skip
-		);
+		const page = parseInt(pageParam || "1", 10);
+		const limit = parseInt(limitParam || "50", 10);
+		const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+		const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 50;
+		const skip = (safePage - 1) * safeLimit;
 
-		const whereClause = { source: "launch-video" };
+		const launchRegex = "launch[\\s_-]*videos?";
+		const rawResult = await prisma.video.aggregateRaw({
+			pipeline: [
+				{
+					$match: {
+						$or: [
+							{
+								source: {
+									$in: LAUNCH_VIDEO_SOURCES,
+								},
+							},
+							{
+								source: {
+									$regex: launchRegex,
+									$options: "i",
+								},
+							},
+							{
+								"_legacy.source": {
+									$regex: launchRegex,
+									$options: "i",
+								},
+							},
+						],
+					},
+				},
+				{ $sort: { createdAt: -1 } },
+			],
+		});
+		const rawVideos = (
+			Array.isArray(rawResult) ? rawResult : []
+		) as unknown as Record<string, unknown>[];
 
-		const [total, videos] = await Promise.all([
-			prisma.video.count({ where: whereClause }),
-			prisma.video.findMany({
-				where: whereClause,
-				orderBy: { createdAt: "desc" },
-				skip,
-				take: limit,
-			}),
-		]);
-
-		console.log("[GET /api/launch-video] total videos:", total);
-		console.log("[GET /api/launch-video] videos:", videos);
-
-		const content: Video[] = videos.map(toVideoApi);
+		const normalizedVideos = rawVideos.map(toVideoApi);
+		const total = normalizedVideos.length;
+		const content = hasPaginationParams
+			? normalizedVideos.slice(skip, skip + safeLimit)
+			: normalizedVideos;
 
 		return NextResponse.json({
 			content,
 			total,
 			pagination: {
-				page,
-				limit,
-				totalPages: Math.ceil(total / limit),
+				page: safePage,
+				limit: hasPaginationParams ? safeLimit : total,
+				totalPages: hasPaginationParams
+					? Math.ceil(total / safeLimit)
+					: 1,
 			},
 		});
 	} catch (error) {
@@ -145,7 +210,7 @@ export async function POST(req: NextRequest) {
 				type,
 				status,
 				videoFile,
-				source: body.source, // Save the source
+				source: NORMALIZED_LAUNCH_VIDEO_SOURCE,
 				user: { connect: { id: userId } },
 			},
 		});

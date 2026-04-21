@@ -46,6 +46,8 @@ export default function EventDetailsPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 	const [isBooking, setIsBooking] = useState(false);
+	const [bannerImageSrc, setBannerImageSrc] = useState<string>("");
+	const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
 	useEffect(() => {
 		if (!eventId) return;
@@ -115,6 +117,31 @@ export default function EventDetailsPage() {
 		  ].filter((img): img is string => Boolean(img))
 		: [];
 
+	const FALLBACK_EVENT_IMAGE = "/banners/9983f4c9bb5fd3f6d8213d08ad1e99d3.jpg";
+
+	useEffect(() => {
+		if (!event) return;
+		setBannerImageSrc(event.bannerImage || FALLBACK_EVENT_IMAGE);
+		setFailedImages(new Set());
+		setSelectedImageIndex(0);
+	}, [event]);
+
+	const markImageAsFailed = (src?: string) => {
+		if (!src) return;
+		setFailedImages((prev) => {
+			if (prev.has(src)) return prev;
+			const next = new Set(prev);
+			next.add(src);
+			return next;
+		});
+	};
+
+	const getSafeImageSrc = (src?: string) => {
+		if (!src) return FALLBACK_EVENT_IMAGE;
+		if (failedImages.has(src)) return FALLBACK_EVENT_IMAGE;
+		return src;
+	};
+
 	if (loading) {
 		return (
 			<div className="min-h-screen bg-white">
@@ -146,7 +173,7 @@ export default function EventDetailsPage() {
 		);
 	}
 
-	const bannerImage = event.bannerImage || "/banners/9983f4c9bb5fd3f6d8213d08ad1e99d3.jpg";
+	const bannerImage = bannerImageSrc || FALLBACK_EVENT_IMAGE;
 
 	return (
 		<div className="min-h-screen bg-white">
@@ -159,12 +186,11 @@ export default function EventDetailsPage() {
 						src={bannerImage}
 						alt={event.title}
 						fill
+						sizes="100vw"
+						unoptimized
 						className="object-cover"
 						priority
-						onError={(e) => {
-							const target = e.target as HTMLImageElement;
-							target.src = "/banners/9983f4c9bb5fd3f6d8213d08ad1e99d3.jpg";
-						}}
+						onError={() => setBannerImageSrc(FALLBACK_EVENT_IMAGE)}
 					/>
 					<div className="absolute inset-0 bg-black/40" />
 				</div>
@@ -298,11 +324,20 @@ export default function EventDetailsPage() {
 													<DialogTrigger asChild>
 														<div className="relative w-full h-96 bg-gray-200 rounded-xl overflow-hidden shadow-md cursor-pointer hover:opacity-90 transition-opacity">
 															<Image
-																src={allImages[selectedImageIndex] || allImages[0]}
+																src={getSafeImageSrc(
+																	allImages[selectedImageIndex] || allImages[0]
+																)}
 																alt={`Event image ${selectedImageIndex + 1}`}
 																fill
+																sizes="(max-width: 768px) 100vw, 66vw"
+																unoptimized
 																className="object-cover"
 																priority={selectedImageIndex === 0}
+																onError={() =>
+																	markImageAsFailed(
+																		allImages[selectedImageIndex] || allImages[0]
+																	)
+																}
 															/>
 														</div>
 													</DialogTrigger>
@@ -312,10 +347,19 @@ export default function EventDetailsPage() {
 														</DialogHeader>
 														<div className="relative w-full aspect-video mt-4">
 															<Image
-																src={allImages[selectedImageIndex] || allImages[0]}
+																src={getSafeImageSrc(
+																	allImages[selectedImageIndex] || allImages[0]
+																)}
 																alt={`Event image ${selectedImageIndex + 1}`}
 																fill
+																sizes="90vw"
+																unoptimized
 																className="object-contain"
+																onError={() =>
+																	markImageAsFailed(
+																		allImages[selectedImageIndex] || allImages[0]
+																	)
+																}
 															/>
 														</div>
 													</DialogContent>
@@ -336,11 +380,14 @@ export default function EventDetailsPage() {
 														}`}
 													>
 														<Image
-															src={image}
+															src={getSafeImageSrc(image)}
 															alt={`Event thumbnail ${index + 1}`}
 															fill
+															sizes="(max-width: 768px) 22vw, 9vw"
+															unoptimized
 															className="object-cover"
 															loading="lazy"
+															onError={() => markImageAsFailed(image)}
 														/>
 													</button>
 												))}

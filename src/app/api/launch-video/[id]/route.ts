@@ -1,16 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+function normalizeDateValue(value: unknown): string {
+	if (!value) return "";
+	if (value instanceof Date) return value.toISOString();
+	if (typeof value === "string") {
+		const parsed = new Date(value);
+		return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+	}
+	if (typeof value === "object" && value !== null) {
+		const maybeDate = (value as { $date?: string | number | Date }).$date;
+		if (maybeDate) {
+			const parsed = new Date(maybeDate);
+			return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+		}
+	}
+	return "";
+}
+
+function toVideoDetailApi(video: Record<string, unknown>) {
+	const legacy =
+		typeof video._legacy === "object" && video._legacy !== null
+			? (video._legacy as Record<string, unknown>)
+			: {};
+
+	const date = normalizeDateValue(
+		video.date ?? video.createdAt ?? legacy.createdAt ?? video.updatedAt
+	);
+	const videoUrl = String(
+		video.videoFile ?? video.videoUrl ?? legacy.videoFile ?? legacy.videoUrl ?? ""
+	);
+
+	return {
+		id: String(video.id ?? (video._id as { $oid?: string })?.$oid ?? ""),
+		title: String(video.title ?? legacy.title ?? ""),
+		date,
+		description: String(video.description ?? legacy.description ?? ""),
+		category: String(video.category ?? legacy.category ?? "Other"),
+		type: String(video.type ?? legacy.type ?? "MP4"),
+		status: String(video.status ?? legacy.status ?? "Draft"),
+		videoUrl,
+		videoFile: videoUrl,
+		thumbnailUrl: String(video.thumbnailUrl ?? legacy.thumbnailUrl ?? ""),
+		createdAt: normalizeDateValue(video.createdAt ?? legacy.createdAt),
+		updatedAt: normalizeDateValue(video.updatedAt ?? legacy.updatedAt),
+	};
+}
+
 export async function GET(
 	_: NextRequest,
 	context: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await context.params;
 	try {
-		const video = await prisma.video.findUnique({ where: { id } });
-		if (!video)
+		const rawResult = await prisma.video.findRaw({
+			filter: { _id: { $oid: id } },
+		});
+		const rows = Array.isArray(rawResult) ? rawResult : [];
+		if (rows.length === 0)
 			return NextResponse.json({ error: "Not found" }, { status: 404 });
-		return NextResponse.json(video);
+		return NextResponse.json(toVideoDetailApi(rows[0] as Record<string, unknown>));
 	} catch {
 		return NextResponse.json(
 			{ error: "Failed to fetch video" },
@@ -35,6 +84,7 @@ export async function PUT(
 			status,
 			thumbnailUrl,
 			videoFile,
+			videoUrl,
 		} = body;
 
 		if (!title || !date || !description || !category || !type || !status) {
@@ -48,13 +98,19 @@ export async function PUT(
 			where: { id },
 			data: {
 				title,
-				date,
+				date: new Date(date),
 				description,
 				category,
 				type,
 				status,
 				thumbnailUrl: typeof thumbnailUrl === "undefined" ? null : thumbnailUrl,
-				videoFile: typeof videoFile === "undefined" ? null : videoFile,
+				videoFile:
+					typeof videoFile === "undefined"
+						? typeof videoUrl === "undefined"
+							? null
+							: videoUrl
+						: videoFile,
+				source: "launch-video",
 			},
 		});
 		return NextResponse.json(updated);

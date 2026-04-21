@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, BookOpen } from "lucide-react";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
@@ -11,38 +11,94 @@ import {
 	type BalVidhyaItem,
 } from "./components/BalVidhyaViewer";
 
+const PAGE_SIZE = 24;
+
 export default function BalVidhyaPage() {
 	const [items, setItems] = useState<BalVidhyaItem[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [loadingMore, setLoadingMore] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [viewerItem, setViewerItem] = useState<BalVidhyaItem | null>(null);
 	const [viewerOpen, setViewerOpen] = useState(false);
+	const [page, setPage] = useState(0);
+	const [hasMore, setHasMore] = useState(true);
+
+	const sentinelRef = useRef<HTMLDivElement | null>(null);
+	const isFetchingRef = useRef(false);
+
+	const fetchPage = useCallback(async (nextPage: number) => {
+		// Prevent overlapping calls from observer + state updates.
+		if (isFetchingRef.current) return;
+		isFetchingRef.current = true;
+		const isFirstPage = nextPage === 1;
+
+		try {
+			if (isFirstPage) {
+				setLoading(true);
+			} else {
+				setLoadingMore(true);
+			}
+			setError(null);
+
+			const res = await fetch(`/api/balvidhya?page=${nextPage}&limit=${PAGE_SIZE}`);
+			if (!res.ok) throw new Error("Failed to fetch Bal Vidhya content");
+
+			const data = await res.json();
+			const content: BalVidhyaItem[] = data?.content ?? [];
+			const active = content.filter(
+				(item: { status?: string }) => item.status === "Active"
+			);
+
+			setItems((prev) => (isFirstPage ? active : [...prev, ...active]));
+
+			const totalPages: number =
+				typeof data?.pagination?.totalPages === "number"
+					? data.pagination.totalPages
+					: nextPage;
+
+			setPage(nextPage);
+			setHasMore(nextPage < totalPages);
+		} catch (err) {
+			console.error("Error fetching Bal Vidhya:", err);
+			setError(
+				err instanceof Error ? err.message : "Failed to load Bal Vidhya content"
+			);
+		} finally {
+			if (isFirstPage) {
+				setLoading(false);
+			} else {
+				setLoadingMore(false);
+			}
+			isFetchingRef.current = false;
+		}
+	}, []);
 
 	useEffect(() => {
-		const fetchBalVidhya = async () => {
-			try {
-				setLoading(true);
-				setError(null);
-				const res = await fetch("/api/balvidhya?limit=100");
-				if (!res.ok) throw new Error("Failed to fetch Bal Vidhya content");
-				const data = await res.json();
-				const content: BalVidhyaItem[] = data?.content ?? [];
-				const active = content.filter(
-					(item) => (item as { status?: string }).status === "Active"
-				);
-				setItems(active);
-			} catch (err) {
-				console.error("Error fetching Bal Vidhya:", err);
-				setError(
-					err instanceof Error ? err.message : "Failed to load Bal Vidhya content"
-				);
-			} finally {
-				setLoading(false);
-			}
-		};
+		fetchPage(1);
+	}, [fetchPage]);
 
-		fetchBalVidhya();
-	}, []);
+	useEffect(() => {
+		if (loading) return;
+		const sentinel = sentinelRef.current;
+		if (!sentinel) return;
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				const firstEntry = entries[0];
+				if (!firstEntry?.isIntersecting) return;
+				if (!hasMore || loadingMore || isFetchingRef.current) return;
+				void fetchPage(page + 1);
+			},
+			{
+				root: null,
+				rootMargin: "600px 0px",
+				threshold: 0,
+			}
+		);
+
+		observer.observe(sentinel);
+		return () => observer.disconnect();
+	}, [fetchPage, hasMore, loading, loadingMore, page]);
 
 	const openViewer = (item: BalVidhyaItem) => {
 		setViewerItem(item);
@@ -74,25 +130,44 @@ export default function BalVidhyaPage() {
 							<p className="text-red-500">{error}</p>
 						</div>
 					) : items.length > 0 ? (
-						<div className="grid gap-6 justify-items-center grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
-							{items.map((item) => (
-								<div key={item.id} className="w-full max-w-[380px]">
-									<ProfileCard
-										variant="dharamshala"
-										name={item.name}
-										description={
-											item.description?.slice(0, 120) ||
-											`${item.type === "book" ? "Book" : "Video"} • ${item.category ?? "Other"}`
-										}
-										image={item.thumbnailUrl}
-										isVerified={item.status === "Active"}
-										onBook={() => openViewer(item)}
-										enableAnimations
-										className="w-full max-w-[380px] h-[28rem] min-h-[28rem]"
-									/>
+						<>
+							<div className="grid gap-6 justify-items-center grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
+								{items.map((item) => (
+									<div key={item.id} className="w-full max-w-[380px]">
+										<ProfileCard
+											variant="dharamshala"
+											name={item.name}
+											description={
+												item.description?.slice(0, 120) ||
+												`${item.type === "book" ? "Book" : "Video"} • ${item.category ?? "Other"}`
+											}
+											image={item.thumbnailUrl}
+											isVerified={item.status === "Active"}
+											onBook={() => openViewer(item)}
+											enableAnimations
+											className="w-full max-w-[380px] h-[28rem] min-h-[28rem]"
+										/>
+									</div>
+								))}
+							</div>
+
+							{loadingMore && (
+								<div className="flex flex-col items-center justify-center py-8">
+									<Loader2 className="h-7 w-7 animate-spin text-primary mb-2" />
+									<p className="text-sm text-muted-foreground">
+										Loading more content...
+									</p>
 								</div>
-							))}
-						</div>
+							)}
+
+							{!hasMore && items.length > 0 && (
+								<div className="text-center py-8 text-sm text-muted-foreground">
+									You have reached the end.
+								</div>
+							)}
+
+							<div ref={sentinelRef} className="h-1 w-full" aria-hidden="true" />
+						</>
 					) : (
 						<div className="text-center py-16 text-gray-500">
 							<BookOpen className="w-10 h-10 mx-auto mb-3 text-gray-400" />

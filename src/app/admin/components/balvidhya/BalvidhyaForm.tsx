@@ -26,6 +26,10 @@ const balvidhyaStatuses = [
 ];
 
 const balvidhyaCategories = [
+	{ value: "Sanatan", label: "Sanatan" },
+	{ value: "Buddhism", label: "Buddhism" },
+	{ value: "Sikh", label: "Sikh" },
+	{ value: "Jain", label: "Jain" },
 	{ value: "BhagavadGita", label: "Bhagavad Gita" },
 	{ value: "Ramayana", label: "Ramayana" },
 	{ value: "Mahabharata", label: "Mahabharata" },

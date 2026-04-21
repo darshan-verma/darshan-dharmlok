@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getToken } from "next-auth/jwt";
+import { Prisma } from "@prisma/client";
 
 // Product type for API
 interface ProductApi {
@@ -33,45 +34,159 @@ function parseArrayField(field: unknown): string[] {
 	return [];
 }
 
+const mapProductToApi = (product: {
+	id: string;
+	name: string;
+	date: Date;
+	category: string[];
+	pricePerUnit: number;
+	availableQty: number;
+	description: string | null;
+	images: string[];
+	videos: string[];
+	status: string;
+	createdAt: Date;
+	updatedAt: Date;
+}): ProductApi => ({
+	id: product.id,
+	name: product.name,
+	date:
+		product.date instanceof Date
+			? product.date.toISOString().split("T")[0]
+			: String(product.date),
+	category: Array.isArray(product.category)
+		? product.category
+		: typeof product.category === "string"
+			? [product.category]
+			: [],
+	pricePerUnit: Number(product.pricePerUnit),
+	availableQty: Number(product.availableQty),
+	description: product.description || "",
+	images: parseArrayField(product.images),
+	videos: parseArrayField(product.videos),
+	status: product.status,
+	createdAt: product.createdAt?.toISOString(),
+	updatedAt: product.updatedAt?.toISOString(),
+});
+
 // GET /api/e-shop
 export async function GET(req: NextRequest) {
 	try {
 		const url = new URL(req.url);
 		const mine = url.searchParams.get("mine");
-		let where = {};
+		const pageParam = url.searchParams.get("page");
+		const limitParam = url.searchParams.get("limit");
+		const searchParam = url.searchParams.get("search")?.trim();
+		const categoryParam = url.searchParams.get("category")?.trim();
+		const statusParam = url.searchParams.get("status")?.trim();
+		const filtersOnly = url.searchParams.get("filtersOnly") === "true";
+
+		const parsedPage = Number(pageParam ?? "1");
+		const parsedLimit = Number(limitParam ?? "0");
+		const hasPaginationParams = pageParam !== null || limitParam !== null;
+
+		const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+		const limit =
+			Number.isFinite(parsedLimit) && parsedLimit > 0
+				? Math.min(parsedLimit, 100)
+				: 0;
+
+		const where: Prisma.ProductWhereInput = {};
+		const andConditions: Prisma.ProductWhereInput[] = [];
+
 		if (mine === "true") {
 			const token = await getToken({ req });
 			const userId = token?.sub;
 			if (!userId) {
 				return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 			}
-			where = { sellerId: userId };
+			andConditions.push({ sellerId: userId });
 		}
-		const products = await prisma.product.findMany({
+
+		if (statusParam) {
+			andConditions.push({
+				status: {
+					equals: statusParam,
+					mode: "insensitive",
+				},
+			});
+		}
+
+		if (categoryParam) {
+			andConditions.push({
+				category: {
+					has: categoryParam,
+				},
+			});
+		}
+
+		if (searchParam) {
+			andConditions.push({
+				OR: [
+					{ name: { contains: searchParam, mode: "insensitive" } },
+					{ description: { contains: searchParam, mode: "insensitive" } },
+				],
+			});
+		}
+
+		if (andConditions.length > 0) {
+			where.AND = andConditions;
+		}
+
+		if (filtersOnly) {
+			const productsForFilters = await prisma.product.findMany({
+				where,
+				select: {
+					category: true,
+				},
+			});
+
+			const categories = Array.from(
+				new Set(
+					productsForFilters
+						.flatMap((product) =>
+							Array.isArray(product.category) ? product.category : []
+						)
+						.map((category) => category?.trim())
+						.filter((category): category is string => Boolean(category))
+				)
+			).sort((a, b) => a.localeCompare(b));
+
+			return NextResponse.json({ categories });
+		}
+
+		const queryOptions: {
+			where: Prisma.ProductWhereInput;
+			orderBy: { createdAt: "desc" };
+			skip?: number;
+			take?: number;
+		} = {
 			where,
 			orderBy: { createdAt: "desc" },
-		});
-		const result: ProductApi[] = products.map((product) => ({
-			id: product.id,
-			name: product.name,
-			date:
-				product.date instanceof Date
-					? product.date.toISOString().split("T")[0]
-					: String(product.date),
-			category: Array.isArray(product.category)
-				? product.category
-				: typeof product.category === "string"
-				? [product.category]
-				: [], // fallback for old data
-			pricePerUnit: Number(product.pricePerUnit),
-			availableQty: Number(product.availableQty),
-			description: product.description || "",
-			images: parseArrayField(product.images),
-			videos: parseArrayField(product.videos),
-			status: product.status,
-			createdAt: product.createdAt?.toISOString(),
-			updatedAt: product.updatedAt?.toISOString(),
-		}));
+		};
+
+		if (hasPaginationParams && limit > 0) {
+			queryOptions.skip = (page - 1) * limit;
+			queryOptions.take = limit;
+		}
+
+		const products = await prisma.product.findMany(queryOptions);
+		const result: ProductApi[] = products.map(mapProductToApi);
+
+		if (hasPaginationParams && limit > 0) {
+			const total = await prisma.product.count({ where });
+			const totalPages = Math.ceil(total / limit);
+			return NextResponse.json({
+				content: result,
+				total,
+				pagination: {
+					currentPage: page,
+					totalPages,
+					limit,
+				},
+			});
+		}
+
 		return NextResponse.json(result);
 	} catch {
 		return NextResponse.json(

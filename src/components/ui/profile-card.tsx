@@ -33,6 +33,7 @@ interface ProfileCardProps {
 
 const DEFAULT_POOJA_IMAGE =
   "https://images.unsplash.com/photo-1605649487212-47bdab064df7?w=800&h=800&fit=crop&auto=format&q=80";
+const FALLBACK_CARD_IMAGE = "/banners/9983f4c9bb5fd3f6d8213d08ad1e99d3.jpg";
 
 export function ProfileCard({
   name = "Sophie Bennett",
@@ -65,6 +66,7 @@ export function ProfileCard({
     (isPooja || isEvent || isDharamshala || isTemple || isEbook || isBlog || isEshop) && !image
       ? DEFAULT_POOJA_IMAGE
       : image;
+  const [cardImageSrc, setCardImageSrc] = useState(displayImage);
 
   /**
    * Improve text readability on both dark and light images.
@@ -77,14 +79,36 @@ export function ProfileCard({
    */
   const [textOnLight, setTextOnLight] = useState<boolean>(false); // true => dark text, light scrim
   const [scrimStrength, setScrimStrength] = useState<number>(0.45);
+  const analysisImageSrc = useMemo(() => displayImage, [displayImage]);
+  const canAnalyzeImage = useMemo(() => {
+    if (!analysisImageSrc || typeof window === "undefined") return false;
+    try {
+      const parsed = new URL(analysisImageSrc, window.location.origin);
+      const isSameOrigin = parsed.origin === window.location.origin;
+      const isDataOrBlob = parsed.protocol === "data:" || parsed.protocol === "blob:";
+      return isSameOrigin || isDataOrBlob;
+    } catch {
+      return false;
+    }
+  }, [analysisImageSrc]);
 
   useEffect(() => {
-    if (!displayImage) return;
+    setCardImageSrc(displayImage);
+  }, [displayImage]);
+
+  useEffect(() => {
+    if (!analysisImageSrc) return;
+
+    // Skip pixel-analysis for cross-origin images to avoid noisy CORS failures.
+    // Most of our card images are remote S3 URLs without CORS headers.
+    if (!canAnalyzeImage) {
+      setTextOnLight(false);
+      setScrimStrength(0.5);
+      return;
+    }
 
     let cancelled = false;
     const img = new window.Image();
-    // Best-effort: enables canvas read when server provides CORS headers
-    img.crossOrigin = "anonymous";
 
     img.onload = () => {
       if (cancelled) return;
@@ -136,12 +160,12 @@ export function ProfileCard({
       setScrimStrength(0.5);
     };
 
-    img.src = displayImage;
+    img.src = analysisImageSrc;
 
     return () => {
       cancelled = true;
     };
-  }, [displayImage]);
+  }, [analysisImageSrc, canAnalyzeImage]);
 
   const scrimStyle = useMemo((): CSSProperties => {
     const rgb = textOnLight ? "255 255 255" : "0 0 0";
@@ -166,18 +190,29 @@ export function ProfileCard({
     ? "text-gray-700"
     : "text-white/85 drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)]";
   const badgeBgClass = textOnLight ? "bg-green-600" : "bg-green-500";
+  const nameSegments = useMemo(() => {
+    if (!name) return [];
+
+    // Use grapheme segmentation so Hindi/Indic marks stay attached
+    // to their base characters (prevents dotted-circle artifacts).
+    if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+      const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+      return Array.from(segmenter.segment(name), (part) => part.segment);
+    }
+
+    // Fallback: render as a single chunk instead of splitting unsafely.
+    return [name];
+  }, [name]);
 
   const containerVariants = {
     rest: {
       scale: 1,
       y: 0,
-      filter: "blur(0px)",
     },
     hover: shouldAnimate
       ? {
           scale: 1.02,
           y: -4,
-          filter: "blur(0px)",
           transition: {
             type: "spring",
             stiffness: 400,
@@ -197,12 +232,10 @@ export function ProfileCard({
     hidden: {
       opacity: 0,
       y: 20,
-      filter: "blur(4px)",
     },
     visible: {
       opacity: 1,
       y: 0,
-      filter: "blur(0px)",
       transition: {
         type: "spring",
         stiffness: 400,
@@ -219,13 +252,11 @@ export function ProfileCard({
       opacity: 0,
       y: 15,
       scale: 0.95,
-      filter: "blur(2px)",
     },
     visible: {
       opacity: 1,
       y: 0,
       scale: 1,
-      filter: "blur(0px)",
       transition: {
         type: "spring",
         stiffness: 400,
@@ -266,11 +297,16 @@ export function ProfileCard({
     >
       {/* Full Cover Image */}
       <motion.img
-        src={displayImage}
+        src={cardImageSrc}
         alt={name}
         className="absolute inset-0 w-full h-full object-cover"
         variants={imageVariants}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        onError={() => {
+          if (cardImageSrc !== FALLBACK_CARD_IMAGE) {
+            setCardImageSrc(FALLBACK_CARD_IMAGE);
+          }
+        }}
       />
 
       {/* Gradient overlay - lighter for pooja and event cards */}
@@ -306,7 +342,7 @@ export function ProfileCard({
               },
             }}
           >
-            {name.split("").map((letter, index) => (
+            {nameSegments.map((letter, index) => (
               <motion.span
                 key={index}
                 variants={letterVariants}

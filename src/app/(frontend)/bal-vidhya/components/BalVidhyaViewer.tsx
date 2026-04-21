@@ -15,6 +15,7 @@ export interface BalVidhyaItem {
 	videoUrl?: string;
 	videoFile?: string;
 	bookFile?: string;
+	url?: string;
 	status?: string;
 }
 
@@ -24,12 +25,62 @@ interface BalVidhyaViewerProps {
 	onOpenChange: (open: boolean) => void;
 }
 
-const hasBook = (item: BalVidhyaItem | null) =>
-	!!item?.bookFile?.trim();
-const hasVideo = (item: BalVidhyaItem | null) =>
-	!!(item?.videoFile?.trim() || item?.videoUrl?.trim());
-const videoSrc = (item: BalVidhyaItem | null) =>
-	item?.videoFile?.trim() || item?.videoUrl?.trim() || "";
+const normalizeType = (item: BalVidhyaItem | null) =>
+	item?.type?.toLowerCase().trim() || "";
+
+const bookSrc = (item: BalVidhyaItem | null) =>
+	item?.bookFile?.trim() ||
+	(normalizeType(item) === "book" ? item?.url?.trim() || "" : "");
+
+const directVideoSrc = (item: BalVidhyaItem | null) =>
+	item?.videoFile?.trim() ||
+	item?.videoUrl?.trim() ||
+	(normalizeType(item) === "video" ? item?.url?.trim() || "" : "");
+
+const hasBook = (item: BalVidhyaItem | null) => !!bookSrc(item);
+const hasVideo = (item: BalVidhyaItem | null) => !!directVideoSrc(item);
+
+const getYoutubeEmbedUrl = (src: string) => {
+	try {
+		const parsed = new URL(src);
+		const host = parsed.hostname.toLowerCase();
+		if (host.includes("youtu.be")) {
+			const videoId = parsed.pathname.replace("/", "");
+			return videoId ? `https://www.youtube.com/embed/${videoId}` : "";
+		}
+		if (host.includes("youtube.com")) {
+			const videoId = parsed.searchParams.get("v");
+			if (videoId) return `https://www.youtube.com/embed/${videoId}`;
+			if (parsed.pathname.startsWith("/embed/")) {
+				return `https://www.youtube.com${parsed.pathname}`;
+			}
+		}
+		return "";
+	} catch {
+		return "";
+	}
+};
+
+const getVimeoEmbedUrl = (src: string) => {
+	try {
+		const parsed = new URL(src);
+		const host = parsed.hostname.toLowerCase();
+		if (!host.includes("vimeo.com")) return "";
+		const segments = parsed.pathname.split("/").filter(Boolean);
+		const videoId = segments[segments.length - 1];
+		return videoId && /^\d+$/.test(videoId)
+			? `https://player.vimeo.com/video/${videoId}`
+			: "";
+	} catch {
+		return "";
+	}
+};
+
+const embeddedVideoSrc = (item: BalVidhyaItem | null) => {
+	const src = directVideoSrc(item);
+	if (!src) return "";
+	return getYoutubeEmbedUrl(src) || getVimeoEmbedUrl(src) || "";
+};
 
 export function BalVidhyaViewer({
 	item,
@@ -134,7 +185,7 @@ export function BalVidhyaViewer({
 						>
 							<iframe
 								title={`PDF: ${item.name}`}
-								src={item.bookFile!}
+								src={bookSrc(item)}
 								className="w-full h-full min-h-[300px] rounded-lg"
 							/>
 						</TabsContent>
@@ -142,34 +193,54 @@ export function BalVidhyaViewer({
 							value="video"
 							className="flex-1 min-h-0 mt-0 rounded-lg border bg-black overflow-hidden"
 						>
-							<video
-								key={videoSrc(item)}
-								controls
-								className="w-full h-full min-h-[300px] object-contain"
-								src={videoSrc(item)}
-							>
-								Your browser does not support the video tag.
-							</video>
+							{embeddedVideoSrc(item) ? (
+								<iframe
+									title={`Video: ${item.name}`}
+									src={embeddedVideoSrc(item)}
+									className="w-full h-full min-h-[300px]"
+									allow="autoplay; encrypted-media; picture-in-picture"
+									allowFullScreen
+								/>
+							) : (
+								<video
+									key={directVideoSrc(item)}
+									controls
+									className="w-full h-full min-h-[300px] object-contain"
+									src={directVideoSrc(item)}
+								>
+									Your browser does not support the video tag.
+								</video>
+							)}
 						</TabsContent>
 					</Tabs>
 				) : hasBook(item) ? (
 					<div className="flex-1 min-h-0 rounded-lg border bg-muted/30 overflow-hidden">
 						<iframe
 							title={`PDF: ${item.name}`}
-							src={item.bookFile!}
+							src={bookSrc(item)}
 							className="w-full h-full min-h-[300px] rounded-lg"
 						/>
 					</div>
 				) : (
 					<div className="flex-1 min-h-0 rounded-lg border bg-black overflow-hidden">
-						<video
-							key={videoSrc(item)}
-							controls
-							className="w-full h-full min-h-[300px] object-contain"
-							src={videoSrc(item)}
-						>
-							Your browser does not support the video tag.
-						</video>
+						{embeddedVideoSrc(item) ? (
+							<iframe
+								title={`Video: ${item.name}`}
+								src={embeddedVideoSrc(item)}
+								className="w-full h-full min-h-[300px]"
+								allow="autoplay; encrypted-media; picture-in-picture"
+								allowFullScreen
+							/>
+						) : (
+							<video
+								key={directVideoSrc(item)}
+								controls
+								className="w-full h-full min-h-[300px] object-contain"
+								src={directVideoSrc(item)}
+							>
+								Your browser does not support the video tag.
+							</video>
+						)}
 					</div>
 				)}
 			</div>

@@ -57,22 +57,69 @@ function extractGoogleMapsSrc(input?: string): string {
 function blockNoteToPlainText(content?: string): string {
 	if (!content) return "";
 	try {
-		const parsed = JSON.parse(content);
-		if (!Array.isArray(parsed)) return "";
+		const parsed = JSON.parse(content) as unknown;
+		const blocks = Array.isArray(parsed) ? parsed : [parsed];
 
-		const texts: string[] = [];
-		for (const block of parsed) {
-			const blockContent = (block as { content?: unknown }).content;
-			if (!Array.isArray(blockContent)) continue;
-			for (const node of blockContent) {
-				const t = (node as { text?: unknown }).text;
-				if (typeof t === "string" && t.trim()) texts.push(t.trim());
+		const extractText = (node: unknown): string[] => {
+			if (!node || typeof node !== "object") return [];
+			const obj = node as { text?: unknown; content?: unknown; children?: unknown };
+			const out: string[] = [];
+
+			if (typeof obj.text === "string" && obj.text.trim()) {
+				out.push(obj.text.trim());
+			}
+
+			if (Array.isArray(obj.content)) {
+				for (const child of obj.content) {
+					out.push(...extractText(child));
+				}
+			}
+
+			if (Array.isArray(obj.children)) {
+				for (const child of obj.children) {
+					out.push(...extractText(child));
+				}
+			}
+
+			return out;
+		};
+
+		const chunks: string[] = [];
+		for (const block of blocks) {
+			const blockTexts = extractText(block);
+			if (blockTexts.length) {
+				chunks.push(blockTexts.join(" ").replace(/\s+/g, " ").trim());
 			}
 		}
-		return texts.join("\n\n").trim();
+
+		return chunks.join("\n\n").trim();
 	} catch {
-		return "";
+		// Some legacy rows contain plain text instead of BlockNote JSON.
+		return content.trim();
 	}
+}
+
+function normalizeStringArray(value: unknown): string[] {
+	if (!value) return [];
+	if (Array.isArray(value)) {
+		return value.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+	}
+	if (typeof value === "string") {
+		const trimmed = value.trim();
+		if (!trimmed) return [];
+		try {
+			const parsed = JSON.parse(trimmed);
+			if (Array.isArray(parsed)) {
+				return parsed.filter(
+					(v): v is string => typeof v === "string" && v.trim().length > 0
+				);
+			}
+			return [trimmed];
+		} catch {
+			return [trimmed];
+		}
+	}
+	return [];
 }
 
 export default function DharmshalaDetailsPage() {
@@ -113,6 +160,18 @@ export default function DharmshalaDetailsPage() {
 	const mapSrc = useMemo(() => extractGoogleMapsSrc(data?.location), [data?.location]);
 	const descriptionText = useMemo(() => blockNoteToPlainText(data?.description), [data?.description]);
 	const additionalInfoText = useMemo(() => blockNoteToPlainText(data?.additionalInfo), [data?.additionalInfo]);
+	const travelByAir = useMemo(() => normalizeStringArray(data?.travelByAir), [data?.travelByAir]);
+	const travelByTrain = useMemo(
+		() => normalizeStringArray(data?.travelByTrain),
+		[data?.travelByTrain]
+	);
+	const travelByBus = useMemo(() => normalizeStringArray(data?.travelByBus), [data?.travelByBus]);
+	const travelByRoad = useMemo(
+		() => normalizeStringArray(data?.travelByRoad),
+		[data?.travelByRoad]
+	);
+	const amenities = useMemo(() => normalizeStringArray(data?.amenities), [data?.amenities]);
+	const videos = useMemo(() => normalizeStringArray(data?.videoFile), [data?.videoFile]);
 
 	const allImages = useMemo(() => {
 		const arr = [
@@ -239,7 +298,7 @@ export default function DharmshalaDetailsPage() {
 							)}
 
 							{/* Media */}
-							{(allImages.length > 0 || (data.videoFile && data.videoFile.length > 0)) && (
+							{(allImages.length > 0 || videos.length > 0) && (
 								<div className="bg-white rounded-2xl p-6 shadow-sm">
 									<h2 className="text-2xl font-serif font-bold text-gray-900 mb-6">
 										Media
@@ -312,14 +371,14 @@ export default function DharmshalaDetailsPage() {
 										</div>
 									)}
 
-									{data.videoFile && data.videoFile.length > 0 && (
+									{videos.length > 0 && (
 										<div>
 											<div className="flex items-center gap-2 mb-4">
 												<VideoIcon className="w-5 h-5 text-primary" />
 												<h3 className="text-lg font-semibold text-gray-900">Videos</h3>
 											</div>
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-												{data.videoFile.map((v) => (
+												{videos.map((v) => (
 													<div key={v} className="bg-gray-50 rounded-xl p-3">
 														<video
 															src={v}
@@ -349,10 +408,10 @@ export default function DharmshalaDetailsPage() {
 
 							{/* Best way to travel */}
 							{[
-								(data.travelByAir && data.travelByAir.length > 0),
-								(data.travelByTrain && data.travelByTrain.length > 0),
-								(data.travelByBus && data.travelByBus.length > 0),
-								(data.travelByRoad && data.travelByRoad.length > 0),
+								travelByAir.length > 0,
+								travelByTrain.length > 0,
+								travelByBus.length > 0,
+								travelByRoad.length > 0,
 							].some(Boolean) && (
 								<div className="bg-white rounded-2xl p-6 shadow-sm">
 									<h2 className="text-2xl font-serif font-bold text-gray-900 mb-6">
@@ -360,56 +419,56 @@ export default function DharmshalaDetailsPage() {
 									</h2>
 
 									<div className="space-y-6">
-										{data.travelByAir && data.travelByAir.length > 0 && (
+										{travelByAir.length > 0 && (
 											<div>
 												<div className="flex items-center gap-2 mb-2">
 													<Plane className="w-5 h-5 text-primary" />
 													<h3 className="text-lg font-semibold text-gray-900">By Air</h3>
 												</div>
 												<ul className="list-disc pl-6 text-gray-700 space-y-1">
-													{data.travelByAir.map((t, idx) => (
+													{travelByAir.map((t, idx) => (
 														<li key={idx}>{t}</li>
 													))}
 												</ul>
 											</div>
 										)}
 
-										{data.travelByTrain && data.travelByTrain.length > 0 && (
+										{travelByTrain.length > 0 && (
 											<div>
 												<div className="flex items-center gap-2 mb-2">
 													<Train className="w-5 h-5 text-primary" />
 													<h3 className="text-lg font-semibold text-gray-900">By Train</h3>
 												</div>
 												<ul className="list-disc pl-6 text-gray-700 space-y-1">
-													{data.travelByTrain.map((t, idx) => (
+													{travelByTrain.map((t, idx) => (
 														<li key={idx}>{t}</li>
 													))}
 												</ul>
 											</div>
 										)}
 
-										{data.travelByBus && data.travelByBus.length > 0 && (
+										{travelByBus.length > 0 && (
 											<div>
 												<div className="flex items-center gap-2 mb-2">
 													<Bus className="w-5 h-5 text-primary" />
 													<h3 className="text-lg font-semibold text-gray-900">By Bus</h3>
 												</div>
 												<ul className="list-disc pl-6 text-gray-700 space-y-1">
-													{data.travelByBus.map((t, idx) => (
+													{travelByBus.map((t, idx) => (
 														<li key={idx}>{t}</li>
 													))}
 												</ul>
 											</div>
 										)}
 
-										{data.travelByRoad && data.travelByRoad.length > 0 && (
+										{travelByRoad.length > 0 && (
 											<div>
 												<div className="flex items-center gap-2 mb-2">
 													<Car className="w-5 h-5 text-primary" />
 													<h3 className="text-lg font-semibold text-gray-900">By Road</h3>
 												</div>
 												<ul className="list-disc pl-6 text-gray-700 space-y-1">
-													{data.travelByRoad.map((t, idx) => (
+													{travelByRoad.map((t, idx) => (
 														<li key={idx}>{t}</li>
 													))}
 												</ul>
@@ -420,13 +479,13 @@ export default function DharmshalaDetailsPage() {
 							)}
 
 							{/* Amenities */}
-							{data.amenities && data.amenities.length > 0 && (
+							{amenities.length > 0 && (
 								<div className="bg-white rounded-2xl p-6 shadow-sm">
 									<h2 className="text-2xl font-serif font-bold text-gray-900 mb-6">
 										Amenities
 									</h2>
 									<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-										{data.amenities.map((a, idx) => (
+										{amenities.map((a, idx) => (
 											<div
 												key={`${a}-${idx}`}
 												className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"

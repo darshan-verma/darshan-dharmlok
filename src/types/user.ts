@@ -281,11 +281,11 @@ export interface Dharamshala {
 	city: string;
 	state: string;
 	description?: string | null;
-	imageFile?: string | null;
+	imageFile?: unknown;
 	status?: string;
 	address?: string | null;
 	location?: string | null;
-	amenities?: string | null;
+	amenities?: unknown;
 }
 
 export interface PoojaCategory {

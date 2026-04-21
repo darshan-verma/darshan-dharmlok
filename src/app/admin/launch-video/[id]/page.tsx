@@ -34,7 +34,7 @@ export default function VideoDetailPage() {
 			setEditedVideo(data);
 		} catch {
 			toast.error("Failed to load video details");
-			router.push("/admin/video");
+			router.push("/admin/launch-video");
 		}
 	}, [videoId, router]);
 
@@ -166,7 +166,7 @@ export default function VideoDetailPage() {
 				<Button
 					variant="outline"
 					size="icon"
-					onClick={() => router.push("/admin/video")}
+					onClick={() => router.push("/admin/launch-video")}
 				>
 					<ArrowLeft className="h-4 w-4" />
 				</Button>

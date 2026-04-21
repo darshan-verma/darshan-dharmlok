@@ -52,6 +52,10 @@ const balvidhyaTypes = [
 ];
 
 const balvidhyaCategories = [
+	{ value: "Sanatan", label: "Sanatan" },
+	{ value: "Buddhism", label: "Buddhism" },
+	{ value: "Sikh", label: "Sikh" },
+	{ value: "Jain", label: "Jain" },
 	{ value: "BhagavadGita", label: "Bhagavad Gita" },
 	{ value: "Ramayana", label: "Ramayana" },
 	{ value: "Mahabharata", label: "Mahabharata" },
@@ -76,6 +80,14 @@ const getTypeColor = (type: string): string =>
 
 const getCategoryColor = (category: string): string => {
 	switch (category) {
+		case "Sanatan":
+			return "bg-amber-100 text-amber-800";
+		case "Buddhism":
+			return "bg-yellow-100 text-yellow-800";
+		case "Sikh":
+			return "bg-indigo-100 text-indigo-800";
+		case "Jain":
+			return "bg-teal-100 text-teal-800";
 		case "BhagavadGita":
 			return "bg-orange-100 text-orange-800";
 		case "Ramayana":

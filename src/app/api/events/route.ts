@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export interface EventApi {
 	id: string;
@@ -38,27 +39,134 @@ function parseArrayField(field: unknown): string[] {
 	return [];
 }
 
+function formatDateOnly(value: unknown): string {
+	if (value instanceof Date) {
+		return Number.isNaN(value.getTime())
+			? ""
+			: value.toISOString().split("T")[0];
+	}
+	if (typeof value === "string") {
+		const parsed = new Date(value);
+		return Number.isNaN(parsed.getTime())
+			? value
+			: parsed.toISOString().split("T")[0];
+	}
+	return "";
+}
+
+function formatIsoDateTime(value: unknown): string | undefined {
+	if (value instanceof Date) {
+		return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
+	}
+	if (typeof value === "string") {
+		const parsed = new Date(value);
+		return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+	}
+	return undefined;
+}
+
 // GET /api/events
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
 	try {
+		const searchParams = req.nextUrl.searchParams;
+		const pageParam = searchParams.get("page");
+		const limitParam = searchParams.get("limit");
+		const searchParam = searchParams.get("search")?.trim();
+		const categoryParam = searchParams.get("category")?.trim();
+		const typeParam = searchParams.get("type")?.trim();
+		const statusParam = searchParams.get("status")?.trim();
+		const filtersOnly = searchParams.get("filtersOnly") === "true";
+
+		const parsedPage = Number(pageParam ?? "1");
+		const parsedLimit = Number(limitParam ?? "0");
+		const hasPaginationParams = pageParam !== null || limitParam !== null;
+
+		const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+		const limit =
+			Number.isFinite(parsedLimit) && parsedLimit > 0
+				? Math.min(parsedLimit, 100)
+				: 0;
+
+		const where: Prisma.EventWhereInput = {};
+		const andConditions: Prisma.EventWhereInput[] = [];
+
+		if (statusParam) {
+			andConditions.push({
+				status: { equals: statusParam, mode: "insensitive" },
+			});
+		}
+
+		if (categoryParam) {
+			andConditions.push({
+				category: { contains: categoryParam, mode: "insensitive" },
+			});
+		}
+
+		if (typeParam) {
+			andConditions.push({
+				type: { contains: typeParam, mode: "insensitive" },
+			});
+		}
+
+		if (searchParam) {
+			andConditions.push({
+				OR: [
+					{ title: { contains: searchParam, mode: "insensitive" } },
+					{ description: { contains: searchParam, mode: "insensitive" } },
+					{ category: { contains: searchParam, mode: "insensitive" } },
+					{ type: { contains: searchParam, mode: "insensitive" } },
+					{ place: { contains: searchParam, mode: "insensitive" } },
+					{ location: { contains: searchParam, mode: "insensitive" } },
+				],
+			});
+		}
+
+		if (andConditions.length > 0) {
+			where.AND = andConditions;
+		}
+
+		if (filtersOnly) {
+			const rows = await prisma.event.findMany({
+				where: Object.keys(where).length > 0 ? where : undefined,
+				select: { category: true, type: true },
+			});
+
+			const categories = Array.from(
+				new Set(
+					rows
+						.map((row) => row.category?.trim())
+						.filter((value): value is string => Boolean(value))
+				)
+			).sort((a, b) => a.localeCompare(b));
+
+			const types = Array.from(
+				new Set(
+					rows
+						.map((row) => row.type?.trim())
+						.filter((value): value is string => Boolean(value))
+				)
+			).sort((a, b) => a.localeCompare(b));
+
+			return NextResponse.json({ categories, types });
+		}
+
 		const events = await prisma.event.findMany({
+			where: Object.keys(where).length > 0 ? where : undefined,
 			orderBy: { createdAt: "desc" },
+			...(hasPaginationParams && limit > 0
+				? { skip: (page - 1) * limit, take: limit }
+				: {}),
 		});
+
 		const result: EventApi[] = events.map((event) => ({
 			id: event.id,
 			title: event.title,
 			description: event.description || "",
 			bookingUrl: event.bookingUrl || "",
 			address: event.address || "",
-			fromDate:
-				event.fromDate instanceof Date
-					? event.fromDate.toISOString().split("T")[0]
-					: String(event.fromDate),
+			fromDate: formatDateOnly(event.fromDate),
 			fromTime: event.fromTime || "",
-			toDate:
-				event.toDate instanceof Date
-					? event.toDate.toISOString().split("T")[0]
-					: String(event.toDate),
+			toDate: formatDateOnly(event.toDate),
 			toTime: event.toTime || "",
 			place: event.place || "",
 			location: event.location || "",
@@ -68,11 +176,29 @@ export async function GET(_req: NextRequest) {
 			bannerImage: event.bannerImage || "",
 			relatedImages: parseArrayField(event.relatedImages),
 			status: event.status,
-			createdAt: event.createdAt?.toISOString(),
-			updatedAt: event.updatedAt?.toISOString(),
+			createdAt: formatIsoDateTime(event.createdAt),
+			updatedAt: formatIsoDateTime(event.updatedAt),
 		}));
+
+		if (hasPaginationParams && limit > 0) {
+			const total = await prisma.event.count({
+				where: Object.keys(where).length > 0 ? where : undefined,
+			});
+			const totalPages = Math.ceil(total / limit);
+			return NextResponse.json({
+				content: result,
+				total,
+				pagination: {
+					currentPage: page,
+					totalPages,
+					limit,
+				},
+			});
+		}
+
 		return NextResponse.json(result);
-	} catch {
+	} catch (error) {
+		console.error("Error fetching events:", error);
 		return NextResponse.json(
 			{ error: "Failed to fetch events" },
 			{ status: 500 }
@@ -136,15 +262,9 @@ export async function POST(req: NextRequest) {
 			description: event.description || "",
 			bookingUrl: event.bookingUrl || "",
 			address: event.address || "",
-			fromDate:
-				event.fromDate instanceof Date
-					? event.fromDate.toISOString().split("T")[0]
-					: String(event.fromDate),
+			fromDate: formatDateOnly(event.fromDate),
 			fromTime: event.fromTime || "",
-			toDate:
-				event.toDate instanceof Date
-					? event.toDate.toISOString().split("T")[0]
-					: String(event.toDate),
+			toDate: formatDateOnly(event.toDate),
 			toTime: event.toTime || "",
 			place: event.place || "",
 			location: event.location || "",
@@ -154,8 +274,8 @@ export async function POST(req: NextRequest) {
 			bannerImage: event.bannerImage || "",
 			relatedImages: parseArrayField(event.relatedImages),
 			status: event.status,
-			createdAt: event.createdAt?.toISOString(),
-			updatedAt: event.updatedAt?.toISOString(),
+			createdAt: formatIsoDateTime(event.createdAt),
+			updatedAt: formatIsoDateTime(event.updatedAt),
 		};
 		return NextResponse.json(result);
 	} catch {

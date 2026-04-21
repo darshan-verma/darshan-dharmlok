@@ -1,17 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 // Helper function to safely parse JSON string fields that should be arrays
-const parseJsonArrayField = <T = unknown>(
-	fieldValue: string | null | undefined
-): T[] => {
+const parseJsonArrayField = <T = unknown>(fieldValue: unknown): T[] => {
 	if (!fieldValue) return [];
+	if (Array.isArray(fieldValue)) return fieldValue as T[];
+	if (typeof fieldValue !== "string") return [];
+
 	try {
 		const parsed = JSON.parse(fieldValue);
 		return Array.isArray(parsed) ? (parsed as T[]) : [];
 	} catch {
-		return [];
+		const trimmed = fieldValue.trim();
+		return trimmed ? ([trimmed] as T[]) : [];
 	}
+};
+
+const isInputJsonValue = (value: unknown): value is Prisma.InputJsonValue => {
+	if (value === null) return true;
+	if (
+		typeof value === "string" ||
+		typeof value === "number" ||
+		typeof value === "boolean"
+	) {
+		return true;
+	}
+
+	if (Array.isArray(value)) {
+		return value.every(
+			(item) => item !== undefined && isInputJsonValue(item)
+		);
+	}
+
+	if (typeof value === "object") {
+		return Object.values(value as Record<string, unknown>).every(
+			(item) => item !== undefined && isInputJsonValue(item)
+		);
+	}
+
+	return false;
+};
+
+const normalizeArrayInput = (value: unknown): Prisma.InputJsonValue => {
+	if (!value) return [];
+
+	if (Array.isArray(value)) {
+		return value.filter(
+			(item): item is Prisma.InputJsonValue =>
+				item !== undefined && isInputJsonValue(item)
+		);
+	}
+
+	if (typeof value === "string") {
+		try {
+			const parsed = JSON.parse(value);
+			if (Array.isArray(parsed)) {
+				return parsed.filter(
+					(item): item is Prisma.InputJsonValue =>
+						item !== undefined && isInputJsonValue(item)
+				);
+			}
+			return [];
+		} catch {
+			const trimmed = value.trim();
+			return trimmed ? [trimmed] : [];
+		}
+	}
+
+	return [];
 };
 
 export async function GET(
@@ -107,27 +164,7 @@ export async function PUT(
 				dharamshalaId: id,
 			})) || [];
 
-		const dharamshalaUpdateData: {
-			name: string;
-			date: Date;
-			state: string;
-			city: string;
-			status: string;
-			description?: string;
-			additionalInfo?: string;
-			address?: string; // Updated for address field
-			location?: string; // Updated for location iframe URL
-			timings?: string;
-			amenities: string;
-			imageFile: string;
-			videoFile: string;
-			bannerImage?: string; // NEW
-			coverImage?: string; // NEW
-			travelByAir: string;
-			travelByTrain: string;
-			travelByBus: string;
-			travelByRoad: string;
-		} = {
+		const dharamshalaUpdateData: Prisma.DharamshalaUpdateInput = {
 			name,
 			date: new Date(date),
 			state,
@@ -138,15 +175,15 @@ export async function PUT(
 			address, // Use address field
 			location, // Use location field for iframe
 			timings,
-			amenities: amenities ? JSON.stringify(amenities) : "[]",
-			imageFile: imageFile ? JSON.stringify(imageFile) : "[]",
-			videoFile: videoFile ? JSON.stringify(videoFile) : "[]",
+			amenities: normalizeArrayInput(amenities),
+			imageFile: normalizeArrayInput(imageFile),
+			videoFile: normalizeArrayInput(videoFile),
 			bannerImage, // NEW: Direct string assignment
 			coverImage, // NEW: Direct string assignment
-			travelByAir: travelByAir ? JSON.stringify(travelByAir) : "[]",
-			travelByTrain: travelByTrain ? JSON.stringify(travelByTrain) : "[]",
-			travelByBus: travelByBus ? JSON.stringify(travelByBus) : "[]",
-			travelByRoad: travelByRoad ? JSON.stringify(travelByRoad) : "[]",
+			travelByAir: normalizeArrayInput(travelByAir),
+			travelByTrain: normalizeArrayInput(travelByTrain),
+			travelByBus: normalizeArrayInput(travelByBus),
+			travelByRoad: normalizeArrayInput(travelByRoad),
 			// No direct update for dharamshalaFaqs here as they are handled separately
 		};
 

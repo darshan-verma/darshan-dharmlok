@@ -3,25 +3,202 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
 // Helper function (can be moved to a shared utils file if used in multiple places)
-const parseJsonArrayField = <T = unknown>(
-	fieldValue: string | null | undefined
-): T[] => {
+const parseJsonArrayField = <T = unknown>(fieldValue: unknown): T[] => {
 	if (!fieldValue) return [];
+	if (Array.isArray(fieldValue)) return fieldValue as T[];
+
+	if (typeof fieldValue !== "string") return [];
+
 	try {
 		const parsed = JSON.parse(fieldValue);
 		return Array.isArray(parsed) ? (parsed as T[]) : [];
 	} catch {
-		return [];
+		const trimmed = fieldValue.trim();
+		return trimmed ? ([trimmed] as T[]) : [];
 	}
 };
 
-// GET all dharamshalas
-export async function GET(_: NextRequest) {
+const isInputJsonValue = (value: unknown): value is Prisma.InputJsonValue => {
+	if (value === null) return true;
+	if (
+		typeof value === "string" ||
+		typeof value === "number" ||
+		typeof value === "boolean"
+	) {
+		return true;
+	}
+
+	if (Array.isArray(value)) {
+		return value.every(
+			(item) => item !== undefined && isInputJsonValue(item)
+		);
+	}
+
+	if (typeof value === "object") {
+		return Object.values(value as Record<string, unknown>).every(
+			(item) => item !== undefined && isInputJsonValue(item)
+		);
+	}
+
+	return false;
+};
+
+const normalizeArrayInput = (value: unknown): Prisma.InputJsonValue => {
+	if (!value) return [];
+
+	if (Array.isArray(value)) {
+		return value.filter(
+			(item): item is Prisma.InputJsonValue =>
+				item !== undefined && isInputJsonValue(item)
+		);
+	}
+
+	if (typeof value === "string") {
+		try {
+			const parsed = JSON.parse(value);
+			if (Array.isArray(parsed)) {
+				return parsed.filter(
+					(item): item is Prisma.InputJsonValue =>
+						item !== undefined && isInputJsonValue(item)
+				);
+			}
+			return [];
+		} catch {
+			const trimmed = value.trim();
+			return trimmed ? [trimmed] : [];
+		}
+	}
+
+	return [];
+};
+
+// GET dharamshalas (supports optional pagination via page + limit)
+export async function GET(req: NextRequest) {
 	try {
-		const dharamshalas = await prisma.dharamshala.findMany({
+		const searchParams = req.nextUrl.searchParams;
+		const pageParam = searchParams.get("page");
+		const limitParam = searchParams.get("limit");
+		const searchParam = searchParams.get("search")?.trim();
+		const stateParam = searchParams.get("state")?.trim();
+		const cityParam = searchParams.get("city")?.trim();
+		const statusParam = searchParams.get("status")?.trim();
+		const filtersOnly = searchParams.get("filtersOnly") === "true";
+
+		const parsedPage = Number(pageParam ?? "1");
+		const parsedLimit = Number(limitParam ?? "0");
+		const hasPaginationParams = pageParam !== null || limitParam !== null;
+
+		const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+		const limit =
+			Number.isFinite(parsedLimit) && parsedLimit > 0
+				? Math.min(parsedLimit, 100)
+				: 0;
+
+		const where: Prisma.DharamshalaWhereInput = {};
+		const andConditions: Prisma.DharamshalaWhereInput[] = [];
+
+		if (statusParam) {
+			andConditions.push({
+				status: {
+					equals: statusParam,
+					mode: "insensitive",
+				},
+			});
+		}
+
+		if (stateParam) {
+			andConditions.push({
+				state: {
+					contains: stateParam,
+					mode: "insensitive",
+				},
+			});
+		}
+
+		if (cityParam) {
+			andConditions.push({
+				city: {
+					contains: cityParam,
+					mode: "insensitive",
+				},
+			});
+		}
+
+		if (searchParam) {
+			andConditions.push({
+				OR: [
+					{ name: { contains: searchParam, mode: "insensitive" } },
+					{ city: { contains: searchParam, mode: "insensitive" } },
+					{ state: { contains: searchParam, mode: "insensitive" } },
+					{ address: { contains: searchParam, mode: "insensitive" } },
+				],
+			});
+		}
+
+		if (andConditions.length > 0) {
+			where.AND = andConditions;
+		}
+
+		if (filtersOnly) {
+			const locationRows = await prisma.dharamshala.findMany({
+				where,
+				select: {
+					state: true,
+					city: true,
+				},
+			});
+
+			const normalizedLocations = locationRows
+				.map((row) => ({
+					state: row.state?.trim() || "",
+					city: row.city?.trim() || "",
+				}))
+				.filter((row) => row.state || row.city);
+
+			const states = Array.from(
+				new Set(
+					normalizedLocations
+						.map((row) => row.state)
+						.filter((state): state is string => Boolean(state))
+				)
+			).sort((a, b) => a.localeCompare(b));
+
+			const cities = Array.from(
+				new Set(
+					normalizedLocations
+						.map((row) => row.city)
+						.filter((city): city is string => Boolean(city))
+				)
+			).sort((a, b) => a.localeCompare(b));
+
+			return NextResponse.json({
+				states,
+				cities,
+				locations: normalizedLocations,
+			});
+		}
+
+		const queryOptions: {
+			orderBy: { createdAt: "desc" };
+			include: { dharamshalaFaqs: true };
+			where?: Prisma.DharamshalaWhereInput;
+			skip?: number;
+			take?: number;
+		} = {
 			orderBy: { createdAt: "desc" },
 			include: { dharamshalaFaqs: true }, // Use dharamshalaFaqs
-		});
+		};
+
+		if (Object.keys(where).length > 0) {
+			queryOptions.where = where;
+		}
+
+		if (hasPaginationParams && limit > 0) {
+			queryOptions.skip = (page - 1) * limit;
+			queryOptions.take = limit;
+		}
+
+		const dharamshalas = await prisma.dharamshala.findMany(queryOptions);
 
 		const result = dharamshalas.map((dharamshala) => ({
 			...dharamshala,
@@ -37,6 +214,22 @@ export async function GET(_: NextRequest) {
 			coverImage: dharamshala.coverImage,
 			// dharamshalaFaqs will be included directly by Prisma if the relation is named so
 		}));
+		if (hasPaginationParams && limit > 0) {
+			const total = await prisma.dharamshala.count({
+				where: queryOptions.where,
+			});
+			const totalPages = Math.ceil(total / limit);
+			return NextResponse.json({
+				content: result,
+				total,
+				pagination: {
+					currentPage: page,
+					totalPages,
+					limit,
+				},
+			});
+		}
+
 		return NextResponse.json(result);
 	} catch (error) {
 		console.error("[GET /api/dharamshala] Error:", error);
@@ -94,15 +287,15 @@ export async function POST(req: NextRequest) {
 			address, // Use address field
 			location, // Use location field for iframe
 			timings,
-			amenities: amenities ? JSON.stringify(amenities) : "[]",
-			imageFile: imageFile ? JSON.stringify(imageFile) : "[]",
-			videoFile: videoFile ? JSON.stringify(videoFile) : "[]",
+			amenities: normalizeArrayInput(amenities),
+			imageFile: normalizeArrayInput(imageFile),
+			videoFile: normalizeArrayInput(videoFile),
 			bannerImage, // NEW: Direct string assignment
 			coverImage, // NEW: Direct string assignment
-			travelByAir: travelByAir ? JSON.stringify(travelByAir) : "[]",
-			travelByTrain: travelByTrain ? JSON.stringify(travelByTrain) : "[]",
-			travelByBus: travelByBus ? JSON.stringify(travelByBus) : "[]",
-			travelByRoad: travelByRoad ? JSON.stringify(travelByRoad) : "[]",
+			travelByAir: normalizeArrayInput(travelByAir),
+			travelByTrain: normalizeArrayInput(travelByTrain),
+			travelByBus: normalizeArrayInput(travelByBus),
+			travelByRoad: normalizeArrayInput(travelByRoad),
 			dharamshalaFaqs: {
 				create:
 					dharamshalaFaqs?.map((faq: { question: string; answer: string }) => ({

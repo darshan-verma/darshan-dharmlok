@@ -37,6 +37,32 @@ function parseArrayField(field: unknown): string[] {
 	return [];
 }
 
+function formatDateOnly(value: unknown): string {
+	if (value instanceof Date) {
+		return Number.isNaN(value.getTime())
+			? ""
+			: value.toISOString().split("T")[0];
+	}
+	if (typeof value === "string") {
+		const parsed = new Date(value);
+		return Number.isNaN(parsed.getTime())
+			? value
+			: parsed.toISOString().split("T")[0];
+	}
+	return "";
+}
+
+function formatIsoDateTime(value: unknown): string | undefined {
+	if (value instanceof Date) {
+		return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
+	}
+	if (typeof value === "string") {
+		const parsed = new Date(value);
+		return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+	}
+	return undefined;
+}
+
 // GET /api/events/[id]
 export async function GET(req: NextRequest) {
 	try {
@@ -53,15 +79,9 @@ export async function GET(req: NextRequest) {
 			description: event.description || "",
 			bookingUrl: event.bookingUrl || "",
 			address: event.address || "",
-			fromDate:
-				event.fromDate instanceof Date
-					? event.fromDate.toISOString().split("T")[0]
-					: String(event.fromDate),
+			fromDate: formatDateOnly(event.fromDate),
 			fromTime: event.fromTime || "",
-			toDate:
-				event.toDate instanceof Date
-					? event.toDate.toISOString().split("T")[0]
-					: String(event.toDate),
+			toDate: formatDateOnly(event.toDate),
 			toTime: event.toTime || "",
 			place: event.place || "",
 			location: event.location || "",
@@ -71,8 +91,8 @@ export async function GET(req: NextRequest) {
 			bannerImage: event.bannerImage || "",
 			relatedImages: parseArrayField(event.relatedImages),
 			status: event.status,
-			createdAt: event.createdAt?.toISOString(),
-			updatedAt: event.updatedAt?.toISOString(),
+			createdAt: formatIsoDateTime(event.createdAt),
+			updatedAt: formatIsoDateTime(event.updatedAt),
 		};
 		return NextResponse.json(result);
 	} catch {
@@ -156,15 +176,9 @@ export async function PUT(req: NextRequest) {
 			description: updated.description || "",
 			bookingUrl: updated.bookingUrl || "",
 			address: updated.address || "",
-			fromDate:
-				updated.fromDate instanceof Date
-					? updated.fromDate.toISOString().split("T")[0]
-					: String(updated.fromDate),
+			fromDate: formatDateOnly(updated.fromDate),
 			fromTime: updated.fromTime || "",
-			toDate:
-				updated.toDate instanceof Date
-					? updated.toDate.toISOString().split("T")[0]
-					: String(updated.toDate),
+			toDate: formatDateOnly(updated.toDate),
 			toTime: updated.toTime || "",
 			place: updated.place || "",
 			location: updated.location || "",
@@ -174,8 +188,8 @@ export async function PUT(req: NextRequest) {
 			bannerImage: updated.bannerImage || "",
 			relatedImages: parseArrayField(updated.relatedImages),
 			status: updated.status,
-			createdAt: updated.createdAt?.toISOString(),
-			updatedAt: updated.updatedAt?.toISOString(),
+			createdAt: formatIsoDateTime(updated.createdAt),
+			updatedAt: formatIsoDateTime(updated.updatedAt),
 		};
 		return NextResponse.json(result);
 	} catch {

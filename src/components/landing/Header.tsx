@@ -63,18 +63,6 @@ export default function Header() {
 		setUnseenNotifications((prev) => prev.filter((n) => n.id !== id));
 	}, [persistSeenIds]);
 
-	// Debug: Log session data (remove in production)
-	useEffect(() => {
-		if (isAuthenticated && session?.user) {
-			console.log("Header - Session user:", {
-				name: session.user.name,
-				email: session.user.email,
-				image: session.user.image,
-				id: session.user.id,
-			});
-		}
-	}, [isAuthenticated, session]);
-
 	useEffect(() => {
 		const handleScroll = () => {
 			const scrollPosition = window.scrollY;
