@@ -36,6 +36,7 @@ import {
 } from "@/data/numerology-calculators";
 import { dateInputToIsoDatetime } from "@/lib/datetime-local";
 import { cn } from "@/lib/utils";
+import { useHoroscopeCachedValue } from "@/components/horoscope/calculations/shared-ui";
 
 const baseSchema = z.object({
 	system: z.enum(["pythagorean", "chaldean"]),
@@ -132,7 +133,8 @@ function buildQuery(
 }
 
 export function NumerologyCalculatorForm({ className }: { className?: string }) {
-	const [result, setResult] = useState<unknown>(null);
+	const { value: result, setValue: setResult, clearValue: clearResult } =
+		useHoroscopeCachedValue<unknown>("numerology-calculator:result");
 	const [fetchError, setFetchError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 
@@ -457,6 +459,18 @@ export function NumerologyCalculatorForm({ className }: { className?: string }) 
 						/>
 
 						<div className="flex justify-end pt-2">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => {
+									clearResult();
+									setFetchError(null);
+								}}
+								disabled={loading || result == null}
+								className="mr-3 min-w-[140px]"
+							>
+								Refresh form
+							</Button>
 							<Button
 								type="submit"
 								disabled={loading}

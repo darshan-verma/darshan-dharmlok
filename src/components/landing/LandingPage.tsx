@@ -9,6 +9,7 @@ import OurServices from "./OurServices";
 import Dharmgurus from "./Dharmgurus";
 import Panditji from "./Panditji";
 import ExploreDharmlok from "./ExploreDharmlok";
+import HoroscopeSection from "./HoroscopeSection";
 import EShopProducts from "./EShopProducts";
 import TravelPortal from "./TravelPortal";
 import Footer from "./Footer";
@@ -38,6 +39,7 @@ const SECTION_COMPONENTS: Record<
   dharmguru: Dharmgurus as React.ComponentType<Record<string, unknown>>,
   panditji: Panditji as React.ComponentType<Record<string, unknown>>,
   "explore-dharmlok": ExploreDharmlok as React.ComponentType<Record<string, unknown>>,
+  horoscope: HoroscopeSection as React.ComponentType<Record<string, unknown>>,
   eshop: EShopProducts as React.ComponentType<Record<string, unknown>>,
 };
 
@@ -91,6 +93,15 @@ export default function LandingPage() {
     return base;
   };
 
+  const sortedSections = [...sections].sort((a, b) => a.sortOrder - b.sortOrder);
+  const horoscopeIndex = sortedSections.findIndex((s) => s.sectionKey === "horoscope");
+  const eShopIndex = sortedSections.findIndex((s) => s.sectionKey === "eshop");
+
+  if (horoscopeIndex !== -1 && eShopIndex !== -1 && horoscopeIndex > eShopIndex) {
+    const [horoscopeSection] = sortedSections.splice(horoscopeIndex, 1);
+    sortedSections.splice(eShopIndex, 0, horoscopeSection);
+  }
+
   return (
     <div className="min-h-screen bg-white/90 relative">
       <BackgroundShader className="opacity-70" color1="#ff8c42" color2="#ffb366" speed={0.3} />
@@ -104,9 +115,7 @@ export default function LandingPage() {
         ) : (
           <>
             <HeroSection slides={heroSlides ?? undefined} />
-            {sections
-              .sort((a, b) => a.sortOrder - b.sortOrder)
-              .map((section) => {
+            {sortedSections.map((section) => {
                 const Component = SECTION_COMPONENTS[section.sectionKey as HomepageSectionKey];
                 if (!Component) return null;
                 return (

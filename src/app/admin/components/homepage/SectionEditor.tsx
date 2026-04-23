@@ -41,6 +41,7 @@ const SECTION_LABELS: Record<HomepageSectionKey, string> = {
   dharmguru: "Dharmguru",
   panditji: "Panditji",
   "explore-dharmlok": "Explore Dharmlok",
+  horoscope: "Horoscope",
   eshop: "E-Shop",
 };
 

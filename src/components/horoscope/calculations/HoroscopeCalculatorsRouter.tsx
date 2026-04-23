@@ -41,6 +41,7 @@ import {
 	fetchProkeralaJson,
 	fetchProkeralaSvg,
 	geocodePlace,
+	useHoroscopeCachedValue,
 	HoroscopeJsonResult,
 	HoroscopeSubmitButton,
 	HoroscopeSvgResult,
@@ -286,7 +287,8 @@ function FormBirthLangJson({
 	const [language, setLanguage] = useState(languageOptions[0]?.value ?? "en");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [data, setData] = useState<unknown>(null);
+	const { value: data, setValue: setData, clearValue: clearData } =
+		useHoroscopeCachedValue<unknown>(`calc-json:${apiPath}`);
 
 	const langs = useMemo(() => languageOptions, [languageOptions]);
 
@@ -323,7 +325,11 @@ function FormBirthLangJson({
 					setBirthPlace={setBirthPlace}
 				/>
 				<LanguageField value={language} onChange={setLanguage} options={langs} />
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={clearData}
+					refreshDisabled={data == null}
+				/>
 			</form>
 			<HoroscopeJsonResult data={data} error={error} loading={loading} />
 		</CalculationShell>
@@ -338,7 +344,8 @@ function FormPlanetPosition({ title }: { title: string }) {
 	const [language, setLanguage] = useState("en");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [data, setData] = useState<unknown>(null);
+	const { value: data, setValue: setData, clearValue: clearData } =
+		useHoroscopeCachedValue<unknown>("calc-json:planet-position");
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -376,7 +383,11 @@ function FormPlanetPosition({ title }: { title: string }) {
 					onChange={setLanguage}
 					options={PLANET_POSITION_LANG_OPTIONS}
 				/>
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={clearData}
+					refreshDisabled={data == null}
+				/>
 			</form>
 			<HoroscopeJsonResult data={data} error={error} loading={loading} />
 		</CalculationShell>
@@ -400,7 +411,8 @@ function FormBasicAdvanced({
 	const [resultType, setResultType] = useState<"basic" | "advanced">("basic");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [data, setData] = useState<unknown>(null);
+	const { value: data, setValue: setData, clearValue: clearData } =
+		useHoroscopeCachedValue<unknown>(`calc-json:${basePath}:${advancedPath}`);
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -456,7 +468,11 @@ function FormBasicAdvanced({
 						</div>
 					</RadioGroup>
 				</div>
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={clearData}
+					refreshDisabled={data == null}
+				/>
 			</form>
 			<HoroscopeJsonResult data={data} error={error} loading={loading} />
 		</CalculationShell>
@@ -471,7 +487,8 @@ function FormSadeSati({ title }: { title: string }) {
 	const [resultType, setResultType] = useState<"basic" | "advanced">("basic");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [data, setData] = useState<unknown>(null);
+	const { value: data, setValue: setData, clearValue: clearData } =
+		useHoroscopeCachedValue<unknown>("calc-json:sade-sati");
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -526,7 +543,11 @@ function FormSadeSati({ title }: { title: string }) {
 						</div>
 					</RadioGroup>
 				</div>
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={clearData}
+					refreshDisabled={data == null}
+				/>
 			</form>
 			<HoroscopeJsonResult data={data} error={error} loading={loading} />
 		</CalculationShell>
@@ -540,7 +561,8 @@ function FormKaalSarp({ title }: { title: string }) {
 	const [birthPlace, setBirthPlace] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [data, setData] = useState<unknown>(null);
+	const { value: data, setValue: setData, clearValue: clearData } =
+		useHoroscopeCachedValue<unknown>("calc-json:kaal-sarp-dosha");
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -573,7 +595,11 @@ function FormKaalSarp({ title }: { title: string }) {
 					birthPlace={birthPlace}
 					setBirthPlace={setBirthPlace}
 				/>
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={clearData}
+					refreshDisabled={data == null}
+				/>
 			</form>
 			<HoroscopeJsonResult data={data} error={error} loading={loading} />
 		</CalculationShell>
@@ -590,7 +616,8 @@ function FormBirthChart({ title }: { title: string }) {
 	const [chartStyle, setChartStyle] = useState("south-indian");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [svg, setSvg] = useState<string | null>(null);
+	const { value: svg, setValue: setSvg, clearValue: clearSvg } =
+		useHoroscopeCachedValue<string>("calc-svg:birth-chart");
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -660,7 +687,11 @@ function FormBirthChart({ title }: { title: string }) {
 						</SelectContent>
 					</Select>
 				</div>
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={clearSvg}
+					refreshDisabled={svg == null}
+				/>
 			</form>
 			<HoroscopeSvgResult svg={svg} error={error} loading={loading} title="Result" />
 		</CalculationShell>
@@ -675,7 +706,8 @@ function FormSudarshana({ title }: { title: string }) {
 	const [language, setLanguage] = useState("en");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [svg, setSvg] = useState<string | null>(null);
+	const { value: svg, setValue: setSvg, clearValue: clearSvg } =
+		useHoroscopeCachedValue<string>("calc-svg:sudarshana");
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -714,7 +746,11 @@ function FormSudarshana({ title }: { title: string }) {
 					onChange={setLanguage}
 					options={SUDHARSHANA_LANG_OPTIONS}
 				/>
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={clearSvg}
+					refreshDisabled={svg == null}
+				/>
 			</form>
 			<HoroscopeSvgResult svg={svg} error={error} loading={loading} title="Result" />
 		</CalculationShell>
@@ -733,8 +769,10 @@ function FormAshtakavarga({ title }: { title: string }) {
 	const [layoutType, setLayoutType] = useState("prastara");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [data, setData] = useState<unknown>(null);
-	const [svg, setSvg] = useState<string | null>(null);
+	const { value: data, setValue: setData, clearValue: clearData } =
+		useHoroscopeCachedValue<unknown>("calc-json:ashtakavarga");
+	const { value: svg, setValue: setSvg, clearValue: clearSvg } =
+		useHoroscopeCachedValue<string>("calc-svg:ashtakavarga");
 	const [chartError, setChartError] = useState<string | null>(null);
 
 	const planetParam = useMemo(() => {
@@ -888,7 +926,15 @@ function FormAshtakavarga({ title }: { title: string }) {
 						</SelectContent>
 					</Select>
 				</div>
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={() => {
+						clearData();
+						clearSvg();
+						setChartError(null);
+					}}
+					refreshDisabled={data == null && svg == null}
+				/>
 			</form>
 			<HoroscopeJsonResult data={data} error={error} loading={loading} />
 			{!loading && data != null && (
@@ -913,7 +959,8 @@ function FormChandrashtama({ title }: { title: string }) {
 	const [outputTimezone, setOutputTimezone] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [data, setData] = useState<unknown>(null);
+	const { value: data, setValue: setData, clearValue: clearData } =
+		useHoroscopeCachedValue<unknown>("calc-json:chandrashtama");
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -990,7 +1037,11 @@ function FormChandrashtama({ title }: { title: string }) {
 						onChange={(e) => setOutputTimezone(e.target.value)}
 					/>
 				</div>
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={clearData}
+					refreshDisabled={data == null}
+				/>
 			</form>
 			<HoroscopeJsonResult data={data} error={error} loading={loading} />
 		</CalculationShell>
@@ -1005,7 +1056,8 @@ function FormGowri({ title }: { title: string }) {
 	const [language, setLanguage] = useState("en");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [data, setData] = useState<unknown>(null);
+	const { value: data, setValue: setData, clearValue: clearData } =
+		useHoroscopeCachedValue<unknown>("calc-json:gowri");
 
 	const langOpts = DAILY_PANCHANG_LANGUAGE_OPTIONS.map((o) => ({
 		value: o.value,
@@ -1044,7 +1096,11 @@ function FormGowri({ title }: { title: string }) {
 					setBirthPlace={setBirthPlace}
 				/>
 				<LanguageField value={language} onChange={setLanguage} options={langOpts} />
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={clearData}
+					refreshDisabled={data == null}
+				/>
 			</form>
 			<HoroscopeJsonResult data={data} error={error} loading={loading} />
 		</CalculationShell>
@@ -1248,7 +1304,8 @@ function FormMarriageBirthDetails({
 	const [boyBirthPlace, setBoyBirthPlace] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [data, setData] = useState<unknown>(null);
+	const { value: data, setValue: setData, clearValue: clearData } =
+		useHoroscopeCachedValue<unknown>(`calc-json:${basePath}:${advancedPath ?? "basic"}`);
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -1348,7 +1405,11 @@ function FormMarriageBirthDetails({
 				{includeSystem ? (
 					<LanguageField value={language} onChange={setLanguage} options={langOptions} />
 				) : null}
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={clearData}
+					refreshDisabled={data == null}
+				/>
 			</form>
 			<HoroscopeJsonResult data={data} error={error} loading={loading} />
 		</CalculationShell>
@@ -1371,7 +1432,8 @@ function FormMarriageNakshatra({
 	const [resultType, setResultType] = useState<"basic" | "advanced">("basic");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [data, setData] = useState<unknown>(null);
+	const { value: data, setValue: setData, clearValue: clearData } =
+		useHoroscopeCachedValue<unknown>(`calc-json:${basePath}:${advancedPath}`);
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -1415,7 +1477,11 @@ function FormMarriageNakshatra({
 					/>
 				</div>
 				<MatchTypeField value={resultType} onChange={setResultType} />
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={clearData}
+					refreshDisabled={data == null}
+				/>
 			</form>
 			<HoroscopeJsonResult data={data} error={error} loading={loading} />
 		</CalculationShell>
@@ -1463,7 +1529,10 @@ function FormWesternSingleProfile({
 
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [result, setResult] = useState<WesternResultData | null>(null);
+	const { value: result, setValue: setResult, clearValue: clearResult } =
+		useHoroscopeCachedValue<WesternResultData>(
+			`calc-western-single:${chartType}`,
+		);
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -1765,7 +1834,14 @@ function FormWesternSingleProfile({
 					</Select>
 				</div>
 
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={() => {
+						clearResult();
+						setError(null);
+					}}
+					refreshDisabled={result == null}
+				/>
 			</form>
 
 			{error && (
@@ -1817,7 +1893,10 @@ function FormWesternDualProfile({
 
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [result, setResult] = useState<WesternResultData | null>(null);
+	const { value: result, setValue: setResult, clearValue: clearResult } =
+		useHoroscopeCachedValue<WesternResultData>(
+			`calc-western-dual:${chartType}`,
+		);
 
 	async function onSubmit(e: React.FormEvent) {
 		e.preventDefault();
@@ -2077,7 +2156,14 @@ function FormWesternDualProfile({
 					</Select>
 				</div>
 
-				<HoroscopeSubmitButton loading={loading} />
+				<HoroscopeSubmitButton
+					loading={loading}
+					onRefresh={() => {
+						clearResult();
+						setError(null);
+					}}
+					refreshDisabled={result == null}
+				/>
 			</form>
 
 			{error && (

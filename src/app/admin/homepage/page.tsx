@@ -91,6 +91,7 @@ export default function AdminHomepagePage() {
           <TabsTrigger value="dharmguru">Dharmguru</TabsTrigger>
           <TabsTrigger value="panditji">Panditji</TabsTrigger>
           <TabsTrigger value="explore-dharmlok">Explore Dharmlok</TabsTrigger>
+          <TabsTrigger value="horoscope">Horoscope</TabsTrigger>
           <TabsTrigger value="eshop">E-Shop</TabsTrigger>
           <TabsTrigger value="order" className="gap-2">
             <GripVertical className="h-4 w-4" />
@@ -146,6 +147,14 @@ export default function AdminHomepagePage() {
           <SectionEditor
             sectionKey="explore-dharmlok"
             section={sectionByKey("explore-dharmlok")}
+            onSave={fetchSections}
+          />
+        </TabsContent>
+
+        <TabsContent value="horoscope" className="mt-6">
+          <SectionEditor
+            sectionKey="horoscope"
+            section={sectionByKey("horoscope")}
             onSave={fetchSections}
           />
         </TabsContent>

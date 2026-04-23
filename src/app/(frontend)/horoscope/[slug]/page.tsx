@@ -17,6 +17,11 @@ import { CalendarCalculatorForm } from "@/components/horoscope/CalendarCalculato
 import { PdfReportForm } from "@/components/horoscope/PdfReportForm";
 import { HoroscopeCalculatorsRouter } from "@/components/horoscope/calculations";
 import { ArrowLeft } from "lucide-react";
+import {
+	HOROSCOPE_TYPE_VALUES,
+	ZODIAC_SIGN_VALUES,
+} from "@/data/horoscope-daily";
+import { DAILY_PANCHANG_LANGUAGE_OPTIONS } from "@/data/daily-panchang";
 
 export function generateStaticParams() {
 	return getAllServiceSlugs().map((slug) => ({ slug }));
@@ -38,10 +43,20 @@ export async function generateMetadata({
 
 type PageProps = {
 	params: Promise<{ slug: string }>;
+	searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function HoroscopeServicePage({ params }: PageProps) {
+function pickString(value: string | string[] | undefined): string | undefined {
+	if (Array.isArray(value)) return value[0];
+	return value;
+}
+
+export default async function HoroscopeServicePage({
+	params,
+	searchParams,
+}: PageProps) {
 	const { slug } = await params;
+	const qp = await searchParams;
 	const found = getServiceBySlug(slug);
 	if (!found) notFound();
 
@@ -52,6 +67,53 @@ export default async function HoroscopeServicePage({ params }: PageProps) {
 	const showPanchangCalculator =
 		isPanchangSection && !isCalendar && service.apiPath != null;
 	const showCalendarCalculator = isPanchangSection && isCalendar;
+	const autoFillEnabled = pickString(qp.autofill) === "1";
+
+	const signParam = pickString(qp.sign);
+	const typeParam = pickString(qp.type);
+	const dateParam = pickString(qp.date);
+	const locationParam = pickString(qp.location);
+	const languageParam = pickString(qp.language);
+	const ayanamsaParam = Number(pickString(qp.ayanamsa));
+	const resultTypeParam = pickString(qp.resultType);
+
+	const dailyInitialValues =
+		signParam &&
+		typeParam &&
+		ZODIAC_SIGN_VALUES.includes(
+			signParam as (typeof ZODIAC_SIGN_VALUES)[number],
+		) &&
+		HOROSCOPE_TYPE_VALUES.includes(
+			typeParam as (typeof HOROSCOPE_TYPE_VALUES)[number],
+		)
+			? {
+					sign: signParam as (typeof ZODIAC_SIGN_VALUES)[number],
+					type: typeParam as (typeof HOROSCOPE_TYPE_VALUES)[number],
+				}
+			: undefined;
+
+	const panchangLanguageValues = DAILY_PANCHANG_LANGUAGE_OPTIONS.map(
+		(option) => option.value,
+	);
+	const panchangInitialValues = {
+		ayanamsa:
+			ayanamsaParam === 1 || ayanamsaParam === 3 || ayanamsaParam === 5
+				? ayanamsaParam
+				: undefined,
+		date: dateParam,
+		location: locationParam,
+		language:
+			languageParam &&
+			panchangLanguageValues.includes(
+				languageParam as (typeof panchangLanguageValues)[number],
+			)
+				? (languageParam as (typeof panchangLanguageValues)[number])
+				: undefined,
+		resultType:
+			resultTypeParam === "basic" || resultTypeParam === "advanced"
+				? resultTypeParam
+				: undefined,
+	};
 
 	return (
 		<div className="min-h-screen w-full bg-background">
@@ -100,6 +162,8 @@ export default async function HoroscopeServicePage({ params }: PageProps) {
 									slug={slug}
 									apiPath={service.apiPath!}
 									defaultLanguage={service.defaultLanguage}
+									initialValues={panchangInitialValues}
+									autoSubmit={autoFillEnabled}
 								/>
 							</div>
 						) : slug === "numerology" ? (
@@ -108,7 +172,10 @@ export default async function HoroscopeServicePage({ params }: PageProps) {
 							</div>
 						) : slug === "daily-horoscope" ? (
 							<div className="mt-8">
-								<DailyHoroscopeForm />
+								<DailyHoroscopeForm
+									initialValues={dailyInitialValues}
+									autoSubmit={autoFillEnabled}
+								/>
 							</div>
 						) : slug === "daily-love-horoscope" ? (
 							<div className="mt-8">

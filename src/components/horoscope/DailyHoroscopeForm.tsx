@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -35,6 +35,7 @@ import {
 } from "@/lib/datetime-local";
 import { cn } from "@/lib/utils";
 import type { ProkeralaAdvancedDailyPredictionResponse } from "@/types/prokerala";
+import { useHoroscopeCachedValue } from "@/components/horoscope/calculations/shared-ui";
 
 const schema = z.object({
 	sign: z.enum(ZODIAC_SIGN_VALUES),
@@ -43,20 +44,36 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export function DailyHoroscopeForm({ className }: { className?: string }) {
-	const [result, setResult] =
-		useState<ProkeralaAdvancedDailyPredictionResponse | null>(null);
+export function DailyHoroscopeForm({
+	className,
+	initialValues,
+	autoSubmit = false,
+}: {
+	className?: string;
+	initialValues?: Partial<FormValues>;
+	autoSubmit?: boolean;
+}) {
+	const { value: result, setValue: setResult, clearValue: clearResult } =
+		useHoroscopeCachedValue<ProkeralaAdvancedDailyPredictionResponse>(
+			"daily-horoscope:result",
+		);
 	const [fetchError, setFetchError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
-	const [lastSubmitted, setLastSubmitted] = useState<FormValues | null>(null);
+	const {
+		value: lastSubmitted,
+		setValue: setLastSubmitted,
+		clearValue: clearLastSubmitted,
+	} = useHoroscopeCachedValue<FormValues>("daily-horoscope:last-submitted");
 
 	const form = useForm<FormValues>({
 		resolver: zodResolver(schema),
 		defaultValues: {
-			sign: "aries",
-			type: "general",
+			sign: initialValues?.sign ?? "aries",
+			type: initialValues?.type ?? "general",
 		},
 	});
+
+	const [didAutoSubmit, setDidAutoSubmit] = useState(false);
 
 	async function onSubmit(values: FormValues) {
 		setFetchError(null);
@@ -107,6 +124,12 @@ export function DailyHoroscopeForm({ className }: { className?: string }) {
 			setLoading(false);
 		}
 	}
+
+	useEffect(() => {
+		if (!autoSubmit || didAutoSubmit) return;
+		setDidAutoSubmit(true);
+		void form.handleSubmit(onSubmit)();
+	}, [autoSubmit, didAutoSubmit, form, onSubmit]);
 
 	const rowClass =
 		"grid gap-2 sm:grid-cols-[minmax(0,140px)_1fr] sm:items-center sm:gap-4";
@@ -193,6 +216,18 @@ export function DailyHoroscopeForm({ className }: { className?: string }) {
 						/>
 
 						<div className="flex flex-wrap items-center gap-3 pt-2">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => {
+									clearResult();
+									clearLastSubmitted();
+									setFetchError(null);
+								}}
+								disabled={loading || !result}
+							>
+								Refresh form
+							</Button>
 							<Button
 								type="submit"
 								disabled={loading}

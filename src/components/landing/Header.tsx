@@ -16,6 +16,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SearchDialog } from "@/components/shared/SearchDialog";
+import { HoroscopeNavTooltip } from "./HoroscopeNavTooltip";
 
 export default function Header() {
 	const { data: session, status } = useSession();
@@ -254,6 +255,7 @@ export default function Header() {
 									<Search className="w-5 h-5 text-gray-700" />
 								</button>
 							</SearchDialog>
+							<HoroscopeNavTooltip />
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<button

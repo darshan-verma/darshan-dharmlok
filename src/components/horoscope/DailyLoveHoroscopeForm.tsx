@@ -30,6 +30,7 @@ import {
 } from "@/lib/datetime-local";
 import { cn } from "@/lib/utils";
 import type { ProkeralaDailyLoveCompatibilityResponse } from "@/types/prokerala";
+import { useHoroscopeCachedValue } from "@/components/horoscope/calculations/shared-ui";
 
 const schema = z.object({
 	sign_one: z.enum(ZODIAC_SIGN_VALUES),
@@ -39,11 +40,17 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export function DailyLoveHoroscopeForm({ className }: { className?: string }) {
-	const [result, setResult] =
-		useState<ProkeralaDailyLoveCompatibilityResponse | null>(null);
+	const { value: result, setValue: setResult, clearValue: clearResult } =
+		useHoroscopeCachedValue<ProkeralaDailyLoveCompatibilityResponse>(
+			"daily-love-horoscope:result",
+		);
 	const [fetchError, setFetchError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
-	const [lastSubmitted, setLastSubmitted] = useState<FormValues | null>(null);
+	const {
+		value: lastSubmitted,
+		setValue: setLastSubmitted,
+		clearValue: clearLastSubmitted,
+	} = useHoroscopeCachedValue<FormValues>("daily-love-horoscope:last-submitted");
 
 	const form = useForm<FormValues>({
 		resolver: zodResolver(schema),
@@ -188,6 +195,18 @@ export function DailyLoveHoroscopeForm({ className }: { className?: string }) {
 						/>
 
 						<div className="flex flex-wrap items-center gap-3 pt-2">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => {
+									clearResult();
+									clearLastSubmitted();
+									setFetchError(null);
+								}}
+								disabled={loading || !result}
+							>
+								Refresh form
+							</Button>
 							<Button
 								type="submit"
 								disabled={loading}

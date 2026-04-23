@@ -8,6 +8,7 @@ export const HOMEPAGE_SECTION_KEYS = [
   "dharmguru",
   "panditji",
   "explore-dharmlok",
+  "horoscope",
   "eshop",
 ] as const;
 
@@ -63,10 +64,16 @@ export const HOMEPAGE_SECTION_DEFAULTS: Record<
       ],
     },
   },
+  horoscope: {
+    title: "Horoscope Services",
+    description:
+      "Explore daily horoscope updates, Panchang, and essential astrology services to guide your spiritual and personal journey.",
+    sortOrder: 6,
+  },
   eshop: {
     title: "E-Shop Products",
     description:
       "Discover authentic spiritual products, pooja items, and sacred artifacts from our curated e-shop to enhance your spiritual practice.",
-    sortOrder: 6,
+    sortOrder: 7,
   },
 };

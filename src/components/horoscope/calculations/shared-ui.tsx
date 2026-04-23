@@ -9,6 +9,90 @@ import { cn } from "@/lib/utils";
 
 const svgResultClassName =
 	"overflow-auto rounded-lg border border-orange-200/80 bg-white p-4 shadow-sm dark:border-orange-900/50 dark:bg-card [&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto [&_svg]:max-w-full [&_svg]:overflow-visible";
+const HOROSCOPE_CLIENT_CACHE_PREFIX = "horoscope-client-cache:v1";
+const HOROSCOPE_CLIENT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+type CachedValueEnvelope<T> = {
+	expiresAt: number;
+	value: T;
+};
+
+function readCachedValue<T>(cacheKey: string): T | null {
+	if (typeof window === "undefined") return null;
+	try {
+		const raw = window.localStorage.getItem(
+			`${HOROSCOPE_CLIENT_CACHE_PREFIX}:${cacheKey}`,
+		);
+		if (!raw) return null;
+		const parsed = JSON.parse(raw) as CachedValueEnvelope<T>;
+		if (!parsed || typeof parsed.expiresAt !== "number") return null;
+		if (Date.now() >= parsed.expiresAt) {
+			window.localStorage.removeItem(
+				`${HOROSCOPE_CLIENT_CACHE_PREFIX}:${cacheKey}`,
+			);
+			return null;
+		}
+		return parsed.value;
+	} catch {
+		return null;
+	}
+}
+
+function writeCachedValue<T>(cacheKey: string, value: T): void {
+	if (typeof window === "undefined") return;
+	try {
+		const payload: CachedValueEnvelope<T> = {
+			expiresAt: Date.now() + HOROSCOPE_CLIENT_CACHE_TTL_MS,
+			value,
+		};
+		window.localStorage.setItem(
+			`${HOROSCOPE_CLIENT_CACHE_PREFIX}:${cacheKey}`,
+			JSON.stringify(payload),
+		);
+	} catch {
+		// Ignore storage write failures (private mode / quota).
+	}
+}
+
+function clearCachedValue(cacheKey: string): void {
+	if (typeof window === "undefined") return;
+	try {
+		window.localStorage.removeItem(
+			`${HOROSCOPE_CLIENT_CACHE_PREFIX}:${cacheKey}`,
+		);
+	} catch {
+		// Ignore storage remove failures.
+	}
+}
+
+export function useHoroscopeCachedValue<T>(
+	cacheKey: string,
+): {
+	value: T | null;
+	setValue: (next: T | null) => void;
+	clearValue: () => void;
+} {
+	const [value, setInternalValue] = useState<T | null>(null);
+
+	useEffect(() => {
+		setInternalValue(readCachedValue<T>(cacheKey));
+	}, [cacheKey]);
+
+	const setValue = (next: T | null) => {
+		setInternalValue(next);
+		// Keep last successful result in cache until explicitly cleared.
+		if (next !== null) {
+			writeCachedValue(cacheKey, next);
+		}
+	};
+
+	const clearValue = () => {
+		setInternalValue(null);
+		clearCachedValue(cacheKey);
+	};
+
+	return { value, setValue, clearValue };
+}
 
 function normalizeProkeralaSvg(svg: string): string {
 	const svgTagMatch = svg.match(/<svg\b[^>]*>/i);
@@ -152,9 +236,28 @@ export async function fetchProkeralaSvg(
 }
 
 /** Matches Daily Panchang submit: min width, orange-500, right-aligned row. */
-export function HoroscopeSubmitButton({ loading }: { loading: boolean }) {
+export function HoroscopeSubmitButton({
+	loading,
+	onRefresh,
+	refreshDisabled = false,
+}: {
+	loading: boolean;
+	onRefresh?: () => void;
+	refreshDisabled?: boolean;
+}) {
 	return (
-		<div className="flex justify-end pt-2">
+		<div className="flex flex-wrap justify-end gap-3 pt-2">
+			{onRefresh ? (
+				<Button
+					type="button"
+					variant="outline"
+					onClick={onRefresh}
+					disabled={loading || refreshDisabled}
+					className="min-w-[140px]"
+				>
+					Refresh form
+				</Button>
+			) : null}
 			<Button
 				type="submit"
 				disabled={loading}

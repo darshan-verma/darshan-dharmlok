@@ -6,6 +6,14 @@
  */
 
 import { getProkeralaAccessToken } from "@/lib/prokeralaAuth";
+import {
+	getCachedProkeralaJson,
+	getCachedProkeralaPostJson,
+	getCachedProkeralaText,
+	setCachedProkeralaJson,
+	setCachedProkeralaPostJson,
+	setCachedProkeralaText,
+} from "@/lib/prokeralaResultCache";
 
 const PROKERALA_API_BASE = "https://api.prokerala.com/v2";
 
@@ -29,6 +37,11 @@ export async function prokeralaFetch<T = unknown>(
 	path: string,
 	options?: ProkeralaFetchOptions
 ): Promise<T> {
+	const cached = await getCachedProkeralaJson<T>(path, options?.query);
+	if (cached !== null) {
+		return cached;
+	}
+
 	const token = await getProkeralaAccessToken();
 	const pathNormalized = path.startsWith("/") ? path.slice(1) : path;
 	const url = new URL(`${PROKERALA_API_BASE}/${pathNormalized}`);
@@ -53,7 +66,9 @@ export async function prokeralaFetch<T = unknown>(
 		);
 	}
 
-	return res.json() as Promise<T>;
+	const json = (await res.json()) as T;
+	await setCachedProkeralaJson(path, options?.query, json);
+	return json;
 }
 
 /**
@@ -67,6 +82,11 @@ export async function prokeralaFetchPost<TResponse = unknown, TBody = unknown>(
 	path: string,
 	options: ProkeralaPostOptions<TBody>
 ): Promise<TResponse> {
+	const cached = await getCachedProkeralaPostJson<TResponse>(path, options.body);
+	if (cached !== null) {
+		return cached;
+	}
+
 	const token = await getProkeralaAccessToken();
 	const pathNormalized = path.startsWith("/") ? path.slice(1) : path;
 	const url = new URL(`${PROKERALA_API_BASE}/${pathNormalized}`);
@@ -89,7 +109,9 @@ export async function prokeralaFetchPost<TResponse = unknown, TBody = unknown>(
 		);
 	}
 
-	return res.json() as Promise<TResponse>;
+	const json = (await res.json()) as TResponse;
+	await setCachedProkeralaPostJson(path, options.body, json);
+	return json;
 }
 
 /**
@@ -104,6 +126,11 @@ export async function prokeralaFetchChart(
 	path: string,
 	options?: ProkeralaFetchOptions
 ): Promise<string> {
+	const cached = await getCachedProkeralaText(path, options?.query);
+	if (cached !== null) {
+		return cached;
+	}
+
 	const token = await getProkeralaAccessToken();
 	const pathNormalized = path.startsWith("/") ? path.slice(1) : path;
 	const url = new URL(`${PROKERALA_API_BASE}/${pathNormalized}`);
@@ -128,5 +155,7 @@ export async function prokeralaFetchChart(
 		);
 	}
 
-	return res.text();
+	const svg = await res.text();
+	await setCachedProkeralaText(path, options?.query, svg);
+	return svg;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -37,6 +37,8 @@ import {
 } from "@/lib/datetime-local";
 import { cn } from "@/lib/utils";
 import type { ProkeralaAyanamsa } from "@/types/prokerala";
+import { useHoroscopeCachedValue } from "@/components/horoscope/calculations/shared-ui";
+const IS_TESTING_PHASE = process.env.NODE_ENV !== "production";
 
 const languageValues = DAILY_PANCHANG_LANGUAGE_OPTIONS.map((o) => o.value) as [
 	DailyPanchangLanguageCode,
@@ -63,6 +65,14 @@ export type DailyPanchangCalculatorFormProps = {
 	apiPath: string;
 	defaultLanguage?: string;
 	className?: string;
+	initialValues?: Partial<{
+		ayanamsa: ProkeralaAyanamsa;
+		date: string;
+		location: string;
+		language: DailyPanchangLanguageCode;
+		resultType: "basic" | "advanced";
+	}>;
+	autoSubmit?: boolean;
 };
 
 function getProkeralaRelativePath(
@@ -88,14 +98,24 @@ function defaultLangForForm(
 	return "en";
 }
 
+function normalizeTestingJanFirst(date: string): string {
+	if (!IS_TESTING_PHASE) return date;
+	const [year] = date.split("-");
+	if (!year || year.length !== 4) return date;
+	return `${year}-01-01`;
+}
+
 export function DailyPanchangCalculatorForm({
 	title,
 	slug,
 	apiPath,
 	defaultLanguage,
 	className,
+	initialValues,
+	autoSubmit = false,
 }: DailyPanchangCalculatorFormProps) {
-	const [result, setResult] = useState<unknown>(null);
+	const { value: result, setValue: setResult, clearValue: clearResult } =
+		useHoroscopeCachedValue<unknown>(`daily-panchang:${slug}`);
 	const [fetchError, setFetchError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 
@@ -103,13 +123,16 @@ export function DailyPanchangCalculatorForm({
 
 	const initialDefaults = useMemo(
 		() => ({
-			ayanamsa: 1 as ProkeralaAyanamsa,
-			date: getTodayYyyyMmDd(),
-			location: "",
-			language: defaultLangForForm(defaultLanguage),
-			resultType: "basic" as const,
+			ayanamsa: initialValues?.ayanamsa ?? (1 as ProkeralaAyanamsa),
+			date: normalizeTestingJanFirst(
+				initialValues?.date ?? getTodayYyyyMmDd()
+			),
+			location: initialValues?.location ?? "",
+			language:
+				initialValues?.language ?? defaultLangForForm(defaultLanguage),
+			resultType: initialValues?.resultType ?? ("basic" as const),
 		}),
-		[defaultLanguage]
+		[defaultLanguage, initialValues]
 	);
 
 	const form = useForm<StandardValues | PanchangValues>({
@@ -123,6 +146,8 @@ export function DailyPanchangCalculatorForm({
 					language: initialDefaults.language,
 				},
 	});
+
+	const [didAutoSubmit, setDidAutoSubmit] = useState(false);
 
 	async function onSubmit(values: StandardValues | PanchangValues) {
 		setFetchError(null);
@@ -148,7 +173,11 @@ export function DailyPanchangCalculatorForm({
 		}
 
 		const coordinates = `${geoJson.lat},${geoJson.lng}`;
-		const datetime = dateInputToIsoDatetime(values.date);
+		const normalizedDate = normalizeTestingJanFirst(values.date);
+		if (IS_TESTING_PHASE && normalizedDate !== values.date) {
+			form.setValue("date", normalizedDate);
+		}
+		const datetime = dateInputToIsoDatetime(normalizedDate);
 		const resultType =
 			showResultType && "resultType" in values
 				? values.resultType
@@ -198,6 +227,12 @@ export function DailyPanchangCalculatorForm({
 			setLoading(false);
 		}
 	}
+
+	useEffect(() => {
+		if (!autoSubmit || didAutoSubmit) return;
+		setDidAutoSubmit(true);
+		void form.handleSubmit(onSubmit)();
+	}, [autoSubmit, didAutoSubmit, form, onSubmit]);
 
 	const rowClass =
 		"grid gap-2 sm:grid-cols-[minmax(0,140px)_1fr] sm:items-center sm:gap-4";
@@ -265,8 +300,19 @@ export function DailyPanchangCalculatorForm({
 												type="date"
 												className="max-w-md border-orange-200 bg-background dark:border-orange-800 focus-visible:ring-orange-500/40"
 												{...field}
+												onChange={(event) => {
+													field.onChange(
+														normalizeTestingJanFirst(event.target.value)
+													);
+												}}
 											/>
 										</FormControl>
+										{IS_TESTING_PHASE ? (
+											<p className="mt-1 text-xs text-orange-700 dark:text-orange-400">
+												Testing mode: only 01/01 is supported by Prokerala
+												sandbox.
+											</p>
+										) : null}
 										<FormMessage />
 									</div>
 								</FormItem>
@@ -364,6 +410,18 @@ export function DailyPanchangCalculatorForm({
 						)}
 
 						<div className="flex justify-end pt-2">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => {
+									clearResult();
+									setFetchError(null);
+								}}
+								disabled={loading || result == null}
+								className="mr-3 min-w-[140px]"
+							>
+								Refresh form
+							</Button>
 							<Button
 								type="submit"
 								disabled={loading}

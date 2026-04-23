@@ -31,6 +31,7 @@ import {
 import { getTodayYyyyMmDd } from "@/lib/datetime-local";
 import { cn } from "@/lib/utils";
 import { PROKERALA_CALENDAR_VALUES } from "@/types/prokerala";
+import { useHoroscopeCachedValue } from "@/components/horoscope/calculations/shared-ui";
 
 const calendarEnum = z.enum(PROKERALA_CALENDAR_VALUES);
 
@@ -49,7 +50,8 @@ export function CalendarCalculatorForm({
 	className?: string;
 	title?: string;
 }) {
-	const [result, setResult] = useState<unknown>(null);
+	const { value: result, setValue: setResult, clearValue: clearResult } =
+		useHoroscopeCachedValue<unknown>("calendar-calculator:result");
 	const [fetchError, setFetchError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 
@@ -214,6 +216,18 @@ export function CalendarCalculatorForm({
 						/>
 
 						<div className="flex justify-end pt-2">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => {
+									clearResult();
+									setFetchError(null);
+								}}
+								disabled={loading || result == null}
+								className="mr-3 min-w-[140px]"
+							>
+								Refresh form
+							</Button>
 							<Button
 								type="submit"
 								disabled={loading}
