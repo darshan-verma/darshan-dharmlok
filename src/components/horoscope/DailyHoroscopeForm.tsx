@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -75,7 +75,7 @@ export function DailyHoroscopeForm({
 
 	const [didAutoSubmit, setDidAutoSubmit] = useState(false);
 
-	async function onSubmit(values: FormValues) {
+	const onSubmit = useCallback(async (values: FormValues) => {
 		setFetchError(null);
 		setResult(null);
 		setLastSubmitted(values);
@@ -123,7 +123,7 @@ export function DailyHoroscopeForm({
 		} finally {
 			setLoading(false);
 		}
-	}
+	}, [setLastSubmitted, setResult]);
 
 	useEffect(() => {
 		if (!autoSubmit || didAutoSubmit) return;

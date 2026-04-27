@@ -45,7 +45,7 @@ export function AdminSidebar({ className }: { className?: string }) {
 		<Sidebar
 			className={cn(
 				"border-r border-border bg-gradient-to-b from-background to-muted/20",
-				className
+				className,
 			)}
 		>
 			<SidebarHeader className="flex flex-col items-center justify-center p-4 pb-2">
@@ -250,6 +250,21 @@ export function AdminSidebar({ className }: { className?: string }) {
 							<BadgeDollarSign className="h-5 w-5 text-yellow-500" />
 							<Link href="/admin/banner" className="flex items-center gap-2">
 								<span>Banner</span>
+							</Link>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+
+					<SidebarMenuItem>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/live-darshan"}
+						>
+							<Cast className="h-5 w-5 text-sky-500" />
+							<Link
+								href="/admin/live-darshan"
+								className="flex items-center gap-2"
+							>
+								<span>Live Darshan</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>
@@ -483,17 +498,7 @@ export function AdminSidebar({ className }: { className?: string }) {
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all">
-							<Cast className="h-5 w-5 text-teal-500" />
-							<span>Live Darshan</span>
-						</SidebarMenuButton>
-					</SidebarMenuItem>
-
-					<SidebarMenuItem>
-						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all">
-							<MailQuestion className="h-5 w-5 text-purple-500" />
-							<span>Comments & Replies</span>
-						</SidebarMenuButton>
+						<SidebarMenuButton className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"></SidebarMenuButton>
 					</SidebarMenuItem>
 
 					<SidebarMenuItem>
@@ -515,7 +520,7 @@ export function AdminSidebar({ className }: { className?: string }) {
 						onClick={() => signOut({ callbackUrl: "/auth/signin" })}
 						className={cn(
 							"gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all",
-							"hover:text-red-500 focus:text-red-500"
+							"hover:text-red-500 focus:text-red-500",
 						)}
 					>
 						<LogOut className="h-5 w-5" />

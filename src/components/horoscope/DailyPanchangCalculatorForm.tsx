@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -149,7 +149,7 @@ export function DailyPanchangCalculatorForm({
 
 	const [didAutoSubmit, setDidAutoSubmit] = useState(false);
 
-	async function onSubmit(values: StandardValues | PanchangValues) {
+	const onSubmit = useCallback(async (values: StandardValues | PanchangValues) => {
 		setFetchError(null);
 		setResult(null);
 
@@ -226,7 +226,7 @@ export function DailyPanchangCalculatorForm({
 		} finally {
 			setLoading(false);
 		}
-	}
+	}, [apiPath, form, setResult, showResultType, slug]);
 
 	useEffect(() => {
 		if (!autoSubmit || didAutoSubmit) return;

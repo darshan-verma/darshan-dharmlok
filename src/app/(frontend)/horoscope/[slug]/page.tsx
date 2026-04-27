@@ -21,7 +21,11 @@ import {
 	HOROSCOPE_TYPE_VALUES,
 	ZODIAC_SIGN_VALUES,
 } from "@/data/horoscope-daily";
-import { DAILY_PANCHANG_LANGUAGE_OPTIONS } from "@/data/daily-panchang";
+import {
+	DAILY_PANCHANG_LANGUAGE_OPTIONS,
+	type DailyPanchangLanguageCode,
+} from "@/data/daily-panchang";
+import type { ProkeralaAyanamsa } from "@/types/prokerala";
 
 export function generateStaticParams() {
 	return getAllServiceSlugs().map((slug) => ({ slug }));
@@ -95,24 +99,33 @@ export default async function HoroscopeServicePage({
 	const panchangLanguageValues = DAILY_PANCHANG_LANGUAGE_OPTIONS.map(
 		(option) => option.value,
 	);
-	const panchangInitialValues = {
-		ayanamsa:
-			ayanamsaParam === 1 || ayanamsaParam === 3 || ayanamsaParam === 5
-				? ayanamsaParam
-				: undefined,
+	const panchangAyanamsa: ProkeralaAyanamsa | undefined =
+		ayanamsaParam === 1 || ayanamsaParam === 3 || ayanamsaParam === 5
+			? (ayanamsaParam as ProkeralaAyanamsa)
+			: undefined;
+	const panchangLanguage: DailyPanchangLanguageCode | undefined =
+		languageParam &&
+		panchangLanguageValues.includes(
+			languageParam as (typeof panchangLanguageValues)[number],
+		)
+			? (languageParam as DailyPanchangLanguageCode)
+			: undefined;
+	const panchangResultType: "basic" | "advanced" | undefined =
+		resultTypeParam === "basic" || resultTypeParam === "advanced"
+			? resultTypeParam
+			: undefined;
+	const panchangInitialValues: Partial<{
+		ayanamsa: 1 | 3 | 5;
+		date: string;
+		location: string;
+		language: DailyPanchangLanguageCode;
+		resultType: "basic" | "advanced";
+	}> = {
+		ayanamsa: panchangAyanamsa,
 		date: dateParam,
 		location: locationParam,
-		language:
-			languageParam &&
-			panchangLanguageValues.includes(
-				languageParam as (typeof panchangLanguageValues)[number],
-			)
-				? (languageParam as (typeof panchangLanguageValues)[number])
-				: undefined,
-		resultType:
-			resultTypeParam === "basic" || resultTypeParam === "advanced"
-				? resultTypeParam
-				: undefined,
+		language: panchangLanguage,
+		resultType: panchangResultType,
 	};
 
 	return (

@@ -9,8 +9,6 @@ import { ProfileCard } from "@/components/ui/profile-card";
 import { PageBanner } from "@/components/shared/PageBanner";
 import { extractPlainTextFromBlockNote } from "@/lib/blog-content";
 
-export const dynamic = "force-dynamic";
-
 interface Blog {
 	id: string;
 	title: string;

@@ -30,8 +30,8 @@ const arcs = [
 
 export default function Featured_05() {
   return (
-    <section className="relative w-full mx-auto overflow-hidden rounded-3xl bg-[#f5f5f0]/80 backdrop-blur-sm border border-gray-200 shadow-md px-6 py-16 md:px-16 md:py-24">
-      <div className="flex flex-col-reverse items-center justify-between gap-10 md:flex-row">
+    <section className="relative w-full mx-auto overflow-hidden rounded-3xl bg-[#f5f5f0]/80 backdrop-blur-sm border border-gray-200 shadow-md px-6 py-16 md:px-16 md:py-20">
+      <div className="flex flex-col-reverse items-center justify-between gap-10 md:flex-row md:items-center">
         <div className="z-10 max-w-xl text-left">
           <h1 className="text-3xl font-normal text-gray-900">
             Explore Sacred Destinations with <span className="text-orange-500">Dharmlok Travel Portal</span>{" "}
@@ -43,20 +43,22 @@ export default function Featured_05() {
             </Button>
           </Link>
         </div>
-        <div className="relative h-[180px] w-full max-w-xl">
-          <Globe
-            className="absolute -bottom-20 -right-40 scale-150"
-            markers={markers}
-            arcs={arcs}
-            markerColor={[0.3, 0.45, 0.85]}
-            baseColor={[1, 1, 1]}
-            arcColor={[0.3, 0.45, 0.85]}
-            glowColor={[0.94, 0.93, 0.91]}
-            dark={0}
-            mapBrightness={10}
-            markerSize={0.025}
-            markerElevation={0.01}
-          />
+        <div className="relative flex w-full justify-center md:justify-end">
+          <div className="aspect-square w-full max-w-[320px] sm:max-w-[380px] md:max-w-[500px]">
+            <Globe
+              className="h-full w-full"
+              markers={markers}
+              arcs={arcs}
+              markerColor={[0.3, 0.45, 0.85]}
+              baseColor={[1, 1, 1]}
+              arcColor={[0.3, 0.45, 0.85]}
+              glowColor={[0.94, 0.93, 0.91]}
+              dark={0}
+              mapBrightness={10}
+              markerSize={0.025}
+              markerElevation={0.01}
+            />
+          </div>
         </div>
       </div>
     </section>
