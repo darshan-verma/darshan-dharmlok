@@ -67,11 +67,22 @@ function extractGoogleMapsSrc(input?: string): string {
 	return input.trim();
 }
 
-function blockNoteToPlainText(content?: string): string {
-	if (!content) return "";
+type RichContent = { text: string; html: string | null };
+
+function sanitizeHtml(html: string): string {
+	return html
+		.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+		.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
+		.replace(/\son\w+="[^"]*"/gi, "")
+		.replace(/\son\w+='[^']*'/gi, "")
+		.replace(/\s(href|src)=["']javascript:[^"']*["']/gi, ' $1="#"');
+}
+
+function parseRichContent(content?: string): RichContent {
+	if (!content) return { text: "", html: null };
 	try {
 		const parsed = JSON.parse(content);
-		if (!Array.isArray(parsed)) return "";
+		if (!Array.isArray(parsed)) return { text: "", html: null };
 
 		const texts: string[] = [];
 		for (const block of parsed) {
@@ -82,24 +93,39 @@ function blockNoteToPlainText(content?: string): string {
 				if (typeof t === "string" && t.trim()) texts.push(t.trim());
 			}
 		}
-		return texts.join("\n\n").trim();
+		return { text: texts.join("\n\n").trim(), html: null };
 	} catch {
-		return "";
+		const trimmed = content.trim();
+		if (!trimmed) return { text: "", html: null };
+
+		const looksLikeHtml = /<\s*\/?\s*[a-z][^>]*>/i.test(trimmed);
+		if (looksLikeHtml) {
+			return { text: "", html: sanitizeHtml(trimmed) };
+		}
+
+		return { text: trimmed, html: null };
 	}
 }
 
 function Section({
 	title,
-	body,
+	content,
 }: {
 	title: string;
-	body: string;
+	content: RichContent;
 }) {
-	if (!body) return null;
+	if (!content.text && !content.html) return null;
 	return (
 		<div className="bg-white rounded-2xl p-6 shadow-sm">
 			<h2 className="text-2xl font-serif font-bold text-gray-900 mb-4">{title}</h2>
-			<p className="text-gray-700 leading-relaxed whitespace-pre-line">{body}</p>
+			{content.html ? (
+				<div
+					className="text-gray-700 leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0"
+					dangerouslySetInnerHTML={{ __html: content.html }}
+				/>
+			) : (
+				<p className="text-gray-700 leading-relaxed whitespace-pre-line">{content.text}</p>
+			)}
 		</div>
 	);
 }
@@ -140,10 +166,16 @@ export default function TempleDetailsPage() {
 	}, [id]);
 
 	const mapSrc = useMemo(() => extractGoogleMapsSrc(data?.location), [data?.location]);
-	const descriptionText = useMemo(() => blockNoteToPlainText(data?.description), [data?.description]);
-	const historyText = useMemo(() => blockNoteToPlainText(data?.history), [data?.history]);
-	const ritualsText = useMemo(() => blockNoteToPlainText(data?.rituals), [data?.rituals]);
-	const additionalInfoText = useMemo(() => blockNoteToPlainText(data?.additionalInfo), [data?.additionalInfo]);
+	const descriptionContent = useMemo(
+		() => parseRichContent(data?.description),
+		[data?.description]
+	);
+	const historyContent = useMemo(() => parseRichContent(data?.history), [data?.history]);
+	const ritualsContent = useMemo(() => parseRichContent(data?.rituals), [data?.rituals]);
+	const additionalInfoContent = useMemo(
+		() => parseRichContent(data?.additionalInfo),
+		[data?.additionalInfo]
+	);
 
 	const allImages = useMemo(() => {
 		const arr = [
@@ -244,10 +276,10 @@ export default function TempleDetailsPage() {
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 						{/* Left column */}
 						<div className="lg:col-span-2 space-y-8">
-							<Section title="Description" body={descriptionText} />
-							<Section title="History" body={historyText} />
-							<Section title="Rituals" body={ritualsText} />
-							<Section title="Additional Info" body={additionalInfoText} />
+							<Section title="Description" content={descriptionContent} />
+							<Section title="History" content={historyContent} />
+							<Section title="Rituals" content={ritualsContent} />
+							<Section title="Additional Info" content={additionalInfoContent} />
 
 							{/* Media */}
 							{(allImages.length > 0 || (data.videoFile && data.videoFile.length > 0)) && (

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShoppingCart, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { LiquidButton } from "@/components/ui/liquid-glass-button";
+import { ProductRevealCard } from "@/components/ui/product-reveal-card";
 
 interface EshopProduct {
   id: string;
@@ -14,7 +15,18 @@ interface EshopProduct {
   status: string;
   availableQty: number;
   description?: string;
+  impressions?: number;
+  impressionCount?: number;
+  viewCount?: number;
+  views?: number;
 }
+
+const FALLBACK_PRODUCT_IMAGES = [
+  "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=800&h=600&fit=crop",
+  "https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?w=800&h=600&fit=crop",
+  "https://images.unsplash.com/photo-1612198525423-8c0f652c7f2d?w=800&h=600&fit=crop",
+  "https://images.unsplash.com/photo-1603272745224-1d3c8bcbf8f3?w=800&h=600&fit=crop",
+];
 
 export interface EShopProductsSectionProps {
   title?: string;
@@ -28,6 +40,16 @@ export default function EShopProducts({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [products, setProducts] = useState<EshopProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const MAX_TOP_PRODUCTS = 8;
+
+  const getImpressionCount = (product: EshopProduct) =>
+    Number(
+      product.impressions ??
+      product.impressionCount ??
+      product.viewCount ??
+      product.views ??
+      0
+    );
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -35,9 +57,12 @@ export default function EShopProducts({
         const response = await fetch("/api/e-shop");
         if (response.ok) {
           const data = await response.json();
-          // Filter only active products
+          // Keep active products and prioritize those with the highest impressions.
           const activeProducts = data.filter((p: EshopProduct) => p.status === "Active");
-          setProducts(activeProducts);
+          const topProducts = [...activeProducts]
+            .sort((a, b) => getImpressionCount(b) - getImpressionCount(a))
+            .slice(0, MAX_TOP_PRODUCTS);
+          setProducts(topProducts);
         }
       } catch (error) {
         console.error("Failed to fetch products:", error);
@@ -54,6 +79,8 @@ export default function EShopProducts({
     currentIndex * productsPerPage,
     (currentIndex + 1) * productsPerPage
   );
+
+  const formatPrice = (price: number) => `₹${Math.round(price)}`;
 
   const nextSlide = () => {
     if (totalPages > 0) {
@@ -139,7 +166,7 @@ export default function EShopProducts({
               onClick={prevSlide}
               variant="default"
               size="icon"
-              className="navigation-button-wrapper w-full h-full text-white rounded-full"
+              className="navigation-button-wrapper w-full h-full text-orange-500 hover:text-orange-600 rounded-full"
               disabled={totalPages <= 1}
             >
               <ChevronLeft className="w-6 h-6" />
@@ -150,7 +177,7 @@ export default function EShopProducts({
               onClick={nextSlide}
               variant="default"
               size="icon"
-              className="navigation-button-wrapper w-full h-full text-white rounded-full"
+              className="navigation-button-wrapper w-full h-full text-orange-500 hover:text-orange-600 rounded-full"
               disabled={totalPages <= 1}
             >
               <ChevronRight className="w-6 h-6" />
@@ -178,71 +205,26 @@ export default function EShopProducts({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {displayedProducts.map((product) => (
-              <div
-                key={product.id}
-                className="frosted-glass-card rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 group"
-              >
-                {/* Product Image */}
-                <div className="product-image relative h-64 bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center overflow-hidden">
-                  {product.images && product.images.length > 0 ? (
-                    <Image
-                      src={product.images[0]}
-                      alt={product.name}
-                      fill
-                      className="object-cover group-hover:scale-110 transition-transform duration-300"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="text-8xl group-hover:scale-110 transition-transform duration-300">
-                      📿
-                    </div>
-                  )}
-                  <button className="absolute top-4 right-4 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-orange-500 hover:text-white transition-colors opacity-0 group-hover:opacity-100 z-10">
-                    <ShoppingCart className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Product Info */}
-                <div className="p-6 space-y-4">
-                  {/* Category */}
-                  {product.category && product.category.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-orange-500 bg-orange-50 px-2 py-1 rounded">
-                        {product.category[0]}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Product Name */}
-                  <h3 className="font-bold text-gray-900 text-lg line-clamp-2">
-                    {product.name}
-                  </h3>
-
-                  {/* Price */}
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-gray-900">
-                      ₹{product.pricePerUnit}
-                    </span>
-                    {product.availableQty > 0 ? (
-                      <span className="text-sm font-semibold text-green-600">
-                        In Stock
-                      </span>
-                    ) : (
-                      <span className="text-sm font-semibold text-red-600">
-                        Out of Stock
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Add to Cart Button */}
-                  <button 
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg font-semibold transition-all transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    disabled={product.availableQty === 0}
-                  >
-                    {product.availableQty > 0 ? "Add To Cart" : "Out of Stock"}
-                  </button>
-                </div>
-              </div>
+                <ProductRevealCard
+                  key={product.id}
+                  className="w-full max-w-sm mx-auto"
+                  name={product.name}
+                  productHref={`/e-shop/${product.id}`}
+                  price={formatPrice(product.pricePerUnit)}
+                  originalPrice={formatPrice(product.pricePerUnit * 1.25)}
+                  image={
+                    product.images?.[0] ||
+                    FALLBACK_PRODUCT_IMAGES[
+                      Math.abs(Number(product.id) || 0) % FALLBACK_PRODUCT_IMAGES.length
+                    ]
+                  }
+                  description={
+                    product.description ||
+                    "Authentic spiritual product curated for your daily devotion and rituals."
+                  }
+                  rating={4.2 + ((product.availableQty % 8) / 10)}
+                  reviewCount={Math.max(getImpressionCount(product), 12)}
+                />
               ))}
             </div>
           )}

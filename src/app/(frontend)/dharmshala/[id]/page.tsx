@@ -54,8 +54,19 @@ function extractGoogleMapsSrc(input?: string): string {
 	return input.trim();
 }
 
-function blockNoteToPlainText(content?: string): string {
-	if (!content) return "";
+type RichContent = { text: string; html: string | null };
+
+function sanitizeHtml(html: string): string {
+	return html
+		.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+		.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
+		.replace(/\son\w+="[^"]*"/gi, "")
+		.replace(/\son\w+='[^']*'/gi, "")
+		.replace(/\s(href|src)=["']javascript:[^"']*["']/gi, ' $1="#"');
+}
+
+function parseRichContent(content?: string): RichContent {
+	if (!content) return { text: "", html: null };
 	try {
 		const parsed = JSON.parse(content) as unknown;
 		const blocks = Array.isArray(parsed) ? parsed : [parsed];
@@ -92,10 +103,17 @@ function blockNoteToPlainText(content?: string): string {
 			}
 		}
 
-		return chunks.join("\n\n").trim();
+		return { text: chunks.join("\n\n").trim(), html: null };
 	} catch {
-		// Some legacy rows contain plain text instead of BlockNote JSON.
-		return content.trim();
+		const trimmed = content.trim();
+		if (!trimmed) return { text: "", html: null };
+
+		const looksLikeHtml = /<\s*\/?\s*[a-z][^>]*>/i.test(trimmed);
+		if (looksLikeHtml) {
+			return { text: "", html: sanitizeHtml(trimmed) };
+		}
+
+		return { text: trimmed, html: null };
 	}
 }
 
@@ -158,8 +176,14 @@ export default function DharmshalaDetailsPage() {
 	}, [id]);
 
 	const mapSrc = useMemo(() => extractGoogleMapsSrc(data?.location), [data?.location]);
-	const descriptionText = useMemo(() => blockNoteToPlainText(data?.description), [data?.description]);
-	const additionalInfoText = useMemo(() => blockNoteToPlainText(data?.additionalInfo), [data?.additionalInfo]);
+	const descriptionContent = useMemo(
+		() => parseRichContent(data?.description),
+		[data?.description]
+	);
+	const additionalInfoContent = useMemo(
+		() => parseRichContent(data?.additionalInfo),
+		[data?.additionalInfo]
+	);
 	const travelByAir = useMemo(() => normalizeStringArray(data?.travelByAir), [data?.travelByAir]);
 	const travelByTrain = useMemo(
 		() => normalizeStringArray(data?.travelByTrain),
@@ -274,26 +298,40 @@ export default function DharmshalaDetailsPage() {
 						{/* Left column */}
 						<div className="lg:col-span-2 space-y-8">
 							{/* Description */}
-							{descriptionText && (
+							{(descriptionContent.text || descriptionContent.html) && (
 								<div className="bg-white rounded-2xl p-6 shadow-sm">
 									<h2 className="text-2xl font-serif font-bold text-gray-900 mb-4">
 										Description
 									</h2>
-									<p className="text-gray-700 leading-relaxed whitespace-pre-line">
-										{descriptionText}
-									</p>
+									{descriptionContent.html ? (
+										<div
+											className="text-gray-700 leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0"
+											dangerouslySetInnerHTML={{ __html: descriptionContent.html }}
+										/>
+									) : (
+										<p className="text-gray-700 leading-relaxed whitespace-pre-line">
+											{descriptionContent.text}
+										</p>
+									)}
 								</div>
 							)}
 
 							{/* Additional info */}
-							{additionalInfoText && (
+							{(additionalInfoContent.text || additionalInfoContent.html) && (
 								<div className="bg-white rounded-2xl p-6 shadow-sm">
 									<h2 className="text-2xl font-serif font-bold text-gray-900 mb-4">
 										Additional Info
 									</h2>
-									<p className="text-gray-700 leading-relaxed whitespace-pre-line">
-										{additionalInfoText}
-									</p>
+									{additionalInfoContent.html ? (
+										<div
+											className="text-gray-700 leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0"
+											dangerouslySetInnerHTML={{ __html: additionalInfoContent.html }}
+										/>
+									) : (
+										<p className="text-gray-700 leading-relaxed whitespace-pre-line">
+											{additionalInfoContent.text}
+										</p>
+									)}
 								</div>
 							)}
 

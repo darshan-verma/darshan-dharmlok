@@ -25,6 +25,7 @@ interface Temple {
 	state?: string;
 	city?: string;
 	status: string;
+	impressions?: number;
 	address?: string;
 	bannerImage?: string;
 	coverImage?: string;
@@ -331,6 +332,9 @@ export default function TemplePage() {
 											description={subtitle || "A sacred place for prayer and devotion."}
 											image={image}
 											isVerified={t.status === "Active"}
+											followers={t.impressions ?? 0}
+											followersLabel="Impressions"
+											showSecondaryStat={false}
 											isBooking={navigatingId === t.id}
 											onBook={() => {
 												setNavigatingId(t.id);

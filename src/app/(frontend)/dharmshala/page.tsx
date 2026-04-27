@@ -25,6 +25,7 @@ interface Dharamshala {
 	state?: string;
 	city?: string;
 	status: string;
+	impressions?: number;
 	address?: string;
 	bannerImage?: string;
 	coverImage?: string;
@@ -333,6 +334,9 @@ export default function DharmshalaPage() {
 											description={subtitle || "Comfortable stay near spiritual destinations."}
 											image={image}
 											isVerified={d.status === "Active"}
+											followers={d.impressions ?? 0}
+											followersLabel="Impressions"
+											showSecondaryStat={false}
 											isBooking={navigatingId === d.id}
 											onBook={() => {
 												setNavigatingId(d.id);

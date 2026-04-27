@@ -73,7 +73,7 @@ const DEFAULT_HOROSCOPE_ITEMS: CardItem[] = [
     description:
       "Connect with expert astrologers for one-on-one guidance on career path, relationship clarity, and life decisions.",
     imgSrc:
-      "https://images.unsplash.com/photo-1470290378698-263fa7cae321?auto=format&fit=crop&w=1400&q=80",
+    "https://images.unsplash.com/photo-1581016758146-35c365b9a161?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     icon: <PhoneCall size={24} />,
     linkHref: "/horoscope/birth-details",
   },

@@ -12,6 +12,9 @@ interface ProfileCardProps {
   isVerified?: boolean;
   followers?: number;
   following?: number;
+  followersLabel?: string;
+  followingLabel?: string;
+  showSecondaryStat?: boolean;
   enableAnimations?: boolean;
   className?: string;
   onFollow?: () => void;
@@ -29,6 +32,7 @@ interface ProfileCardProps {
   isBooking?: boolean;
   category?: string;
   type?: string;
+  hideStats?: boolean;
 }
 
 const DEFAULT_POOJA_IMAGE =
@@ -42,6 +46,9 @@ export function ProfileCard({
   isVerified = true,
   followers = 312,
   following = 48,
+  followersLabel = "followers",
+  followingLabel = "following",
+  showSecondaryStat = true,
   enableAnimations = true,
   className,
   onFollow = () => {},
@@ -52,6 +59,7 @@ export function ProfileCard({
   isBooking = false,
   category,
   type,
+  hideStats = false,
 }: ProfileCardProps) {
   const shouldReduceMotion = useReducedMotion();
   const shouldAnimate = enableAnimations && !shouldReduceMotion;
@@ -399,36 +407,44 @@ export function ProfileCard({
         )}
 
         {/* Stats */}
-        <motion.div
-          variants={itemVariants}
-          className="flex items-center gap-6 pt-2"
-        >
-          {(isPooja || isEvent || isDharamshala || isTemple || isEshop) &&
-          !isEbook &&
-          !isBlog &&
-          typeof price === "number" ? (
-            <div className={cn("flex items-center gap-2", bodyClass)}>
-              <IndianRupee className="w-4 h-4" />
-              <span className={cn("font-semibold", titleClass)}>
-                {price.toLocaleString("en-IN")}
-              </span>
-              <span className="text-sm">{isEshop ? "per unit" : "starting price"}</span>
-            </div>
-          ) : !isEvent && !isEbook && !isBlog ? (
-            <>
+        {!hideStats && (
+          <motion.div
+            variants={itemVariants}
+            className="flex items-center gap-6 pt-2"
+          >
+            {(isPooja || isEvent || isDharamshala || isTemple || isEshop) &&
+            !isEbook &&
+            !isBlog &&
+            typeof price === "number" ? (
               <div className={cn("flex items-center gap-2", bodyClass)}>
-                <Users className="w-4 h-4" />
-                <span className={cn("font-semibold", titleClass)}>{followers}</span>
-                <span className="text-sm">followers</span>
+                <IndianRupee className="w-4 h-4" />
+                <span className={cn("font-semibold", titleClass)}>
+                  {price.toLocaleString("en-IN")}
+                </span>
+                <span className="text-sm">{isEshop ? "per unit" : "starting price"}</span>
               </div>
-              <div className={cn("flex items-center gap-2", bodyClass)}>
-                <UserCheck className="w-4 h-4" />
-                <span className={cn("font-semibold", titleClass)}>{following}</span>
-                <span className="text-sm">following</span>
-              </div>
-            </>
-          ) : null}
-        </motion.div>
+            ) : !isEvent && !isEbook && !isBlog ? (
+              <>
+                <div className={cn("flex items-center gap-2", bodyClass)}>
+                  <Users className="w-4 h-4" />
+                  <span className={cn("font-semibold", titleClass)}>
+                    {isTemple || isDharamshala ? followers ?? 0 : followers}
+                  </span>
+                  <span className="text-sm">
+                    {isTemple || isDharamshala ? "Impressions" : followersLabel}
+                  </span>
+                </div>
+                {showSecondaryStat && !isTemple && !isDharamshala && (
+                  <div className={cn("flex items-center gap-2", bodyClass)}>
+                    <UserCheck className="w-4 h-4" />
+                    <span className={cn("font-semibold", titleClass)}>{following}</span>
+                    <span className="text-sm">{followingLabel}</span>
+                  </div>
+                )}
+              </>
+            ) : null}
+          </motion.div>
+        )}
 
         {/* Action Button */}
         {(isPooja || isEvent || isDharamshala || isTemple || isEbook || isBlog || isEshop) ? (

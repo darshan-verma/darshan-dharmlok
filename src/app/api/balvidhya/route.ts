@@ -8,6 +8,13 @@ import {
 	BalVidhyaStatus,
 } from "@prisma/client";
 
+const getImpressions = (item: BalVidhya): number => {
+	if ("impressions" in item && typeof item.impressions === "number") {
+		return item.impressions;
+	}
+	return 0;
+};
+
 // Helper to map Prisma BalVidhya to frontend expected structure
 const mapBalVidhyaForFrontend = (item: BalVidhya) => {
 	return {
@@ -25,6 +32,7 @@ const mapBalVidhyaForFrontend = (item: BalVidhya) => {
 		category: item.category ?? BalVidhyaCategory.Other,
 		status: item.status,
 		thumbnailUrl: item.thumbnailUrl ?? "",
+		impressions: getImpressions(item),
 		createdAt: item.createdAt,
 		updatedAt: item.updatedAt,
 	};

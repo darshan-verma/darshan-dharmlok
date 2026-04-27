@@ -100,9 +100,30 @@ export default function BalVidhyaPage() {
 		return () => observer.disconnect();
 	}, [fetchPage, hasMore, loading, loadingMore, page]);
 
-	const openViewer = (item: BalVidhyaItem) => {
+	const openViewer = async (item: BalVidhyaItem) => {
 		setViewerItem(item);
 		setViewerOpen(true);
+
+		// Count a real impression when a user opens item details.
+		try {
+			const res = await fetch(`/api/balvidhya/${item.id}/impression`, {
+				method: "POST",
+			});
+			if (!res.ok) return;
+			const data: { id: string; impressions: number } = await res.json();
+			setItems((prev) =>
+				prev.map((entry) =>
+					entry.id === data.id ? { ...entry, impressions: data.impressions } : entry
+				)
+			);
+			setViewerItem((prev) =>
+				prev && prev.id === data.id
+					? { ...prev, impressions: data.impressions }
+					: prev
+			);
+		} catch (error) {
+			console.error("Failed to track Bal Vidhya impression:", error);
+		}
 	};
 
 	return (
@@ -143,7 +164,10 @@ export default function BalVidhyaPage() {
 											}
 											image={item.thumbnailUrl}
 											isVerified={item.status === "Active"}
-											onBook={() => openViewer(item)}
+											followers={item.impressions ?? 0}
+											followersLabel="Impressions"
+											showSecondaryStat={false}
+											onBook={() => void openViewer(item)}
 											enableAnimations
 											className="w-full max-w-[380px] h-[28rem] min-h-[28rem]"
 										/>

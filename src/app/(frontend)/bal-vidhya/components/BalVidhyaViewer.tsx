@@ -17,6 +17,7 @@ export interface BalVidhyaItem {
 	bookFile?: string;
 	url?: string;
 	status?: string;
+	impressions?: number;
 }
 
 interface BalVidhyaViewerProps {

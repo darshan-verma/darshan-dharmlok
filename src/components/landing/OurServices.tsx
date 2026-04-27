@@ -82,9 +82,10 @@ export default function OurServices({
             {services.map((service, _index) => {
               const Icon = service.icon;
               return (
-                <div
+                <Link
                   key={service.title}
-                  className="liquid-glass-card rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 group overflow-hidden relative"
+                  href={service.href}
+                  className="liquid-glass-card rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 group overflow-hidden relative block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
                 >
                   <div className="space-y-4">
                     <div className="w-16 h-16 bg-orange-50 rounded-lg flex items-center justify-center border-2 border-orange-500 group-hover:bg-orange-500 transition-colors">
@@ -97,16 +98,13 @@ export default function OurServices({
                       <p className="text-gray-600 text-sm mb-4">
                         {service.description}
                       </p>
-                      <Link
-                        href={service.href}
-                        className="text-orange-500 font-semibold hover:text-orange-600 transition-colors inline-flex items-center gap-2 group-hover:gap-3"
-                      >
+                      <span className="text-orange-500 font-semibold hover:text-orange-600 transition-colors inline-flex items-center gap-2 group-hover:gap-3">
                         Read More
                         <span>→</span>
-                      </Link>
+                      </span>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
