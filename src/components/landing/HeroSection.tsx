@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LiquidButton } from "@/components/ui/liquid-glass-button";
 import Image from "next/image";
 import Link from "next/link";
@@ -33,10 +33,15 @@ interface HeroSectionProps {
 export default function HeroSection({ slides: slidesProp }: HeroSectionProps) {
   const sparkleRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [loadedVideoUrls, setLoadedVideoUrls] = useState<Record<string, boolean>>({});
+  const [reduceMedia, setReduceMedia] = useState(false);
 
-  const slides =
-    slidesProp && slidesProp.length > 0 ? slidesProp : [DEFAULT_SLIDE];
+  const slides = useMemo(
+    () => (slidesProp && slidesProp.length > 0 ? slidesProp : [DEFAULT_SLIDE]),
+    [slidesProp]
+  );
   const isCarousel = slides.length > 1;
+  const nextIndex = (currentIndex + 1) % slides.length;
 
   useEffect(() => {
     if (!isCarousel) return;
@@ -45,6 +50,41 @@ export default function HeroSection({ slides: slidesProp }: HeroSectionProps) {
     }, 5000);
     return () => clearInterval(t);
   }, [isCarousel, slides.length]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const connection = (
+      navigator as Navigator & {
+        connection?: { saveData?: boolean };
+      }
+    ).connection;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setReduceMedia(Boolean(connection?.saveData || prefersReducedMotion));
+  }, []);
+
+  useEffect(() => {
+    const nextSlide = slides[nextIndex];
+    if (reduceMedia || !nextSlide || nextSlide.mediaType !== "video" || !nextSlide.mediaUrl) {
+      return;
+    }
+    const existing = document.querySelector(
+      `link[data-hero-preload="${nextSlide.mediaUrl}"]`
+    );
+    if (existing) return;
+
+    const preload = document.createElement("link");
+    preload.rel = "preload";
+    preload.as = "video";
+    preload.href = nextSlide.mediaUrl;
+    preload.setAttribute("data-hero-preload", nextSlide.mediaUrl);
+    document.head.appendChild(preload);
+
+    return () => {
+      if (document.head.contains(preload)) {
+        document.head.removeChild(preload);
+      }
+    };
+  }, [nextIndex, reduceMedia, slides]);
 
   return (
     <>
@@ -72,25 +112,38 @@ export default function HeroSection({ slides: slidesProp }: HeroSectionProps) {
               transform: `translateX(-${(currentIndex * 100) / slides.length}%)`,
             }}
           >
-            {slides.map((slide) => (
+            {slides.map((slide, index) => (
               <div
                 key={slide.id}
                 className="relative h-full flex-shrink-0"
                 style={{ width: `${100 / slides.length}%` }}
               >
                 {slide.mediaType === "video" && slide.mediaUrl ? (
-                  <video
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onLoadedMetadata={(e) => {
-                      e.currentTarget.playbackRate = 0.5;
-                    }}
-                  >
-                    <source src={slide.mediaUrl} type="video/mp4" />
-                  </video>
+                  <>
+                    {!loadedVideoUrls[slide.mediaUrl] && (
+                      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+                    )}
+                    {!reduceMedia && (
+                      <video
+                        autoPlay={index === currentIndex}
+                        loop
+                        muted
+                        playsInline
+                        preload={index === currentIndex ? "auto" : index === nextIndex ? "metadata" : "none"}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        onLoadedMetadata={(e) => {
+                          e.currentTarget.playbackRate = 0.5;
+                        }}
+                        onLoadedData={() =>
+                          setLoadedVideoUrls((prev) => ({ ...prev, [slide.mediaUrl!]: true }))
+                        }
+                      >
+                        {(index === currentIndex || index === nextIndex) && (
+                          <source src={slide.mediaUrl} type="video/mp4" />
+                        )}
+                      </video>
+                    )}
+                  </>
                 ) : slide.mediaUrl ? (
                   <div className="absolute inset-0">
                     <Image
@@ -102,18 +155,34 @@ export default function HeroSection({ slides: slidesProp }: HeroSectionProps) {
                     />
                   </div>
                 ) : (
-                  <video
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onLoadedMetadata={(e) => {
-                      e.currentTarget.playbackRate = 0.5;
-                    }}
-                  >
-                    <source src="/landing-page/13656424_3840_2160_30fps.mp4" type="video/mp4" />
-                  </video>
+                  <>
+                    {!loadedVideoUrls["/landing-page/13656424_3840_2160_30fps.mp4"] && (
+                      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+                    )}
+                    {!reduceMedia && (
+                      <video
+                        autoPlay={index === currentIndex}
+                        loop
+                        muted
+                        playsInline
+                        preload={index === currentIndex ? "auto" : index === nextIndex ? "metadata" : "none"}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        onLoadedMetadata={(e) => {
+                          e.currentTarget.playbackRate = 0.5;
+                        }}
+                        onLoadedData={() =>
+                          setLoadedVideoUrls((prev) => ({
+                            ...prev,
+                            "/landing-page/13656424_3840_2160_30fps.mp4": true,
+                          }))
+                        }
+                      >
+                        {(index === currentIndex || index === nextIndex) && (
+                          <source src="/landing-page/13656424_3840_2160_30fps.mp4" type="video/mp4" />
+                        )}
+                      </video>
+                    )}
+                  </>
                 )}
               </div>
             ))}

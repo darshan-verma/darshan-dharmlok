@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Header from "./Header";
 import HeroSection, { type HeroSlideData } from "./HeroSection";
 import AboutDharmlok from "./AboutDharmlok";
@@ -15,19 +14,9 @@ import TravelPortal from "./TravelPortal";
 import Footer from "./Footer";
 import { BackgroundShader } from "@/components/ui/background-paper-shaders";
 import type { HomepageSectionKey } from "@/lib/homepage-sections";
+import type { HomepageSection } from "@/lib/homepage-data";
 
-export interface HomepageSectionData {
-  id: string;
-  sectionKey: string;
-  title: string;
-  description: string | null;
-  mediaUrl: string | null;
-  mediaType: string | null;
-  sortOrder: number;
-  extraData: {
-    cards?: Array<{ title: string; description: string; image: string; className?: string }>;
-  } | null;
-}
+export type HomepageSectionData = HomepageSection;
 
 const SECTION_COMPONENTS: Record<
   HomepageSectionKey,
@@ -43,33 +32,12 @@ const SECTION_COMPONENTS: Record<
   eshop: EShopProducts as React.ComponentType<Record<string, unknown>>,
 };
 
-export default function LandingPage() {
-  const [heroSlides, setHeroSlides] = useState<HeroSlideData[] | null>(null);
-  const [sections, setSections] = useState<HomepageSectionData[]>([]);
-  const [loading, setLoading] = useState(true);
+interface LandingPageProps {
+  heroSlides: HeroSlideData[] | null;
+  sections: HomepageSectionData[];
+}
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/homepage")
-      .then((res) => (res.ok ? res.json() : Promise.resolve(null)))
-      .then((data) => {
-        if (cancelled || !data) return;
-        setHeroSlides(data.heroSlides ?? null);
-        setSections(data.sections ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setHeroSlides(null);
-          setSections([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+export default function LandingPage({ heroSlides, sections }: LandingPageProps) {
 
   const sectionProps = (section: HomepageSectionData) => {
     const base = {
@@ -108,27 +76,16 @@ export default function LandingPage() {
 
       <div className="relative z-10">
         <Header />
-        {loading ? (
-          <div className="min-h-screen flex items-center justify-center">
-            <div className="animate-pulse text-muted-foreground">Loading...</div>
-          </div>
-        ) : (
-          <>
-            <HeroSection slides={heroSlides ?? undefined} />
-            {sortedSections.map((section) => {
-                const Component = SECTION_COMPONENTS[section.sectionKey as HomepageSectionKey];
-                if (!Component) return null;
-                return (
-                  <Component
-                    key={section.id}
-                    {...sectionProps(section)}
-                  />
-                );
-              })}
-            <TravelPortal />
-            <Footer />
-          </>
-        )}
+        <>
+          <HeroSection slides={heroSlides ?? undefined} />
+          {sortedSections.map((section) => {
+            const Component = SECTION_COMPONENTS[section.sectionKey as HomepageSectionKey];
+            if (!Component) return null;
+            return <Component key={section.id} {...sectionProps(section)} />;
+          })}
+          <TravelPortal />
+          <Footer />
+        </>
       </div>
     </div>
   );
