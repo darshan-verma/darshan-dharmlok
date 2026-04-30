@@ -1,0 +1,1023 @@
+// Prisma Schema for MongoDB
+datasource db {
+    provider = "mongodb"
+    url      = env("MONGODB_URI")
+}
+
+// Generator for Prisma Client
+generator client {
+    provider = "prisma-client-js"
+    database = "mongoDb"
+}
+// User Model
+model User {
+    id String @id @default(auto()) @map("_id") @db.ObjectId
+    name String
+    phone String
+    email String @unique
+    emailVerified DateTime? // NEW: For NextAuth Google OAuth
+    image String? // NEW: Profile image URL from Google
+    bio String?
+    userType String?
+    typeVendor String?
+    profileImageUrl String?
+    bannerImageUrl String?
+    description String?
+    coverImageUrl String?
+    category String?
+    password String
+    social Int?
+    active Int?
+    rank String?
+    availability Int?
+    kycApproved Int?
+    status String? @default("Active")
+    isLoggedIn Boolean @default(false)
+    lastLogoutAt DateTime?
+    lastActiveAt DateTime?
+    lastLoginAt DateTime?
+    createdAt DateTime @default(now())
+    addresses Address[]
+    serviceOfferings ServiceOffering[] @relation("UserToServiceOffering")
+    images Image[] // Relation to Image model for user images
+    videos Video[]
+    posts Post[]
+    comments Comment[]
+    products Product[] @relation("UserProducts")
+
+    // Chat: messages sent by this user
+    chatMessages ChatMessage[]
+
+    // Relations for live-session features
+    liveSessions LiveSession[]            // sessions where this user is instructor
+    sessionParticipants SessionParticipant[]
+    teacherAvailabilities TeacherAvailability[]
+    bookings Booking[]                     // bookings created by this user
+    teacherBookings Booking[] @relation("TeacherBookings") // bookings where user is teacher
+    reviews Review[]
+    reminders Reminder[]
+
+    // Yoga sessions offered by this trainer
+    yogaSessions YogaSession[]
+
+    // Travel bookings
+    travelBookings TravelBooking[]
+    hotelBookings  HotelBooking[]
+    travelPortalQueries TravelPortalQuery[]
+
+    // Optimized indexes for user-type specific API queries
+    @@index([userType]) // Primary index for user type filtering
+    @@index([userType, status]) // Combined index for type + status queries
+    @@index([userType, kycApproved]) // Combined index for type + KYC approval queries
+    @@index([userType, active]) // Combined index for type + active status queries
+    @@index([userType, availability]) // Combined index for type + availability queries
+    @@index([userType, createdAt]) // Combined index for type + date sorting
+    @@index([userType, name]) // Combined index for type + name search
+    @@index([userType, email]) // Combined index for type + email search
+    @@index([userType, phone]) // Combined index for type + phone search
+    @@index([userType, category]) // Combined index for type + category filtering
+    @@index([userType, rank]) // Combined index for type + rank filtering
+    @@index([name]) // Index for name-based searches across all types
+    @@index([status]) // Index for status filtering across all types
+    @@index([kycApproved]) // Index for KYC approval filtering
+    @@index([active]) // Index for active status filtering
+    @@index([createdAt]) // Index for date-based sorting and filtering
+}
+
+model Image {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    url         String
+    title       String?
+    description String?
+    user        User     @relation(fields: [userId], references: [id])
+    userId      String   @db.ObjectId
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
+// Address Model
+model Address {
+    id         String   @id @default(auto()) @map("_id") @db.ObjectId
+    user       User     @relation(fields: [userId], references: [id])
+    userId     String   @db.ObjectId
+    
+    type       String   // e.g. "home", "work", or "other"
+    label      String?  // optional custom label if type == "other"
+    line1      String
+    line2      String?  // suite, apt, etc.
+    city       String
+    state      String?
+    country    String
+    pincode    String?
+
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    // Optimized indexes for address queries
+    @@index([userId]) // Primary index for user-based queries
+    @@index([city]) // Index for city-based filtering
+    @@index([state]) // Index for state-based filtering
+    @@index([country]) // Index for country-based filtering
+    @@index([pincode]) // Index for pincode-based filtering
+    @@index([type]) // Index for address type filtering
+    @@index([city, state]) // Combined index for city + state
+    @@index([state, country]) // Combined index for state + country
+    @@index([userId, type]) // Combined index for user + type
+}
+//Bal Vidhya Model
+model BalVidhya {
+    id            String               @id @default(auto()) @map("_id") @db.ObjectId
+    name          String
+    description   String?
+    type          BalVidhyaType
+    trendingStatus BalVidhyaTrendingStatus @default(NotTrending)
+    impressions   Int                  @default(0)
+    category      BalVidhyaCategory?
+    url           String?
+    thumbnailUrl  String?
+    videoUrl      String?
+    videoFile     String?
+    bookFile      String?
+    status        BalVidhyaStatus       @default(Active)
+    approved      Boolean
+    createdAt     DateTime              @default(now())
+    updatedAt     DateTime              @updatedAt
+}
+enum BalVidhyaType {
+    video
+    book
+}
+enum BalVidhyaStatus {
+    Active
+    Inactive
+}
+enum BalVidhyaCategory {
+    Sanatan
+    Buddhism
+    Sikh
+    Jain
+    BhagavadGita
+    Ramayana
+    Mahabharata
+    Vedas
+    Puranas
+    Upanishads
+    BhaktiYoga
+    Other
+}
+enum BalVidhyaTrendingStatus {
+    NotTrending
+    Trending
+    HighlyTrending
+    Seasonal
+    Featured
+}
+// Pooja Category Model
+model PoojaCategory {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    name        String
+    description String?
+    date        DateTime?
+    price       Float?
+    status      String? @default("Active")
+    details     String?
+    images      String[]
+    videos      String[]
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
+// Service Offering Model
+model ServiceOffering {
+    id           String   @id @default(auto()) @map("_id") @db.ObjectId
+    provider     User     @relation("UserToServiceOffering", fields: [providerId], references: [id], onDelete: Cascade)
+    providerId   String   @db.ObjectId
+
+    serviceType  String   // e.g. "pooja", "consultation", "event", etc.
+    targetType   String   // e.g. "PoojaCategory", "Event", etc.
+    targetId     String   // e.g. poojaCategoryId, eventId, etc.
+
+    price        Float
+    details      String?
+    metadata     Json?
+
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+    status       String? @default("Active")
+
+    // Optimized indexes for service offering queries
+    @@index([providerId]) // Index for provider-based queries
+    @@index([providerId, status]) // Combined index for provider + status
+    @@index([serviceType]) // Index for service type filtering
+    @@index([serviceType, status]) // Combined index for service type + status
+    @@index([providerId, serviceType]) // Combined index for provider + service type
+    @@index([targetType, targetId]) // Combined index for target-based queries
+    @@index([status]) // Index for status filtering
+    @@index([createdAt]) // Index for date-based sorting
+} 
+// EBook Model
+model EBook {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    title       String
+    date        DateTime @default(now())
+    description String
+    type        String   // e.g. "pdf", "epub", or your own categories
+    category    String   // e.g. "spiritual", "mythology", etc.
+    detail      String?  // for full content, summary, or download URL
+    status      String? @default("Active")
+    bookFile    String?
+    bookCover   String?  // URL/path to the book cover image
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
+// Quote Model
+model Quote {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    quote     String
+    date      DateTime @default(now())
+    status    String   // e.g. "active", "inactive"
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+// Yoga Model
+model Yoga {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    name        String
+    date        DateTime @default(now())
+    description String
+    status      String   @default("Active")
+    images      Json?    // Array of image objects with url, caption, alt, order
+    videos      String[] // Array of video URLs
+    coverImage  String?  // Cover image URL
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
+// Yoga Session Model for instructor offerings
+model YogaSession {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    trainer     User     @relation(fields: [trainerId], references: [id])
+    trainerId   String   @db.ObjectId
+    name        String   // Session name
+    date        DateTime // Session date
+    serviceType String   // Type of yoga service (Hatha, Vinyasa, etc.)
+    description String
+    status      String   @default("Active")
+    bannerImage String?  // Banner image URL
+    coverImage  String?  // Cover image URL
+    images      String[] // Array of image URLs
+    videos      String[] // Array of video URLs
+    price       Float?   // Session price
+    duration    Int?     // Duration in minutes
+    capacity    Int?     // Max participants
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    // Relations
+    bookings    Booking[] // Bookings for this session
+
+    // Indexes
+    @@index([trainerId])
+    @@index([status])
+    @@index([date])
+    @@index([serviceType])
+}
+// Homepage Hero Carousel - multiple slides (heading, subheading, description, image or video)
+model HomepageHeroSlide {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    heading     String
+    subheading  String?
+    description String?
+    mediaUrl    String?  // image or video URL
+    mediaType   String   @default("image") // "image" | "video"
+    sortOrder   Int      @default(0)
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    @@index([sortOrder])
+}
+
+// Homepage Section - one record per section (about, kathavachak, our-services, etc.)
+model HomepageSection {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    sectionKey  String   @unique // "about" | "kathavachak" | "our-services" | "dharmguru" | "panditji" | "explore-dharmlok" | "eshop"
+    title       String
+    description String?
+    mediaUrl    String?  // for about section: video or image URL
+    mediaType   String?  // "image" | "video"
+    sortOrder   Int      @default(0)
+    extraData   Json?    // e.g. bento cards for explore-dharmlok: { cards: [{ title, description, image }] }
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    @@index([sortOrder])
+}
+
+// Banner Model - pageSlug links banner to a frontend page (e.g. "blogs", "e-shop")
+model Banner {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    title       String
+    date        DateTime @default(now())
+    description String
+    category    String
+    type        String   // e.g. "image", "video", "promo", etc.
+    imageUrl    String?  // URL/path to the banner file (image, video, etc.)
+    bannerFile  String?  // optional file path if type == "video"
+    status      String   // e.g. "active", "inactive", "draft"
+    pageSlug    String?  // frontend page this banner is for (e.g. "blogs", "e-shop")
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
+
+model Video {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    title       String
+    date        DateTime @default(now())
+    description String
+    user        User     @relation(fields: [userId], references: [id])
+    userId      String   @db.ObjectId
+    category    String
+    type         String   // e.g. "image", "video", "promo", etc.
+    thumbnailUrl String?  // URL/path to the thumbnail image
+    videoFile    String?  // optional file path if type == "video"
+    source       String?  // To track the origin of the video, e.g., "launch-video"
+    status       String   // e.g. "active", "inactive", "draft"
+    duration     Int?     // length in seconds or minutes (decide convention)
+    ratingAvg    Float?   @default(0)
+    reviewCount  Int?     @default(0)
+    featured     Boolean  @default(false)
+    tags         String[]
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+    likes        String[] @db.ObjectId // Array of userIds who liked the video
+    comments     Comment[]
+}
+
+model Comment {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    text      String
+    createdAt DateTime @default(now())
+    user      User     @relation(fields: [userId], references: [id])
+    userId    String   @db.ObjectId
+    video     Video?   @relation(fields: [videoId], references: [id])
+    videoId   String?  @db.ObjectId
+    post      Post?    @relation(fields: [postId], references: [id])
+    postId    String?  @db.ObjectId
+}
+model Temple {
+    id             String   @id @default(auto()) @map("_id") @db.ObjectId
+    name           String
+    date           DateTime @default(now())
+    state          String
+    city           String
+    status         String
+    imageFile      String?
+    videoFile      String?
+    bannerImage    String?  // NEW: URL for banner image
+    coverImage     String?  // NEW: URL for cover image
+    address       String?
+    location      String?
+    description    String?
+    history        String?
+    additionalInfo String?
+    rituals        String?
+    travelByAir    String?
+    travelByTrain  String?
+    travelByBus    String?
+    travelByRoad   String?
+    timings        String?
+    amenities      String?
+
+  // This field name 'templeFaq' is what 'include' will use.
+  // The relation name "TempleToTempleFaqRelation" can be anything, but must match on both sides.
+    templeFaq      TempleFaq[] @relation("TempleToTempleFaqRelation")
+
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+}
+
+model TempleFaq {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    question  String
+    answer    String
+    templeId  String   @db.ObjectId
+    // This establishes the other side of the relation.
+    temple    Temple   @relation(fields: [templeId], references: [id], onDelete: Cascade, name: "TempleToTempleFaqRelation")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+// Dharamshala Model
+model Dharamshala {
+    id             String      @id @default(auto()) @map("_id") @db.ObjectId
+    name           String
+    date           DateTime    @default(now())
+    state          String
+    city           String
+    status         String      // e.g. "active", "inactive"
+    imageFile      Json?       // image URLs (legacy stringified JSON or array)
+    videoFile      Json?       // video URLs (legacy stringified JSON or array)
+    bannerImage    String?     // NEW: URL for banner image
+    coverImage     String?     // NEW: URL for cover image
+    // Location (map)
+    address       String?
+    location      String?
+    // Details page fields
+    description    String?
+    additionalInfo String?
+    // Travel
+    travelByAir    Json?       // Best way by air
+    travelByTrain  Json?       // Best way by train
+    travelByBus    Json?       // Best way by bus
+    travelByRoad   Json?       // Best way by road
+    timings        String?     // Opening/closing times, special schedules
+    amenities      Json?       // Nearby amenities
+    // FAQ
+    dharamshalaFaqs           DharamshalaFaq[]       @relation("DharamshalaFaqs")
+    createdAt      DateTime    @default(now())
+    updatedAt      DateTime    @updatedAt
+}
+model DharamshalaFaq {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    question  String
+    answer    String
+    dharamshalaId String @db.ObjectId
+    // This establishes the other side of the relation.
+    dharamshala Dharamshala @relation(fields: [dharamshalaId], references: [id], onDelete: Cascade, name: "DharamshalaFaqs")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+// Playlist Model
+model Playlist {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    name      String
+    date      DateTime @default(now())
+    category  String
+    status    String   // "active" | "inactive"
+    songs     Song[]   @relation("PlaylistSongs")
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+// Song Model
+model Song {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    name        String
+    date        DateTime @default(now())
+    description String?
+    audioFile    String?   // path to uploaded audio file
+    thumbnail   String?   // path to uploaded thumbnail
+    playlistId  String   @db.ObjectId
+    playlist    Playlist  @relation(fields: [playlistId], references: [id], name: "PlaylistSongs")
+    status      String
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
+// Product Model
+model Product {
+    id              String    @id @default(auto()) @map("_id") @db.ObjectId
+    name            String
+    date            DateTime  @default(now())                      // Date added or updated
+    category        String[]                                        // Category name or ID
+    pricePerUnit    Float                                         // Price per unit
+    availableQty    Int                                           // Available quantity in stock
+    description     String?                                       // Rich text description
+    images          String[]                                      // Array of image URLs/paths
+    videos          String[]                                      // Array of video URLs/paths
+    status          String                                        // "active", "inactive", etc.
+    seller   User   @relation("UserProducts", fields: [sellerId], references: [id])
+    sellerId        String    @db.ObjectId
+    createdAt       DateTime  @default(now())
+    updatedAt       DateTime  @updatedAt
+
+    // Optimized indexes for product queries
+    @@index([sellerId]) // Index for seller-based queries
+    @@index([sellerId, status]) // Combined index for seller + status
+    @@index([status]) // Index for status filtering
+    @@index([category]) // Index for category filtering
+    @@index([sellerId, category]) // Combined index for seller + category
+    @@index([name]) // Index for name-based searches
+    @@index([pricePerUnit]) // Index for price-based sorting/filtering
+    @@index([availableQty]) // Index for stock-based filtering
+    @@index([createdAt]) // Index for date-based sorting
+    @@index([updatedAt]) // Index for update-based sorting
+}
+// Coupon Model
+model Coupon {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    name        String                           // Coupon name/code
+    date        DateTime @default(now())         // Date of creation or update
+    discount    Float                             // Discount value (percentage or flat)
+    userLimit   Int                               // Max uses per user
+    timeUsed    Int      @default(0)              // Total times used
+    validity    DateTime                          // Expiry date/time
+    status      String                            // "active", "inactive", etc.
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+}
+model Category {
+    id   String @id @default(auto()) @map("_id") @db.ObjectId
+    name String @unique
+}
+// model Events and Bookings
+model Event {
+    id            String   @id @default(auto()) @map("_id") @db.ObjectId
+    title         String
+    description   String?
+    bookingUrl    String?
+    address       String?
+    fromDate      DateTime
+    fromTime      String?
+    toDate        DateTime
+    toTime        String?
+    place         String?
+    location      String?
+    category      String
+    type          String
+    price         Float?
+    bannerImage   String?
+    relatedImages String[] // or Json if you want more flexibility
+    status        String
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+
+    // Optimized indexes for event queries
+    @@index([status]) // Index for status filtering (active/inactive)
+    @@index([category]) // Index for category-based filtering
+    @@index([type]) // Index for event type filtering
+    @@index([fromDate]) // Index for date-based queries
+    @@index([toDate]) // Index for end date queries
+    @@index([location]) // Index for location-based searches
+    @@index([place]) // Index for place-based searches
+    @@index([category, status]) // Combined index for category + status
+    @@index([type, status]) // Combined index for type + status
+    @@index([fromDate, status]) // Combined index for date + status
+    @@index([price]) // Index for price-based filtering/sorting
+    @@index([createdAt]) // Index for creation date sorting
+}
+
+model Post {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    userType  String
+    caption   String?  // optional for image-only or video-only posts
+    likes     String[] @db.ObjectId // Array of userIds who liked the post
+    comments  Comment[] // Relation to comments on this post
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    user   User   @relation(fields: [userId], references: [id])
+    userId String @db.ObjectId
+
+    media Media[]
+
+    // Optimized indexes for post queries
+    @@index([userId]) // Primary index for user-based queries
+    @@index([userType]) // Index for user type filtering
+    @@index([createdAt]) // Index for chronological sorting
+    @@index([updatedAt]) // Index for update-based sorting
+    @@index([userId, userType]) // Combined index for user + userType
+    @@index([userType, createdAt]) // Combined index for userType + date
+    @@index([likes]) // Index for like-based queries
+}
+
+model Media {
+    id     String @id @default(auto()) @map("_id") @db.ObjectId
+    type   String // "image" or "video"
+    url    String
+
+    post   Post   @relation(fields: [postId], references: [id])
+    postId String @db.ObjectId
+
+    @@index([postId])
+}
+
+// Chat: 1:1 and group conversations (separate from post comments)
+model ChatRoom {
+    id             String   @id @default(auto()) @map("_id") @db.ObjectId
+    type           String   // "direct" | "group"
+    name           String?  // optional, for groups
+    imageUrl       String?  // optional, for groups
+    createdById    String?  @db.ObjectId
+    adminIds       String[] @db.ObjectId @default([])
+    participantIds String[] @db.ObjectId
+    createdAt      DateTime @default(now())
+    updatedAt      DateTime @updatedAt
+    messages       ChatMessage[]
+
+    @@index([participantIds])
+    @@index([updatedAt])
+}
+
+model ChatMessage {
+    id         String   @id @default(auto()) @map("_id") @db.ObjectId
+    chatRoomId String   @db.ObjectId
+    senderId   String   @db.ObjectId
+    text       String
+    attachmentUrl  String?
+    attachmentType String? // e.g. "image" | "voice"
+    createdAt  DateTime @default(now())
+
+    chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+    sender   User     @relation(fields: [senderId], references: [id])
+
+    @@index([chatRoomId])
+    @@index([createdAt])
+}
+
+// Live sessions (scheduled / live classes)
+model LiveSession {
+    id               String   @id @default(auto()) @map("_id") @db.ObjectId
+    title            String
+    subtitle         String?
+    description      String?
+    instructor       User     @relation(fields: [instructorId], references: [id])
+    instructorId     String   @db.ObjectId
+    startTime        DateTime
+    durationMin      Int
+    imageUrl         String?
+    participantCount Int      @default(0)
+    capacity         Int?
+    status           String   @default("upcoming") // upcoming | live | completed | cancelled
+    remindEnabled    Boolean  @default(true)
+    createdAt        DateTime @default(now())
+    updatedAt        DateTime @updatedAt
+
+    participants     SessionParticipant[]
+    reminders        Reminder[]
+}
+
+// Participants for a live session
+model SessionParticipant {
+    id        String      @id @default(auto()) @map("_id") @db.ObjectId
+    session   LiveSession @relation(fields: [sessionId], references: [id])
+    sessionId String      @db.ObjectId
+    user      User        @relation(fields: [userId], references: [id])
+    userId    String      @db.ObjectId
+    joinedAt  DateTime?
+    status    String      @default("registered") // registered | joined | no-show
+    createdAt DateTime    @default(now())
+}
+
+// Teacher availability (scheduling slots)
+model TeacherAvailability {
+    id            String   @id @default(auto()) @map("_id") @db.ObjectId
+    teacher       User     @relation(fields: [teacherId], references: [id])
+    teacherId     String   @db.ObjectId
+    startTime     DateTime
+    endTime       DateTime
+    pricePerHour  Float
+    sessionTypes  String[]
+    isRecurring   Boolean  @default(false)
+    recurringRule String?
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+}
+
+// Bookings for teacher sessions
+model Booking {
+    id              String   @id @default(auto()) @map("_id") @db.ObjectId
+    user            User     @relation(fields: [userId], references: [id])
+    userId          String   @db.ObjectId
+    teacher         User     @relation("TeacherBookings", fields: [teacherId], references: [id])
+    teacherId       String   @db.ObjectId
+    availabilityId  String?  @db.ObjectId
+    yogaSession     YogaSession? @relation(fields: [yogaSessionId], references: [id])
+    yogaSessionId   String?  @db.ObjectId
+    scheduledAt     DateTime
+    durationMin     Int
+    price           Float
+    status          String   @default("pending") // pending|confirmed|completed|cancelled
+    notes           String?
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @updatedAt
+
+    @@index([teacherId])
+    @@index([userId])
+}
+
+// Reviews & ratings
+model Review {
+    id         String   @id @default(auto()) @map("_id") @db.ObjectId
+    user       User     @relation(fields: [userId], references: [id])
+    userId     String   @db.ObjectId
+    targetType String   // "Video" | "Teacher" | "Session"
+    targetId   String
+    rating     Int
+    title      String?
+    comment    String?
+    helpful    Int      @default(0)
+    notHelpful Int      @default(0)
+    createdAt  DateTime @default(now())
+
+    @@index([targetType, targetId])
+}
+
+// Reminders set by users for sessions
+model Reminder {
+    id        String   @id @default(auto()) @map("_id") @db.ObjectId
+    userId    String   @db.ObjectId
+    sessionId String   @db.ObjectId
+    remindAt  DateTime
+    createdAt DateTime @default(now())
+
+    // Relations
+    user    User?      @relation(fields: [userId], references: [id])
+    session LiveSession? @relation(fields: [sessionId], references: [id])
+}
+
+// Motivation Speaker Model
+model MotivationSpeaker {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    name        String
+    date        DateTime @default(now())
+    phone       String
+    email       String
+    timings     String   // e.g. "10:00 AM - 12:00 PM"
+    category    String   // e.g. "Spiritual", "Motivational", "Life Skills"
+    status      String   @default("Active")
+    coverImage  String?  // Cover image URL
+    bannerImage String?  // Banner image URL
+    profileImage String? // Profile image URL
+    images      String[] // Array of image URLs
+    videos      String[] // Array of video URLs
+    description String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    // Indexes
+    @@index([status])
+    @@index([category])
+    @@index([date])
+}
+
+// Blog Model
+model Blog {
+    id          String   @id @default(auto()) @map("_id") @db.ObjectId
+    title       String
+    content     String   // Blog content/description
+    coverImage  String?  // Cover image URL
+    bannerImage String?  // Banner image URL
+    status      String   @default("Active") // "Active" | "Inactive"
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    // Indexes
+    @@index([status])
+    @@index([createdAt])
+}
+
+// Travel Portal Models
+model Destination {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String
+  image       String
+  location    String
+  category    String
+  price       Int
+  travelByAir    String?  // Flight information and routes
+  travelByTrain  String?  // Train routes and stations
+  travelByBus    String?  // Bus routes and operators
+  travelByRoad   String?  // Road routes and distances
+  createdAt   DateTime @default(now())
+  bookings    TravelBooking[]
+}
+
+model TravelBooking {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String      @db.ObjectId
+  destinationId String      @db.ObjectId
+  name          String      // Traveler name
+  email         String      // Contact email
+  phone         String?     // Contact phone
+  fromLocation  String?     // Starting location
+  transportType String?     // air, train, bus, road
+  travelDate    DateTime    // Departure date
+  returnDate    DateTime?   // Return date
+  departureTime String?     // Preferred departure time
+  travelers     Int         @default(1) // Number of travelers
+  totalAmount   Float?      // Total booking amount
+  date          DateTime    @default(now()) // Booking creation date
+  status        String      @default("PENDING")
+  // TBO flight booking identifiers (for GetBookingDetails lookup)
+  source        String?     // e.g. "TBO", "AIRiQ"
+  tboBookingId  Int?        // TBO BookingId
+  tboPnr        String?     // TBO PNR
+  leadFirstName String?     // Lead passenger first name (for PNR lookup when BookingId is 0)
+  leadLastName  String?     // Lead passenger last name
+  // AiriQ flight booking identifiers (for RetrieveBooking lookup)
+  airIqPnr      String?     // AiriQ booking reference
+  airlinePnr    String?     // Airline PNR
+
+  destination   Destination @relation(fields: [destinationId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+}
+
+// TripJack / TBO Hotel Booking
+model HotelBooking {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String    @db.ObjectId
+  source              String    // "TRIPJACK" or "TBO"
+  tripjackBookingId   String?   @unique // bookingId from TripJack Review/Book API
+  hotelName           String
+  hotelCode           String    // tjHotelId or TBO hotelCode
+  checkIn             DateTime
+  checkOut            DateTime
+  rooms               Int       @default(1)
+  adults              Int       @default(1)
+  children            Int       @default(0)
+  totalAmount         Float
+  currency            String    @default("INR")
+  status              String    @default("PENDING") // Maps to TripJack booking statuses
+  holdDeadline        DateTime? // ddt for ON_HOLD bookings
+  guestDetails        Json?     // roomTravellerInfo array
+  deliveryInfo        Json?     // emails, contacts, code
+  cancellationPolicy  Json?     // penalties array from option
+  optionSnapshot      Json?     // Full option snapshot at time of booking
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user                User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+// Cruise / travel portal lead forms (submitted from public travel home)
+model TravelPortalQuery {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  queryType         String   @default("cruise") // e.g. cruise
+  userId            String?  @db.ObjectId
+  user              User?    @relation(fields: [userId], references: [id])
+  contactName       String
+  email             String
+  phone             String?
+  preferredRegion   String?
+  departurePort     String?
+  travelMonth       String?
+  passengers        Int      @default(1)
+  cabinPreference   String?
+  message           String?
+  createdAt         DateTime @default(now())
+
+  @@index([queryType])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// TBO Hotel Search System Models
+// Country model - Master list of countries from TBO
+model TboCountry {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  countryCode String   @unique
+  countryName String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([countryName])
+}
+
+// City model - Cities from TBO mapped to countries
+model TboCity {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  cityCode    String   @unique
+  cityName    String
+  countryCode String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([cityName])
+  @@index([countryCode])
+  @@index([countryCode, cityName])
+}
+
+// Hotel model - Hotels from TBO with full details
+model TboHotel {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  hotelCode    String   @unique
+  hotelName    String
+  cityCode     String
+  cityName     String
+  countryCode  String
+  countryName  String
+  latitude     String?
+  longitude    String?
+  hotelRating  String?
+  address      String?
+  description  String?
+  facilities   String[] // Array of facilities
+  images       String[] // Array of image URLs
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([hotelName])
+  @@index([cityCode])
+  @@index([countryCode])
+  @@index([cityCode, hotelName])
+  @@index([countryCode, cityName])
+}
+
+// Hotel model - Hotels from TripJack with TripJack hotel IDs
+model TripjackHotel {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  tjHotelId    String   @unique   // TripJack hotel identifier (tjHotelId)
+  hotelName    String
+  cityCode     String              // TBO-compatible city code for cross-reference
+  cityName     String
+  countryCode  String
+  countryName  String
+  latitude     String?
+  longitude    String?
+  hotelRating  String?
+  address      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([hotelName])
+  @@index([cityCode])
+  @@index([countryCode])
+  @@index([cityCode, hotelName])
+  @@index([countryCode, cityName])
+}
+
+// Unified search index for fast autocomplete searches
+model TboSearchIndex {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  type        String   // 'country' | 'city' | 'hotel'
+  displayName String
+  countryCode String
+  cityCode    String?
+  hotelCode   String?
+  searchText  String   // Normalized searchable text
+  priority    Int      // hotel=3 > city=2 > country=1
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([searchText])
+  @@index([type])
+  @@index([priority])
+  @@index([type, priority])
+  @@index([countryCode])
+  @@index([cityCode])
+  @@index([hotelCode])
+}
+
+// Travel Audit Log Model - Lightweight logging for travel bookings
+model TravelLog {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String?  @db.ObjectId
+  userEmail     String?
+  userName      String?
+  logType       String   // "flight" | "hotel"
+  action        String   // "booking" | "search" | "selection"
+  provider      String?  // "AIRiQ" | "TBO" | "other"
+  
+  // Flight-specific data
+  flightData    Json?    // Flight details, seat selections, meal selections
+  
+  // Hotel-specific data
+  hotelData     Json?    // Hotel details, room selections
+  
+  // Common booking data
+  bookingCode   String?  // External booking reference
+  traceId       String?  // Search trace ID
+  resultIndex   String?  // Selected result index
+  totalAmount   Float?   // Total booking amount
+  currency      String?  @default("INR")
+  
+  // Metadata
+  metadata      Json?    // Additional flexible data
+  ipAddress     String?
+  userAgent     String?
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
+  @@index([logType])
+  @@index([action])
+  @@index([createdAt])
+  @@index([userId, logType])
+  @@index([logType, createdAt])
+}
+
+// Booking Audit Snapshot Model - DOM snapshot audit trail for legal defense
+model BookingAuditSnapshot {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId     String?  // External booking code/ID (can be ObjectId or string)
+  userId        String?  @db.ObjectId
+  type          String   // "flight" | "hotel"
+  page          String   // "flight_results" | "flight_review" | "payment" | "hotel_results" | "hotel_review"
+  snapshotJson  Json     // Full snapshot data (JSONB)
+  hash          String   // SHA256 hash for tamper protection
+  ip            String?
+  userAgent     String?
+  traceId       String?  // Search trace ID for linking pre-booking snapshots
+  resultIndex   String?  // Selected result index
+  createdAt     DateTime @default(now())
+  
+  @@index([bookingId])
+  @@index([userId])
+  @@index([type])
+  @@index([page])
+  @@index([traceId])
+  @@index([createdAt])
+  @@index([bookingId, createdAt])
+  @@index([traceId, createdAt])
+}
