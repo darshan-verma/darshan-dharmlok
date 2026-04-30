@@ -71,7 +71,12 @@ export interface TripjackPolicies {
 	baggagePolicy?: string[];
 	waitingTime?: string;
 	termsAndPolicies?: string[];
-	meetAndGreet?: string[];
+	meetAndGreet?:
+		| string[]
+		| {
+				type?: string;
+				description?: string;
+		  };
 }
 
 export interface TripjackFareBreakup {

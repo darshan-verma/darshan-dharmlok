@@ -41,9 +41,18 @@ function formatCurrency(value: number) {
 }
 
 function getHighlights(policies?: TripjackPolicies) {
+	const meetAndGreet =
+		typeof policies?.meetAndGreet === "object" &&
+		policies?.meetAndGreet &&
+		!Array.isArray(policies.meetAndGreet)
+			? policies.meetAndGreet.description || policies.meetAndGreet.type
+			: Array.isArray(policies?.meetAndGreet)
+				? policies.meetAndGreet[0]
+				: undefined;
+
 	return [
 		policies?.waitingTime,
-		policies?.meetAndGreet?.[0],
+		meetAndGreet,
 		policies?.inclusions?.[0],
 		policies?.cancellationPolicy?.[0]?.description,
 	].filter(Boolean) as string[];

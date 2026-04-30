@@ -10,6 +10,14 @@ import {
 } from "@/lib/travelLogger";
 import { resolveTripjackError } from "@/lib/tripjackError";
 
+function isNonEmptyString(value: unknown): value is string {
+	return typeof value === "string" && value.trim().length > 0;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+	return typeof value === "number" && Number.isFinite(value);
+}
+
 function validateBookingPayload(body: Record<string, unknown>): string | null {
 	const requiredTopLevel = [
 		"journeyInfo",
@@ -53,20 +61,26 @@ function validateBookingPayload(body: Record<string, unknown>): string | null {
 	if (
 		!quotationInfo ||
 		typeof quotationInfo !== "object" ||
-		!quotationInfo.quoteId ||
-		!quotationInfo.childQuoteId ||
-		typeof quotationInfo.vendorId !== "number"
+		!isNonEmptyString(quotationInfo.quoteId) ||
+		!isNonEmptyString(quotationInfo.childQuoteId) ||
+		!isNonEmptyString(quotationInfo.vehicleType) ||
+		!isNonEmptyString(quotationInfo.vehicleCategory) ||
+		!isFiniteNumber(quotationInfo.paxCount) ||
+		!isFiniteNumber(quotationInfo.luggageCount) ||
+		!isFiniteNumber(quotationInfo.vendorId)
 	) {
-		return "quotationInfo must include quoteId, childQuoteId and numeric vendorId";
+		return "quotationInfo must include quoteId, childQuoteId, vehicleType, vehicleCategory, paxCount, luggageCount and numeric vendorId";
 	}
 
 	if (
 		!pricingInfo ||
 		typeof pricingInfo !== "object" ||
-		!pricingInfo.netAmount ||
-		!pricingInfo.grossAmount
+		!isNonEmptyString(pricingInfo.netAmount) ||
+		!isNonEmptyString(pricingInfo.addonsPrice) ||
+		!isNonEmptyString(pricingInfo.grossAmount) ||
+		!isFiniteNumber(pricingInfo.agentMarkup)
 	) {
-		return "pricingInfo must include netAmount and grossAmount";
+		return "pricingInfo must include netAmount, addonsPrice, grossAmount and numeric agentMarkup";
 	}
 
 	if (

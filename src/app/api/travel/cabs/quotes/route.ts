@@ -22,6 +22,12 @@ const VALID_JOURNEY_TYPES: TripjackJourneyType[] = [
 ];
 
 const VALID_TRIP_TYPES: TripjackTripType[] = ["oneway", "roundtrip", "return"];
+const TRIPJACK_PROVIDER_JOURNEY_TYPE_MAP: Record<TripjackJourneyType, string> = {
+	airport_transfer: "AIRPORT_TRANSFER",
+	outstations: "OUTSTATION",
+	local: "LOCAL",
+	rental: "RENTAL",
+};
 
 function isValidDateTime(value: string): boolean {
 	return /^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}$/.test(value);
@@ -146,6 +152,10 @@ export async function POST(request: NextRequest) {
 			...body,
 			origin: stripLocation(body.origin as Record<string, unknown>),
 			destination: stripLocation(body.destination as Record<string, unknown>),
+			journeyType:
+				TRIPJACK_PROVIDER_JOURNEY_TYPE_MAP[
+					body.journeyType as TripjackJourneyType
+				],
 		};
 
 		const result = await getTripjackQuotes(
