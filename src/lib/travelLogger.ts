@@ -65,7 +65,7 @@ interface LogTravelActivityParams {
 	userId?: string;
 	userEmail?: string;
 	userName?: string;
-	logType: "flight" | "hotel" | "cab";
+	logType: "flight" | "hotel" | "cab" | "insurance";
 	action: "booking" | "search" | "selection";
 	provider?: string;
 	flightData?: FlightLogData;

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plane, MapPin, Briefcase, Shield } from "lucide-react";
+import { Plane, MapPin, Briefcase, Shield, Umbrella } from "lucide-react";
 
 export default function Navbar() {
 	const pathname = usePathname();
@@ -19,6 +19,12 @@ export default function Navbar() {
 			href: "/travel-portal/destinations",
 			icon: MapPin,
 			match: (path: string) => path.includes("/destinations"),
+		},
+		{
+			name: "Travel insurance",
+			href: "/travel-portal/insurance",
+			icon: Umbrella,
+			match: (path: string) => path.includes("/travel-portal/insurance"),
 		},
 		{
 			name: "My Trips",

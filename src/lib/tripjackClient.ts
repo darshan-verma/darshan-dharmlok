@@ -59,11 +59,27 @@ import {
 export type { TripjackStaticDetailNormalizeResult };
 
 const TRIPJACK_API_URL = process.env.TRIPJACK_API_URL || "";
+/** When set, base URL for TripSafe (`/insurance/…`, `/oms/v1/insurance/…`, `/oms/v1/ins/…`). Falls back to `TRIPJACK_API_URL`. */
+const TRIPSAFE_API_URL = process.env.TRIPSAFE_API_URL || "";
 const TRIPJACK_CABS_API_URL = process.env.TRIPJACK_CABS_API_URL || "";
 const TRIPJACK_STATIC_API_URL = process.env.TRIPJACK_STATIC_API_URL || "";
 /** Flight Management System (`/fms/…`) — usually `https://apitest.tripjack.com`, not the HMS host. */
 const TRIPJACK_FMS_API_URL = process.env.TRIPJACK_FMS_API_URL || "";
 const TRIPJACK_API_KEY = process.env.TRIPJACK_API_KEY || "";
+
+function isTripsafeInsuranceEndpoint(endpoint: string): boolean {
+	return (
+		endpoint.startsWith("/insurance/") ||
+		endpoint.startsWith("/oms/v1/insurance/") ||
+		endpoint.startsWith("/oms/v1/ins/")
+	);
+}
+
+function tripsafeTripjackBaseUrl(): string {
+	const dedicated = TRIPSAFE_API_URL.trim();
+	const fallback = TRIPJACK_API_URL.trim();
+	return dedicated || fallback;
+}
 
 export interface TripjackRequestConfig {
 	endpoint: string;
@@ -98,11 +114,14 @@ function tripjackFmsBaseUrl(): string {
 function ensureTripjackConfig(endpoint: string): void {
 	const isCabsEndpoint = endpoint.startsWith("/cabs/");
 	const isFmsEndpoint = endpoint.startsWith("/fms/");
+	const isTripsafeEndpoint = isTripsafeInsuranceEndpoint(endpoint);
 	const hasPrimaryBase = isCabsEndpoint
 		? Boolean(TRIPJACK_CABS_API_URL || TRIPJACK_API_URL)
 		: isFmsEndpoint
 			? Boolean(tripjackFmsBaseUrl())
-			: Boolean(TRIPJACK_API_URL);
+			: isTripsafeEndpoint
+				? Boolean(tripsafeTripjackBaseUrl())
+				: Boolean(TRIPJACK_API_URL);
 
 	if (!hasPrimaryBase) {
 		throw new Error(
@@ -110,7 +129,9 @@ function ensureTripjackConfig(endpoint: string): void {
 				? "Missing TRIPJACK_CABS_API_URL or TRIPJACK_API_URL environment variable"
 				: isFmsEndpoint
 					? "Missing TRIPJACK_FMS_API_URL, TRIPJACK_STATIC_API_URL, or TRIPJACK_API_URL for flight search"
-					: "Missing TRIPJACK_API_URL environment variable",
+					: isTripsafeEndpoint
+						? "Missing TRIPSAFE_API_URL or TRIPJACK_API_URL environment variable"
+						: "Missing TRIPJACK_API_URL environment variable",
 		);
 	}
 
@@ -126,11 +147,14 @@ function buildTripjackUrl(endpoint: string): string {
 
 	const isCabsEndpoint = endpoint.startsWith("/cabs/");
 	const isFmsEndpoint = endpoint.startsWith("/fms/");
+	const isTripsafeEndpoint = isTripsafeInsuranceEndpoint(endpoint);
 	const baseUrl = isCabsEndpoint
 		? TRIPJACK_CABS_API_URL || TRIPJACK_API_URL
 		: isFmsEndpoint
 			? tripjackFmsBaseUrl()
-			: TRIPJACK_API_URL;
+			: isTripsafeEndpoint
+				? tripsafeTripjackBaseUrl()
+				: TRIPJACK_API_URL;
 	const base = baseUrl.replace(/\/$/, "");
 	const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 	return `${base}${path}`;
