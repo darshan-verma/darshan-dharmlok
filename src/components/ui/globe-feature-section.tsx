@@ -1,32 +1,9 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Globe } from "@/components/ui/cobe-globe";
+import Globe from "@/components/ui/globe";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-
-const markers = [
-  { id: "varanasi", location: [25.3176, 82.9739] as [number, number], label: "Varanasi" },
-  { id: "haridwar", location: [29.9457, 78.1642] as [number, number], label: "Haridwar" },
-  { id: "rameswaram", location: [9.2876, 79.3129] as [number, number], label: "Rameswaram" },
-  { id: "puri", location: [19.8135, 85.8312] as [number, number], label: "Puri" },
-  { id: "ujjain", location: [23.1765, 75.7885] as [number, number], label: "Ujjain" },
-];
-
-const arcs = [
-  {
-    id: "north-south-yatra",
-    from: [29.9457, 78.1642] as [number, number],
-    to: [9.2876, 79.3129] as [number, number],
-    label: "North -> South",
-  },
-  {
-    id: "kashi-jagannath",
-    from: [25.3176, 82.9739] as [number, number],
-    to: [19.8135, 85.8312] as [number, number],
-    label: "Kashi -> Jagannath",
-  },
-];
 
 export default function Featured_05() {
   return (
@@ -44,20 +21,8 @@ export default function Featured_05() {
           </Link>
         </div>
         <div className="relative flex w-full justify-center md:justify-end">
-          <div className="aspect-square w-full max-w-[320px] sm:max-w-[380px] md:max-w-[500px]">
-            <Globe
-              className="h-full w-full"
-              markers={markers}
-              arcs={arcs}
-              markerColor={[0.3, 0.45, 0.85]}
-              baseColor={[1, 1, 1]}
-              arcColor={[0.3, 0.45, 0.85]}
-              glowColor={[0.94, 0.93, 0.91]}
-              dark={0}
-              mapBrightness={10}
-              markerSize={0.025}
-              markerElevation={0.01}
-            />
+          <div className="flex items-center justify-center w-full max-w-[320px] sm:max-w-[380px] md:max-w-[500px]">
+            <Globe />
           </div>
         </div>
       </div>
