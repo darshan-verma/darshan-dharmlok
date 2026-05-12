@@ -10,7 +10,7 @@ export default function TravelPortal() {
         {/* Section Title */}
         <div className="text-center mb-16">
           <h2 className="text-5xl font-serif font-bold text-gray-900 mb-4">
-            Travel Portal
+            Dharmlok Travels
           </h2>
           <div className="flex justify-center mb-6">
             <Image

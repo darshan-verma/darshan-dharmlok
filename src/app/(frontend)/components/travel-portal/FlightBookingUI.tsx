@@ -457,7 +457,7 @@ export default function FlightBookingUI() {
 						<>
 							<div className="rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 p-4">
 								<p className="text-sm font-medium text-amber-900">
-									TripJack cabs are now live on the travel portal for location
+									TripJack cabs are now live on Dharmlok Travels for location
 									lookup and quote search.
 								</p>
 								<p className="mt-1 text-sm text-amber-800/80">

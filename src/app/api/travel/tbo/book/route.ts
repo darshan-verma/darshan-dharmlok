@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { bookFlight } from "@/lib/tboClient";
+import { bookFlight, getBookingDetails } from "@/lib/tboClient";
 import type { BookingRequest, TboBookPassenger } from "@/types/tbo";
 
 /**
@@ -99,7 +99,32 @@ export async function POST(request: NextRequest) {
 			Passengers,
 		};
 
-		const result = await bookFlight(payload);
+		let result;
+		try {
+			result = await bookFlight(payload);
+		} catch (bookError) {
+			// Per TBO docs: if Book times out (300s), poll GetBookingDetails
+			if (bookError instanceof Error && bookError.name === "AbortError") {
+				console.warn("Book request timed out (300s). Polling GetBookingDetails...");
+				try {
+					const bookingDetailsResult = await getBookingDetails({
+						EndUserIp,
+						TraceId,
+					});
+					return NextResponse.json({
+						...bookingDetailsResult,
+						_timeoutRecovered: true,
+					});
+				} catch (pollError) {
+					console.error("GetBookingDetails after timeout also failed:", pollError);
+					return NextResponse.json(
+						{ error: "Booking timed out. Please check booking status manually.", _timeout: true },
+						{ status: 504 }
+					);
+				}
+			}
+			throw bookError;
+		}
 
 		const response = result?.Response;
 		const topError = result?.Error;
@@ -116,7 +141,6 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Status: 1=Successful, 2=Failed, 3=OtherFare, 4=OtherClass, 5=BookedOther, 6=NotConfirmed
-		// For 3/4 (price/time change) we return 200 so client can resend Book with updated fare from response
 		if (response?.Status === 2 || response?.Status === 6) {
 			return NextResponse.json(
 				{

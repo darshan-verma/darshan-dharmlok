@@ -29,7 +29,7 @@ export default function DeleteAccountPage() {
 				<li>
 					<strong>By contacting us:</strong> Send a clear request to delete your
 					account to our support team via the{" "}
-					<Link href="/contact-us" className="text-orange-500 hover:underline">
+					<Link href="/know-more" className="text-orange-500 hover:underline">
 						Contact Us
 					</Link>{" "}
 					page. Include the email address associated with your account so we
@@ -65,7 +65,7 @@ export default function DeleteAccountPage() {
 			<p>
 				If you have questions or need help with account deletion, please use
 				our{" "}
-				<Link href="/contact-us" className="text-orange-500 hover:underline">
+				<Link href="/know-more" className="text-orange-500 hover:underline">
 					Contact Us
 				</Link>{" "}
 				page.

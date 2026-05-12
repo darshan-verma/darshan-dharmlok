@@ -64,7 +64,7 @@ export default function PrivacyPolicyPage() {
 			<h2>Contact</h2>
 			<p>
 				For privacy-related questions or requests, please contact us via our{" "}
-				<Link href="/contact-us" className="text-orange-500 hover:underline">
+				<Link href="/know-more" className="text-orange-500 hover:underline">
 					Contact Us
 				</Link>{" "}
 				page or at the email address provided there.

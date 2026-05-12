@@ -11,12 +11,12 @@ export default function Featured_05() {
       <div className="flex flex-col-reverse items-center justify-between gap-10 md:flex-row md:items-center">
         <div className="z-10 max-w-xl text-left">
           <h1 className="text-3xl font-normal text-gray-900">
-            Explore Sacred Destinations with <span className="text-orange-500">Dharmlok Travel Portal</span>{" "}
+            Explore Sacred Destinations with <span className="text-orange-500">Dharmlok Travels</span>{" "}
             <span className="text-gray-600 block mt-2 text-lg font-normal">Plan your spiritual journey to holy places across India. Book flights, hotels, and pilgrimage packages with ease.</span>
           </h1>
           <Link href="/travel-portal">
             <Button className="mt-6 inline-flex items-center gap-2 rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-600">
-              Explore Travel Portal <ArrowRight className="h-4 w-4" />
+              Explore Dharmlok Travels <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>

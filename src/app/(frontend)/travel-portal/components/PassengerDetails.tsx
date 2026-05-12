@@ -38,6 +38,13 @@ interface FormPassenger {
 	dob: string;
 	passportNo?: string;
 	passportExpiry?: string;
+	passportIssueDate?: string;
+	passportIssueCountryCode?: string;
+	pan?: string;
+	guardianTitle?: string;
+	guardianFirstName?: string;
+	guardianLastName?: string;
+	guardianPAN?: string;
 	addressLine1?: string;
 	addressLine2?: string;
 	city?: string;
@@ -46,6 +53,11 @@ interface FormPassenger {
 	contactNo?: string;
 	email?: string;
 	isLeadPax?: boolean;
+	gstCompanyName?: string;
+	gstNumber?: string;
+	gstCompanyAddress?: string;
+	gstCompanyContactNumber?: string;
+	gstCompanyEmail?: string;
 }
 
 interface PassengerDetailsProps {
@@ -58,8 +70,12 @@ interface PassengerDetailsProps {
 	isSubmitting?: boolean;
 	/** When true, passport number and expiry are required (from FareQuote IsPassportRequiredAtBook). */
 	requirePassport?: boolean;
-	/** When true, passport issue date is also required (from FareQuote IsPassportFullDetailRequiredAtBook). */
+	/** When true, passport issue date & country are also required (from FareQuote IsPassportFullDetailRequiredAtBook). */
 	requirePassportFull?: boolean;
+	/** When true, PAN is required (IsPanRequiredAtBook). For child/infant, guardian PAN is needed. */
+	requirePAN?: boolean;
+	/** When true, GST details must be collected (IsGSTMandatory). */
+	requireGST?: boolean;
 	ssrCharges?: {
 		baggage?: Record<string, { Price: number } | null>;
 		meals?: Record<string, { Price: number } | null>;
@@ -78,6 +94,8 @@ export default function PassengerDetails({
 	isSubmitting = false,
 	requirePassport = false,
 	requirePassportFull = false,
+	requirePAN = false,
+	requireGST = false,
 	ssrCharges,
 }: PassengerDetailsProps) {
 	const {
@@ -98,6 +116,9 @@ export default function PassengerDetails({
 					dob: "",
 					passportNo: "",
 					passportExpiry: "",
+					passportIssueDate: "",
+					passportIssueCountryCode: "IN",
+					pan: "",
 					addressLine1: "",
 					addressLine2: "",
 					city: "",
@@ -106,6 +127,11 @@ export default function PassengerDetails({
 					contactNo: "",
 					email: "",
 					isLeadPax: false,
+					gstCompanyName: "",
+					gstNumber: "",
+					gstCompanyAddress: "",
+					gstCompanyContactNumber: "",
+					gstCompanyEmail: "",
 				}),
 				...Array(childCount).fill({
 					type: "Child",
@@ -116,6 +142,19 @@ export default function PassengerDetails({
 					dob: "",
 					passportNo: "",
 					passportExpiry: "",
+					passportIssueDate: "",
+					passportIssueCountryCode: "IN",
+					guardianTitle: "Mr",
+					guardianFirstName: "",
+					guardianLastName: "",
+					guardianPAN: "",
+					addressLine1: "",
+					addressLine2: "",
+					city: "",
+					countryCode: "IN",
+					cellCountryCode: "+91",
+					contactNo: "",
+					email: "",
 				}),
 				...Array(infantCount).fill({
 					type: "Infant",
@@ -126,6 +165,19 @@ export default function PassengerDetails({
 					dob: "",
 					passportNo: "",
 					passportExpiry: "",
+					passportIssueDate: "",
+					passportIssueCountryCode: "IN",
+					guardianTitle: "Mr",
+					guardianFirstName: "",
+					guardianLastName: "",
+					guardianPAN: "",
+					addressLine1: "",
+					addressLine2: "",
+					city: "",
+					countryCode: "IN",
+					cellCountryCode: "+91",
+					contactNo: "",
+					email: "",
 				}),
 			],
 		},
@@ -140,30 +192,40 @@ export default function PassengerDetails({
 
 	useEffect(() => {
 		if (onPassengersChange) {
-			// Transform form data to PassengerDetail format for SSR selection
-			const transformedPassengers = watchedPassengers.map((p, index) => ({
-				Title: p.title,
-				FirstName: p.firstName,
-				LastName: p.lastName,
-				PaxType: (p.type === "Adult" ? 1 : p.type === "Child" ? 2 : 3) as
-					| 1
-					| 2
-					| 3,
-				DateOfBirth: `${p.dob}T00:00:00`,
-				Gender: parseInt(p.gender) as 1 | 2,
-				PassportNo: p.passportNo || "",
-				PassportExpiry: p.passportExpiry ? `${p.passportExpiry}T00:00:00` : "",
-				AddressLine1: p.addressLine1 || "",
-				AddressLine2: p.addressLine2 || "",
-				City: p.city || "",
-				CountryCode: p.countryCode || "IN",
-				CountryName: "India",
-				ContactNo: p.contactNo || "",
-				Email: p.email || "",
-				IsLeadPax: index === 0,
-				FFAirlineCode: undefined,
-				FFNumber: "",
-			}));
+			const transformedPassengers: PassengerDetail[] = watchedPassengers.map((p, index) => {
+				const detail: PassengerDetail = {
+					Title: p.title,
+					FirstName: p.firstName,
+					LastName: p.lastName,
+					PaxType: (p.type === "Adult" ? 1 : p.type === "Child" ? 2 : 3) as 1 | 2 | 3,
+					DateOfBirth: p.dob ? `${p.dob}T00:00:00` : "",
+					Gender: parseInt(p.gender) as 1 | 2,
+					PassportNo: p.passportNo || "",
+					PassportExpiry: p.passportExpiry ? `${p.passportExpiry}T00:00:00` : "",
+					PassportIssueDate: p.passportIssueDate ? `${p.passportIssueDate}T00:00:00` : "",
+					PassportIssueCountryCode: p.passportIssueCountryCode || "",
+					PAN: p.pan || "",
+					AddressLine1: p.addressLine1 || "",
+					AddressLine2: p.addressLine2 || "",
+					City: p.city || "",
+					CountryCode: p.countryCode || "IN",
+					CountryName: "India",
+					ContactNo: p.contactNo || "",
+					Email: p.email || "",
+					IsLeadPax: index === 0,
+					FFAirlineCode: undefined,
+					FFNumber: "",
+				};
+				if ((p.type === "Child" || p.type === "Infant") && (p.guardianFirstName || p.guardianPAN)) {
+					detail.GuardianDetails = {
+						Title: p.guardianTitle || "Mr",
+						FirstName: p.guardianFirstName || "",
+						LastName: p.guardianLastName || "",
+						PAN: p.guardianPAN || "",
+					};
+				}
+				return detail;
+			});
 			onPassengersChange(transformedPassengers);
 		}
 	}, [watchedPassengers, onPassengersChange]);
@@ -237,7 +299,6 @@ export default function PassengerDetails({
 	};
 
 	const onSubmit = (data: { passengers: FormPassenger[] }) => {
-		// Transform data to match API requirements
 		const formattedPassengers = data.passengers.map(
 			(p: FormPassenger, index: number) => {
 				const basePassenger: PassengerDetail = {
@@ -248,23 +309,38 @@ export default function PassengerDetails({
 						| 1
 						| 2
 						| 3,
-					DateOfBirth: `${p.dob}T00:00:00`,
+					DateOfBirth: p.dob ? `${p.dob}T00:00:00` : "",
 					Gender: parseInt(p.gender) as 1 | 2,
 					PassportNo: p.passportNo || "",
 					PassportExpiry: p.passportExpiry
 						? `${p.passportExpiry}T00:00:00`
 						: "",
+					PassportIssueDate: p.passportIssueDate
+						? `${p.passportIssueDate}T00:00:00`
+						: "",
+					PassportIssueCountryCode: p.passportIssueCountryCode || "",
+					PAN: p.pan || "",
 					AddressLine1: p.addressLine1 || "",
 					AddressLine2: p.addressLine2 || "",
 					City: p.city || "",
 					CountryCode: p.countryCode || "IN",
-					CountryName: "India", // Default country name
+					CountryName: "India",
 					ContactNo: p.contactNo || "",
 					Email: p.email || "",
-					IsLeadPax: index === 0, // First passenger is lead pax
+					IsLeadPax: index === 0,
 					FFAirlineCode: undefined,
 					FFNumber: "",
 				};
+
+				// Guardian details for child/infant when PAN is required
+				if ((p.type === "Child" || p.type === "Infant") && (p.guardianFirstName || p.guardianPAN)) {
+					basePassenger.GuardianDetails = {
+						Title: p.guardianTitle || "Mr",
+						FirstName: p.guardianFirstName || "",
+						LastName: p.guardianLastName || "",
+						PAN: p.guardianPAN || "",
+					};
+				}
 
 				return basePassenger;
 			}
@@ -399,75 +475,190 @@ export default function PassengerDetails({
 												/>
 											</div>
 
-											{isAdult && (
+											{/* Passport fields - shown for all pax types when required */}
+											<div className="space-y-2">
+												<Label>Passport No {requirePassport || requirePassportFull ? "(Required)" : "(Optional)"}</Label>
+												<Input
+													{...register(`passengers.${index}.passportNo`, { required: requirePassport || requirePassportFull })}
+													placeholder="Passport Number"
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label>Passport Expiry {requirePassport || requirePassportFull ? "(Required)" : "(Optional)"}</Label>
+												<Input
+													type="date"
+													{...register(`passengers.${index}.passportExpiry`, { required: requirePassport || requirePassportFull })}
+												/>
+											</div>
+											{requirePassportFull && (
 												<>
 													<div className="space-y-2">
-														<Label>Passport No {requirePassport || requirePassportFull ? "(Required for this flight)" : "(Optional)"}</Label>
+														<Label>Passport Issue Date (Required)</Label>
 														<Input
-															{...register(`passengers.${index}.passportNo`, { required: requirePassport || requirePassportFull })}
-															placeholder="Passport Number"
+															type="date"
+															{...register(`passengers.${index}.passportIssueDate`, { required: true })}
 														/>
 													</div>
 													<div className="space-y-2">
-														<Label>Passport Expiry {requirePassport || requirePassportFull ? "(Required for this flight)" : "(Optional)"}</Label>
+														<Label>Passport Issue Country Code (Required)</Label>
 														<Input
-															type="date"
-															{...register(`passengers.${index}.passportExpiry`, { required: requirePassport || requirePassportFull })}
+															{...register(`passengers.${index}.passportIssueCountryCode`, { required: true })}
+															placeholder="e.g. IN"
+															maxLength={2}
 														/>
 													</div>
 												</>
 											)}
+											{/* PAN for adults */}
+											{isAdult && requirePAN && (
+												<div className="space-y-2">
+													<Label>PAN Number (Required)</Label>
+													<Input
+														{...register(`passengers.${index}.pan`, { required: true })}
+														placeholder="e.g. ABCDE1234F"
+														maxLength={10}
+													/>
+												</div>
+											)}
 										</div>
 
-										{isAdult && (
-											<>
-												<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-													<div className="space-y-2">
-														<Label>Address Line 1</Label>
-														<Input
-															{...register(`passengers.${index}.addressLine1`, {
-																required: true,
-															})}
-															placeholder="Address Line 1"
-														/>
-													</div>
-													<div className="space-y-2">
-														<Label>Address Line 2</Label>
-														<Input
-															{...register(`passengers.${index}.addressLine2`)}
-															placeholder="Address Line 2"
-														/>
-													</div>
-													<div className="space-y-2">
-														<Label>City</Label>
-														<Input
-															{...register(`passengers.${index}.city`, {
-																required: true,
-															})}
-															placeholder="City"
-														/>
-													</div>
-													<div className="space-y-2">
-														<Label>Contact No</Label>
-														<Input
-															{...register(`passengers.${index}.contactNo`, {
-																required: true,
-															})}
-															placeholder="Contact Number"
-														/>
-													</div>
-													<div className="space-y-2">
-														<Label>Email</Label>
-														<Input
-															type="email"
-															{...register(`passengers.${index}.email`, {
-																required: true,
-															})}
-															placeholder="Email Address"
-														/>
-													</div>
+										{/* Guardian details for child/infant when PAN required */}
+										{!isAdult && requirePAN && (
+											<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+												<div className="md:col-span-4">
+													<p className="text-sm font-medium text-gray-700 mb-2">Guardian/Parent Details (required for PAN)</p>
 												</div>
-											</>
+												<div className="space-y-2">
+													<Label>Guardian Title</Label>
+													<Select
+														defaultValue="Mr"
+														onValueChange={() => {}}
+														{...register(`passengers.${index}.guardianTitle`)}
+													>
+														<SelectTrigger><SelectValue placeholder="Title" /></SelectTrigger>
+														<SelectContent>
+															<SelectItem value="Mr">Mr</SelectItem>
+															<SelectItem value="Mrs">Mrs</SelectItem>
+															<SelectItem value="Ms">Ms</SelectItem>
+														</SelectContent>
+													</Select>
+												</div>
+												<div className="space-y-2">
+													<Label>Guardian First Name</Label>
+													<Input
+														{...register(`passengers.${index}.guardianFirstName`, { required: true })}
+														placeholder="As on PAN"
+													/>
+												</div>
+												<div className="space-y-2">
+													<Label>Guardian Last Name</Label>
+													<Input
+														{...register(`passengers.${index}.guardianLastName`, { required: true })}
+														placeholder="As on PAN"
+													/>
+												</div>
+												<div className="space-y-2">
+													<Label>Guardian PAN</Label>
+													<Input
+														{...register(`passengers.${index}.guardianPAN`, { required: true })}
+														placeholder="e.g. ABCDE1234F"
+														maxLength={10}
+													/>
+												</div>
+											</div>
+										)}
+
+										{/* Address & Contact - mandatory for all passengers per TBO LCC rules */}
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+											<div className="space-y-2">
+												<Label>Address Line 1</Label>
+												<Input
+													{...register(`passengers.${index}.addressLine1`, {
+														required: true,
+													})}
+													placeholder="Address Line 1"
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label>Address Line 2</Label>
+												<Input
+													{...register(`passengers.${index}.addressLine2`)}
+													placeholder="Address Line 2"
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label>City</Label>
+												<Input
+													{...register(`passengers.${index}.city`, {
+														required: true,
+													})}
+													placeholder="City"
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label>Contact No</Label>
+												<Input
+													{...register(`passengers.${index}.contactNo`, {
+														required: true,
+													})}
+													placeholder="Contact Number"
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label>Email</Label>
+												<Input
+													type="email"
+													{...register(`passengers.${index}.email`, {
+														required: true,
+													})}
+													placeholder="Email Address"
+												/>
+											</div>
+										</div>
+
+										{/* GST Details - only for lead passenger when mandatory */}
+										{index === 0 && requireGST && (
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+												<div className="md:col-span-2">
+													<p className="text-sm font-medium text-gray-700 mb-2">GST Details (Mandatory for this booking)</p>
+												</div>
+												<div className="space-y-2">
+													<Label>GST Number</Label>
+													<Input
+														{...register(`passengers.${index}.gstNumber`, { required: true })}
+														placeholder="GST Number"
+													/>
+												</div>
+												<div className="space-y-2">
+													<Label>Company Name</Label>
+													<Input
+														{...register(`passengers.${index}.gstCompanyName`, { required: true })}
+														placeholder="Company Name"
+													/>
+												</div>
+												<div className="space-y-2">
+													<Label>Company Address</Label>
+													<Input
+														{...register(`passengers.${index}.gstCompanyAddress`, { required: true })}
+														placeholder="Company Address"
+													/>
+												</div>
+												<div className="space-y-2">
+													<Label>Company Contact</Label>
+													<Input
+														{...register(`passengers.${index}.gstCompanyContactNumber`, { required: true })}
+														placeholder="Company Phone"
+													/>
+												</div>
+												<div className="space-y-2">
+													<Label>Company Email</Label>
+													<Input
+														type="email"
+														{...register(`passengers.${index}.gstCompanyEmail`, { required: true })}
+														placeholder="Company Email"
+													/>
+												</div>
+											</div>
 										)}
 									</div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, User, Calendar, Activity } from "lucide-react";
+import { ArrowRight, BookOpen, User, Calendar, Activity } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -108,6 +108,16 @@ export default function OurServices({
               );
             })}
           </div>
+        </div>
+
+        <div className="flex justify-center mt-12">
+          <Link
+            href="/services"
+            className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl hover:gap-3"
+          >
+            View all
+            <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
+          </Link>
         </div>
       </div>
 

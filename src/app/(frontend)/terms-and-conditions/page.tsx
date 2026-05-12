@@ -86,7 +86,7 @@ export default function TermsAndConditionsPage() {
 			<h2>Contact</h2>
 			<p>
 				For questions about these Terms, please visit our{" "}
-				<Link href="/contact-us" className="text-orange-500 hover:underline">
+				<Link href="/know-more" className="text-orange-500 hover:underline">
 					Contact Us
 				</Link>{" "}
 				page.

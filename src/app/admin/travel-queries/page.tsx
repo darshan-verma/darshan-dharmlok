@@ -142,7 +142,7 @@ export default function TravelQueriesAdminPage() {
 			<div>
 				<h1 className="text-2xl font-bold tracking-tight">Travel queries</h1>
 				<p className="text-sm text-muted-foreground mt-1">
-					Cruise and other travel portal inquiries, with linked account details when
+					Cruise and other Dharmlok Travels inquiries, with linked account details when
 					the visitor was signed in.
 				</p>
 			</div>

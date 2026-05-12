@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ImageAutoSlider } from "@/components/ui/image-auto-slider";
 
 interface ServiceOffering {
@@ -40,7 +41,7 @@ export default function Panditji({
   useEffect(() => {
     const fetchPanditjis = async () => {
       try {
-        const response = await fetch("/api/users/panditji?limit=20&page=1");
+        const response = await fetch("/api/users/panditji?limit=9&page=1");
         if (!response.ok) {
           throw new Error("Failed to fetch panditjis");
         }
@@ -68,7 +69,7 @@ export default function Panditji({
     );
 
     if (panditjisWithImages.length > 0) {
-      return panditjisWithImages;
+      return panditjisWithImages.slice(0, 9);
     }
 
     // Return empty array if no images - fallback will be handled in ImageAutoSlider
@@ -128,9 +129,12 @@ export default function Panditji({
 
         {/* See All Button */}
         <div className="text-center mt-12">
-          <button className="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-lg font-semibold transition-all transform hover:scale-105 shadow-lg">
+          <Link
+            href="/panditji"
+            className="inline-block bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-lg font-semibold transition-all transform hover:scale-105 shadow-lg"
+          >
             SEE ALL
-          </button>
+          </Link>
         </div>
       </div>
 

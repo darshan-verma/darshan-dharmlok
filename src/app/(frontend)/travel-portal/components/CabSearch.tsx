@@ -169,7 +169,7 @@ export default function CabSearch() {
 				<div>
 					<h1 className="text-3xl font-semibold text-gray-900">Cab Search</h1>
 					<p className="mt-2 max-w-2xl text-sm text-gray-600">
-						TripJack cab search is now wired into the travel portal for quotes.
+						TripJack cab search is now wired into Dharmlok Travels for quotes.
 						Location lookup, coordinate resolution and fare search all run
 						through the local cabs API routes.
 					</p>

@@ -179,6 +179,8 @@ export interface FlightResult {
 	IsGSTMandatory?: boolean;
 	IsHoldAllowed?: boolean;
 	IsPassportFullDetailRequiredAtBook?: boolean;
+	IsSeatMandatory?: boolean;
+	IsMealMandatory?: boolean;
 	ResultFareType?: string;
 	MiniFareRules?: Array<
 		Array<{
@@ -264,6 +266,8 @@ export interface TboBookPassenger {
 	PassportNo?: string;
 	PassportExpiry?: string;
 	PassportIssueDate?: string;
+	PassportIssueCountryCode?: string;
+	PAN?: string;
 	AddressLine1: string;
 	AddressLine2?: string;
 	City: string;
@@ -277,8 +281,24 @@ export interface TboBookPassenger {
 	Fare: TboBookPassengerFare;
 	Meal?: TboBookMeal;
 	Seat?: TboBookSeat;
+	Baggage?: TboBookBaggage;
 	Nationality: string;
 	CellCountryCode?: string;
+	/** Guardian details for Child/Infant when PAN/Passport is required per TBO docs */
+	GuardianDetails?: {
+		Title: string;
+		FirstName: string;
+		LastName: string;
+		PAN?: string;
+	};
+}
+
+/** Baggage option in Book/Ticket request for international LCC free baggage */
+export interface TboBookBaggage {
+	Code?: string;
+	Description?: string;
+	Weight?: number;
+	Price?: number;
 }
 
 export interface PassengerDetail {
@@ -290,6 +310,9 @@ export interface PassengerDetail {
 	Gender: 1 | 2; // 1:Male, 2:Female
 	PassportNo?: string;
 	PassportExpiry?: string;
+	PassportIssueDate?: string;
+	PassportIssueCountryCode?: string;
+	PAN?: string;
 	AddressLine1: string;
 	AddressLine2?: string;
 	City: string;
@@ -303,6 +326,13 @@ export interface PassengerDetail {
 	FFNumber?: string;
 	Meal?: string;
 	Seat?: string;
+	/** Guardian details for Child/Infant when PAN/Passport is required */
+	GuardianDetails?: {
+		Title: string;
+		FirstName: string;
+		LastName: string;
+		PAN?: string;
+	};
 }
 
 /** TBO Book request. TokenId is injected server-side; do not send from client. */

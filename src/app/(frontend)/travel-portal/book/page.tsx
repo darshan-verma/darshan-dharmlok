@@ -416,6 +416,41 @@ export default async function BookingPage({ searchParams }: PageProps) {
 	// But mostly BookingClient uses flightResult.Fare for base calculation + SSRs.
 	// We will omit passing priceRBDResponse for now as the new layout uses FlightResult.Fare.
 
+	// Extract FlightDetailChangeInfo and IsPriceChanged from FareQuote response
+	const flightDetailChangeInfo = fareQuoteResponse?.Response?.FlightDetailChangeInfo || undefined;
+	const fareQuotePriceChanged = fareQuoteResponse?.Response?.IsPriceChanged === true;
+
+	// Extract free SSR items (Price 0) for special fares and international LCC
+	const ssrData = ssrResponse?.Response;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const freeBaggageOptions = ((ssrData?.Baggage ?? []) as any[])
+		.flat()
+		.filter((b) => b?.Price === 0)
+		.map((b) => ({
+			Code: b.Code as string | undefined,
+			Description: String(b.Description ?? ""),
+			Weight: b.Weight as number | undefined,
+			Price: 0,
+		}));
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const freeMealOptions = (((ssrData as any)?.MealDynamic ?? (ssrData as any)?.Meal ?? []) as any[])
+		.flat()
+		.filter((m) => m?.Price === 0)
+		.map((m) => ({
+			Code: m.Code as string | undefined,
+			Description: String(m.Description ?? ""),
+			Price: 0,
+		}));
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const freeSeatOptions = (((ssrData as any)?.SeatDynamic ?? (ssrData as any)?.Seat ?? []) as any[])
+		.flat()
+		.filter((s) => s?.Price === 0)
+		.map((s) => ({
+			Code: s.Code as string | undefined,
+			Description: String(s.Description ?? ""),
+			Price: 0,
+		}));
+
 	return (
 		<main className="min-h-screen bg-gray-50/50 pb-20">
 			<BookingClient
@@ -428,6 +463,11 @@ export default async function BookingPage({ searchParams }: PageProps) {
 				upsellOptions={upsellOptions}
 				isUpsellAllowed={isUpsellAllowed}
 				fareRules={fareRules}
+				flightDetailChangeInfo={flightDetailChangeInfo}
+				fareQuotePriceChanged={fareQuotePriceChanged}
+				freeBaggageOptions={freeBaggageOptions}
+				freeMealOptions={freeMealOptions}
+				freeSeatOptions={freeSeatOptions}
 			/>
 		</main>
 	);

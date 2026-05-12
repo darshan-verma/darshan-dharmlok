@@ -52,7 +52,7 @@ export default function ContentDisclaimerPage() {
 			<h2>Contact</h2>
 			<p>
 				If you have questions about this disclaimer, please visit our{" "}
-				<Link href="/contact-us" className="text-orange-500 hover:underline">
+				<Link href="/know-more" className="text-orange-500 hover:underline">
 					Contact Us
 				</Link>{" "}
 				page.

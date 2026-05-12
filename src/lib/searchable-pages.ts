@@ -23,11 +23,11 @@ export const searchablePages: SearchablePage[] = [
 		keywords: ["all services", "browse", "offerings"],
 	},
 	{
-		title: "Contact Us",
-		description: "Get in touch with Dharmlok team",
-		href: "/contact-us",
+		title: "Know More",
+		description: "Learn about Dharmlok and get in touch with our team",
+		href: "/know-more",
 		category: "Main",
-		keywords: ["contact", "reach out", "support", "help"],
+		keywords: ["about", "contact", "reach out", "support", "help", "know more", "about us"],
 	},
 
 	// Legal / Policies
@@ -199,9 +199,9 @@ export const searchablePages: SearchablePage[] = [
 		keywords: ["children", "kids", "education", "learning", "bal vidhya"],
 	},
 
-	// Travel Portal
+	// Dharmlok Travels
 	{
-		title: "Travel Portal",
+		title: "Dharmlok Travels",
 		description: "Plan your spiritual journeys with flights and hotels",
 		href: "/travel-portal",
 		category: "Travel",

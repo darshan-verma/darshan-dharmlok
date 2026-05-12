@@ -63,7 +63,7 @@ export default function CommunityGuidelinesPage() {
 				If you see content or behavior that violates these guidelines,
 				please report it through the in-app reporting option or contact us
 				via our{" "}
-				<Link href="/contact-us" className="text-orange-500 hover:underline">
+				<Link href="/know-more" className="text-orange-500 hover:underline">
 					Contact Us
 				</Link>{" "}
 				page.
@@ -72,7 +72,7 @@ export default function CommunityGuidelinesPage() {
 			<h2>Contact</h2>
 			<p>
 				For questions about these guidelines, please visit our{" "}
-				<Link href="/contact-us" className="text-orange-500 hover:underline">
+				<Link href="/know-more" className="text-orange-500 hover:underline">
 					Contact Us
 				</Link>{" "}
 				page.

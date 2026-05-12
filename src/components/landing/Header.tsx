@@ -121,10 +121,10 @@ export default function Header() {
 			],
 			viewAllLink: { name: "View All", href: "/services" },
 		},
-		{ name: "Travel Portal", href: "/travel-portal" },
+		{ name: "Dharmlok Travels", href: "/travel-portal" },
 		{ name: "Shop", href: "/e-shop" },
 		{ name: "Community", href: "/community" },
-		{ name: "Contact Us", href: "/contact-us" },
+		{ name: "Know More", href: "/know-more" },
 	];
 
 	return (

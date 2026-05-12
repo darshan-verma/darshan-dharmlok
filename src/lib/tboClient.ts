@@ -46,6 +46,7 @@ export interface TboRequestConfig {
 	body?: unknown;
 	headers?: Record<string, string>;
 	service?: "auth" | "booking"; // Specify which service to use
+	timeoutMs?: number; // Per TBO docs: 300s for Book/Ticket, 60s for others
 }
 
 /**
@@ -61,7 +62,13 @@ export async function tboRequest<T = unknown>(
 		body,
 		headers = {},
 		service = "auth",
+		timeoutMs,
 	} = config;
+
+	// TBO docs: Book/Ticket can take up to 300s; other methods up to 60s
+	const effectiveTimeout = timeoutMs ?? (
+		["Book", "Ticket"].includes(endpoint) ? 300_000 : 60_000
+	);
 
 	try {
 		// Get valid token (from cache or by authenticating)
@@ -84,12 +91,16 @@ export async function tboRequest<T = unknown>(
 			tokenLength: token?.length || 0,
 		});
 
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
+
 		const requestOptions: RequestInit = {
 			method,
 			headers: {
 				"Content-Type": "application/json",
 				...headers,
 			},
+			signal: controller.signal,
 		};
 
 		// Add token to request body if it's a POST/PUT request
@@ -111,7 +122,12 @@ export async function tboRequest<T = unknown>(
 			console.log(`📤 TBO Request Body:`, JSON.stringify(bodyForLog, null, 2));
 		}
 
-		const response = await fetch(url, requestOptions);
+		let response: Response;
+		try {
+			response = await fetch(url, requestOptions);
+		} finally {
+			clearTimeout(timeoutId);
+		}
 
 		console.log(`📥 TBO Response Status:`, {
 			status: response.status,
@@ -148,14 +164,15 @@ export async function tboRequest<T = unknown>(
 				ErrorMessage: data.Error.ErrorMessage,
 			});
 			
-			// Handle "Invalid Token" error - clear cache and retry once
+			// Handle "Invalid Token" error (ErrorCode: 6 per TBO docs) - clear cache and retry once
 			const errorMessage = data.Error.ErrorMessage || "";
 			if (
+				data.Error.ErrorCode === 6 ||
 				errorMessage.toLowerCase().includes("invalid token") ||
 				(errorMessage.toLowerCase().includes("token") && 
 				 (errorMessage.toLowerCase().includes("invalid") || errorMessage.toLowerCase().includes("expired")))
 			) {
-				console.warn("⚠️ Invalid/Expired token detected (top level). Clearing cache and retrying...");
+				console.warn("⚠️ Invalid/Expired token detected (ErrorCode: " + data.Error.ErrorCode + "). Clearing cache and retrying...");
 				clearTokenCache();
 				
 				// Retry the request once with a fresh token
@@ -262,14 +279,15 @@ export async function tboRequest<T = unknown>(
 				return data as T;
 			}
 
-			// Handle "Invalid Token" error - clear cache and retry once
+			// Handle "Invalid Token" error (ErrorCode: 6 per TBO docs) - clear cache and retry once
 			const errorMessage = data.Response.Error.ErrorMessage || "";
 			if (
+				data.Response.Error.ErrorCode === 6 ||
 				errorMessage.toLowerCase().includes("invalid token") ||
-				errorMessage.toLowerCase().includes("token") && 
-				(errorMessage.toLowerCase().includes("invalid") || errorMessage.toLowerCase().includes("expired"))
+				(errorMessage.toLowerCase().includes("token") && 
+				(errorMessage.toLowerCase().includes("invalid") || errorMessage.toLowerCase().includes("expired")))
 			) {
-				console.warn("⚠️ Invalid/Expired token detected. Clearing cache and retrying...");
+				console.warn("⚠️ Invalid/Expired token detected (ErrorCode: " + data.Response.Error.ErrorCode + "). Clearing cache and retrying...");
 				clearTokenCache();
 				
 				// Retry the request once with a fresh token

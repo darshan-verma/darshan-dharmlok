@@ -378,10 +378,18 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
-		// Validate multi-city segment dates
+		// Validate multi-city segment dates and ordering per TBO docs
 		if (body.JourneyType === "3" && body.Segments) {
+			let prevDepartureDate: Date | null = null;
 			for (let i = 0; i < body.Segments.length; i++) {
 				const segment = body.Segments[i];
+				// Validate origin/destination not null
+				if (!segment.Origin || !segment.Destination) {
+					return NextResponse.json(
+						{ error: `Segment ${i + 1}: Origin and Destination are required` },
+						{ status: 400 },
+					);
+				}
 				if (segment.PreferredDepartureTime || segment.DepartureDateTime) {
 					const departureDate = new Date(
 						segment.PreferredDepartureTime || segment.DepartureDateTime,
@@ -394,8 +402,36 @@ export async function POST(request: NextRequest) {
 							{ status: 400 },
 						);
 					}
+					// Per TBO docs: 2nd segment date must be >= 1st segment arrival date
+					if (prevDepartureDate && departureDate < prevDepartureDate) {
+						return NextResponse.json(
+							{
+								error: `Segment ${i + 1} departure date must be on or after previous segment departure`,
+							},
+							{ status: 400 },
+						);
+					}
+					prevDepartureDate = departureDate;
 				}
 			}
+		}
+
+		// Validate origin/destination for non-multi-city
+		if (body.JourneyType !== "3") {
+			if (!body.Origin || !body.Destination) {
+				return NextResponse.json(
+					{ error: "Origin and Destination are required" },
+					{ status: 400 },
+				);
+			}
+		}
+
+		// Validate SpecialReturn constraints: cannot use with MultiCity
+		if (body.JourneyType === "3" && body.Sources?.includes("6E_SPECIAL_RETURN")) {
+			return NextResponse.json(
+				{ error: "SpecialReturn (6E) is only available for Return journeys, not MultiCity" },
+				{ status: 400 },
+			);
 		}
 
 		// Helper function to format date as yyyy-MM-ddTHH:mm:ss

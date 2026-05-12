@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight, Clock, PenTool } from "lucide-react";
 
 interface Kathavachak {
@@ -295,9 +296,10 @@ export default function Kathavachak({
                         const boldTerms = getBoldTerms(description);
 
                         return (
-                          <div
+                          <Link
                             key={uniqueKey}
-                            className="liquid-glass-card rounded-2xl overflow-hidden shadow-xl flex flex-col md:flex-row h-[280px] relative"
+                            href={`/kathavachak/${kathavachak.id}`}
+                            className="liquid-glass-card rounded-2xl overflow-hidden shadow-xl flex flex-col md:flex-row h-[280px] relative cursor-pointer transition-transform hover:scale-[1.02] hover:shadow-2xl"
                           >
                             {/* Left Section - Text Content */}
                             <div className="flex-1 p-5 md:p-6 flex flex-col justify-between min-w-0">
@@ -368,7 +370,7 @@ export default function Kathavachak({
                                 </div>
                               )}
                             </div>
-                          </div>
+                          </Link>
                         );
                       })}
                       {/* Fill empty slot if odd number of cards */}

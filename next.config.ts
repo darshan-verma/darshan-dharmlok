@@ -103,6 +103,12 @@ const nextConfig: NextConfig = {
 				port: "",
 				pathname: "/**",
 			},
+			{
+				protocol: "https",
+				hostname: "pro-section.ui-layouts.com",
+				port: "",
+				pathname: "/**",
+			},
 		],
 	},
 	// ... any other existing configurations

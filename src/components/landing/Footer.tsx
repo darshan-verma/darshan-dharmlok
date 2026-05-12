@@ -16,7 +16,7 @@ const quickLinks = [
 	"Pooja Services",
 	"Spiritual Guides",
 	"Temples & Dharamshalas",
-	"Travel Portal",
+	"Dharmlok Travels",
 	"E-Shop",
 ];
 
@@ -33,7 +33,7 @@ const legalLinks = [
 	{ name: "Community Guidelines", href: "/community-guidelines" },
 	{ name: "Cookie Policy", href: "/cookie-policy" },
 	{ name: "Content Disclaimer", href: "/content-disclaimer" },
-	{ name: "Contact Us", href: "/contact-us" },
+	{ name: "Know More", href: "/know-more" },
 ];
 
 export default function Footer() {

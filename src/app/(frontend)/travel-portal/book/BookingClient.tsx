@@ -21,7 +21,6 @@ import type {
 	TboBookPassenger,
 	TboBookPassengerFare,
 	BookingResponse,
-	Fare,
 	TboGetBookingDetailsFlightItinerary,
 	TicketResponse,
 } from "@/types/tbo";
@@ -39,34 +38,40 @@ interface BookingClientProps {
 	upsellOptions?: FlightResult[];
 	isUpsellAllowed?: boolean;
 	fareRules: FareRuleResponse | null;
+	/** From FareQuote: info about changed flight details (time, baggage, etc.) */
+	flightDetailChangeInfo?: string;
+	/** From FareQuote: whether price changed at quote time */
+	fareQuotePriceChanged?: boolean;
+	/** Free baggage options from SSR for international LCC (Price 0 items) */
+	freeBaggageOptions?: Array<{ Code?: string; Description?: string; Weight?: number; Price: number }>;
+	/** Free meal options from SSR for special fares */
+	freeMealOptions?: Array<{ Code?: string; Description?: string; Price: number }>;
+	/** Free seat options from SSR for special fares */
+	freeSeatOptions?: Array<{ Code?: string; Description?: string; Price: number }>;
 }
 
-/** Map FlightResult Fare to TBO Book request per-passenger Fare (doc 5.25). */
-function mapFareToBookFare(fare: Fare | undefined): TboBookPassengerFare {
-	if (!fare) {
-		return {
-			Currency: "INR",
-			BaseFare: 0,
-			Tax: 0,
-			TransactionFee: 0,
-			YQTax: 0,
-			AdditionalTxnFeeOfrd: 0,
-			AdditionalTxnFeePub: 0,
-			AirTransFee: 0,
-			OtherCharges: 0,
-			Discount: 0,
-			PublishedFare: 0,
-			OfferedFare: 0,
-			TdsOnCommission: 0,
-			TdsOnPLB: 0,
-			TdsOnIncentive: 0,
-			ServiceFee: 0,
-		};
-	}
-	const chargeBU = fare.ChargeBU;
-	let tboMarkUp = 0,
-		convenienceCharge = 0,
-		otherCharge = 0;
+/**
+ * Per-passenger fare split per TBO docs:
+ * BaseFare and Tax from FareBreakdown should be divided by pax count for each pax type.
+ */
+function getPerPassengerFare(
+	flightResult: FlightResult,
+	paxType: 1 | 2 | 3,
+): TboBookPassengerFare {
+	const breakdown = flightResult.FareBreakdown?.find(
+		(fb) => fb.PassengerType === paxType
+	);
+	const fare = flightResult.Fare;
+	const paxCount = breakdown?.PassengerCount || 1;
+
+	const baseFare = (breakdown?.BaseFare ?? fare?.BaseFare ?? 0) / paxCount;
+	const tax = (breakdown?.Tax ?? fare?.Tax ?? 0) / paxCount;
+	const yqTax = (breakdown?.YQTax ?? fare?.YQTax ?? 0) / paxCount;
+	const additionalTxnFeeOfrd = (breakdown?.AdditionalTxnFeeOfrd ?? fare?.AdditionalTxnFeeOfrd ?? 0) / paxCount;
+	const additionalTxnFeePub = (breakdown?.AdditionalTxnFeePub ?? fare?.AdditionalTxnFeePub ?? 0) / paxCount;
+
+	const chargeBU = fare?.ChargeBU;
+	let tboMarkUp = 0, convenienceCharge = 0, otherCharge = 0;
 	if (Array.isArray(chargeBU) && chargeBU.length > 0) {
 		for (const item of chargeBU) {
 			const k = (item as { key?: string; Key?: string }).key ?? (item as { key?: string; Key?: string }).Key ?? "";
@@ -76,25 +81,58 @@ function mapFareToBookFare(fare: Fare | undefined): TboBookPassengerFare {
 			else if (k.toUpperCase() === "OTHERCHARGE") otherCharge = v;
 		}
 	}
+
 	return {
-		Currency: fare.Currency ?? "INR",
-		BaseFare: fare.BaseFare ?? 0,
-		Tax: fare.Tax ?? 0,
-		TransactionFee: (fare as Fare & { TransactionFee?: number }).TransactionFee ?? 0,
-		YQTax: fare.YQTax ?? 0,
-		AdditionalTxnFeeOfrd: fare.AdditionalTxnFeeOfrd ?? 0,
-		AdditionalTxnFeePub: fare.AdditionalTxnFeePub ?? 0,
-		AirTransFee: fare.AirlineTransFee ?? 0,
-		OtherCharges: fare.OtherCharges ?? 0,
-		Discount: fare.Discount ?? 0,
-		PublishedFare: fare.PublishedFare ?? 0,
-		OfferedFare: fare.OfferedFare ?? 0,
-		TdsOnCommission: fare.TdsOnCommission ?? 0,
-		TdsOnPLB: fare.TdsOnPLB ?? 0,
-		TdsOnIncentive: fare.TdsOnIncentive ?? 0,
-		ServiceFee: fare.ServiceFee ?? 0,
+		Currency: fare?.Currency ?? "INR",
+		BaseFare: Math.round(baseFare * 100) / 100,
+		Tax: Math.round(tax * 100) / 100,
+		TransactionFee: 0,
+		YQTax: Math.round(yqTax * 100) / 100,
+		AdditionalTxnFeeOfrd: Math.round(additionalTxnFeeOfrd * 100) / 100,
+		AdditionalTxnFeePub: Math.round(additionalTxnFeePub * 100) / 100,
+		AirTransFee: (fare?.AirlineTransFee ?? 0) / paxCount,
+		OtherCharges: (fare?.OtherCharges ?? 0) / paxCount,
+		Discount: (fare?.Discount ?? 0) / paxCount,
+		PublishedFare: (fare?.PublishedFare ?? 0) / paxCount,
+		OfferedFare: (fare?.OfferedFare ?? 0) / paxCount,
+		TdsOnCommission: (fare?.TdsOnCommission ?? 0) / paxCount,
+		TdsOnPLB: (fare?.TdsOnPLB ?? 0) / paxCount,
+		TdsOnIncentive: (fare?.TdsOnIncentive ?? 0) / paxCount,
+		ServiceFee: (fare?.ServiceFee ?? 0) / paxCount,
 		ChargeBU: [{ TBOMarkUp: tboMarkUp, ConvenienceCharge: convenienceCharge, OtherCharge: otherCharge }],
 	};
+}
+
+/** Validate passenger name per TBO/Navitaire rules */
+function validatePassengerName(firstName: string, lastName: string, airlineCode?: string): string | null {
+	const specialCharRegex = /[.,/()]/;
+	if (specialCharRegex.test(firstName) || specialCharRegex.test(lastName)) {
+		return "Name cannot contain special characters like . , / ( )";
+	}
+	if (airlineCode === "SG" && firstName.trim().toLowerCase() === lastName.trim().toLowerCase()) {
+		return "For SpiceJet (SG), passenger first and last name must be distinct";
+	}
+	return null;
+}
+
+/** Validate title per TBO docs (Navitaire 4X / SG rules) */
+function validateTitle(title: string, gender: number, paxType: number): string | null {
+	const validTitles: Record<string, string[]> = {
+		"adult_male": ["MR"],
+		"adult_female": ["MRS", "MS"],
+		"child_male": ["MR", "MS"],
+		"child_female": ["MR", "MS"],
+		"infant_male": ["MSTR", "MR", "MS"],
+		"infant_female": ["MSTR", "MR", "MS"],
+	};
+	const paxLabel = paxType === 1 ? "adult" : paxType === 2 ? "child" : "infant";
+	const genderLabel = gender === 1 ? "male" : "female";
+	const key = `${paxLabel}_${genderLabel}`;
+	const allowed = validTitles[key];
+	if (allowed && !allowed.includes(title.toUpperCase())) {
+		return `Invalid title "${title}" for ${paxLabel} ${genderLabel}. Allowed: ${allowed.join(", ")}`;
+	}
+	return null;
 }
 
 export default function BookingClient({
@@ -107,6 +145,11 @@ export default function BookingClient({
 	upsellOptions = [],
 	isUpsellAllowed = false,
 	fareRules,
+	flightDetailChangeInfo,
+	fareQuotePriceChanged,
+	freeBaggageOptions = [],
+	freeMealOptions = [],
+	freeSeatOptions = [],
 }: BookingClientProps) {
 	const [passengers, setPassengers] = useState<PassengerDetail[]>([]);
 	const [bookingSuccess, setBookingSuccess] = useState<{ pnr: string; bookingId: number } | null>(null);
@@ -120,6 +163,23 @@ export default function BookingClient({
 	const [ticketPriceChange, setTicketPriceChange] = useState<TicketResponse | null>(null);
 	const [ticketSuccess, setTicketSuccess] = useState(false);
 	const router = useRouter();
+
+	// TraceId session expiry warning (15 minutes per TBO docs)
+	const [traceIdExpired, setTraceIdExpired] = useState(false);
+	const [traceIdMinutesLeft, setTraceIdMinutesLeft] = useState(15);
+	useEffect(() => {
+		const startTime = Date.now();
+		const interval = setInterval(() => {
+			const elapsed = (Date.now() - startTime) / 1000 / 60;
+			const left = Math.max(0, 15 - elapsed);
+			setTraceIdMinutesLeft(Math.ceil(left));
+			if (left <= 0) {
+				setTraceIdExpired(true);
+				clearInterval(interval);
+			}
+		}, 30_000);
+		return () => clearInterval(interval);
+	}, [traceId]);
 	const [selectedSSRs, setSelectedSSRs] = useState<{
 		baggage: Record<string, BaggageOption | null>;
 		meals: Record<string, MealOption | null>;
@@ -216,8 +276,26 @@ export default function BookingClient({
 				return;
 			}
 
+			if (traceIdExpired) {
+				toast.error("Session expired (TraceId expired after 15 minutes). Please search again.");
+				return;
+			}
+
 			const requirePassport = flightResult.IsPassportRequiredAtBook === true;
 			const requirePassportFull = flightResult.IsPassportFullDetailRequiredAtBook === true;
+			const requirePan = flightResult.IsPanRequiredAtBook === true;
+			const isGSTMandatory = flightResult.IsGSTMandatory === true;
+			const airlineCode = flightResult.AirlineCode || flightResult.ValidatingAirlineCode;
+
+			// International passport rules per TBO docs
+			const firstSegment = flightResult.Segments?.[0]?.[0];
+			const destCountry = firstSegment?.Destination?.Airport?.CountryCode;
+			const isDubaiRiyadhSharjah = ["DXB", "RUH", "SHJ"].includes(firstSegment?.Destination?.Airport?.AirportCode || "");
+			const isNepal = destCountry === "NP";
+			const isFlyDubai = airlineCode === "FZ";
+			const isSpiceJetOrIndigo = ["SG", "6E"].includes(airlineCode);
+			const forcePassportForAll = isFlyDubai || (isSpiceJetOrIndigo && isDubaiRiyadhSharjah);
+			const forcePassportAdultChild = (isSpiceJetOrIndigo && isNepal) || forcePassportForAll;
 
 			for (let i = 0; i < passengerData.length; i++) {
 				const p = passengerData[i];
@@ -225,11 +303,31 @@ export default function BookingClient({
 					toast.error(`Passenger ${i + 1}: First name and last name are required`);
 					return;
 				}
+				// Name validation: no special chars, SpiceJet distinct names
+				const nameError = validatePassengerName(p.FirstName, p.LastName, airlineCode);
+				if (nameError) {
+					toast.error(`Passenger ${i + 1}: ${nameError}`);
+					return;
+				}
+				// Title validation per Navitaire/TBO rules
+				const titleError = validateTitle(p.Title, p.Gender, p.PaxType);
+				if (titleError) {
+					toast.error(`Passenger ${i + 1}: ${titleError}`);
+					return;
+				}
 				if (p.Gender == null || p.Gender === undefined) {
 					toast.error(`Passenger ${i + 1}: Gender is required`);
 					return;
 				}
-				if (requirePassport || requirePassportFull) {
+				// DOB mandatory for child/infant
+				if ((p.PaxType === 2 || p.PaxType === 3) && !p.DateOfBirth?.trim()) {
+					toast.error(`Passenger ${i + 1}: Date of birth is mandatory for ${p.PaxType === 2 ? "children" : "infants"}`);
+					return;
+				}
+				// International passport enforcement
+				const needsPassport = requirePassport || requirePassportFull || forcePassportForAll ||
+					(forcePassportAdultChild && (p.PaxType === 1 || p.PaxType === 2));
+				if (needsPassport) {
 					if (!p.PassportNo?.trim()) {
 						toast.error(`Passenger ${i + 1}: Passport number is required for this flight`);
 						return;
@@ -238,11 +336,27 @@ export default function BookingClient({
 						toast.error(`Passenger ${i + 1}: Passport expiry is required for this flight`);
 						return;
 					}
-					if (requirePassportFull && !(p as PassengerDetail & { PassportIssueDate?: string }).PassportIssueDate?.trim()) {
-						toast.error(`Passenger ${i + 1}: Passport issue date is required for this flight`);
-						return;
+					if (requirePassportFull) {
+						if (!p.PassportIssueDate?.trim()) {
+							toast.error(`Passenger ${i + 1}: Passport issue date is required for this flight`);
+							return;
+						}
+						if (!p.PassportIssueCountryCode?.trim()) {
+							toast.error(`Passenger ${i + 1}: Passport issue country code is required for this flight`);
+							return;
+						}
 					}
 				}
+				// PAN validation: required for adults; child/infant uses guardian PAN
+				if (requirePan && p.PaxType === 1 && !p.PAN?.trim()) {
+					toast.error(`Passenger ${i + 1}: PAN number is required for this booking`);
+					return;
+				}
+				if (requirePan && (p.PaxType === 2 || p.PaxType === 3) && !p.GuardianDetails?.PAN?.trim()) {
+					toast.error(`Passenger ${i + 1}: Guardian PAN number is required for child/infant`);
+					return;
+				}
+				// Address/Contact mandatory for all per TBO LCC rules
 				if (!p.AddressLine1?.trim() || !p.City?.trim() || !p.CountryCode?.trim()) {
 					toast.error(`Passenger ${i + 1}: Complete address is required`);
 					return;
@@ -257,10 +371,42 @@ export default function BookingClient({
 				}
 			}
 
-			const bookFare = mapFareToBookFare(flightResult.Fare);
+			// GST validation
+			if (isGSTMandatory) {
+				const leadPax = passengerData[0];
+				if (!(leadPax as PassengerDetail & { GSTNumber?: string }).GSTNumber?.trim()) {
+					toast.error("GST details are mandatory for this booking. Please provide GST information.");
+					return;
+				}
+			}
+
 			const tboPassengers: TboBookPassenger[] = passengerData.map((p, index) => {
+				const paxFare = getPerPassengerFare(flightResult, p.PaxType);
 				const mealOption = selectedSSRs.meals?.[index];
 				const seatOption = selectedSSRs.seats?.[index];
+
+				// For special fares with mandatory meals/seats, force free options from SSR
+				let meal = mealOption && "Code" in mealOption ? { Code: mealOption.Code, Description: typeof mealOption.Description === "string" ? mealOption.Description : String(mealOption.Description ?? "") } : undefined;
+				let seat = seatOption && "Code" in seatOption ? { Code: seatOption.Code, Description: typeof seatOption.Description === "string" ? seatOption.Description : String(seatOption.Description ?? "") } : undefined;
+
+				if (flightResult.IsMealMandatory && !meal && freeMealOptions.length > 0) {
+					const fm = freeMealOptions[0];
+					meal = { Code: fm.Code ?? "", Description: fm.Description ?? "" };
+				}
+				if (flightResult.IsSeatMandatory && !seat && freeSeatOptions.length > 0) {
+					const fs = freeSeatOptions[0];
+					seat = { Code: fs.Code ?? "", Description: fs.Description ?? "" };
+				}
+
+				// For international LCC, auto-include free baggage (Price 0) from SSR
+				let baggage: { Code?: string; Description?: string; Weight?: number; Price?: number } | undefined;
+				if (freeBaggageOptions.length > 0 && !selectedSSRs.baggage?.[index]) {
+					baggage = { Code: freeBaggageOptions[0].Code, Description: freeBaggageOptions[0].Description, Weight: freeBaggageOptions[0].Weight, Price: 0 };
+				}
+
+				// GST fields
+				const gstData = (p as PassengerDetail & { GSTCompanyAddress?: string; GSTCompanyContactNumber?: string; GSTCompanyName?: string; GSTNumber?: string; GSTCompanyEmail?: string });
+
 				return {
 					Title: p.Title,
 					FirstName: p.FirstName,
@@ -268,14 +414,16 @@ export default function BookingClient({
 					PaxType: p.PaxType,
 					DateOfBirth: p.DateOfBirth || undefined,
 					Gender: p.Gender,
-					GSTCompanyAddress: "",
-					GSTCompanyContactNumber: "",
-					GSTCompanyName: "",
-					GSTNumber: "",
-					GSTCompanyEmail: "",
+					GSTCompanyAddress: gstData.GSTCompanyAddress || "",
+					GSTCompanyContactNumber: gstData.GSTCompanyContactNumber || "",
+					GSTCompanyName: gstData.GSTCompanyName || "",
+					GSTNumber: gstData.GSTNumber || "",
+					GSTCompanyEmail: gstData.GSTCompanyEmail || "",
 					PassportNo: p.PassportNo || undefined,
 					PassportExpiry: p.PassportExpiry || undefined,
-					PassportIssueDate: (p as PassengerDetail & { PassportIssueDate?: string }).PassportIssueDate || undefined,
+					PassportIssueDate: p.PassportIssueDate || undefined,
+					PassportIssueCountryCode: p.PassportIssueCountryCode || undefined,
+					PAN: p.PAN || undefined,
 					AddressLine1: p.AddressLine1,
 					AddressLine2: p.AddressLine2,
 					City: p.City,
@@ -286,11 +434,13 @@ export default function BookingClient({
 					IsLeadPax: index === 0,
 					FFAirlineCode: p.FFAirlineCode ?? null,
 					FFNumber: p.FFNumber ?? "",
-					Fare: bookFare,
-					Meal: mealOption && "Code" in mealOption ? { Code: mealOption.Code, Description: typeof mealOption.Description === "string" ? mealOption.Description : String(mealOption.Description ?? "") } : undefined,
-					Seat: seatOption && "Code" in seatOption ? { Code: seatOption.Code, Description: typeof seatOption.Description === "string" ? seatOption.Description : String(seatOption.Description ?? "") } : undefined,
+					Fare: paxFare,
+					Meal: meal,
+					Seat: seat,
+					Baggage: baggage,
 					Nationality: p.Nationality || "IN",
 					CellCountryCode: (p as PassengerDetail & { CellCountryCode?: string }).CellCountryCode,
+					GuardianDetails: p.GuardianDetails || undefined,
 				};
 			});
 
@@ -321,6 +471,55 @@ export default function BookingClient({
 			).catch(() => {});
 
 			setIsSubmitting(true);
+
+			// LCC Flow: Search → FareQuote → SSR → Ticket (skip Book per TBO docs)
+			// Non-LCC Flow: Search → FareQuote → SSR → Book → Ticket
+			if (flightResult.IsLCC) {
+				// LCC: Go directly to Ticket with Passengers
+				const ticketBody: Record<string, unknown> = {
+					EndUserIp: "192.168.1.1",
+					TraceId: traceId,
+					ResultIndex: resultIndex,
+					Passengers: tboPassengers,
+				};
+				if (fareQuotePriceChanged) {
+					ticketBody.IsPriceChangeAccepted = true;
+				}
+
+				const ticketRes = await fetch("/api/travel/tbo/ticket", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(ticketBody),
+				});
+
+				const ticketResult = await ticketRes.json().catch(() => ({}));
+
+				if (!ticketRes.ok) {
+					throw new Error(ticketResult?.error || "Ticket issuance failed");
+				}
+
+				const ticketResp = ticketResult as TicketResponse & { IsPriceChanged?: boolean; IsTimeChanged?: boolean };
+				if (ticketResp?.IsPriceChanged || ticketResp?.IsTimeChanged) {
+					setTicketPriceChange(ticketResp);
+					toast.success("Fare or time has changed. Accept the new price to issue your ticket.");
+					return;
+				}
+
+				const status = ticketResp?.TicketStatus ?? ticketResp?.FlightItinerary?.TicketStatus;
+				if (status === 1 || ticketResp?.PNR) {
+					setTicketSuccess(true);
+					toast.success("Ticket issued successfully.");
+					const pnr = ticketResp.PNR || "";
+					const bookingId = ticketResp.BookingId || 0;
+					router.push(
+						`/travel-portal/booking/confirmation?bookingId=${bookingId}&pnr=${encodeURIComponent(pnr)}&traceId=${encodeURIComponent(traceId)}`
+					);
+					return;
+				}
+				throw new Error(ticketResp?.Message || "Ticket could not be issued for LCC flight.");
+			}
+
+			// Non-LCC: Book first then Ticket
 			const response = await fetch("/api/travel/tbo/book", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -445,6 +644,28 @@ export default function BookingClient({
 			<h1 className="text-3xl font-bold mb-8 text-gray-900 border-b pb-4">
 				Complete Your Booking
 			</h1>
+
+			{/* TraceId session expiry warning */}
+			{traceIdExpired && (
+				<div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+					<p className="font-medium">Session Expired</p>
+					<p className="text-sm">Your booking session has expired (15 minutes). Please go back and search again.</p>
+				</div>
+			)}
+			{!traceIdExpired && traceIdMinutesLeft <= 5 && (
+				<div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
+					<p className="font-medium">Session expiring soon</p>
+					<p className="text-sm">You have approximately {traceIdMinutesLeft} minute(s) left to complete this booking before the session expires.</p>
+				</div>
+			)}
+
+			{/* FlightDetailChangeInfo from FareQuote */}
+			{flightDetailChangeInfo && (
+				<div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-blue-800">
+					<p className="font-medium">Flight Detail Change</p>
+					<p className="text-sm">The following details have changed since search: <strong>{flightDetailChangeInfo}</strong>. The booking will proceed with the updated information.</p>
+				</div>
+			)}
 
 			<div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative">
 				{/* Left Column: Flight Info & Passenger Details (65-70%) */}
@@ -593,9 +814,11 @@ export default function BookingClient({
 							onBookingSubmit={handleBookingSubmit}
 							onPassengersChange={setPassengers}
 							flightResult={flightResult}
-							isSubmitting={isSubmitting}
+							isSubmitting={isSubmitting || traceIdExpired}
 							requirePassport={flightResult.IsPassportRequiredAtBook === true}
 							requirePassportFull={flightResult.IsPassportFullDetailRequiredAtBook === true}
+							requirePAN={flightResult.IsPanRequiredAtBook === true}
+							requireGST={flightResult.IsGSTMandatory === true}
 							ssrCharges={{
 								baggage: selectedSSRs.baggage,
 								meals: selectedSSRs.meals,

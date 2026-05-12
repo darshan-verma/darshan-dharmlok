@@ -236,7 +236,7 @@ export default function ConfirmationContent() {
 					{error}
 				</div>
 				<Link href="/travel-portal" className="mt-4 inline-block text-blue-600 hover:underline">
-					Back to travel portal
+					Back to Dharmlok Travels
 				</Link>
 			</div>
 		);
@@ -247,7 +247,7 @@ export default function ConfirmationContent() {
 			<div className="container mx-auto py-8 px-4 max-w-3xl">
 				<p className="text-gray-600">No booking details found.</p>
 				<Link href="/travel-portal" className="mt-4 inline-block text-blue-600 hover:underline">
-					Back to travel portal
+					Back to Dharmlok Travels
 				</Link>
 			</div>
 		);
@@ -355,7 +355,7 @@ export default function ConfirmationContent() {
 					My trips
 				</Link>
 				<Link href="/travel-portal" className="text-blue-600 hover:underline">
-					Back to travel portal
+					Back to Dharmlok Travels
 				</Link>
 			</div>
 		</div>

@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Tooltip,
   TooltipContent,
@@ -162,6 +163,10 @@ export const ImageAutoSlider = ({
           animation: scroll-right 20s linear infinite;
         }
 
+        .infinite-scroll:has(.image-item:hover) {
+          animation-play-state: paused;
+        }
+
         .scroll-container {
           mask: linear-gradient(
             90deg,
@@ -269,7 +274,11 @@ export const ImageAutoSlider = ({
                       return (
                         <Tooltip key={`${panditji.id}-${index}`}>
                           <TooltipTrigger asChild>
-                            <div className="image-item flex-shrink-0 w-48 h-48 md:w-64 md:h-64 lg:w-80 lg:h-80 rounded-xl overflow-visible shadow-2xl cursor-pointer relative group">
+                            <Link
+                              href={`/panditji/${panditji.id}`}
+                              className="image-item flex-shrink-0 w-48 h-48 md:w-64 md:h-64 lg:w-80 lg:h-80 rounded-xl overflow-visible shadow-2xl cursor-pointer relative group block"
+                              aria-label={`View details for ${panditji.name || `Panditji ${actualIndex + 1}`}`}
+                            >
                               <Image
                                 src={imageUrl}
                                 alt={panditji.name || `Panditji ${actualIndex + 1}`}
@@ -279,7 +288,7 @@ export const ImageAutoSlider = ({
                                 loading="lazy"
                                 unoptimized
                               />
-                            </div>
+                            </Link>
                           </TooltipTrigger>
                           <TooltipContent
                             side="bottom"

@@ -763,7 +763,7 @@ model Blog {
     @@index([createdAt])
 }
 
-// Travel Portal Models
+// Dharmlok Travels models
 model Destination {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   name        String
@@ -840,7 +840,7 @@ model HotelBooking {
   @@index([status])
 }
 
-// Cruise / travel portal lead forms (submitted from public travel home)
+// Cruise / Dharmlok Travels lead forms (submitted from public travel home)
 model TravelPortalQuery {
   id                String   @id @default(auto()) @map("_id") @db.ObjectId
   queryType         String   @default("cruise") // e.g. cruise

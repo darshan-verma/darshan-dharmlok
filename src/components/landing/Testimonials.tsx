@@ -24,7 +24,7 @@ const testimonials = [
     avatar: "👨‍🦱",
   },
   {
-    text: "The travel portal helped us plan our Char Dham Yatra perfectly. From flights to hotel bookings near temples, everything was taken care of. Truly a one-stop spiritual platform.",
+    text: "Dharmlok Travels helped us plan our Char Dham Yatra perfectly. From flights to hotel bookings near temples, everything was taken care of. Truly a one-stop spiritual platform.",
     author: "Sunita Devi",
     role: "Pilgrim",
     avatar: "👩",

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { issueTicket } from "@/lib/tboClient";
+import { issueTicket, getBookingDetails } from "@/lib/tboClient";
 import type {
 	TicketRequestNonLCC,
 	TicketRequestLCC,
@@ -114,9 +114,33 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const result = await issueTicket(payload);
+		let result;
+		try {
+			result = await issueTicket(payload);
+		} catch (ticketError) {
+			// Per TBO docs: if Ticket times out (300s), poll GetBookingDetails
+			if (ticketError instanceof Error && ticketError.name === "AbortError") {
+				console.warn("Ticket request timed out (300s). Polling GetBookingDetails...");
+				try {
+					const bookingDetailsResult = await getBookingDetails({
+						EndUserIp,
+						TraceId,
+					});
+					return NextResponse.json({
+						...bookingDetailsResult,
+						_timeoutRecovered: true,
+					});
+				} catch (pollError) {
+					console.error("GetBookingDetails after ticket timeout failed:", pollError);
+					return NextResponse.json(
+						{ error: "Ticket issuance timed out. Please check booking status manually.", _timeout: true },
+						{ status: 504 }
+					);
+				}
+			}
+			throw ticketError;
+		}
 
-		// Return 200 with full ticket response; client handles IsPriceChanged/IsTimeChanged
 		return NextResponse.json({
 			...result,
 			IsPriceChanged: result?.IsPriceChanged ?? false,
