@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { releaseTripjackPnr } from "@/lib/tripjackClient";
+import { releaseTripjackPnr, getTripjackFlightBookingDetails } from "@/lib/tripjackClient";
 
 export async function POST(request: NextRequest) {
 	try {
@@ -16,7 +16,20 @@ export async function POST(request: NextRequest) {
 			);
 		}
 		const data = await releaseTripjackPnr({ bookingId, pnrs });
-		return NextResponse.json({ success: true, data });
+
+		let verifiedStatus: string | undefined;
+		try {
+			const details = await getTripjackFlightBookingDetails({ bookingId });
+			verifiedStatus = details?.order?.status;
+		} catch {
+			// Non-critical: verification is best-effort
+		}
+
+		return NextResponse.json({
+			success: true,
+			data,
+			verifiedStatus,
+		});
 	} catch (error) {
 		const message =
 			error instanceof Error ? error.message : "TripJack release PNR failed";

@@ -1,6 +1,10 @@
 import type {
 	TripjackAirSearchRequest,
 	TripjackAirSearchResponse,
+	TripjackAmendmentChargesRequest,
+	TripjackAmendmentChargesResponse,
+	TripjackAmendmentDetailsRequest,
+	TripjackAmendmentDetailsResponse,
 	TripjackBookRequest,
 	TripjackBookResponse,
 	TripjackBookingDetailRequest,
@@ -15,6 +19,8 @@ import type {
 	TripjackReviewResponse,
 	TripjackSeatMapRequest,
 	TripjackSeatMapResponse,
+	TripjackSubmitAmendmentRequest,
+	TripjackSubmitAmendmentResponse,
 } from "@/types/tripjackFlight";
 import type {
 	TripjackAmendmentRequest,
@@ -65,6 +71,8 @@ const TRIPJACK_CABS_API_URL = process.env.TRIPJACK_CABS_API_URL || "";
 const TRIPJACK_STATIC_API_URL = process.env.TRIPJACK_STATIC_API_URL || "";
 /** Flight Management System (`/fms/…`) — usually `https://apitest.tripjack.com`, not the HMS host. */
 const TRIPJACK_FMS_API_URL = process.env.TRIPJACK_FMS_API_URL || "";
+/** Order Management System (`/oms/…`) — usually `https://apitest.tripjack.com`, not the HMS host. */
+const TRIPJACK_OMS_API_URL = process.env.TRIPJACK_OMS_API_URL || "";
 const TRIPJACK_API_KEY = process.env.TRIPJACK_API_KEY || "";
 
 function isTripsafeInsuranceEndpoint(endpoint: string): boolean {
@@ -111,17 +119,24 @@ function tripjackFmsBaseUrl(): string {
 	return TRIPJACK_FMS_API_URL || TRIPJACK_STATIC_API_URL || TRIPJACK_API_URL;
 }
 
+function tripjackOmsBaseUrl(): string {
+	return TRIPJACK_OMS_API_URL || TRIPJACK_STATIC_API_URL || TRIPJACK_API_URL;
+}
+
 function ensureTripjackConfig(endpoint: string): void {
 	const isCabsEndpoint = endpoint.startsWith("/cabs/");
 	const isFmsEndpoint = endpoint.startsWith("/fms/");
+	const isOmsEndpoint = endpoint.startsWith("/oms/") && !isTripsafeInsuranceEndpoint(endpoint);
 	const isTripsafeEndpoint = isTripsafeInsuranceEndpoint(endpoint);
 	const hasPrimaryBase = isCabsEndpoint
 		? Boolean(TRIPJACK_CABS_API_URL || TRIPJACK_API_URL)
 		: isFmsEndpoint
 			? Boolean(tripjackFmsBaseUrl())
-			: isTripsafeEndpoint
-				? Boolean(tripsafeTripjackBaseUrl())
-				: Boolean(TRIPJACK_API_URL);
+			: isOmsEndpoint
+				? Boolean(tripjackOmsBaseUrl())
+				: isTripsafeEndpoint
+					? Boolean(tripsafeTripjackBaseUrl())
+					: Boolean(TRIPJACK_API_URL);
 
 	if (!hasPrimaryBase) {
 		throw new Error(
@@ -129,9 +144,11 @@ function ensureTripjackConfig(endpoint: string): void {
 				? "Missing TRIPJACK_CABS_API_URL or TRIPJACK_API_URL environment variable"
 				: isFmsEndpoint
 					? "Missing TRIPJACK_FMS_API_URL, TRIPJACK_STATIC_API_URL, or TRIPJACK_API_URL for flight search"
-					: isTripsafeEndpoint
-						? "Missing TRIPSAFE_API_URL or TRIPJACK_API_URL environment variable"
-						: "Missing TRIPJACK_API_URL environment variable",
+					: isOmsEndpoint
+						? "Missing TRIPJACK_OMS_API_URL, TRIPJACK_STATIC_API_URL, or TRIPJACK_API_URL for booking"
+						: isTripsafeEndpoint
+							? "Missing TRIPSAFE_API_URL or TRIPJACK_API_URL environment variable"
+							: "Missing TRIPJACK_API_URL environment variable",
 		);
 	}
 
@@ -147,14 +164,17 @@ function buildTripjackUrl(endpoint: string): string {
 
 	const isCabsEndpoint = endpoint.startsWith("/cabs/");
 	const isFmsEndpoint = endpoint.startsWith("/fms/");
+	const isOmsEndpoint = endpoint.startsWith("/oms/") && !isTripsafeInsuranceEndpoint(endpoint);
 	const isTripsafeEndpoint = isTripsafeInsuranceEndpoint(endpoint);
 	const baseUrl = isCabsEndpoint
 		? TRIPJACK_CABS_API_URL || TRIPJACK_API_URL
 		: isFmsEndpoint
 			? tripjackFmsBaseUrl()
-			: isTripsafeEndpoint
-				? tripsafeTripjackBaseUrl()
-				: TRIPJACK_API_URL;
+			: isOmsEndpoint
+				? tripjackOmsBaseUrl()
+				: isTripsafeEndpoint
+					? tripsafeTripjackBaseUrl()
+					: TRIPJACK_API_URL;
 	const base = baseUrl.replace(/\/$/, "");
 	const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 	return `${base}${path}`;
@@ -308,11 +328,8 @@ export async function getTripjackSeatMap(
 export async function fareValidateTripjackFlight(
 	payload: TripjackFareValidateRequest,
 ): Promise<TripjackFareValidateResponse> {
-	return tripjackRequest<TripjackFareValidateResponse>({
-		endpoint: "/oms/v1/air/book/fare-validate",
-		method: "POST",
-		body: payload,
-	});
+	/** TripJack doc: `POST /oms/v1/air/fare-validate` (confirm fare before ticketing a hold). */
+	return confirmFareTripjackFlight(payload);
 }
 
 export async function bookTripjackFlight(
@@ -339,7 +356,7 @@ export async function confirmBookTripjackFlight(
 	payload: TripjackConfirmBookRequest,
 ): Promise<TripjackBookResponse> {
 	return tripjackRequest<TripjackBookResponse>({
-		endpoint: "/oms/v1/air/book/confirm-book",
+		endpoint: "/oms/v1/air/confirm-book",
 		method: "POST",
 		body: payload,
 	});
@@ -362,6 +379,51 @@ export async function releaseTripjackPnr(
 		endpoint: "/oms/v1/air/unhold",
 		method: "POST",
 		body: payload,
+	});
+}
+
+// ─── Flight Amendment / Cancellation ─────────────────────────────────────────
+
+function tripjackAmendmentRequestBody(
+	payload: TripjackAmendmentChargesRequest | TripjackSubmitAmendmentRequest,
+): Record<string, unknown> {
+	const body: Record<string, unknown> = {
+		bookingId: payload.bookingId,
+		type: payload.type,
+		remarks: payload.remarks,
+	};
+	if (payload.trips?.length) body.trips = payload.trips;
+	if (payload.travellers?.length) body.travellers = payload.travellers;
+	return body;
+}
+
+export async function getFlightAmendmentCharges(
+	payload: TripjackAmendmentChargesRequest,
+): Promise<TripjackAmendmentChargesResponse> {
+	return tripjackRequest<TripjackAmendmentChargesResponse>({
+		endpoint: "/oms/v1/air/amendment/amendment-charges",
+		method: "POST",
+		body: tripjackAmendmentRequestBody(payload),
+	});
+}
+
+export async function submitFlightAmendment(
+	payload: TripjackSubmitAmendmentRequest,
+): Promise<TripjackSubmitAmendmentResponse> {
+	return tripjackRequest<TripjackSubmitAmendmentResponse>({
+		endpoint: "/oms/v1/air/amendment/submit-amendment",
+		method: "POST",
+		body: tripjackAmendmentRequestBody(payload),
+	});
+}
+
+export async function getFlightAmendmentDetails(
+	payload: TripjackAmendmentDetailsRequest,
+): Promise<TripjackAmendmentDetailsResponse> {
+	return tripjackRequest<TripjackAmendmentDetailsResponse>({
+		endpoint: "/oms/v1/air/amendment/amendment-details",
+		method: "POST",
+		body: { amendmentId: payload.amendmentId },
 	});
 }
 

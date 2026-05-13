@@ -334,9 +334,29 @@ export function resolveTripjackBookError(response: TripjackBookResponse): string
 export function extractTripjackPnrFromBookingDetail(
 	details: TripjackBookingDetailResponse,
 ): string | undefined {
-	const traveller = details.travellerInfos?.[0];
-	if (!traveller?.pnrDetails) return undefined;
-	const pnr = Object.values(traveller.pnrDetails).find((x) => typeof x === "string");
-	return typeof pnr === "string" ? pnr : undefined;
+	const travellerSource = details.itemInfos?.AIR?.travellerInfos ?? details.travellerInfos ?? [];
+	for (const t of travellerSource) {
+		if (!t?.pnrDetails) continue;
+		const pnr = Object.values(t.pnrDetails).find((x) => typeof x === "string" && x.trim());
+		if (typeof pnr === "string") return pnr;
+	}
+	return undefined;
+}
+
+export function extractTripjackTicketNumbers(
+	details: TripjackBookingDetailResponse,
+): Record<string, string> {
+	const result: Record<string, string> = {};
+	const travellerSource = details.itemInfos?.AIR?.travellerInfos ?? details.travellerInfos ?? [];
+	for (const t of travellerSource) {
+		if (!t?.ticketNumberDetails) continue;
+		const name = [t.fN, t.lN].filter(Boolean).join(" ");
+		for (const [, ticketNo] of Object.entries(t.ticketNumberDetails)) {
+			if (typeof ticketNo === "string" && ticketNo.trim()) {
+				result[name || ticketNo] = ticketNo;
+			}
+		}
+	}
+	return result;
 }
 

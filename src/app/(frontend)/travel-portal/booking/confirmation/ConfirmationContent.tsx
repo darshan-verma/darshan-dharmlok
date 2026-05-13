@@ -10,6 +10,13 @@ import {
 	airiqRetrieveResponseToNormalized,
 	tripjackBookingDetailToNormalized,
 } from "@/lib/booking-details-mappers";
+import TripjackFlightConfirmationManage from "@/components/travel-portal/TripjackFlightConfirmationManage";
+
+function formatBookingDateTime(value: string | undefined): string | undefined {
+	if (!value?.trim()) return undefined;
+	const d = new Date(value);
+	return Number.isNaN(d.getTime()) ? value : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
 
 export default function ConfirmationContent() {
 	const searchParams = useSearchParams();
@@ -256,6 +263,13 @@ export default function ConfirmationContent() {
 	return (
 		<div className="container mx-auto py-8 px-4 max-w-3xl">
 			<h1 className="text-2xl font-bold text-gray-900 mb-6">Booking confirmation</h1>
+			{source === "tripjack" && bookingIdParam?.trim() && details ? (
+				<TripjackFlightConfirmationManage
+					bookingId={bookingIdParam.trim()}
+					details={details}
+					onRefetch={fetchDetails}
+				/>
+			) : null}
 			{canCompleteTicketing && (
 				<div className="mb-6 space-y-3">
 					{ticketPriceChange && (
@@ -301,6 +315,21 @@ export default function ConfirmationContent() {
 					{details.bookingId != null && details.bookingId !== "" && (
 						<><span className="text-gray-500">Booking ID</span><span>{details.bookingId}</span></>
 					)}
+					{details.gdsPnr != null && details.gdsPnr !== "" && (
+						<><span className="text-gray-500">GDS PNR</span><span className="font-medium">{details.gdsPnr}</span></>
+					)}
+					{details.bookingCreatedOn != null && details.bookingCreatedOn !== "" && (
+						<>
+							<span className="text-gray-500">Booked on</span>
+							<span>{formatBookingDateTime(details.bookingCreatedOn) ?? details.bookingCreatedOn}</span>
+						</>
+					)}
+					{details.orderAmount != null && (
+						<>
+							<span className="text-gray-500">Order amount</span>
+							<span>INR {details.orderAmount.toLocaleString()}</span>
+						</>
+					)}
 					{details.invoiceNo != null && details.invoiceNo !== "" && (
 						<><span className="text-gray-500">Invoice</span><span>{details.invoiceNo}</span></>
 					)}
@@ -325,7 +354,9 @@ export default function ConfirmationContent() {
 									)}
 									{(seg.depTime || seg.arrTime) && (
 										<div className="text-gray-500 mt-1">
-											{seg.depTime ?? "—"} – {seg.arrTime ?? "—"}
+											{formatBookingDateTime(seg.depTime) ?? seg.depTime ?? "—"}
+											{" – "}
+											{formatBookingDateTime(seg.arrTime) ?? seg.arrTime ?? "—"}
 										</div>
 									)}
 								</li>
@@ -338,15 +369,75 @@ export default function ConfirmationContent() {
 						<h2 className="font-semibold text-gray-900 mb-2">Passengers</h2>
 						<ul className="space-y-1 text-sm">
 							{details.passengers.map((pax, i) => (
-								<li key={i}>{pax.title} {pax.firstName} {pax.lastName}</li>
+								<li key={i} className="space-y-0.5">
+									<div>
+										{pax.title} {pax.firstName} {pax.lastName}
+										{pax.paxType != null && pax.paxType !== "" && (
+											<span className="text-gray-500"> ({pax.paxType})</span>
+										)}
+									</div>
+									{(pax.pnr != null && pax.pnr !== "") || (pax.ticketNumber != null && pax.ticketNumber !== "") ? (
+										<div className="text-gray-600 text-xs pl-0">
+											{pax.pnr != null && pax.pnr !== "" && <span>PNR: {pax.pnr}</span>}
+											{pax.pnr && pax.ticketNumber != null && pax.ticketNumber !== "" && " · "}
+											{pax.ticketNumber != null && pax.ticketNumber !== "" && (
+												<span>Ticket: {pax.ticketNumber}</span>
+											)}
+										</div>
+									) : null}
+								</li>
 							))}
 						</ul>
 					</div>
 				)}
-				{details.fare && (details.fare.amount != null || details.fare.currency) && (
-					<div className="text-sm">
+				{details.fare &&
+					(details.fare.amount != null ||
+						details.fare.baseFare != null ||
+						details.fare.taxAndFees != null ||
+						details.fare.currency) && (
+					<div className="text-sm space-y-1">
 						<h2 className="font-semibold text-gray-900 mb-1">Fare</h2>
-						<span>{details.fare.currency} {(details.fare.amount != null ? details.fare.amount : "—")}</span>
+						{details.fare.baseFare != null && (
+							<div className="flex justify-between gap-4 text-gray-600">
+								<span>Base fare</span>
+								<span>
+									{details.fare.currency ?? ""} {details.fare.baseFare.toLocaleString()}
+								</span>
+							</div>
+						)}
+						{details.fare.taxAndFees != null && (
+							<div className="flex justify-between gap-4 text-gray-600">
+								<span>Taxes &amp; fees</span>
+								<span>
+									{details.fare.currency ?? ""} {details.fare.taxAndFees.toLocaleString()}
+								</span>
+							</div>
+						)}
+						<div className="flex justify-between gap-4 font-medium pt-1 border-t border-gray-100">
+							<span>Total</span>
+							<span>
+								{details.fare.currency ?? ""}{" "}
+								{details.fare.amount != null
+									? details.fare.amount.toLocaleString()
+									: details.fare.baseFare != null || details.fare.taxAndFees != null
+										? (
+												(details.fare.baseFare ?? 0) + (details.fare.taxAndFees ?? 0)
+											).toLocaleString()
+										: "—"}
+							</span>
+						</div>
+					</div>
+				)}
+				{details.statusMap != null && Object.keys(details.statusMap).length > 0 && (
+					<div className="text-sm">
+						<h2 className="font-semibold text-gray-900 mb-1">Traveller / sector status</h2>
+						<ul className="space-y-1 text-gray-600">
+							{Object.entries(details.statusMap).map(([k, v]) => (
+								<li key={k}>
+									<span className="font-mono text-xs">{k}</span>: {v}
+								</li>
+							))}
+						</ul>
 					</div>
 				)}
 			</div>

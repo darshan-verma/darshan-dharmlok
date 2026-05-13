@@ -5,6 +5,7 @@
 
 import type { TboGetBookingDetailsFlightItinerary } from "@/types/tbo";
 import type { TripjackBookingDetailResponse } from "@/types/tripjackFlight";
+import { legsFromTripjackReviewTripInfos } from "@/lib/tripjackFlightBooking";
 import type {
 	NormalizedBookingDetails,
 	NormalizedBookingSegment,
@@ -202,47 +203,68 @@ export function tripjackBookingDetailToNormalized(
 ): NormalizedBookingDetails | null {
 	if (!response) return null;
 	const air = response.itemInfos?.AIR;
-	const onward = air?.tripInfos?.ONWARD?.[0];
-	const segs = onward?.sI ?? [];
-	const segments: NormalizedBookingSegment[] = segs.map((seg) => ({
-		originCode: seg.da?.code || "",
-		originCity: seg.da?.city,
-		destCode: seg.aa?.code || "",
-		destCity: seg.aa?.city,
-		airlineName: seg.fD?.aI?.name,
-		airlineCode: seg.fD?.aI?.code,
-		flightNumber: seg.fD?.fN,
-		depTime: seg.dt,
-		arrTime: seg.at,
-	}));
 
-	const passengers: NormalizedBookingPassenger[] =
-		response.travellerInfos?.map((t) => ({
+	const allSegs: NormalizedBookingSegment[] = [];
+	// Booking-details API returns `tripInfos` as TripInfo[]; search/review may use ONWARD/RETURN/COMBO.
+	const legs = legsFromTripjackReviewTripInfos(air?.tripInfos);
+	for (const trip of legs) {
+		for (const seg of trip.sI ?? []) {
+			allSegs.push({
+				originCode: seg.da?.code || "",
+				originCity: seg.da?.city,
+				destCode: seg.aa?.code || "",
+				destCity: seg.aa?.city,
+				airlineName: seg.fD?.aI?.name,
+				airlineCode: seg.fD?.aI?.code,
+				flightNumber: seg.fD?.fN,
+				depTime: seg.dt,
+				arrTime: seg.at,
+			});
+		}
+	}
+
+	const travellerSource = air?.travellerInfos ?? response.travellerInfos ?? [];
+	const passengers: NormalizedBookingPassenger[] = travellerSource.map((t) => {
+		const pnr = t.pnrDetails
+			? Object.values(t.pnrDetails).find((v) => typeof v === "string" && v.trim())
+			: undefined;
+		const ticketNumber = t.ticketNumberDetails
+			? Object.values(t.ticketNumberDetails).find(
+					(v) => typeof v === "string" && v.trim(),
+				)
+			: undefined;
+		return {
 			title: t.ti,
 			firstName: t.fN,
 			lastName: t.lN,
-		})) ?? [];
+			paxType: t.pt,
+			pnr: typeof pnr === "string" ? pnr : undefined,
+			ticketNumber: typeof ticketNumber === "string" ? ticketNumber : undefined,
+		};
+	});
 
-	const firstTraveller = response.travellerInfos?.[0];
-	const firstPnr = firstTraveller?.pnrDetails
-		? Object.values(firstTraveller.pnrDetails).find(
-				(v) => typeof v === "string" && v.trim(),
-			)
-		: undefined;
+	const firstPnr = passengers.find((p) => p.pnr)?.pnr;
 
-	const amount = air?.totalPriceInfo?.totalFareDetail?.fc?.TF;
+	const fc = air?.totalPriceInfo?.totalFareDetail?.fc;
+	let fare: NormalizedBookingFare | undefined;
+	if (fc && (fc.TF != null || fc.BF != null || fc.TAF != null)) {
+		fare = {
+			currency: "INR",
+			amount: fc.TF,
+			baseFare: fc.BF,
+			taxAndFees: fc.TAF,
+		};
+	}
 	return {
-		pnr: typeof firstPnr === "string" ? firstPnr : undefined,
+		pnr: firstPnr,
+		gdsPnr: response.gdsPnr,
 		bookingId: response.order?.bookingId,
+		bookingCreatedOn: response.order?.createdOn,
+		orderAmount: response.order?.amount,
 		status: response.order?.status,
-		segments: segments.length ? segments : undefined,
+		statusMap: response.statusMap,
+		segments: allSegs.length ? allSegs : undefined,
 		passengers: passengers.length ? passengers : undefined,
-		fare:
-			typeof amount === "number"
-				? {
-						currency: "INR",
-						amount,
-					}
-				: undefined,
+		fare,
 	};
 }

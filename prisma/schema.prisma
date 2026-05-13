@@ -783,7 +783,8 @@ model Destination {
 model TravelBooking {
   id            String      @id @default(auto()) @map("_id") @db.ObjectId
   userId        String      @db.ObjectId
-  destinationId String      @db.ObjectId
+  /// Package destination (optional for supplier-direct flight bookings e.g. TripJack)
+  destinationId String?     @db.ObjectId
   name          String      // Traveler name
   email         String      // Contact email
   phone         String?     // Contact phone
@@ -797,7 +798,7 @@ model TravelBooking {
   date          DateTime    @default(now()) // Booking creation date
   status        String      @default("PENDING")
   // TBO flight booking identifiers (for GetBookingDetails lookup)
-  source        String?     // e.g. "TBO", "AIRiQ"
+  source        String?     // e.g. "TBO", "AIRiQ", "TRIPJACK"
   tboBookingId  Int?        // TBO BookingId
   tboPnr        String?     // TBO PNR
   leadFirstName String?     // Lead passenger first name (for PNR lookup when BookingId is 0)
@@ -805,9 +806,14 @@ model TravelBooking {
   // AiriQ flight booking identifiers (for RetrieveBooking lookup)
   airIqPnr      String?     // AiriQ booking reference
   airlinePnr    String?     // Airline PNR
+  // TripJack flight (`/oms/v1/air/book` bookingId — same as review bookingId)
+  tripjackBookingId  String?  @unique
+  tripjackAirlinePnr String?   // Snapshot when known (optional)
 
-  destination   Destination @relation(fields: [destinationId], references: [id])
+  destination   Destination? @relation(fields: [destinationId], references: [id])
   user          User        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 // TripJack / TBO Hotel Booking

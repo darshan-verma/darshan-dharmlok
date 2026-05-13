@@ -5,6 +5,9 @@ import { extractTripjackReviewFlight } from "@/lib/tripjackFlightBooking";
 import { isTripjackConfigured } from "@/lib/tripjackFlightSearch";
 import { logTravelActivity, getIpAddress, getUserAgent } from "@/lib/travelLogger";
 
+/** TripJack review can exceed default serverless limits; extend on Vercel Pro+. */
+export const maxDuration = 120;
+
 export async function POST(request: NextRequest) {
 	try {
 		if (!isTripjackConfigured()) {

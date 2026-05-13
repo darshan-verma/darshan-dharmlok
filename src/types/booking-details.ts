@@ -19,19 +19,32 @@ export interface NormalizedBookingPassenger {
 	title?: string;
 	firstName?: string;
 	lastName?: string;
+	paxType?: string;
+	pnr?: string;
+	ticketNumber?: string;
 }
 
 export interface NormalizedBookingFare {
 	currency?: string;
+	/** Total / published fare when supplier sends it */
 	amount?: number;
+	baseFare?: number;
+	taxAndFees?: number;
 }
 
 export interface NormalizedBookingDetails {
 	pnr?: string;
+	gdsPnr?: string;
 	bookingId?: string;
+	/** TripJack order.createdOn (ISO) */
+	bookingCreatedOn?: string;
+	/** TripJack order.amount when present */
+	orderAmount?: number;
 	invoiceNo?: string;
 	invoiceCreatedOn?: string;
 	status?: string;
+	/** Per-PNR status map (TripJack) */
+	statusMap?: Record<string, string>;
 	segments?: NormalizedBookingSegment[];
 	passengers?: NormalizedBookingPassenger[];
 	fare?: NormalizedBookingFare;

@@ -27,8 +27,10 @@ interface Booking {
 	destination: {
 		name: string;
 		location?: string;
-	};
+	} | null;
 	date: string;
+	travelDate?: string;
+	returnDate?: string | null;
 	status: string;
 	source?: string | null;
 	tboBookingId?: number | null;
@@ -37,6 +39,9 @@ interface Booking {
 	leadLastName?: string | null;
 	airIqPnr?: string | null;
 	airlinePnr?: string | null;
+	tripjackBookingId?: string | null;
+	tripjackAirlinePnr?: string | null;
+	fromLocation?: string | null;
 }
 
 export default function MyTripsPage() {
@@ -90,6 +95,7 @@ export default function MyTripsPage() {
 	const getStatusVariant = (status: string) => {
 		switch (status.toUpperCase()) {
 			case "CONFIRMED":
+			case "SUCCESS":
 				return "default";
 			case "PENDING":
 				return "secondary";
@@ -105,6 +111,7 @@ export default function MyTripsPage() {
 	const getStatusColor = (status: string) => {
 		switch (status.toUpperCase()) {
 			case "CONFIRMED":
+			case "SUCCESS":
 				return "text-green-600 bg-green-50 dark:bg-green-950/20";
 			case "PENDING":
 				return "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/20";
@@ -117,9 +124,10 @@ export default function MyTripsPage() {
 		}
 	};
 
-	const upcomingTrips = bookings.filter(
-		(b) => new Date(b.date) > new Date() && b.status !== "CANCELLED"
-	).length;
+	const upcomingTrips = bookings.filter((b) => {
+		const tripStart = new Date(b.travelDate || b.date);
+		return tripStart > new Date() && b.status.toUpperCase() !== "CANCELLED";
+	}).length;
 
 	const completedTrips = bookings.filter(
 		(b) => b.status === "COMPLETED"
@@ -260,43 +268,64 @@ export default function MyTripsPage() {
 									</TableHeader>
 									<TableBody>
 										{filteredBookings.map((booking) => {
-											const hasTboDetails = (booking.tboBookingId != null && booking.tboBookingId > 0) || (booking.tboPnr != null && booking.tboPnr.trim() !== "");
-											const hasAiriqDetails = (booking.airIqPnr != null && booking.airIqPnr.trim() !== "") || (booking.airlinePnr != null && booking.airlinePnr.trim() !== "");
-											const hasDetails = hasTboDetails || hasAiriqDetails;
+											const hasTripjackDetails =
+												booking.tripjackBookingId != null &&
+												booking.tripjackBookingId.trim() !== "";
+											const hasTboDetails =
+												(booking.tboBookingId != null && booking.tboBookingId > 0) ||
+												(booking.tboPnr != null && booking.tboPnr.trim() !== "");
+											const hasAiriqDetails =
+												(booking.airIqPnr != null && booking.airIqPnr.trim() !== "") ||
+												(booking.airlinePnr != null && booking.airlinePnr.trim() !== "");
+											const hasDetails =
+												hasTripjackDetails || hasTboDetails || hasAiriqDetails;
 											const confirmationQuery = new URLSearchParams();
-											if (hasTboDetails) {
-												if (booking.tboBookingId != null && booking.tboBookingId > 0) confirmationQuery.set("bookingId", String(booking.tboBookingId));
+											if (hasTripjackDetails) {
+												confirmationQuery.set("source", "tripjack");
+												confirmationQuery.set("bookingId", booking.tripjackBookingId!);
+											} else if (hasTboDetails) {
+												if (booking.tboBookingId != null && booking.tboBookingId > 0)
+													confirmationQuery.set("bookingId", String(booking.tboBookingId));
 												if (booking.tboPnr) confirmationQuery.set("pnr", booking.tboPnr);
-												if (booking.leadFirstName) confirmationQuery.set("firstName", booking.leadFirstName);
-												if (booking.leadLastName) confirmationQuery.set("lastName", booking.leadLastName);
+												if (booking.leadFirstName)
+													confirmationQuery.set("firstName", booking.leadFirstName);
+												if (booking.leadLastName)
+													confirmationQuery.set("lastName", booking.leadLastName);
 												confirmationQuery.set("source", "tbo");
 											} else if (hasAiriqDetails) {
 												confirmationQuery.set("source", "airiq");
-												if (booking.airIqPnr) confirmationQuery.set("airIqPNR", booking.airIqPnr);
-												if (booking.airlinePnr) confirmationQuery.set("airlinePNR", booking.airlinePnr);
+												if (booking.airIqPnr)
+													confirmationQuery.set("airIqPNR", booking.airIqPnr);
+												if (booking.airlinePnr)
+													confirmationQuery.set("airlinePNR", booking.airlinePnr);
 											}
+											const destName =
+												booking.destination?.name ??
+												(booking.source === "TRIPJACK" || hasTripjackDetails
+													? "Flight booking"
+													: "—");
+											const destLocation =
+												booking.destination?.location ||
+												booking.fromLocation ||
+												"—";
+											const departTs = booking.travelDate || booking.date;
 											return (
 												<TableRow key={booking.id}>
-													<TableCell className="font-medium">
-														{booking.destination.name}
-													</TableCell>
+													<TableCell className="font-medium">{destName}</TableCell>
 													<TableCell>
 														<div className="flex items-center text-muted-foreground">
 															<MapPin className="h-4 w-4 mr-1 text-red-500" />
-															<span>{booking.destination.location || "N/A"}</span>
+															<span>{destLocation}</span>
 														</div>
 													</TableCell>
 													<TableCell>
 														<div className="flex items-center">
 															<Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-															{new Date(booking.date).toLocaleDateString(
-																"en-IN",
-																{
-																	year: "numeric",
-																	month: "short",
-																	day: "numeric",
-																}
-															)}
+															{new Date(departTs).toLocaleDateString("en-IN", {
+																year: "numeric",
+																month: "short",
+																day: "numeric",
+															})}
 														</div>
 													</TableCell>
 													<TableCell className="text-muted-foreground text-sm">

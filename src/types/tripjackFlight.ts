@@ -56,6 +56,8 @@ export interface TripjackSegmentInfo {
 	isRs?: boolean;
 	sN?: number;
 	so?: TripjackAirportRef[];
+	/** Connecting time / layover in minutes */
+	cT?: number;
 	id?: string;
 	ssrInfo?: TripjackSsrInfo;
 }
@@ -195,6 +197,38 @@ export interface TripjackReviewRequest {
 	priceIds: string[];
 }
 
+export interface TripjackReviewConditions {
+	/** Session time in seconds — reviewed price validity window */
+	st?: number;
+	/** Session created time */
+	sct?: number | string;
+	/** Blocking (hold) allowed */
+	isBA?: boolean;
+	/** Seat map applicable */
+	isa?: boolean;
+	/** Frequent flier airlines */
+	ffas?: string[];
+	/** GST conditions */
+	gst?: { igm?: boolean; gstappl?: boolean } | boolean;
+	/** Date-of-birth conditions */
+	dob?: { adobr?: boolean; cdobr?: boolean; idobr?: boolean } | boolean;
+	/** Passport conditions (international) */
+	pcs?: { pped?: boolean; pid?: boolean; pm?: boolean; dobe?: boolean } | boolean;
+	/** Document conditions (student/senior citizen fare) */
+	dc?: { ida?: boolean; idm?: boolean } | boolean;
+	/** Emergency contact required */
+	iecr?: boolean;
+	/** PAN applicable */
+	ipa?: boolean;
+}
+
+export interface TripjackFareAlert {
+	type?: string;
+	oldFare?: number;
+	newFare?: number;
+	message?: string;
+}
+
 export interface TripjackReviewResponse {
 	bookingId?: string;
 	/** Review API: array of legs (onward, return, …). Search uses keyed TripjackTripInfos. */
@@ -204,19 +238,9 @@ export interface TripjackReviewResponse {
 			fc?: TripjackFareComponent;
 		};
 	};
-	conditions?: {
-		st?: string;
-		sct?: number | string;
-		isBA?: boolean;
-		isa?: boolean;
-		gst?: boolean | Record<string, unknown>;
-		dob?: boolean | Record<string, unknown>;
-		pcs?: boolean;
-		dc?: boolean;
-		iecr?: boolean;
-	};
+	conditions?: TripjackReviewConditions;
 	errors?: Array<{ code?: string; message?: string }>;
-	alerts?: Array<{ code?: string; message?: string }>;
+	alerts?: TripjackFareAlert[];
 	status?: {
 		success?: boolean;
 		httpStatus?: number;
@@ -282,29 +306,42 @@ export interface TripjackTravellerInfo {
 	pNat?: string;
 	pNum?: string;
 	eD?: string;
-	piD?: string;
+	/** Passport issue date `YYYY-MM-DD` — TripJack field name is `pid`. */
+	pid?: string;
+	/** PAN card number */
+	pan?: string;
+	/** Document ID (student / senior citizen) */
+	di?: string;
 	ssrBaggageInfos?: TripjackTravellerSsrEntry[];
 	ssrMealInfos?: TripjackTravellerSsrEntry[];
 	ssrSeatInfos?: TripjackTravellerSsrEntry[];
+	ssrExtraServiceInfos?: TripjackTravellerSsrEntry[];
 }
 
+/** Emergency contact — TripJack book doc uses `emails` / `contacts` arrays + `ecn`, not flat email/mobile. */
 export interface TripjackContactInfo {
-	email: string;
-	mobile: string;
+	emails?: string[];
+	contacts?: string[];
+	ecn?: string;
+	email?: string;
+	mobile?: string;
 	countryCode?: string;
 }
 
 export interface TripjackGstInfo {
-	gstNumber?: string;
-	email?: string;
+	/** API field name per TripJack flight book doc */
+	gstNum?: string;
 	registeredName?: string;
+	email?: string;
 	mobile?: string;
 	address?: string;
+	gstNumber?: string;
 }
 
 export interface TripjackBookRequest {
 	bookingId: string;
 	travellerInfo: TripjackTravellerInfo[];
+	contactInfo?: TripjackContactInfo;
 	deliveryInfo?: {
 		emails?: string[];
 		contacts?: string[];
@@ -333,28 +370,43 @@ export interface TripjackBookingDetailRequest {
 	requirePaxPricing?: boolean;
 }
 
+export interface TripjackBookingDetailTraveller {
+	ti?: string;
+	fN?: string;
+	lN?: string;
+	pt?: string;
+	dob?: string;
+	pnrDetails?: Record<string, string>;
+	ticketNumberDetails?: Record<string, string>;
+}
+
 export interface TripjackBookingDetailResponse {
 	order?: {
 		bookingId?: string;
 		status?: string;
+		createdOn?: string;
+		lastUpdatedOn?: string;
+		/** Charged amount in TripJack (see booking-details doc) */
+		amount?: number;
 	};
 	itemInfos?: {
 		AIR?: {
-			tripInfos?: TripjackTripInfos;
+			/** Search uses keyed legs; booking-details returns an array of tripInfo per API doc. */
+			tripInfos?: TripjackTripInfos | TripjackTripInfo[];
 			totalPriceInfo?: {
 				totalFareDetail?: {
 					fc?: TripjackFareComponent;
+					afC?: Record<string, Record<string, number>>;
 				};
 			};
+			travellerInfos?: TripjackBookingDetailTraveller[];
 		};
 	};
-	travellerInfos?: Array<{
-		ti?: string;
-		fN?: string;
-		lN?: string;
-		pnrDetails?: Record<string, string>;
-		ticketNumberDetails?: Record<string, string>;
-	}>;
+	/** Per-PNR status map (e.g. "ABC123": "CONFIRMED") */
+	statusMap?: Record<string, string>;
+	/** GDS PNR (may differ from airline PNR) */
+	gdsPnr?: string;
+	travellerInfos?: TripjackBookingDetailTraveller[];
 	status?: {
 		success?: boolean;
 		httpStatus?: number;
@@ -366,4 +418,99 @@ export interface TripjackBookingDetailResponse {
 export interface TripjackReleasePnrRequest {
 	bookingId: string;
 	pnrs: string[];
+}
+
+// ── Amendment / Cancellation ──
+
+export type TripjackAmendmentType = "CANCELLATION" | "DATECHANGE" | "SECTORCANCEL";
+
+/** Trip segment reference for amendment charges / submit (TripJack `trips`). */
+export interface TripjackAmendmentTripRef {
+	src: string;
+	dest: string;
+	departureDate: string;
+}
+
+/** Traveller reference for partial amendments (TripJack `travellers`). */
+export interface TripjackAmendmentTravellerRef {
+	fn: string;
+	ln?: string;
+}
+
+export interface TripjackAmendmentChargesRequest {
+	bookingId: string;
+	type: TripjackAmendmentType;
+	/** Required by TripJack amendment APIs. */
+	remarks: string;
+	trips?: TripjackAmendmentTripRef[];
+	travellers?: TripjackAmendmentTravellerRef[];
+}
+
+export interface TripjackAmendmentChargePax {
+	firstName?: string;
+	lastName?: string;
+	paxType?: string;
+	baseFare?: number;
+	tax?: number;
+	cancellationCharge?: number;
+	refundAmount?: number;
+	serviceCharge?: number;
+	totalPenalty?: number;
+}
+
+export interface TripjackAmendmentChargesResponse {
+	bookingId?: string;
+	type?: TripjackAmendmentType;
+	amendmentCharges?: TripjackAmendmentChargePax[];
+	totalRefundAmount?: number;
+	status?: {
+		success?: boolean;
+		httpStatus?: number;
+		message?: string;
+	};
+	errors?: Array<{ code?: string; message?: string }>;
+}
+
+export interface TripjackSubmitAmendmentRequest {
+	bookingId: string;
+	type: TripjackAmendmentType;
+	remarks: string;
+	trips?: TripjackAmendmentTripRef[];
+	travellers?: TripjackAmendmentTravellerRef[];
+}
+
+export interface TripjackSubmitAmendmentResponse {
+	bookingId?: string;
+	amendmentId?: string;
+	status?: {
+		success?: boolean;
+		httpStatus?: number;
+		message?: string;
+	};
+	errors?: Array<{ code?: string; message?: string }>;
+}
+
+export interface TripjackAmendmentDetailsRequest {
+	/** From `submit-amendment` response (TripJack polls by amendment id). */
+	amendmentId: string;
+}
+
+export interface TripjackAmendmentDetail {
+	amendmentId?: string;
+	type?: TripjackAmendmentType;
+	status?: string;
+	createdOn?: string;
+	refundAmount?: number;
+	cancellationCharges?: number;
+}
+
+export interface TripjackAmendmentDetailsResponse {
+	bookingId?: string;
+	amendments?: TripjackAmendmentDetail[];
+	status?: {
+		success?: boolean;
+		httpStatus?: number;
+		message?: string;
+	};
+	errors?: Array<{ code?: string; message?: string }>;
 }

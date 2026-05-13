@@ -48,7 +48,7 @@ function boolFromApi(s: string | boolean | undefined): boolean {
 
 /**
  * Map UI / TBO-style POST body to TripJack `air-search-all` payload.
- * Returns `null` when TripJack should be skipped (e.g. multi-city — not in current scope).
+ * Supports one-way (1), return (2), and multi-city (3).
  */
 export function buildTripjackAirSearchRequest(body: {
 	AdultCount?: string;
@@ -73,7 +73,6 @@ export function buildTripjackAirSearchRequest(body: {
 	PreferredAirlines?: string[] | null;
 }): TripjackAirSearchRequest | null {
 	const journey = body.JourneyType || "1";
-	if (journey === "3") return null;
 
 	const adult = body.AdultCount || "1";
 	const child = body.ChildCount || "0";
@@ -81,7 +80,19 @@ export function buildTripjackAirSearchRequest(body: {
 
 	const routeInfos: TripjackAirSearchRequest["searchQuery"]["routeInfos"] = [];
 
-	if (journey === "2") {
+	if (journey === "3") {
+		const segs = body.Segments;
+		if (!segs?.length || segs.length < 2) return null;
+		for (const seg of segs) {
+			const depDate = seg.PreferredDepartureTime || seg.DepartureDateTime;
+			if (!seg.Origin || !seg.Destination || !depDate) return null;
+			routeInfos.push({
+				fromCityOrAirport: { code: seg.Origin.toUpperCase() },
+				toCityOrAirport: { code: seg.Destination.toUpperCase() },
+				travelDate: toYyyyMmDd(depDate),
+			});
+		}
+	} else if (journey === "2") {
 		if (
 			!body.Origin ||
 			!body.Destination ||
@@ -416,7 +427,12 @@ function tripInfoToFlightResults(
 			const agg = aggregateFareFromFd(pl.fd, adults, children, infants);
 			const adultFare = pl.fd.ADULT;
 			const rT = adultFare?.rT ?? 0;
-			const isRefundable = rT === 1;
+			const isRefundable = rT === 1 || rT === 2;
+			const isPartialRefundable = rT === 2;
+			const cabinClass = adultFare?.cc || "";
+			const classOfBooking = adultFare?.cB || "";
+			const fareBasis = adultFare?.fB || "";
+			const mealIncluded = adultFare?.mI === true;
 			const { baggage, cabin } = firstPaxBaggage(pl.fd);
 
 			const segsForFare: FlightSegmentDetail[] = tboSegs.map((s) => ({
@@ -498,6 +514,15 @@ function tripInfoToFlightResults(
 				Fare: fare,
 				FareBreakdown: breakdown,
 				Segments: [segsForFare],
+				_tripjackMeta: {
+					isPartialRefundable,
+					cabinClass,
+					classOfBooking,
+					fareBasis,
+					mealIncluded,
+					nextDayArrival: segments.some((s) => s.iand === true),
+					connectingTime: segments.reduce((sum, s) => sum + (s.cT ?? 0), 0) || undefined,
+				},
 				_tripjackOriginal: {
 					traceId,
 					priceId: pl.id,
@@ -540,7 +565,7 @@ export function convertTripjackSearchToTboFormat(
 
 	const { adults, children, infants } = pax;
 
-	if (journeyType === "2") {
+	if (journeyType === "2" || journeyType === "3") {
 		const onward = tripInfoToFlightResults(
 			tripInfos.ONWARD || [],
 			traceId,
@@ -555,10 +580,23 @@ export function convertTripjackSearchToTboFormat(
 			children,
 			infants,
 		);
+
+		const combo = tripInfoToFlightResults(
+			tripInfos.COMBO || [],
+			traceId,
+			adults,
+			children,
+			infants,
+		);
+
+		const results: FlightResult[][] = [onward];
+		if (ret.length > 0) results.push(ret);
+		if (combo.length > 0) results.push(combo);
+
 		return {
 			Response: {
 				TraceId: traceId,
-				Results: [onward, ret],
+				Results: results,
 				Origin: "",
 				Destination: "",
 				FlightCabinClass: 1,

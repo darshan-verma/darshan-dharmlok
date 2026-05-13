@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FlightResult } from "@/types/tbo";
 import type { PassengerDetail, FareRuleResponse } from "@/types/tbo";
-import type { TripjackReviewResponse, TripjackTravellerInfo } from "@/types/tripjackFlight";
+import type { TripjackReviewResponse, TripjackReviewConditions, TripjackFareAlert, TripjackTravellerInfo } from "@/types/tripjackFlight";
 import { extractTripjackReviewFlight } from "@/lib/tripjackFlightBooking";
 import {
 	emptyTripjackSsrPickState,
@@ -22,8 +22,63 @@ import FlightDetails from "./components/FlightDetails";
 import FareRulesView from "./components/FareRulesView";
 import FareBreakdown from "@/components/travel-portal/FareBreakdown";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, AlertTriangle } from "lucide-react";
 import Link from "next/link";
+
+/**
+ * Derive UI-level flags from `conditions` returned by TripJack review.
+ */
+function deriveConditionFlags(cond: TripjackReviewConditions | undefined) {
+	if (!cond) {
+		return {
+			requirePassport: false,
+			requireDob: false,
+			requireGst: false,
+			requireEmergencyContact: false,
+			requireDocumentId: false,
+			requirePan: false,
+		};
+	}
+	const requirePassport =
+		cond.pcs === true ||
+		(typeof cond.pcs === "object" && cond.pcs !== null);
+	const requireDob =
+		cond.dob === true ||
+		(typeof cond.dob === "object" && cond.dob !== null);
+	const gstObj = typeof cond.gst === "object" && cond.gst !== null ? cond.gst : null;
+	const requireGst =
+		cond.gst === true ||
+		(gstObj && "igm" in gstObj && gstObj.igm === true) ||
+		false;
+	const requireEmergencyContact = cond.iecr === true;
+	const requireDocumentId =
+		cond.dc === true ||
+		(typeof cond.dc === "object" && cond.dc !== null);
+	const requirePan = cond.ipa === true;
+	return {
+		requirePassport,
+		requireDob,
+		requireGst,
+		requireEmergencyContact,
+		requireDocumentId,
+		requirePan,
+	};
+}
+
+function buildFareAlertMessage(alerts: TripjackFareAlert[] | undefined): string | null {
+	if (!alerts?.length) return null;
+	const fareAlerts = alerts.filter(
+		(a) => a.type === "FARE_CHANGE" || a.oldFare != null || a.newFare != null,
+	);
+	if (!fareAlerts.length) return null;
+	const a = fareAlerts[0];
+	if (a.oldFare != null && a.newFare != null) {
+		const diff = a.newFare - a.oldFare;
+		const direction = diff > 0 ? "increased" : "decreased";
+		return `Fare has ${direction} from ₹${a.oldFare.toLocaleString("en-IN")} to ₹${a.newFare.toLocaleString("en-IN")}. ${a.message || ""}`.trim();
+	}
+	return a.message || null;
+}
 
 interface Props {
 	traceId: string;
@@ -32,6 +87,83 @@ interface Props {
 	adultCount: number;
 	childCount: number;
 	infantCount: number;
+}
+
+/** TripJack `dob` / `eD` / `pid` must be `YYYY-MM-DD`, not ISO datetime from our passenger form. */
+function tripjackDateOnly(raw?: string): string | undefined {
+	if (!raw?.trim()) return undefined;
+	const s = raw.trim();
+	const ymd = s.match(/^(\d{4}-\d{2}-\d{2})/);
+	if (ymd) return ymd[1];
+	const t = Date.parse(s);
+	if (Number.isNaN(t)) return undefined;
+	const d = new Date(t);
+	const y = d.getFullYear();
+	const mo = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return `${y}-${mo}-${day}`;
+}
+
+/** TripJack docs expect contacts like `+919500112233` on `deliveryInfo` / `contactInfo`. */
+function tripjackPhoneE164(raw: string): string {
+	const s = raw.trim().replace(/[\s-]/g, "");
+	if (!s) return s;
+	if (s.startsWith("+")) return s;
+	const digits = s.replace(/\D/g, "");
+	if (digits.length === 10) return `+91${digits}`;
+	if (digits.length >= 11 && digits.startsWith("91")) return `+${digits}`;
+	return digits ? `+${digits}` : s;
+}
+
+function tripjackFlightRouteSummary(flight: FlightResult): string {
+	const groups = flight.Segments ?? [];
+	if (!groups.length) return "Flight booking";
+	const first = groups[0]?.[0];
+	const lastGroup = groups[groups.length - 1];
+	const last = lastGroup?.[lastGroup.length - 1];
+	const from =
+		first?.Origin?.Airport?.CityName ||
+		first?.Origin?.Airport?.AirportCode ||
+		"";
+	const to =
+		last?.Destination?.Airport?.CityName ||
+		last?.Destination?.Airport?.AirportCode ||
+		"";
+	if (from && to) return `${from} → ${to}`;
+	return "Flight booking";
+}
+
+function tripjackFlightLegDates(flight: FlightResult): {
+	travelDateIso: string;
+	returnDateIso: string | undefined;
+	departureTimeLabel: string | undefined;
+} {
+	const groups = flight.Segments ?? [];
+	const first = groups[0]?.[0];
+	const lastGroup = groups[groups.length - 1];
+	const last = lastGroup?.[lastGroup.length - 1];
+	const depRaw = first?.Origin?.DepTime || first?.DepartureTime;
+	const arrRaw = last?.Destination?.ArrTime || last?.ArrivalTime;
+	const travel = depRaw ? new Date(depRaw) : new Date();
+	const travelDateIso = Number.isNaN(travel.getTime())
+		? new Date().toISOString()
+		: travel.toISOString();
+	let returnDateIso: string | undefined;
+	if (arrRaw) {
+		const end = new Date(arrRaw);
+		if (!Number.isNaN(end.getTime())) returnDateIso = end.toISOString();
+	}
+	let departureTimeLabel: string | undefined;
+	if (depRaw) {
+		const d = new Date(depRaw);
+		if (!Number.isNaN(d.getTime())) {
+			departureTimeLabel = d.toLocaleTimeString(undefined, {
+				hour: "2-digit",
+				minute: "2-digit",
+			});
+		}
+	}
+	return { travelDateIso, returnDateIso, departureTimeLabel };
 }
 
 function mapPaxTypeToTripjack(
@@ -51,6 +183,13 @@ type TripjackReviewFetchResult =
 	| { ok: true; review: TripjackReviewResponse }
 	| { ok: false; error: string };
 
+/** Survives React Strict Mode remounts (component ref resets); avoids a second `/fms/v1/review` that can hang until the route times out (~60s). */
+const tripjackReviewInflightByKey = new Map<
+	string,
+	Promise<TripjackReviewFetchResult>
+>();
+const tripjackReviewSuccessByKey = new Map<string, TripjackReviewResponse>();
+
 export default function TripjackBookingClient({
 	traceId,
 	priceId,
@@ -68,10 +207,6 @@ export default function TripjackBookingClient({
 	const [fareRulesLoading, setFareRulesLoading] = useState(false);
 	const [tjSsrPicks, setTjSsrPicks] = useState<TripjackSsrPickState>(emptyTripjackSsrPickState);
 	const [passengers, setPassengers] = useState<PassengerDetail[]>([]);
-	/** One in-flight review per priceIds key so React Strict Mode / HMR cannot fire two TripJack reviews (second often returns 400). */
-	const tripjackReviewPromiseByKeyRef = useRef(
-		new Map<string, Promise<TripjackReviewFetchResult>>(),
-	);
 
 	const reviewFlight: FlightResult | null = useMemo(
 		() =>
@@ -108,12 +243,21 @@ export default function TripjackBookingClient({
 		[tjSegments, tjSsrPicks, adultCount, childCount, infantCount],
 	);
 
+	const conditionFlags = useMemo(
+		() => deriveConditionFlags(review?.conditions),
+		[review?.conditions],
+	);
+
+	const fareAlertMessage = useMemo(
+		() => buildFareAlertMessage(review?.alerts),
+		[review?.alerts],
+	);
+
 	const totalAmount = useMemo(() => {
 		const ssr = tripjackSsrExtraTotal(tjSsrPicks);
 		const fc = review?.totalPriceInfo?.totalFareDetail?.fc;
 		const apiTotal = fc?.TF ?? fc?.NF;
 		const fromSupplier = typeof apiTotal === "number" ? apiTotal : undefined;
-		// Supplier total for payment; if missing, match displayed fare from review flight
 		const fromFare = reviewFlight?.Fare?.PublishedFare;
 		const base =
 			fromSupplier ??
@@ -137,8 +281,12 @@ export default function TripjackBookingClient({
 		let cancelled = false;
 
 		const loadReviewOnce = (): Promise<TripjackReviewFetchResult> => {
-			const cache = tripjackReviewPromiseByKeyRef.current;
-			const existing = cache.get(reviewCacheKey);
+			const cachedOk = tripjackReviewSuccessByKey.get(reviewCacheKey);
+			if (cachedOk) {
+				return Promise.resolve({ ok: true, review: cachedOk });
+			}
+
+			const existing = tripjackReviewInflightByKey.get(reviewCacheKey);
 			if (existing) return existing;
 
 			const p = (async (): Promise<TripjackReviewFetchResult> => {
@@ -169,12 +317,13 @@ export default function TripjackBookingClient({
 							"TripJack review did not return a valid booking reference. Please search again.",
 					};
 				}
+				tripjackReviewSuccessByKey.set(reviewCacheKey, reviewPayload);
 				return { ok: true, review: reviewPayload };
 			})();
 
-			cache.set(reviewCacheKey, p);
+			tripjackReviewInflightByKey.set(reviewCacheKey, p);
 			void p.finally(() => {
-				cache.delete(reviewCacheKey);
+				tripjackReviewInflightByKey.delete(reviewCacheKey);
 			});
 			return p;
 		};
@@ -243,21 +392,44 @@ export default function TripjackBookingClient({
 			setError("Lead passenger email and contact number are required");
 			return;
 		}
+
+		const reviewTF = review?.totalPriceInfo?.totalFareDetail?.fc?.TF;
+		if (typeof reviewTF === "number" && Math.abs(totalAmount - reviewTF - tripjackSsrExtraTotal(tjSsrPicks)) > 1) {
+			console.warn(
+				"[TripJack] Amount mismatch: UI total",
+				totalAmount,
+				"vs review TF",
+				reviewTF,
+			);
+		}
+
 		setIsSubmitting(true);
 		setError(null);
 		try {
+			const phone = tripjackPhoneE164(lead.ContactNo);
 			const travellers: TripjackTravellerInfo[] = passengerData.map((p, idx) => {
 				const ssr = tripjackTravellerSsrForPax(tjSegments, idx, tjSsrPicks);
+				const dob = tripjackDateOnly(p.DateOfBirth);
+				const passportExpiry = tripjackDateOnly(p.PassportExpiry);
+				const passportIssue = tripjackDateOnly(p.PassportIssueDate);
+				const hasPassport = Boolean(p.PassportNo?.trim());
 				return {
 					ti: (p.Title || "MR").toUpperCase(),
 					fN: p.FirstName || "",
 					lN: p.LastName || "",
 					pt: mapPaxTypeToTripjack(p.PaxType),
 					gd: Number(p.Gender) === 2 ? "FEMALE" : "MALE",
-					dob: p.DateOfBirth || undefined,
-					pNum: p.PassportNo || undefined,
-					eD: p.PassportExpiry || undefined,
-					pNat: p.Nationality || "IN",
+					dob,
+					...(hasPassport
+						? {
+								pNum: p.PassportNo!.trim(),
+								eD: passportExpiry,
+								pid: passportIssue,
+								pNat: p.Nationality || "IN",
+							}
+						: { pNat: p.Nationality || "IN" }),
+					pan: (p as PassengerDetail & { PanNumber?: string }).PanNumber || undefined,
+					di: (p as PassengerDetail & { DocumentId?: string }).DocumentId || undefined,
 					...ssr,
 				};
 			});
@@ -268,16 +440,69 @@ export default function TripjackBookingClient({
 				body: JSON.stringify({
 					bookingId: review.bookingId,
 					travellerInfo: travellers,
-					deliveryInfo: { emails: [lead.Email], contacts: [lead.ContactNo] },
-					paymentInfos: [{ amount: totalAmount }],
+					contactInfo: {
+						emails: [lead.Email.trim()],
+						contacts: [phone],
+						ecn: [lead.FirstName, lead.LastName].filter(Boolean).join(" ").trim() || "Lead passenger",
+					},
+					deliveryInfo: { emails: [lead.Email.trim()], contacts: [phone] },
+					paymentInfos: [{ amount: Math.round(totalAmount * 100) / 100 }],
 				}),
 			});
 			const bookData = await bookRes.json();
 			if (!bookRes.ok || !bookData?.success) {
-				throw new Error(bookData?.error || "TripJack booking failed");
+				const payload = bookData?.providerPayload as
+					| { errors?: Array<{ message?: string }> }
+					| undefined;
+				const providerMsg =
+					payload?.errors?.[0]?.message ||
+					(typeof bookData?.data?.errors?.[0]?.message === "string"
+						? bookData.data.errors[0].message
+						: null);
+				throw new Error(
+					providerMsg ||
+						(typeof bookData?.error === "string" && bookData.error) ||
+						"TripJack booking failed",
+				);
 			}
 
 			const finalBookingId = review.bookingId;
+
+			if (reviewFlight) {
+				const { travelDateIso, returnDateIso, departureTimeLabel } =
+					tripjackFlightLegDates(reviewFlight);
+				const displayName = [lead.Title, lead.FirstName, lead.LastName]
+					.filter(Boolean)
+					.join(" ")
+					.trim();
+				void fetch("/api/bookings/tripjack-flight", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						tripjackBookingId: finalBookingId,
+						name: displayName || `${lead.FirstName} ${lead.LastName}`.trim(),
+						email: lead.Email.trim(),
+						phone: lead.ContactNo?.trim() || undefined,
+						leadFirstName: lead.FirstName,
+						leadLastName: lead.LastName,
+						routeSummary: tripjackFlightRouteSummary(reviewFlight),
+						travelDate: travelDateIso,
+						returnDate: returnDateIso,
+						departureTime: departureTimeLabel,
+						travelers: adultCount + childCount + infantCount,
+						totalAmount,
+						status: "CONFIRMED",
+					}),
+				})
+					.then(async (res) => {
+						if (res.status === 401) {
+							toast.info("Sign in to save this trip under My Trips.");
+						}
+					})
+					.catch(() => {
+						/* best-effort: confirmation still works if My Trips save fails */
+					});
+			}
 
 			toast.success("TripJack booking completed successfully");
 			router.push(
@@ -328,6 +553,13 @@ export default function TripjackBookingClient({
 			<h1 className="text-3xl font-bold mb-8 text-gray-900 border-b pb-4">
 				Complete Your Booking
 			</h1>
+			{fareAlertMessage && (
+				<div className="mb-6 rounded border border-amber-300 bg-amber-50 p-3 text-amber-800 flex items-start gap-2">
+					<AlertTriangle className="h-5 w-5 mt-0.5 shrink-0" />
+					<span>{fareAlertMessage}</span>
+				</div>
+			)}
+
 			{error && (
 				<div className="mb-6 rounded border border-red-200 bg-red-50 p-3 text-red-700">
 					{error}
@@ -349,8 +581,10 @@ export default function TripjackBookingClient({
 							onPassengersChange={setPassengers}
 							flightResult={reviewFlight}
 							isSubmitting={isSubmitting}
-							requirePassport={review?.conditions?.pcs === true}
-							requirePassportFull={review?.conditions?.pcs === true}
+							requirePassport={conditionFlags.requirePassport}
+							requirePassportFull={conditionFlags.requirePassport}
+							requireGST={conditionFlags.requireGst}
+							requirePAN={conditionFlags.requirePan}
 							ssrCharges={{
 								baggage: fareSsrShape.baggage,
 								meals: fareSsrShape.meals,

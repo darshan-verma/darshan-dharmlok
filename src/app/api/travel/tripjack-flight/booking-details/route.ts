@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTripjackFlightBookingDetails } from "@/lib/tripjackClient";
 import {
 	extractTripjackPnrFromBookingDetail,
+	extractTripjackTicketNumbers,
 } from "@/lib/tripjackFlightBooking";
 import { tripjackBookingDetailToNormalized } from "@/lib/booking-details-mappers";
 
@@ -23,7 +24,16 @@ export async function POST(request: NextRequest) {
 		});
 		const normalized = tripjackBookingDetailToNormalized(data);
 		const pnr = extractTripjackPnrFromBookingDetail(data);
-		return NextResponse.json({ success: true, data, normalized, pnr });
+		const ticketNumbers = extractTripjackTicketNumbers(data);
+		return NextResponse.json({
+			success: true,
+			data,
+			normalized,
+			pnr,
+			ticketNumbers,
+			statusMap: data.statusMap,
+			gdsPnr: data.gdsPnr,
+		});
 	} catch (error) {
 		const message =
 			error instanceof Error ? error.message : "TripJack booking-details failed";
