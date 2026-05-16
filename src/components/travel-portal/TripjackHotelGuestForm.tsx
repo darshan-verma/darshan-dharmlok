@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import HotelGuestTripSummary from "@/components/travel-portal/HotelGuestTripSummary";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,16 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Users, Mail, Phone, AlertCircle } from "lucide-react";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
+import { cn } from "@/lib/utils";
+
+/** Consistent field spacing — avoids cramped labels/placeholders in guest forms */
+const GUEST_FIELD = "flex flex-col gap-2";
+const GUEST_LABEL = "text-sm font-medium text-gray-700";
+const GUEST_INPUT = cn(
+	"h-10 w-full min-w-0 rounded-md border border-input bg-white px-3.5 py-2 text-sm shadow-xs",
+	"placeholder:text-muted-foreground",
+);
+const GUEST_SELECT = "h-10 w-full px-3.5";
 
 interface TravellerFormData {
 	ti: string;
@@ -42,10 +54,17 @@ interface RoomConfig {
 
 interface TripjackHotelGuestFormProps {
 	rooms: RoomConfig[];
+	checkIn?: string | null;
+	checkOut?: string | null;
+	roomsCount?: number;
+	adultsCount?: number;
+	childrenCount?: number;
 	panRequired: boolean;
 	passportRequired: boolean;
 	totalAmount: number;
 	currency: string;
+	showHoldBooking?: boolean;
+	submitLabel?: string;
 	onSubmit: (data: {
 		roomTravellerInfo: RoomTravellerData[];
 		deliveryInfo: DeliveryData;
@@ -56,22 +75,47 @@ interface TripjackHotelGuestFormProps {
 
 const ADULT_TITLES = ["Mr", "Mrs", "Ms", "Miss"];
 const CHILD_TITLES = ["Master", "Miss"];
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+
+function leadAdultIndex(travellers: TravellerFormData[]): number {
+	return travellers.findIndex((t) => t.pt === "ADULT");
+}
 
 export default function TripjackHotelGuestForm({
 	rooms,
+	checkIn = null,
+	checkOut = null,
+	roomsCount,
+	adultsCount,
+	childrenCount,
 	panRequired,
 	passportRequired,
 	totalAmount,
 	currency,
+	showHoldBooking = true,
+	submitLabel,
 	onSubmit,
 	isSubmitting,
 }: TripjackHotelGuestFormProps) {
+	const { data: session } = useSession();
 	const [roomTravellers, setRoomTravellers] = useState<RoomTravellerData[]>([]);
 	const [email, setEmail] = useState("");
 	const [phone, setPhone] = useState("");
 	const [dialCode, setDialCode] = useState("+91");
 	const [errors, setErrors] = useState<string[]>([]);
 	const [isHoldBooking, setIsHoldBooking] = useState(false);
+
+	const totalAdults = adultsCount ?? rooms.reduce((s, r) => s + r.adults, 0);
+	const totalChildren =
+		childrenCount ?? rooms.reduce((s, r) => s + r.children, 0);
+	const totalRooms = roomsCount ?? rooms.length;
+
+	useEffect(() => {
+		const sessionEmail = session?.user?.email?.trim();
+		if (sessionEmail && !email) {
+			setEmail(sessionEmail);
+		}
+	}, [session?.user?.email, email]);
 
 	// Initialize form state from room config
 	useEffect(() => {
@@ -121,8 +165,27 @@ export default function TripjackHotelGuestForm({
 					errs.push(`Room ${ri + 1}, Guest ${ti + 1}: First name is required`);
 				if (!t.lN.trim())
 					errs.push(`Room ${ri + 1}, Guest ${ti + 1}: Last name is required`);
-				if (panRequired && !t.pan?.trim()) {
-					errs.push(`Room ${ri + 1}, Guest ${ti + 1}: PAN number is required`);
+				const leadIdx = leadAdultIndex(room.travellerInfo);
+				if (
+					panRequired &&
+					ti === leadIdx &&
+					t.pt === "ADULT" &&
+					!t.pan?.trim()
+				) {
+					errs.push(
+						`Room ${ri + 1}: Lead guest PAN is required for this hotel`,
+					);
+				}
+				if (
+					panRequired &&
+					ti === leadIdx &&
+					t.pt === "ADULT" &&
+					t.pan?.trim() &&
+					!PAN_REGEX.test(t.pan.trim().toUpperCase())
+				) {
+					errs.push(
+						`Room ${ri + 1}: Enter a valid PAN (e.g. ABCDE1234F) for the lead guest`,
+					);
 				}
 				if (passportRequired && !t.pNum?.trim()) {
 					errs.push(
@@ -162,8 +225,32 @@ export default function TripjackHotelGuestForm({
 
 		if (validationErrors.length > 0) return;
 
+		const roomTravellerInfo = roomTravellers.map((room) => ({
+			travellerInfo: room.travellerInfo.map((t, ti) => {
+				const leadIdx = leadAdultIndex(room.travellerInfo);
+				const base: TravellerFormData = {
+					ti: t.ti,
+					pt: t.pt,
+					fN: t.fN.trim(),
+					lN: t.lN.trim(),
+				};
+				if (
+					panRequired &&
+					t.pt === "ADULT" &&
+					ti === leadIdx &&
+					t.pan?.trim()
+				) {
+					base.pan = t.pan.trim().toUpperCase();
+				}
+				if (passportRequired && t.pNum?.trim()) {
+					base.pNum = t.pNum.trim().toUpperCase();
+				}
+				return base;
+			}),
+		}));
+
 		onSubmit({
-			roomTravellerInfo: roomTravellers,
+			roomTravellerInfo,
 			deliveryInfo: {
 				emails: [email.trim()],
 				contacts: [phone.trim()],
@@ -175,6 +262,14 @@ export default function TripjackHotelGuestForm({
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-6">
+			<HotelGuestTripSummary
+				checkIn={checkIn}
+				checkOut={checkOut}
+				rooms={totalRooms}
+				adults={totalAdults}
+				childCount={totalChildren}
+			/>
+
 			{/* Guest Details per Room */}
 			{roomTravellers.map((room, roomIdx) => (
 				<Card key={roomIdx}>
@@ -199,16 +294,16 @@ export default function TripjackHotelGuestForm({
 											<span className="text-blue-600 ml-1">(Lead Guest)</span>
 										)}
 									</p>
-									<div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-										<div>
-											<Label>Title</Label>
+									<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+										<div className={GUEST_FIELD}>
+											<Label className={GUEST_LABEL}>Title</Label>
 											<Select
 												value={traveller.ti}
 												onValueChange={(v) =>
 													updateTraveller(roomIdx, travIdx, "ti", v)
 												}
 											>
-												<SelectTrigger className="w-full">
+												<SelectTrigger className={GUEST_SELECT}>
 													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
@@ -220,9 +315,10 @@ export default function TripjackHotelGuestForm({
 												</SelectContent>
 											</Select>
 										</div>
-										<div className="sm:col-span-1">
-											<Label>First Name</Label>
+										<div className={GUEST_FIELD}>
+											<Label className={GUEST_LABEL}>First Name</Label>
 											<Input
+												className={GUEST_INPUT}
 												value={traveller.fN}
 												onChange={(e) =>
 													updateTraveller(
@@ -236,9 +332,10 @@ export default function TripjackHotelGuestForm({
 												required
 											/>
 										</div>
-										<div className="sm:col-span-1">
-											<Label>Last Name</Label>
+										<div className={GUEST_FIELD}>
+											<Label className={GUEST_LABEL}>Last Name</Label>
 											<Input
+												className={GUEST_INPUT}
 												value={traveller.lN}
 												onChange={(e) =>
 													updateTraveller(
@@ -252,37 +349,43 @@ export default function TripjackHotelGuestForm({
 												required
 											/>
 										</div>
-										<div className="sm:col-span-1">
-											{/* Spacer for alignment */}
-										</div>
 									</div>
 
 									{/* Conditional PAN */}
-									{panRequired && (
-										<div className="max-w-xs">
-											<Label>PAN Number</Label>
+									{panRequired &&
+										traveller.pt === "ADULT" &&
+										travIdx === leadAdultIndex(room.travellerInfo) && (
+										<div className={cn(GUEST_FIELD, "max-w-sm")}>
+											<Label className={GUEST_LABEL}>
+												PAN Number (lead guest)
+											</Label>
 											<Input
+												className={GUEST_INPUT}
 												value={traveller.pan || ""}
 												onChange={(e) =>
 													updateTraveller(
 														roomIdx,
 														travIdx,
 														"pan",
-														e.target.value.toUpperCase(),
+														e.target.value
+															.toUpperCase()
+															.replace(/[^A-Z0-9]/g, ""),
 													)
 												}
-												placeholder="AAACA1111A"
+												placeholder="ABCDE1234F"
 												maxLength={10}
-												pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}"
+												autoComplete="off"
+												required
 											/>
 										</div>
 									)}
 
 									{/* Conditional Passport */}
 									{passportRequired && (
-										<div className="max-w-xs">
-											<Label>Passport Number</Label>
+										<div className={cn(GUEST_FIELD, "max-w-sm")}>
+											<Label className={GUEST_LABEL}>Passport Number</Label>
 											<Input
+												className={GUEST_INPUT}
 												value={traveller.pNum || ""}
 												onChange={(e) =>
 													updateTraveller(
@@ -313,21 +416,22 @@ export default function TripjackHotelGuestForm({
 				</CardHeader>
 				<CardContent className="space-y-4">
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-						<div>
-							<Label>Email Address</Label>
+						<div className={GUEST_FIELD}>
+							<Label className={GUEST_LABEL}>Email Address</Label>
 							<Input
 								type="email"
+								className={GUEST_INPUT}
 								value={email}
 								onChange={(e) => setEmail(e.target.value)}
 								placeholder="[email protected]"
 								required
 							/>
 						</div>
-						<div>
-							<Label>Phone Number</Label>
-							<div className="flex gap-2">
+						<div className={GUEST_FIELD}>
+							<Label className={GUEST_LABEL}>Phone Number</Label>
+							<div className="flex gap-2 items-center">
 								<Select value={dialCode} onValueChange={(v) => setDialCode(v)}>
-									<SelectTrigger className="w-24">
+									<SelectTrigger className="h-10 w-[5.25rem] shrink-0 px-2.5">
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
@@ -339,24 +443,23 @@ export default function TripjackHotelGuestForm({
 										<SelectItem value="+65">+65</SelectItem>
 									</SelectContent>
 								</Select>
-								<div className="flex-1">
-									<Input
-										type="tel"
-										value={phone}
-										onChange={(e) =>
-											setPhone(e.target.value.replace(/\D/g, ""))
-										}
-										placeholder="Phone number"
-										required
-									/>
-								</div>
+								<Input
+									type="tel"
+									className={cn(GUEST_INPUT, "flex-1 min-w-0")}
+									value={phone}
+									onChange={(e) =>
+										setPhone(e.target.value.replace(/\D/g, ""))
+									}
+									placeholder="Phone number"
+									required
+								/>
 							</div>
 						</div>
 					</div>
 				</CardContent>
 			</Card>
 
-			{/* Booking Type Toggle */}
+			{showHoldBooking && (
 			<Card>
 				<CardContent className="p-6">
 					<div className="flex items-center justify-between">
@@ -389,6 +492,7 @@ export default function TripjackHotelGuestForm({
 					</div>
 				</CardContent>
 			</Card>
+			)}
 
 			{/* Validation Errors */}
 			{errors.length > 0 && (
@@ -425,9 +529,8 @@ export default function TripjackHotelGuestForm({
 					<Phone className="w-4 h-4 mr-2" />
 					{isSubmitting
 						? "Processing..."
-						: isHoldBooking
-							? "Hold Room"
-							: "Book Now"}
+						: submitLabel ||
+							(isHoldBooking && showHoldBooking ? "Hold Room" : "Book Now")}
 				</Button>
 			</div>
 		</form>

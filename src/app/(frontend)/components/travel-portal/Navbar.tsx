@@ -3,37 +3,39 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Plane, MapPin, Briefcase, Shield, Umbrella } from "lucide-react";
+import { useTranslation } from "@/components/providers/LanguageProvider";
 
 export default function Navbar() {
 	const pathname = usePathname();
+	const { t } = useTranslation();
 
 	const menuItems = [
 		{
-			name: "Flight Search",
+			name: t("travel.flightSearch"),
 			href: "/travel-portal",
 			icon: Plane,
 			match: (path: string) => path === "/travel-portal",
 		},
 		{
-			name: "Destinations",
+			name: t("travel.destinations"),
 			href: "/travel-portal/destinations",
 			icon: MapPin,
 			match: (path: string) => path.includes("/destinations"),
 		},
 		{
-			name: "Travel insurance",
+			name: t("travel.travelInsurance"),
 			href: "/travel-portal/insurance",
 			icon: Umbrella,
 			match: (path: string) => path.includes("/travel-portal/insurance"),
 		},
 		{
-			name: "My Trips",
+			name: t("travel.myTrips"),
 			href: "/travel-portal/my-trips",
 			icon: Briefcase,
 			match: (path: string) => path.includes("/my-trips"),
 		},
 		{
-			name: "Manage Booking",
+			name: t("travel.manageBooking"),
 			href: "/travel-portal/manage-booking",
 			icon: Shield,
 			match: (path: string) => path.includes("/manage-booking"),
@@ -56,7 +58,7 @@ export default function Navbar() {
 							const Icon = item.icon;
 							return (
 								<Link
-									key={item.name}
+									key={item.href}
 									href={item.href}
 									className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
 										isActive

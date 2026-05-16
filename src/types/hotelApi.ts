@@ -163,6 +163,11 @@ export interface HotelResult {
 	CityName?: string;
 	/** Country name — may be included in detailed TBO search responses */
 	CountryName?: string;
+	/** Same property also bookable on another supplier (after cross-supplier dedupe) */
+	parallelSuppliers?: Array<{
+		source: "TBO" | "TRIPJACK";
+		hotelCode: string;
+	}>;
 }
 
 export interface Room {

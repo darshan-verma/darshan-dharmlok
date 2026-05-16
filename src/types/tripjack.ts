@@ -86,6 +86,8 @@ export interface TripjackFareBreakup {
 	onwardTax?: number;
 	backwardTax?: number;
 	totalTax: number;
+	/** When present on quote response, forward into booking `pricingInfo.tjManagementFee`. */
+	tjManagementFee?: number;
 }
 
 export interface TripjackQuoteItem {
@@ -192,6 +194,10 @@ export interface TripjackPricingInfo {
 	agentMarkup: number;
 	agentMarkupSplitup?: TripjackAgentMarkupSplitup;
 	grossAmount: string;
+	/** TripJack cabs `/cabs/v2/booking` — required by provider (BigDecimal); inferred server-side if omitted. */
+	tjTaxAmount?: string;
+	/** TripJack management fee; default `"0.00"` when omitted. */
+	tjManagementFee?: string;
 }
 
 export interface TripjackPassengerDetail {
@@ -219,24 +225,100 @@ export interface TripjackBookingRequest {
 	vendorId: number;
 }
 
-export interface TripjackBookingResponseData {
+export interface TripjackCabBookingPassenger {
+	id?: number;
+	firstName?: string;
+	lastName?: string;
+	email?: string;
+	phone?: string;
+	fullName?: string;
+}
+
+export interface TripjackCabBookingVehicle {
+	id?: number;
+	clazz?: string;
+	maxCapacity?: string;
+	luggageCapacity?: string;
+	similarTypes?: string;
+	images?: string;
+}
+
+export interface TripjackCabJourneyFlightDetails {
+	number?: string;
+}
+
+export interface TripjackCabBookingJourney {
+	id?: number;
+	journeyType?: string;
+	source?: string;
+	destination?: string;
+	pickupDate?: string;
+	tripEndDate?: string;
+	returnDate?: string | null;
+	duration?: number;
+	distance?: string;
+	flightDetails?: TripjackCabJourneyFlightDetails | null;
+	journeyLeg?: string;
+	routeDetail?: TripjackRouteDetails;
+	timezone?: string;
+	domesticJourney?: boolean;
+}
+
+export interface TripjackCabPriceBreakup {
+	id?: number;
+	bookingId?: string;
+	paymentMedium?: string | null;
+	tjManagementFee?: number;
+	tjTaxAmount?: number;
+	agentPrice?: number | null;
+	agentMarkupPrice?: number;
+	agentNetPayable?: number;
+	grossAmount?: number;
+	paymentFee?: number;
+	tjTotalMarkup?: number;
+}
+
+/** Full `data` object from TripJack POST `/cabs/v2/booking` success response */
+export interface TripjackCabBookingSnapshot {
 	id: string;
 	invoiceId?: string | null;
 	agentId?: string;
 	quoteId?: string;
 	childQuoteId?: string;
+	partnerBookingId?: string | null;
+	comments?: string | null;
+	passengerCount?: number;
+	luggageCount?: number;
 	status: string;
 	totalPrice: number;
 	currency: string;
-	trackingLink?: string;
+	paymentRefId?: string | null;
+	paymentStatus?: string | null;
+	paymentTime?: string | null;
+	linkedBookingId?: string | null;
+	passenger?: TripjackCabBookingPassenger;
+	bookingVehicle?: TripjackCabBookingVehicle;
+	journey?: TripjackCabBookingJourney;
+	priceBreakup?: TripjackCabPriceBreakup;
+	addons?: unknown;
+	vendorId?: number;
+	amendmentAllowed?: boolean;
+	channelType?: string;
 	tripType?: string;
 	rideStatus?: string;
-	paymentStatus?: string;
+	trackingLink?: string;
+	consent?: string;
 	serviceRequest?: string;
 	agentEmail?: string;
 	agentMobile?: string;
-	[key: string]: unknown;
+	isPushedToErp?: boolean;
+	loggedInUserId?: string;
+	funnelType?: string;
+	panCardNumber?: string | null;
+	additionalInfo?: unknown;
 }
+
+export type TripjackBookingResponseData = TripjackCabBookingSnapshot;
 
 export interface TripjackBookingResponse {
 	success: boolean;
@@ -727,4 +809,99 @@ export interface TripjackDeletedHotelsResponse {
 	next?: string;
 	status: { success: boolean };
 	metaInfo?: Record<string, unknown>;
+}
+
+// ─── TripJack HMS v3 Static Content (`/hms/v3/content/*`) ───────────────────
+
+export interface TripjackContentStatus {
+	success: boolean;
+	httpStatus?: number;
+}
+
+export interface TripjackHotelMappingPageable {
+	pageNumber: number;
+	pageSize: number;
+	offset?: number;
+	totalElements: number;
+	totalPages: number;
+	size: number;
+}
+
+export interface TripjackFetchHotelMappingRequest {
+	countryName?: string;
+	regionIds?: string[];
+	page: number;
+	size: number;
+}
+
+export interface TripjackFetchHotelMappingHotel {
+	tjHotelId: string;
+	unicaId: string;
+}
+
+export interface TripjackFetchHotelMappingResponse {
+	status: TripjackContentStatus;
+	hotels: TripjackFetchHotelMappingHotel[];
+	pageable: TripjackHotelMappingPageable;
+}
+
+export interface TripjackFetchHotelContentRequest {
+	hotelIds: string[];
+}
+
+/** Raw batch static hotel node (overlaps structurally with static-detail). */
+export type TripjackFetchHotelContentHotel = Record<string, unknown>;
+
+export interface TripjackFetchHotelContentResponse {
+	status: TripjackContentStatus;
+	hotels: TripjackFetchHotelContentHotel[];
+}
+
+export interface TripjackFetchHotelCountriesResponse {
+	status: TripjackContentStatus;
+	hotelCountries: string[];
+}
+
+export interface TripjackHotelCityRegionRow {
+	cityName: string;
+	cityRegionId: number;
+	regionName: string;
+	countryName: string;
+	regionType: string;
+	fullRegionName: string;
+}
+
+export interface TripjackFetchCityRegionIdsResponse {
+	status: TripjackContentStatus;
+	hotelCityRegionIds: TripjackHotelCityRegionRow[];
+	nextCursor?: string;
+	hasMore?: boolean;
+}
+
+export type TripjackHotelMappingSyncType = "NEW" | "UPDATE";
+
+export interface TripjackFetchHotelMappingSyncRequest {
+	type: TripjackHotelMappingSyncType;
+	lastUpdateTime: string;
+	cursor?: string;
+}
+
+export interface TripjackFetchHotelMappingSyncResponse {
+	status: TripjackContentStatus;
+	hotels: Array<{ tjHotelId: string }>;
+	pageable?: TripjackHotelMappingPageable;
+	nextCursor?: string | null;
+}
+
+export interface TripjackFetchDeletedHotelMappingRequest {
+	type: "DELETE";
+	lastUpdateTime: string;
+	cursor?: string;
+}
+
+export interface TripjackFetchDeletedHotelMappingResponse {
+	status: TripjackContentStatus;
+	hotels: Array<{ tjHotelId: string }>;
+	pageable?: TripjackHotelMappingPageable;
+	nextCursor?: string | null;
 }

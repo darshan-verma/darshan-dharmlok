@@ -42,6 +42,11 @@ interface Booking {
 	tripjackBookingId?: string | null;
 	tripjackAirlinePnr?: string | null;
 	fromLocation?: string | null;
+	transportType?: string | null;
+	bookingSnapshot?: unknown;
+	hotelName?: string;
+	checkIn?: string;
+	checkOut?: string;
 }
 
 export default function MyTripsPage() {
@@ -89,7 +94,23 @@ export default function MyTripsPage() {
 
 	const filteredBookings = bookings.filter((booking) => {
 		if (statusFilter === "all") return true;
-		return booking.status.toLowerCase() === statusFilter.toLowerCase();
+		const st = booking.status.toLowerCase();
+		if (statusFilter === "pending") {
+			return (
+				st.includes("pending") ||
+				st.includes("hold") ||
+				st.includes("payment")
+			);
+		}
+		if (statusFilter === "confirmed") {
+			return (
+				st.includes("confirm") ||
+				st === "success" ||
+				st.includes("ticketed") ||
+				st === "on_hold"
+			);
+		}
+		return st === statusFilter.toLowerCase();
 	});
 
 	const getStatusVariant = (status: string) => {
@@ -98,6 +119,8 @@ export default function MyTripsPage() {
 			case "SUCCESS":
 				return "default";
 			case "PENDING":
+			case "PAYMENT_PENDING":
+			case "ON_HOLD":
 				return "secondary";
 			case "COMPLETED":
 				return "outline";
@@ -114,6 +137,8 @@ export default function MyTripsPage() {
 			case "SUCCESS":
 				return "text-green-600 bg-green-50 dark:bg-green-950/20";
 			case "PENDING":
+			case "PAYMENT_PENDING":
+			case "ON_HOLD":
 				return "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/20";
 			case "COMPLETED":
 				return "text-blue-600 bg-blue-50 dark:bg-blue-950/20";
@@ -259,7 +284,7 @@ export default function MyTripsPage() {
 									<TableHeader>
 										<TableRow>
 											<TableHead>Destination</TableHead>
-											<TableHead>Location</TableHead>
+											<TableHead className="max-w-[200px]">Location</TableHead>
 											<TableHead>Travel Date</TableHead>
 											<TableHead>Booked On</TableHead>
 											<TableHead>Status</TableHead>
@@ -268,7 +293,21 @@ export default function MyTripsPage() {
 									</TableHeader>
 									<TableBody>
 										{filteredBookings.map((booking) => {
-											const hasTripjackDetails =
+											const isHotel = booking.transportType === "hotel";
+											const isCab =
+												!isHotel &&
+												(booking.transportType === "cab" ||
+													booking.source === "TRIPJACK_CAB");
+											const hasHotelDetails =
+												isHotel &&
+												Boolean(
+													(booking.tripjackBookingId &&
+														booking.tripjackBookingId.trim() !== "") ||
+														booking.id,
+												);
+											const hasTripjackFlightDetails =
+												!isCab &&
+												!isHotel &&
 												booking.tripjackBookingId != null &&
 												booking.tripjackBookingId.trim() !== "";
 											const hasTboDetails =
@@ -277,10 +316,43 @@ export default function MyTripsPage() {
 											const hasAiriqDetails =
 												(booking.airIqPnr != null && booking.airIqPnr.trim() !== "") ||
 												(booking.airlinePnr != null && booking.airlinePnr.trim() !== "");
+											const hasCabDetails = isCab && Boolean(booking.id);
 											const hasDetails =
-												hasTripjackDetails || hasTboDetails || hasAiriqDetails;
+												hasHotelDetails ||
+												hasCabDetails ||
+												hasTripjackFlightDetails ||
+												hasTboDetails ||
+												hasAiriqDetails;
+											const hotelConfirmationQuery = new URLSearchParams();
+											if (hasHotelDetails) {
+												const hotelRef =
+													booking.tripjackBookingId?.trim() ||
+													booking.id;
+												hotelConfirmationQuery.set("bookingId", hotelRef);
+												if (booking.source === "TBO") {
+													hotelConfirmationQuery.set("source", "TBO");
+												}
+												if (booking.hotelName) {
+													hotelConfirmationQuery.set(
+														"hotelName",
+														booking.hotelName,
+													);
+												}
+												if (booking.checkIn) {
+													hotelConfirmationQuery.set(
+														"checkIn",
+														booking.checkIn.slice(0, 10),
+													);
+												}
+												if (booking.checkOut) {
+													hotelConfirmationQuery.set(
+														"checkOut",
+														booking.checkOut.slice(0, 10),
+													);
+												}
+											}
 											const confirmationQuery = new URLSearchParams();
-											if (hasTripjackDetails) {
+											if (hasTripjackFlightDetails) {
 												confirmationQuery.set("source", "tripjack");
 												confirmationQuery.set("bookingId", booking.tripjackBookingId!);
 											} else if (hasTboDetails) {
@@ -301,21 +373,41 @@ export default function MyTripsPage() {
 											}
 											const destName =
 												booking.destination?.name ??
-												(booking.source === "TRIPJACK" || hasTripjackDetails
-													? "Flight booking"
-													: "—");
-											const destLocation =
-												booking.destination?.location ||
-												booking.fromLocation ||
-												"—";
+												(isHotel
+													? booking.hotelName || "Hotel stay"
+													: isCab
+														? "Cab transfer"
+														: booking.source === "TRIPJACK" ||
+																hasTripjackFlightDetails
+															? "Flight booking"
+															: "—");
+											const destLocation = isHotel
+												? booking.checkIn && booking.checkOut
+													? `${new Date(booking.checkIn).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })} – ${new Date(booking.checkOut).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}`
+													: booking.destination?.location || "Hotel"
+												: booking.destination?.location ||
+													booking.fromLocation ||
+													"—";
 											const departTs = booking.travelDate || booking.date;
 											return (
 												<TableRow key={booking.id}>
 													<TableCell className="font-medium">{destName}</TableCell>
-													<TableCell>
-														<div className="flex items-center text-muted-foreground">
-															<MapPin className="h-4 w-4 mr-1 text-red-500" />
-															<span>{destLocation}</span>
+													<TableCell className="max-w-[200px] overflow-hidden align-middle">
+														<div className="flex min-w-0 max-w-full items-center gap-1 text-muted-foreground">
+															<MapPin
+																className="h-4 w-4 shrink-0 text-red-500"
+																aria-hidden
+															/>
+															<span
+																className="min-w-0 truncate"
+																title={
+																	destLocation !== "—"
+																		? destLocation
+																		: undefined
+																}
+															>
+																{destLocation}
+															</span>
 														</div>
 													</TableCell>
 													<TableCell>
@@ -344,7 +436,21 @@ export default function MyTripsPage() {
 														</Badge>
 													</TableCell>
 													<TableCell className="text-right">
-														{hasDetails ? (
+														{hasHotelDetails ? (
+															<Link
+																href={`/travel-portal/hotel-booking-confirmation?${hotelConfirmationQuery.toString()}`}
+																className="text-blue-600 hover:underline text-sm font-medium"
+															>
+																View booking
+															</Link>
+														) : hasCabDetails ? (
+															<Link
+																href={`/travel-portal/cab-booking/${booking.id}`}
+																className="text-blue-600 hover:underline text-sm font-medium"
+															>
+																View booking
+															</Link>
+														) : hasDetails ? (
 															<Link
 																href={`/travel-portal/booking/confirmation?${confirmationQuery.toString()}`}
 																className="text-blue-600 hover:underline text-sm font-medium"

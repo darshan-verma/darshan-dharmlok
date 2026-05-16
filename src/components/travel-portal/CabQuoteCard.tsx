@@ -2,13 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import CabBookingDetailsView from "@/components/travel-portal/CabBookingDetailsView";
 import type {
 	TripjackBookingResponseData,
 	TripjackJourneyInfo,
@@ -31,6 +39,7 @@ interface BookingApiResponse {
 	message?: string;
 	error?: string;
 	data?: TripjackBookingResponseData;
+	travelBookingId?: string;
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -74,6 +83,10 @@ export default function CabQuoteCard({
 	const [bookingError, setBookingError] = useState<string | null>(null);
 	const [bookingResult, setBookingResult] =
 		useState<TripjackBookingResponseData | null>(null);
+	const [savedTravelBookingId, setSavedTravelBookingId] = useState<string | null>(
+		null,
+	);
+	const [bookingDetailsOpen, setBookingDetailsOpen] = useState(false);
 	const [formData, setFormData] = useState({
 		firstName: "",
 		lastName: "",
@@ -89,22 +102,26 @@ export default function CabQuoteCard({
 
 	const image = group.vehicleImages?.[0];
 	const netAmountValue = useMemo(() => {
-		const onward = quote.fareBreakup.onwardFare || 0;
-		const backward = quote.fareBreakup.backwardFare || 0;
+		const onward = Number(quote.fareBreakup.onwardFare) || 0;
+		const backward = Number(quote.fareBreakup.backwardFare) || 0;
 		if (onward > 0 || backward > 0) {
 			return onward + backward;
 		}
 
-		return quote.fareBreakup.totalFare || 0;
+		return Number(quote.fareBreakup.totalFare) || 0;
 	}, [quote.fareBreakup]);
 	const taxes = useMemo(() => {
-		const onwardTax = quote.fareBreakup.onwardTax || 0;
-		const backwardTax = quote.fareBreakup.backwardTax || 0;
+		const onwardTax = Number(quote.fareBreakup.onwardTax) || 0;
+		const backwardTax = Number(quote.fareBreakup.backwardTax) || 0;
 		if (onwardTax > 0 || backwardTax > 0) {
 			return onwardTax + backwardTax;
 		}
 
-		return quote.fareBreakup.totalTax || 0;
+		return Number(quote.fareBreakup.totalTax) || 0;
+	}, [quote.fareBreakup]);
+	const tjManagementFeeStr = useMemo(() => {
+		const mf = Number(quote.fareBreakup.tjManagementFee);
+		return Number.isFinite(mf) && mf > 0 ? mf.toFixed(2) : "0.00";
 	}, [quote.fareBreakup]);
 	const total = netAmountValue + taxes;
 	const highlights = getHighlights(quote.policies).slice(0, 3);
@@ -258,6 +275,7 @@ export default function CabQuoteCard({
 		setIsSubmitting(true);
 		setBookingError(null);
 		setBookingResult(null);
+		setSavedTravelBookingId(null);
 
 		const parsedAgentId = Number(formData.agentId.trim());
 		const normalizedAgentId = Number.isFinite(parsedAgentId)
@@ -286,6 +304,8 @@ export default function CabQuoteCard({
 					pricingInfo: {
 						netAmount: netAmountValue.toFixed(2),
 						addonsPrice: "0.00",
+						tjTaxAmount: taxes.toFixed(2),
+						tjManagementFee: tjManagementFeeStr,
 						agentMarkup: 0,
 						agentMarkupSplitup: {
 							onwardJourneyMarkup: 0,
@@ -319,6 +339,11 @@ export default function CabQuoteCard({
 			}
 
 			setBookingResult(payload.data);
+			setSavedTravelBookingId(
+				typeof payload.travelBookingId === "string"
+					? payload.travelBookingId
+					: null,
+			);
 		} catch (error) {
 			setBookingError(
 				error instanceof Error ? error.message : "Failed to create booking",
@@ -329,7 +354,8 @@ export default function CabQuoteCard({
 	}
 
 	return (
-		<Card className="overflow-hidden border-gray-200 shadow-sm transition hover:shadow-lg">
+		<>
+			<Card className="overflow-hidden border-gray-200 shadow-sm transition hover:shadow-lg">
 			<CardContent className="p-0">
 				<div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_240px]">
 					<div className="relative min-h-56 bg-gradient-to-br from-amber-100 to-orange-50">
@@ -551,8 +577,53 @@ export default function CabQuoteCard({
 						)}
 
 						{bookingResult && (
-							<div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-								Booking created: {bookingResult.id} ({bookingResult.status})
+							<div className="mt-3 space-y-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
+								<p className="font-medium">
+									Booking created:{" "}
+									<span className="font-mono">{bookingResult.id}</span> (
+									{bookingResult.status})
+								</p>
+								<div className="flex flex-wrap gap-2">
+									<Button
+										type="button"
+										variant="secondary"
+										size="sm"
+										className="rounded-lg"
+										onClick={() => setBookingDetailsOpen(true)}
+									>
+										View booking
+									</Button>
+									{savedTravelBookingId ? (
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											className="rounded-lg"
+											asChild
+										>
+											<Link
+												href={`/travel-portal/cab-booking/${savedTravelBookingId}`}
+											>
+												Open full page
+											</Link>
+										</Button>
+									) : null}
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="rounded-lg"
+										asChild
+									>
+										<Link href="/travel-portal/my-trips">My trips</Link>
+									</Button>
+								</div>
+								{!savedTravelBookingId ? (
+									<p className="text-xs text-emerald-800/90">
+										Sign in before booking to save this trip under My Trips and open
+										the full-page receipt.
+									</p>
+								) : null}
 							</div>
 						)}
 
@@ -577,5 +648,21 @@ export default function CabQuoteCard({
 				)}
 			</CardContent>
 		</Card>
+			<Dialog open={bookingDetailsOpen} onOpenChange={setBookingDetailsOpen}>
+				<DialogContent className="max-h-[min(90vh,800px)] max-w-2xl overflow-y-auto">
+					<DialogHeader>
+						<DialogTitle>Cab booking details</DialogTitle>
+						{bookingResult?.id ? (
+							<p className="font-mono text-xs text-muted-foreground">
+								{bookingResult.id}
+							</p>
+						) : null}
+					</DialogHeader>
+					{bookingResult ? (
+						<CabBookingDetailsView data={bookingResult} showTitle={false} />
+					) : null}
+				</DialogContent>
+			</Dialog>
+		</>
 	);
 }

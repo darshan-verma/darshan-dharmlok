@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Search, User, Menu, X, LogOut, Settings, Bell } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -16,9 +16,13 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SearchDialog } from "@/components/shared/SearchDialog";
+import { LanguageSelector } from "@/components/shared/LanguageSelector";
+import { useTranslation } from "@/components/providers/LanguageProvider";
 import { HoroscopeNavTooltip } from "./HoroscopeNavTooltip";
+import { DailySuvicharIcon } from "@/components/suvichar/DailySuvicharIcon";
 
 export default function Header() {
+	const { t } = useTranslation();
 	const { data: session, status } = useSession();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -97,35 +101,38 @@ export default function Header() {
 		return () => clearInterval(interval);
 	}, [seenIdsLoaded]);
 
-	const menuItems = [
-		{ name: "Home", href: "/", active: true },
-		{
-			name: "Explore",
-			href: "#explore",
-			megaMenu: true,
-			leftColumn: [
-				{ name: "Kathavachak", href: "/kathavachak" },
-				{ name: "Dharmguru", href: "/dharmguru" },
-				{ name: "Panditji", href: "/panditji" },
-			],
-			rightColumn: [
-				{ name: "Book Pooja", href: "/book-pooja" },
-				{ name: "Book Yoga Session", href: "/book-yoga" },
-				{ name: "Horoscope", href: "/horoscope" },
-				{ name: "Live Streams", href: "/live-streams" },
-				{ name: "E-Books", href: "/e-book" },
-				{ name: "Events", href: "/events" },
-				{ name: "Dharmshala", href: "/dharmshala" },
-				{ name: "Temples", href: "/temple" },
-				{ name: "Motivational Speaker", href: "/motivational-speaker" },
-			],
-			viewAllLink: { name: "View All", href: "/services" },
-		},
-		{ name: "Dharmlok Travels", href: "/travel-portal" },
-		{ name: "Shop", href: "/e-shop" },
-		{ name: "Community", href: "/community" },
-		{ name: "Know More", href: "/know-more" },
-	];
+	const menuItems = useMemo(
+		() => [
+			{ name: t("nav.home"), href: "/", active: true },
+			{
+				name: t("nav.explore"),
+				href: "#explore",
+				megaMenu: true,
+				leftColumn: [
+					{ name: t("nav.kathavachak"), href: "/kathavachak" },
+					{ name: t("nav.dharmguru"), href: "/dharmguru" },
+					{ name: t("nav.panditji"), href: "/panditji" },
+				],
+				rightColumn: [
+					{ name: t("nav.bookPooja"), href: "/book-pooja" },
+					{ name: t("nav.bookYoga"), href: "/book-yoga" },
+					{ name: t("nav.horoscope"), href: "/horoscope" },
+					{ name: t("nav.liveStreams"), href: "/live-streams" },
+					{ name: t("nav.eBooks"), href: "/e-book" },
+					{ name: t("nav.events"), href: "/events" },
+					{ name: t("nav.dharmshala"), href: "/dharmshala" },
+					{ name: t("nav.temples"), href: "/temple" },
+					{ name: t("nav.motivationalSpeaker"), href: "/motivational-speaker" },
+				],
+				viewAllLink: { name: t("nav.viewAll"), href: "/services" },
+			},
+			{ name: t("nav.dharmlokTravels"), href: "/travel-portal" },
+			{ name: t("nav.shop"), href: "/e-shop" },
+			{ name: t("nav.community"), href: "/community" },
+			{ name: t("nav.knowMore"), href: "/know-more" },
+		],
+		[t],
+	);
 
 	return (
 		<>
@@ -189,7 +196,7 @@ export default function Header() {
 													{/* Left Column - Spiritual Guides */}
 													<div className="flex-1">
 														<h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200/50">
-															Spiritual Guides
+															{t("nav.spiritualGuides")}
 														</h3>
 														<div className="space-y-2">
 															{item.leftColumn?.map((subItem) => (
@@ -206,7 +213,7 @@ export default function Header() {
 													{/* Right Column - Services */}
 													<div className="flex-1 border-l border-gray-200/50 pl-6">
 														<h3 className="text-sm font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-200/50">
-															Services
+															{t("nav.services")}
 														</h3>
 														<div className="space-y-2">
 															{item.rightColumn?.map((subItem) => (
@@ -256,11 +263,13 @@ export default function Header() {
 								</button>
 							</SearchDialog>
 							<HoroscopeNavTooltip />
-						<DropdownMenu>
+							<DailySuvicharIcon />
+							<LanguageSelector />
+							<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<button
 									className="relative p-2 hover:bg-gray-100 rounded-full transition-colors"
-									aria-label="Live notifications"
+									aria-label={t("header.liveNotifications")}
 								>
 									<Bell className="w-5 h-5 text-gray-700" />
 									{unseenNotifications.length > 0 && (
@@ -271,11 +280,11 @@ export default function Header() {
 								</button>
 							</DropdownMenuTrigger>
 								<DropdownMenuContent align="end" className="w-80">
-									<DropdownMenuLabel>Live Notifications</DropdownMenuLabel>
+									<DropdownMenuLabel>{t("header.liveNotifications")}</DropdownMenuLabel>
 									<DropdownMenuSeparator />
 									{unseenNotifications.length === 0 ? (
 										<div className="px-2 py-3 text-sm text-muted-foreground">
-											No new notifications.
+											{t("header.noNewNotifications")}
 										</div>
 									) : (
 										unseenNotifications.map((item) => (
@@ -286,7 +295,7 @@ export default function Header() {
 													onClick={() => markOneSeen(item.id)}
 												>
 													<span className="text-xs uppercase text-red-600 font-medium">
-														{item.type === "live" ? "Live Now" : "Scheduled"}
+														{item.type === "live" ? t("header.liveNow") : t("header.scheduled")}
 													</span>
 													<span className="text-sm leading-snug">{item.message}</span>
 												</Link>
@@ -296,7 +305,7 @@ export default function Header() {
 									<DropdownMenuSeparator />
 									<DropdownMenuItem asChild>
 										<Link href="/live-streams" className="cursor-pointer text-orange-600">
-											View all live streams
+											{t("header.viewAllLiveStreams")}
 										</Link>
 									</DropdownMenuItem>
 								</DropdownMenuContent>
@@ -308,7 +317,7 @@ export default function Header() {
 											<Avatar className="w-10 h-10 border-2 border-orange-500/30 hover:border-orange-500 transition-colors">
 												<AvatarImage
 													src={session?.user?.image || undefined}
-													alt={session?.user?.name || "User"}
+													alt={session?.user?.name || t("header.user")}
 													className="object-cover"
 												/>
 												<AvatarFallback className="bg-orange-500 text-white font-semibold">
@@ -323,7 +332,7 @@ export default function Header() {
 										<DropdownMenuLabel>
 											<div className="flex flex-col space-y-1">
 												<p className="text-sm font-medium leading-none">
-													{session?.user?.name || "User"}
+													{session?.user?.name || t("header.user")}
 												</p>
 												<p className="text-xs leading-none text-muted-foreground">
 													{session?.user?.email}
@@ -334,7 +343,7 @@ export default function Header() {
 										<DropdownMenuItem asChild>
 											<Link href="/dashboard" className="cursor-pointer">
 												<User className="mr-2 h-4 w-4" />
-												<span>Dashboard</span>
+												<span>{t("header.dashboard")}</span>
 											</Link>
 										</DropdownMenuItem>
 										<DropdownMenuItem asChild>
@@ -343,7 +352,7 @@ export default function Header() {
 												className="cursor-pointer"
 											>
 												<Settings className="mr-2 h-4 w-4" />
-												<span>Settings</span>
+												<span>{t("header.settings")}</span>
 											</Link>
 										</DropdownMenuItem>
 										<DropdownMenuSeparator />
@@ -352,7 +361,7 @@ export default function Header() {
 											onClick={() => signOut({ callbackUrl: "/" })}
 										>
 											<LogOut className="mr-2 h-4 w-4" />
-											<span>Log out</span>
+											<span>{t("header.logOut")}</span>
 										</DropdownMenuItem>
 									</DropdownMenuContent>
 								</DropdownMenu>
@@ -392,7 +401,7 @@ export default function Header() {
 									{item.megaMenu && (
 										<div className="pl-8">
 											<div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">
-												Spiritual Guides
+												{t("nav.spiritualGuides")}
 											</div>
 											{item.leftColumn?.map((subItem) => (
 												<Link
@@ -405,7 +414,7 @@ export default function Header() {
 												</Link>
 											))}
 											<div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase mt-2">
-												Services
+												{t("nav.services")}
 											</div>
 											{item.rightColumn?.map((subItem) => (
 												<Link

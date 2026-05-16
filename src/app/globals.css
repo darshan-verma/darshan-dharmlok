@@ -496,3 +496,30 @@ html {
 	transform: scaleX(-1) !important;
 	-webkit-transform: scaleX(-1) !important;
 }
+
+.font-devanagari {
+	font-family: var(--font-devanagari), "Noto Sans Devanagari", sans-serif;
+}
+
+.suvichar-blocknote .bn-container,
+.suvichar-blocknote .bn-editor,
+.suvichar-blocknote .bn-block-content {
+	background: transparent !important;
+	box-shadow: none !important;
+}
+
+.suvichar-blocknote .bn-inline-content,
+.suvichar-blocknote p {
+	color: inherit;
+	font-size: inherit;
+	text-align: inherit;
+	line-height: 1.35;
+}
+
+.suvichar-textfit {
+	box-sizing: border-box;
+}
+
+.suvichar-plain-text {
+	hyphens: auto;
+}

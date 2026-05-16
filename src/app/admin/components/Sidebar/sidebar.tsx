@@ -6,6 +6,7 @@ import {
 	Users,
 	UserCircle2,
 	HandHeart,
+	Quote,
 	Store,
 	User,
 	Building2,
@@ -292,6 +293,19 @@ export function AdminSidebar({ className }: { className?: string }) {
 							<HandHeart className="h-5 w-5 text-green-500" />
 							<Link href="/admin/quotes" className="flex items-center gap-2">
 								<span>Quotes</span>
+							</Link>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+
+					<SidebarMenuItem>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname.startsWith("/admin/suvichars")}
+							asChild
+						>
+							<Link href="/admin/suvichars">
+								<Quote className="h-5 w-5 text-amber-600" />
+								<span>Daily Suvichar</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>

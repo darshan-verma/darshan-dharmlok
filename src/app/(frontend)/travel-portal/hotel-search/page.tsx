@@ -21,7 +21,14 @@ import {
 import { AlertCircle, Loader2, Timer } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { HotelSearchResponse, HotelResult } from "@/types/hotelApi";
-import type { TripjackHotelListingResponse } from "@/types/tripjack";
+import type { TripjackNationalityInfo } from "@/types/tripjack";
+import type { UnifiedHotelSearchResponse } from "@/types/unifiedHotel";
+import {
+	TRIPJACK_DEFAULT_NATIONALITY_COUNTRY_ID,
+	getTripjackGuestNationalityCountryId,
+	setTripjackGuestNationalityCountryId,
+} from "@/lib/tripjackHotelGuestNationality";
+import { dedupeHotelResultsByNameAndCity } from "@/lib/unifiedHotelDedupe";
 import {
 	hotelCache,
 	lastSearch,
@@ -30,12 +37,9 @@ import {
 } from "@/lib/searchCache";
 import { useSearchSession } from "@/hooks/useSearchSession";
 
-/** Faster first paint: aggressive caps, never block UI on image APIs */
+/** Faster first paint: never block UI on image APIs */
 const INITIAL_HOTEL_DISPLAY = 25;
 const HOTEL_SCROLL_CHUNK = 25;
-const TBO_HOTEL_SEARCH_CAP = 60;
-const TRIPJACK_HID_CAP = 100;
-const TRIPJACK_LISTING_BATCH_CAP = 2;
 const BACKGROUND_IMAGE_CHUNK = 25;
 const BACKGROUND_IMAGE_PACE_MS = 300;
 /** Above-the-fold image static-detail/detail calls; rest deferred */
@@ -170,6 +174,13 @@ function HotelSearchContent() {
 	/** Same correlationId for all TripJack listing batches; passed through to details → pricing → review */
 	const [tripjackListingCorrelationId, setTripjackListingCorrelationId] =
 		useState<string | null>(null);
+	/** TripJack `nationality` field = `countryId` from nationality-info */
+	const [tjNationalityCountryId, setTjNationalityCountryId] = useState(
+		TRIPJACK_DEFAULT_NATIONALITY_COUNTRY_ID,
+	);
+	const [nationalitySelectOptions, setNationalitySelectOptions] = useState<
+		{ id: string; label: string }[]
+	>([]);
 	// Store hotel details fetched from HotelDetails API
 	const [hotelDetailsMap, setHotelDetailsMap] = useState<
 		Record<
@@ -206,6 +217,34 @@ function HotelSearchContent() {
 		clearSession,
 		isActive: sessionActive,
 	} = useSearchSession();
+
+	useEffect(() => {
+		setTjNationalityCountryId(getTripjackGuestNationalityCountryId());
+	}, []);
+
+	useEffect(() => {
+		let cancelled = false;
+		void (async () => {
+			try {
+				const r = await fetch("/api/travel/tripjack-hotel/nationalities");
+				const j = (await r.json()) as {
+					nationalityInfos?: TripjackNationalityInfo[];
+				};
+				if (!r.ok || !Array.isArray(j.nationalityInfos) || cancelled) return;
+				const opts = j.nationalityInfos.map((n) => ({
+					id: n.countryId,
+					label: n.countryName || n.name,
+				}));
+				opts.sort((a, b) => a.label.localeCompare(b.label));
+				setNationalitySelectOptions(opts);
+			} catch {
+				/* ignore */
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	// Scroll state for sticky header
 	const [showMinimalHeader, setShowMinimalHeader] = useState(false);
@@ -319,6 +358,10 @@ function HotelSearchContent() {
 		if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
 			return trimmed;
 		}
+		// TripJack static-detail rewrites supplier URLs to same-origin signed proxy paths
+		if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+			return trimmed;
+		}
 		return undefined;
 	};
 
@@ -422,34 +465,6 @@ function HotelSearchContent() {
 		}
 	};
 
-	// Normalize TripJack listing response into HotelResult[] compatible with HotelCard
-	const normalizeTripjackResults = (
-		response: TripjackHotelListingResponse,
-	): HotelResult[] => {
-		return response.hotels.map((hotel) => ({
-			HotelCode: hotel.tjHotelId || hotel.hotelId || "",
-			Currency: response.currency,
-			HotelName: hotel.name || undefined,
-			HotelImage: pickImageFromUnknown(hotel),
-			source: "TRIPJACK" as const,
-			Rooms: hotel.options.map((option) => ({
-				Name: option.roomInfo.map((r) => r.name),
-				BookingCode: option.optionId,
-				Inclusion: option.inclusions.join(", "),
-				DayRates: [],
-				TotalFare: option.pricing.basePrice,
-				TotalTax: option.pricing.taxes + option.pricing.mf + option.pricing.mft,
-				RoomID: option.roomInfo.map((r) => r.id),
-				RoomPromotion: [],
-				CancelPolicies: [],
-				MealType: option.mealBasis.replace(/ /g, "_"),
-				IsRefundable: option.cancellation.isRefundable,
-				Supplements: [],
-				WithTransfers: false,
-			})),
-		}));
-	};
-
 	// Perform search
 	const performSearch = async (data: HotelSearchData, forceRefresh = false) => {
 		setIsLoading(true);
@@ -505,7 +520,7 @@ function HotelSearchContent() {
 				return;
 			}
 
-			// Prepare room config for both APIs
+			// Prepare room config for unified server search
 			const adultsPerRoom = Math.floor(data.adults / data.rooms);
 			const childrenPerRoom = Math.floor(data.children / data.rooms);
 			const paxRooms = Array(data.rooms)
@@ -516,171 +531,49 @@ function HotelSearchContent() {
 					ChildrenAges: Array(childrenPerRoom).fill(5),
 				}));
 
-			// ── Fetch city data (shared by TBO + TripJack) ───────────────────────
-			const cityDetailsResponse = await fetch("/api/travel/hotel-search", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ type: "city", code: data.cityCode }),
-			});
-			const cityDetailsData = await cityDetailsResponse.json();
-			console.log("🏨 City hotels response:", cityDetailsData);
+			const roomsPayload = paxRooms.map((room) => ({
+				adults: room.Adults,
+				...(room.Children > 0 && {
+					children: room.Children,
+					childAge: room.ChildrenAges.filter((a) => typeof a === "number"),
+				}),
+			}));
 
-			// ── TBO search ────────────────────────────────────────────────────────
-			const tboSearchPromise = (async () => {
-				if (!cityDetailsData.success || !cityDetailsData.data?.hotels?.length) {
-					return [];
-				}
+			const unifiedBase = {
+				cityCode: data.cityCode,
+				checkIn: formatDate(data.checkIn),
+				checkOut: formatDate(data.checkOut),
+				rooms: roomsPayload,
+				nationality: tjNationalityCountryId,
+				guestNationality: "IN",
+				dedupe: false,
+			};
 
-				const hotels = cityDetailsData.data.hotels.slice(0, TBO_HOTEL_SEARCH_CAP);
-				const hotelCodes = hotels
-					.map((h: { hotelCode: string }) => h.hotelCode)
-					.join(",");
-
-				const hotelSearchResponse = await fetch("/api/travel/hotel/search", {
+			const postUnified = async (mode: "tbo" | "tripjack") => {
+				const res = await fetch("/api/travel/unified-hotel-search", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						checkIn: formatDate(data.checkIn),
-						checkOut: formatDate(data.checkOut),
-						hotelCodes,
-						guestNationality: "IN",
-						rooms: paxRooms.map((room) => ({
-							adults: room.Adults,
-							children: room.Children,
-							childrenAges: room.ChildrenAges,
-						})),
-						isDetailedResponse: true,
-						filters: {},
-					}),
+					body: JSON.stringify({ ...unifiedBase, mode }),
 				});
-
-				const result = await hotelSearchResponse.json();
-				if (!result.success) return [];
-
-				// Validate status
-				if (result.data?.Status) {
-					const statusCode = result.data.Status.Code;
-					const description = (
-						result.data.Status.Description || ""
-					).toLowerCase();
-					const isSuccess =
-						statusCode === 1 ||
-						statusCode === 0 ||
-						(statusCode === 200 &&
-							(description.includes("success") ||
-								description === "successful"));
-					if (!isSuccess) return [];
-				}
-
-				if (
-					result.data?.HotelResult &&
-					Array.isArray(result.data.HotelResult)
-				) {
-					return result.data.HotelResult as HotelResult[];
-				}
-				return [];
-			})();
-
-			// ── TripJack search ───────────────────────────────────────────────────
-			const tripjackSearchPromise = (async (): Promise<HotelResult[]> => {
-				const tjHidsAll: string[] = cityDetailsData.data?.tripjackHids ?? [];
-				const tjHids = tjHidsAll.slice(0, TRIPJACK_HID_CAP);
-				if (tjHids.length === 0) {
-					console.log("ℹ️ No TripJack hotel IDs for city:", data.cityCode);
-					return [];
-				}
-
-				const tjRooms = paxRooms.map((room) => ({
-					adults: room.Adults,
-					...(room.Children > 0 && {
-						children: room.Children,
-						childAge: room.ChildrenAges,
-					}),
-				}));
-
-				// Batch into groups of 100 (TripJack limit); cap parallel listing calls
-				const batches: string[][] = [];
-				for (let i = 0; i < tjHids.length; i += 100) {
-					batches.push(tjHids.slice(i, i + 100));
-				}
-
-				console.log(
-					`🔍 TripJack: ${tjHids.length} hotel IDs (capped) in ${batches.length} batch(es), running ${Math.min(batches.length, TRIPJACK_LISTING_BATCH_CAP)} listing request(s)`,
-				);
-
-				const listingCorrelationSeed = crypto.randomUUID();
-				const batchResults = await Promise.all(
-					batches.slice(0, TRIPJACK_LISTING_BATCH_CAP).map(async (batchHids) => {
-						const response = await fetch("/api/travel/tripjack-hotel/listing", {
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({
-								checkIn: formatDate(data.checkIn),
-								checkOut: formatDate(data.checkOut),
-								rooms: tjRooms,
-								currency: "INR",
-								nationality: "106",
-								hids: batchHids,
-								correlationId: listingCorrelationSeed,
-							}),
-						});
-
-						if (!response.ok)
-							return { hotels: [] as HotelResult[], correlationId: undefined };
-						const raw = (await response.json()) as unknown;
-
-						// TripJack sometimes varies response envelope; accept a few common shapes.
-						const result =
-							(raw &&
-								typeof raw === "object" &&
-								"hotels" in (raw as Record<string, unknown>)) ||
-							(raw && typeof raw === "object" && "status" in (raw as Record<string, unknown>))
-								? (raw as TripjackHotelListingResponse)
-								: (raw as { data?: TripjackHotelListingResponse })?.data;
-
-						const statusSuccess =
-							(result as TripjackHotelListingResponse | undefined)?.status?.success ??
-							(raw as { success?: boolean })?.success ??
-							false;
-						const hotels =
-							(result as TripjackHotelListingResponse | undefined)?.hotels ??
-							(raw as { hotels?: TripjackHotelListingResponse["hotels"] })?.hotels ??
-							[];
-
-						if (!statusSuccess || !Array.isArray(hotels) || hotels.length === 0) {
-							return { hotels: [] as HotelResult[], correlationId: undefined };
-						}
-
-						const listingTyped = result as TripjackHotelListingResponse;
-						return {
-							hotels: normalizeTripjackResults({
-								...listingTyped,
-								hotels,
-							}),
-							correlationId: listingTyped.correlationId,
-						};
-					}),
-				);
-
-				const allTjResults = batchResults.flatMap((b) => b.hotels);
-				const correlationFromListing = batchResults.find(
-					(b) => b.correlationId,
-				)?.correlationId;
-				if (allTjResults.length > 0) {
-					setTripjackListingCorrelationId(
-						correlationFromListing || listingCorrelationSeed,
+				const json = (await res.json()) as UnifiedHotelSearchResponse;
+				if (!res.ok) {
+					console.warn(
+						"unified-hotel-search HTTP",
+						res.status,
+						json.error ?? json,
 					);
+					return {
+						success: false,
+						mode,
+						hotels: [] as HotelResult[],
+						errors: json.errors ?? {},
+						...(json.tripjackCorrelationId
+							? { tripjackCorrelationId: json.tripjackCorrelationId }
+							: {}),
+					} satisfies UnifiedHotelSearchResponse;
 				}
-				console.log(`✅ TripJack: ${allTjResults.length} hotels found`);
-				return allTjResults;
-			})();
-
-			// ── TBO first (non-blocking TripJack): listings start in parallel, but we
-			//    only await TBO so the UI can render without waiting for TripJack.
-			const tboResults = await tboSearchPromise.catch((err) => {
-				console.error("❌ TBO search error:", err);
-				return [] as HotelResult[];
-			});
+				return json;
+			};
 
 			const cachePayload = {
 				timestamp: Date.now(),
@@ -727,6 +620,23 @@ function HotelSearchContent() {
 				scheduleProgressiveHotelCardImages(visibleList);
 			};
 
+			let tboRes: UnifiedHotelSearchResponse;
+			try {
+				tboRes = await postUnified("tbo");
+			} catch (err) {
+				console.error("❌ TBO unified search error:", err);
+				tboRes = {
+					success: false,
+					mode: "tbo",
+					hotels: [],
+					errors: {},
+				};
+			}
+			if (tboRes.errors?.tbo) {
+				console.warn("TBO supplier note:", tboRes.errors.tbo);
+			}
+			const tboResults = tboRes.hotels ?? [];
+
 			if (tboResults.length > 0) {
 				console.log(
 					`📊 TBO first: ${tboResults.length} hotels — showing now; TripJack loading in background`,
@@ -734,12 +644,22 @@ function HotelSearchContent() {
 				setIsTripjackPending(true);
 				applyMergedResults([...tboResults]);
 
-				void tripjackSearchPromise
-					.then((tripjackResults) => {
+				void postUnified("tripjack")
+					.then((tjRes) => {
 						setIsTripjackPending(false);
-						const mergedResults = [...tboResults, ...tripjackResults];
+						if (tjRes.errors?.tripjack) {
+							console.warn("TripJack supplier note:", tjRes.errors.tripjack);
+						}
+						const tripjackResults = tjRes.hotels ?? [];
+						if (tjRes.tripjackCorrelationId) {
+							setTripjackListingCorrelationId(tjRes.tripjackCorrelationId);
+						}
+						const mergedResults = dedupeHotelResultsByNameAndCity([
+							...tboResults,
+							...tripjackResults,
+						]);
 						console.log(
-							`📊 Merged: TBO ${tboResults.length} + TripJack ${tripjackResults.length} hotels`,
+							`📊 Merged: TBO ${tboResults.length} + TripJack ${tripjackResults.length} hotels (deduped to ${mergedResults.length})`,
 						);
 						applyMergedResults(mergedResults);
 					})
@@ -748,11 +668,26 @@ function HotelSearchContent() {
 						console.error("❌ TripJack search error:", err);
 					});
 			} else {
-				const tripjackResults = await tripjackSearchPromise.catch((err) => {
-					console.error("❌ TripJack search error:", err);
-					return [] as HotelResult[];
-				});
+				let tjRes: UnifiedHotelSearchResponse;
+				try {
+					tjRes = await postUnified("tripjack");
+				} catch (err) {
+					console.error("❌ TripJack unified search error:", err);
+					tjRes = {
+						success: false,
+						mode: "tripjack",
+						hotels: [],
+						errors: {},
+					};
+				}
 				setIsTripjackPending(false);
+				if (tjRes.errors?.tripjack) {
+					console.warn("TripJack supplier note:", tjRes.errors.tripjack);
+				}
+				const tripjackResults = tjRes.hotels ?? [];
+				if (tjRes.tripjackCorrelationId) {
+					setTripjackListingCorrelationId(tjRes.tripjackCorrelationId);
+				}
 				console.log(`📊 TBO empty; TripJack: ${tripjackResults.length} hotels`);
 
 				if (tripjackResults.length === 0) {
@@ -1462,6 +1397,35 @@ function HotelSearchContent() {
 						initialValues={searchData || undefined}
 						onSearch={handleSearch}
 					/>
+					<div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-gray-100 bg-gray-50/80 px-3 py-2">
+						<span className="text-sm text-gray-600 shrink-0">
+							Guest nationality (TripJack rates)
+						</span>
+						<Select
+							value={tjNationalityCountryId}
+							onValueChange={(v) => {
+								setTjNationalityCountryId(v);
+								setTripjackGuestNationalityCountryId(v);
+							}}
+						>
+							<SelectTrigger className="w-[min(100%,280px)] h-9 bg-white">
+								<SelectValue placeholder="Select nationality" />
+							</SelectTrigger>
+							<SelectContent className="max-h-[min(60vh,320px)]">
+								{nationalitySelectOptions.length === 0 ? (
+									<SelectItem value={TRIPJACK_DEFAULT_NATIONALITY_COUNTRY_ID}>
+										India (default)
+									</SelectItem>
+								) : (
+									nationalitySelectOptions.map((o) => (
+										<SelectItem key={o.id} value={o.id}>
+											{o.label}
+										</SelectItem>
+									))
+								)}
+							</SelectContent>
+						</Select>
+					</div>
 				</div>
 			</div>
 

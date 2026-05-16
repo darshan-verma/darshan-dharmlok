@@ -3,6 +3,9 @@ import { getTripjackHotelListing } from "@/lib/tripjackClient";
 import type { TripjackHotelListingRequest } from "@/types/tripjack";
 import { resolveTripjackError } from "@/lib/tripjackError";
 
+/** Allow TripJack listing to complete before platform cuts the route (Vercel, etc.). */
+export const maxDuration = 120;
+
 function isValidDate(value: unknown): value is string {
 	if (typeof value !== "string") return false;
 	return /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -62,8 +65,10 @@ function validatePayload(body: Record<string, unknown>): string | null {
 	}
 
 	if (body.hids !== undefined) {
-		if (!Array.isArray(body.hids) || body.hids.length > 100) {
-			return "hids must be an array of up to 100 hotel IDs";
+		// TripJack accepts up to 100 in docs, but 100 IDs often returns success with zero hotels;
+		// keep server validation aligned with the app's safe chunk size (90).
+		if (!Array.isArray(body.hids) || body.hids.length > 90) {
+			return "hids must be an array of up to 90 hotel IDs";
 		}
 		if (
 			!body.hids.every((id) => typeof id === "number" || typeof id === "string")
@@ -94,7 +99,9 @@ export async function POST(req: NextRequest) {
 		rooms: body.rooms as TripjackHotelListingRequest["rooms"],
 		currency: (body.currency as string).toUpperCase(),
 		...(body.cityCode !== undefined && { cityCode: body.cityCode as string }),
-		...(body.hids !== undefined && { hids: body.hids as number[] }),
+		...(body.hids !== undefined && {
+			hids: body.hids as TripjackHotelListingRequest["hids"],
+		}),
 		...(body.correlationId !== undefined && {
 			correlationId: body.correlationId as string,
 		}),

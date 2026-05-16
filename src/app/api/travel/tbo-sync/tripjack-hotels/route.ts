@@ -7,6 +7,7 @@
  *
  * Body:
  * {
+ *   validateSupplier?: boolean, // when true, each tjHotelId is checked via static-detail country vs payload (slower)
  *   hotels: [{
  *     tjHotelId: string,
  *     hotelName: string,
@@ -27,7 +28,11 @@ import prisma from "@/lib/prisma";
 import {
 	fetchTripjackStaticHotels,
 	fetchTripjackDeletedHotels,
+	getTripjackHotelStaticDetail,
 } from "@/lib/tripjackClient";
+import { getCanonicalTboCityCodeForTripjackCityCode } from "@/lib/tripjackCityMap";
+import { isTripjackHotelRowActive } from "@/lib/resolveCityInventory";
+import type { TripjackStaticHotelInfo } from "@/types/tripjack";
 
 interface TripjackHotelInput {
 	tjHotelId: string;
@@ -42,8 +47,14 @@ interface TripjackHotelInput {
 	address?: string;
 }
 
+function resolveTboCityCodeFromStaticHotel(h: TripjackStaticHotelInfo): string {
+	const raw = (h.address?.city?.code ?? "").trim();
+	if (/^\d+$/.test(raw)) return raw;
+	return getCanonicalTboCityCodeForTripjackCityCode(raw) ?? raw;
+}
+
 export async function POST(req: NextRequest) {
-	let body: { hotels?: unknown };
+	let body: { hotels?: unknown; validateSupplier?: boolean };
 	try {
 		body = await req.json();
 	} catch {
@@ -79,6 +90,101 @@ export async function POST(req: NextRequest) {
 		}
 	}
 
+	const distinctCityCodes = [...new Set(hotels.map((h) => h.cityCode))];
+	const tboCities = await prisma.tboCity.findMany({
+		where: { cityCode: { in: distinctCityCodes } },
+	});
+	const cityByCode = new Map(tboCities.map((c) => [c.cityCode, c]));
+	const unknownCityCodes = distinctCityCodes.filter((cc) => !cityByCode.has(cc));
+	if (unknownCityCodes.length > 0) {
+		return NextResponse.json(
+			{
+				error:
+					"Each hotel cityCode must exist in TboCity (sync TBO cities first)",
+				unknownCityCodes,
+			},
+			{ status: 400 },
+		);
+	}
+
+	const countryMismatches = hotels
+		.map((h) => {
+			const c = cityByCode.get(h.cityCode)!;
+			if (h.countryCode.toUpperCase() !== c.countryCode.toUpperCase()) {
+				return {
+					tjHotelId: h.tjHotelId,
+					cityCode: h.cityCode,
+					payloadCountry: h.countryCode,
+					expectedCountry: c.countryCode,
+				};
+			}
+			return null;
+		})
+		.filter(Boolean) as Array<{
+		tjHotelId: string;
+		cityCode: string;
+		payloadCountry: string;
+		expectedCountry: string;
+	}>;
+
+	if (countryMismatches.length > 0) {
+		return NextResponse.json(
+			{
+				error:
+					"countryCode on each hotel must match TboCity.countryCode for that cityCode",
+				mismatches: countryMismatches.slice(0, 25),
+			},
+			{ status: 400 },
+		);
+	}
+
+	if (body.validateSupplier === true) {
+		const chunkSize = 5;
+		const supplierMismatches: { tjHotelId: string; reason: string }[] = [];
+		for (let i = 0; i < hotels.length; i += chunkSize) {
+			const chunk = hotels.slice(i, i + chunkSize);
+			const chunkResults = await Promise.all(
+				chunk.map(async (h) => {
+					try {
+						const d = await getTripjackHotelStaticDetail(h.tjHotelId);
+						const sc = d.data.locale?.address?.countrycode
+							?.trim()
+							.toUpperCase();
+						if (
+							sc &&
+							sc.length === 2 &&
+							sc !== h.countryCode.toUpperCase()
+						) {
+							return {
+								tjHotelId: h.tjHotelId,
+								reason: `static-detail country ${sc} vs payload ${h.countryCode}`,
+							};
+						}
+						return null;
+					} catch (e) {
+						return {
+							tjHotelId: h.tjHotelId,
+							reason:
+								e instanceof Error ? e.message : "static-detail request failed",
+						};
+					}
+				}),
+			);
+			for (const r of chunkResults) {
+				if (r) supplierMismatches.push(r);
+			}
+		}
+		if (supplierMismatches.length > 0) {
+			return NextResponse.json(
+				{
+					error: "Supplier static-detail validation failed",
+					supplierMismatches,
+				},
+				{ status: 400 },
+			);
+		}
+	}
+
 	// Upsert all hotels
 	const results = await Promise.allSettled(
 		hotels.map((h) =>
@@ -90,6 +196,7 @@ export async function POST(req: NextRequest) {
 					cityName: h.cityName,
 					countryCode: h.countryCode,
 					countryName: h.countryName,
+					isActive: true,
 					...(h.latitude !== undefined && { latitude: h.latitude }),
 					...(h.longitude !== undefined && { longitude: h.longitude }),
 					...(h.hotelRating !== undefined && { hotelRating: h.hotelRating }),
@@ -106,6 +213,7 @@ export async function POST(req: NextRequest) {
 					longitude: h.longitude,
 					hotelRating: h.hotelRating,
 					address: h.address,
+					isActive: true,
 				},
 			}),
 		),
@@ -133,13 +241,24 @@ export async function GET(req: NextRequest) {
 	const cityCode = searchParams.get("cityCode");
 
 	if (cityCode) {
-		const count = await prisma.tripjackHotel.count({ where: { cityCode } });
-		const sample = await prisma.tripjackHotel.findMany({
-			where: { cityCode },
-			take: 5,
-			select: { tjHotelId: true, hotelName: true },
+		const [count, tjRows] = await Promise.all([
+			prisma.tripjackHotel.count({ where: { cityCode } }),
+			prisma.tripjackHotel.findMany({
+				where: { cityCode },
+				select: { tjHotelId: true, hotelName: true, isActive: true },
+			}),
+		]);
+		const countActive = tjRows.filter((r) => isTripjackHotelRowActive(r.isActive))
+			.length;
+		const sample = tjRows.slice(0, 5);
+		return NextResponse.json({
+			cityCode,
+			/** All rows for this TBO cityCode (includes inactive). */
+			count,
+			/** Rows counted as active for unified search (explicit false only = inactive). */
+			countActive,
+			sample,
 		});
-		return NextResponse.json({ cityCode, count, sample });
 	}
 
 	const total = await prisma.tripjackHotel.count();
@@ -165,7 +284,10 @@ export async function GET(req: NextRequest) {
  *
  * Syncs hotels directly from TripJack's static hotels API.
  * Supports full sync and incremental sync (via lastUpdateTime).
- * Also removes deleted hotels.
+ * Deleted hotels from TripJack are **soft-deactivated** (`isActive: false`) so they drop out of search.
+ *
+ * Recommended cadence (per supplier guidance): run full/incremental static sync on a schedule
+ * (e.g. weekly cron) and pass `lastUpdateTime` for incremental updates between full runs.
  *
  * Body:
  * {
@@ -202,13 +324,14 @@ export async function PUT(req: NextRequest) {
 
 			if (result.hotelOpInfos && result.hotelOpInfos.length > 0) {
 				const ops = await Promise.allSettled(
-					result.hotelOpInfos.map((h) =>
-						prisma.tripjackHotel.upsert({
+					result.hotelOpInfos.map((h) => {
+						const cityCode = resolveTboCityCodeFromStaticHotel(h);
+						return prisma.tripjackHotel.upsert({
 							where: { tjHotelId: h.tjHotelId },
 							update: {
 								hotelName: h.name,
-								...(h.address?.city?.name && { cityName: h.address.city.name }),
-								...(h.address?.city?.code && { cityCode: h.address.city.code }),
+								cityCode,
+								cityName: h.cityName || h.address?.city?.name || "",
 								...(h.address?.country?.code && {
 									countryCode: h.address.country.code,
 								}),
@@ -219,11 +342,12 @@ export async function PUT(req: NextRequest) {
 									hotelRating: String(h.rating),
 								}),
 								...(h.address?.adr && { address: h.address.adr }),
+								isActive: true,
 							},
 							create: {
 								tjHotelId: h.tjHotelId,
 								hotelName: h.name,
-								cityCode: h.address?.city?.code || "",
+								cityCode,
 								cityName: h.cityName || h.address?.city?.name || "",
 								countryCode: h.address?.country?.code || "",
 								countryName: h.countryName || h.address?.country?.name || "",
@@ -232,9 +356,10 @@ export async function PUT(req: NextRequest) {
 								hotelRating:
 									h.rating !== undefined ? String(h.rating) : undefined,
 								address: h.address?.adr,
+								isActive: true,
 							},
-						}),
-					),
+						});
+					}),
 				);
 				totalUpserted += ops.filter((r) => r.status === "fulfilled").length;
 			}
@@ -256,10 +381,11 @@ export async function PUT(req: NextRequest) {
 
 				if (delResult.hotelOpInfos && delResult.hotelOpInfos.length > 0) {
 					const ids = delResult.hotelOpInfos.map((h) => h.tjHotelId);
-					const deleteResult = await prisma.tripjackHotel.deleteMany({
+					const updateResult = await prisma.tripjackHotel.updateMany({
 						where: { tjHotelId: { in: ids } },
+						data: { isActive: false },
 					});
-					totalDeleted += deleteResult.count;
+					totalDeleted += updateResult.count;
 				}
 
 				delNext = delResult.next;

@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { mergeMyTripBookings } from "@/lib/myTripsBookings";
 import prisma from "@/lib/prisma";
 
 /** Valid 24-char hex MongoDB ObjectId (optional guard) */
@@ -17,11 +18,18 @@ export async function GET() {
 				{ status: 401 }
 			);
 		}
-		const bookings = await prisma.travelBooking.findMany({
-			where: { userId },
-			include: { destination: true },
-		});
-		return Response.json(bookings);
+		const [travelBookings, hotelBookings] = await Promise.all([
+			prisma.travelBooking.findMany({
+				where: { userId },
+				include: { destination: true },
+			}),
+			prisma.hotelBooking.findMany({
+				where: { userId },
+				orderBy: { createdAt: "desc" },
+			}),
+		]);
+
+		return Response.json(mergeMyTripBookings(travelBookings, hotelBookings));
 	} catch (error) {
 		console.error("GET /api/bookings error:", error);
 		return Response.json(

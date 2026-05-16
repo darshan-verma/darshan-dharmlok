@@ -809,6 +809,8 @@ model TravelBooking {
   // TripJack flight (`/oms/v1/air/book` bookingId — same as review bookingId)
   tripjackBookingId  String?  @unique
   tripjackAirlinePnr String?   // Snapshot when known (optional)
+  /// Supplier response snapshot (e.g. TripJack cab `/cabs/v2/booking` `data` object)
+  bookingSnapshot    Json?
 
   destination   Destination? @relation(fields: [destinationId], references: [id])
   user          User        @relation(fields: [userId], references: [id])
@@ -920,27 +922,61 @@ model TboHotel {
   @@index([countryCode, cityName])
 }
 
+// Canonical city for multi-supplier hotel discovery (distinct from package `Destination`)
+model HotelInventoryDestination {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  name           String
+  country        String
+  state          String?
+  normalizedName String
+  latitude       String?
+  longitude      String?
+  aliases        String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([normalizedName])
+  @@index([country])
+}
+
+model HotelInventoryCityMapping {
+  id                        String   @id @default(auto()) @map("_id") @db.ObjectId
+  hotelInventoryDestinationId String @db.ObjectId
+  supplier                  String   // TBO | TRIPJACK
+  supplierCode              String
+  metadata                  Json?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@unique([hotelInventoryDestinationId, supplier])
+  @@index([supplier, supplierCode])
+}
+
 // Hotel model - Hotels from TripJack with TripJack hotel IDs
 model TripjackHotel {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  tjHotelId    String   @unique   // TripJack hotel identifier (tjHotelId)
-  hotelName    String
-  cityCode     String              // TBO-compatible city code for cross-reference
-  cityName     String
-  countryCode  String
-  countryName  String
-  latitude     String?
-  longitude    String?
-  hotelRating  String?
-  address      String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                          String   @id @default(auto()) @map("_id") @db.ObjectId
+  tjHotelId                   String   @unique   // TripJack hotel identifier (tjHotelId)
+  hotelName                   String
+  cityCode                    String              // TBO-compatible city code for cross-reference
+  cityName                    String
+  countryCode                 String
+  countryName                 String
+  latitude                    String?
+  longitude                   String?
+  hotelRating                 String?
+  address                     String?
+  hotelInventoryDestinationId String?  @db.ObjectId
+  isActive                    Boolean  @default(true)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
 
   @@index([hotelName])
   @@index([cityCode])
   @@index([countryCode])
   @@index([cityCode, hotelName])
   @@index([countryCode, cityName])
+  @@index([hotelInventoryDestinationId])
+  @@index([isActive])
 }
 
 // Unified search index for fast autocomplete searches
@@ -1026,4 +1062,64 @@ model BookingAuditSnapshot {
   @@index([createdAt])
   @@index([bookingId, createdAt])
   @@index([traceId, createdAt])
+}
+
+// Daily Suvichar — reusable quote texts
+model SuvicharText {
+    id            String   @id @default(auto()) @map("_id") @db.ObjectId
+    title         String
+    slug          String   @unique
+    blocknoteJson String
+    plainText     String
+    language      String   @default("hi")
+    status        String   @default("active") // active | inactive
+    createdBy     String?  @db.ObjectId
+    createdAt     DateTime @default(now())
+    updatedAt     DateTime @updatedAt
+
+    dailySuvichars DailySuvichar[]
+
+    @@index([status])
+    @@index([language])
+}
+
+// Daily Suvichar — frame templates
+model SuvicharFrame {
+    id               String   @id @default(auto()) @map("_id") @db.ObjectId
+    name             String
+    imageUrl         String
+    thumbnailUrl     String?
+    width            Int      @default(1080)
+    height           Int      @default(1080)
+    safeAreaX        Int      @default(120)
+    safeAreaY        Int      @default(220)
+    safeAreaWidth    Int      @default(840)
+    safeAreaHeight   Int      @default(560)
+    defaultTextColor String   @default("#1a1a1a")
+    defaultFontSize  Int      @default(32)
+    defaultTextAlign String   @default("center")
+    status           String   @default("active")
+    createdAt        DateTime @default(now())
+    updatedAt        DateTime @updatedAt
+
+    dailySuvichars DailySuvichar[]
+}
+
+// Daily Suvichar — published schedule (one per calendar day)
+model DailySuvichar {
+    id             String       @id @default(auto()) @map("_id") @db.ObjectId
+    suvicharTextId String       @db.ObjectId
+    frameId        String       @db.ObjectId
+    suvicharText   SuvicharText @relation(fields: [suvicharTextId], references: [id])
+    frame          SuvicharFrame @relation(fields: [frameId], references: [id])
+    scheduledDate  String       // YYYY-MM-DD (Asia/Kolkata)
+    status         String       @default("draft") // draft | scheduled | published | expired
+    textStyleOverrides Json?    // manual typography tweaks layered on auto-fit
+    publishedAt    DateTime?
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+
+    @@unique([scheduledDate])
+    @@index([status])
+    @@index([scheduledDate, status])
 }

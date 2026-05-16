@@ -32,6 +32,7 @@ const TERMINAL_STATUSES = new Set([
 	"ABORTED",
 	"FAILED",
 	"CANCELLED",
+	"CANCELLATION_PENDING",
 ]);
 
 const PENDING_STATUSES = new Set([
@@ -82,6 +83,8 @@ function ConfirmationContent() {
 	const hotelName = searchParams.get("hotelName") || "";
 	const checkIn = searchParams.get("checkIn") || "";
 	const checkOut = searchParams.get("checkOut") || "";
+	const source = searchParams.get("source") || "TRIPJACK";
+	const isTboBooking = source === "TBO";
 
 	const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(
 		null,
@@ -124,6 +127,11 @@ function ConfirmationContent() {
 			return;
 		}
 
+		if (isTboBooking) {
+			setBookingStatus("SUCCESS");
+			return;
+		}
+
 		pollStartRef.current = Date.now();
 
 		const poll = async () => {
@@ -136,6 +144,8 @@ function ConfirmationContent() {
 				if (timerRef.current) clearInterval(timerRef.current);
 				return;
 			}
+
+			if (status) setBookingStatus(status);
 
 			if (elapsed >= MAX_POLL_DURATION_MS) {
 				setBookingStatus("TIMEOUT");
@@ -153,11 +163,47 @@ function ConfirmationContent() {
 		return () => {
 			if (timerRef.current) clearInterval(timerRef.current);
 		};
-	}, [bookingId, fetchDetails]);
+	}, [bookingId, fetchDetails, isTboBooking]);
 
 	const orderStatus = bookingDetails?.order?.status;
 	const hotelInfo = bookingDetails?.itemInfos?.HOTEL?.hInfo;
 	const displayName = hotelInfo?.name || hotelName;
+
+	if (isTboBooking && bookingStatus === "SUCCESS") {
+		return (
+			<div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+				<Card className="max-w-lg w-full">
+					<CardContent className="p-8 text-center space-y-6">
+						<CheckCircle className="w-14 h-14 text-green-600 mx-auto" />
+						<div>
+							<h2 className="text-xl font-bold text-gray-900 mb-2">
+								Guest details received
+							</h2>
+							<p className="text-gray-600">
+								We have saved your guest information for{" "}
+								{displayName || "your hotel"}. Our team will complete the TBO
+								booking and contact you shortly.
+							</p>
+							{checkIn && checkOut && (
+								<p className="text-sm text-gray-500 mt-3">
+									{checkIn} → {checkOut}
+								</p>
+							)}
+							<p className="text-xs text-gray-400 mt-2">
+								Reference: {bookingId}
+							</p>
+						</div>
+						<Button
+							className="w-full"
+							onClick={() => router.push("/travel-portal/hotel-search")}
+						>
+							Search more hotels
+						</Button>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
 
 	// Polling state
 	if (bookingStatus === "POLLING" || PENDING_STATUSES.has(bookingStatus)) {
@@ -386,6 +432,49 @@ function ConfirmationContent() {
 						</Button>
 					</div>
 				</div>
+			</div>
+		);
+	}
+
+	// CANCELLATION_PENDING — supplier processing offline (doc: poll daily)
+	if (bookingStatus === "CANCELLATION_PENDING") {
+		return (
+			<div className="min-h-screen bg-gray-50 flex items-center justify-center">
+				<Card className="max-w-lg w-full mx-4">
+					<CardContent className="p-8 text-center space-y-6">
+						<Clock className="w-16 h-16 text-amber-500 mx-auto" />
+						<div>
+							<h2 className="text-xl font-bold text-gray-900 mb-2">
+								Cancellation In Progress
+							</h2>
+							<p className="text-gray-600">
+								Your cancellation request has been received and is being
+								processed. This can take some time — check back later or use
+								Manage Booking.
+							</p>
+						</div>
+						{bookingId && (
+							<p className="text-sm text-gray-500">
+								Booking ID: <span className="font-mono">{bookingId}</span>
+							</p>
+						)}
+						<div className="flex gap-4 justify-center">
+							<Button
+								variant="outline"
+								onClick={() =>
+									router.push(
+										`/travel-portal/hotel-booking-manage?bookingId=${encodeURIComponent(bookingId)}`,
+									)
+								}
+							>
+								Manage Booking
+							</Button>
+							<Button onClick={() => router.push("/travel-portal/hotel-search")}>
+								Search Hotels
+							</Button>
+						</div>
+					</CardContent>
+				</Card>
 			</div>
 		);
 	}

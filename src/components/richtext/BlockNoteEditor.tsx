@@ -46,7 +46,10 @@ const BlockNoteEditorComponent = forwardRef<
 		if (!content) return undefined;
 		try {
 			const parsed = JSON.parse(content);
-			return Array.isArray(parsed) ? parsed : undefined;
+			if (!Array.isArray(parsed) || parsed.length === 0) {
+				return undefined;
+			}
+			return parsed;
 		} catch {
 			return undefined;
 		}

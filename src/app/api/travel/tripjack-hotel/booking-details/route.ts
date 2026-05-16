@@ -3,14 +3,6 @@ import { getTripjackHotelBookingDetails } from "@/lib/tripjackClient";
 import { resolveTripjackError } from "@/lib/tripjackError";
 import prisma from "@/lib/prisma";
 
-const TERMINAL_STATUSES = new Set([
-	"SUCCESS",
-	"ON_HOLD",
-	"ABORTED",
-	"FAILED",
-	"CANCELLED",
-]);
-
 export async function POST(req: NextRequest) {
 	let body: Record<string, unknown>;
 	try {
@@ -31,15 +23,15 @@ export async function POST(req: NextRequest) {
 			body.bookingId as string,
 		);
 
-		// Sync terminal status to DB
+		// Sync TripJack order status to DB whenever we have a row for this bookingId
 		const orderStatus = result.order?.status;
-		if (orderStatus && TERMINAL_STATUSES.has(orderStatus)) {
+		if (orderStatus) {
 			try {
 				const updateData: Record<string, unknown> = {
 					status: orderStatus,
 					updatedAt: new Date(),
 				};
-				if (orderStatus === "SUCCESS" && result.order?.amount) {
+				if (orderStatus === "SUCCESS" && result.order?.amount != null) {
 					updateData.totalAmount = result.order.amount;
 				}
 				await prisma.hotelBooking.updateMany({

@@ -31,7 +31,6 @@ import type {
 	TripjackDeletedHotelsResponse,
 	TripjackEmbeddedBookingRequest,
 	TripjackEmbeddedBookingResponse,
-	TripjackErrorPayload,
 	TripjackGetAmendmentChargesResponse,
 	TripjackHotelBookRequest,
 	TripjackHotelBookResponse,
@@ -54,9 +53,20 @@ import type {
 	TripjackPaymentResponse,
 	TripjackQuoteRequest,
 	TripjackQuoteResponse,
+	TripjackFetchCityRegionIdsResponse,
+	TripjackFetchDeletedHotelMappingRequest,
+	TripjackFetchDeletedHotelMappingResponse,
+	TripjackFetchHotelContentRequest,
+	TripjackFetchHotelContentResponse,
+	TripjackFetchHotelCountriesResponse,
+	TripjackFetchHotelMappingRequest,
+	TripjackFetchHotelMappingResponse,
+	TripjackFetchHotelMappingSyncRequest,
+	TripjackFetchHotelMappingSyncResponse,
 	TripjackStaticHotelsRequest,
 	TripjackStaticHotelsResponse,
 } from "@/types/tripjack";
+import { extractTripjackProviderMessage } from "@/lib/tripjackError";
 import {
 	normalizeTripjackStaticDetail,
 	type TripjackStaticDetailNormalizeResult,
@@ -94,6 +104,10 @@ export interface TripjackRequestConfig {
 	method?: "GET" | "POST" | "PUT" | "DELETE";
 	body?: unknown;
 	headers?: Record<string, string>;
+	/** Abort outgoing HTTP if TripJack does not respond in time (ms). */
+	timeoutMs?: number;
+	/** Optional caller signal (combined with timeout when both set). */
+	signal?: AbortSignal;
 }
 
 export class TripjackApiError extends Error {
@@ -180,7 +194,7 @@ function buildTripjackUrl(endpoint: string): string {
 	return `${base}${path}`;
 }
 
-const RETRYABLE_STATUS = new Set([503]);
+const RETRYABLE_STATUS = new Set([502, 503, 504]);
 const MAX_RETRIES = 3;
 const BACKOFF_MS = [1000, 2000, 4000];
 
@@ -188,10 +202,37 @@ async function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function combineAbortSignals(
+	user: AbortSignal | undefined,
+	timeoutMs: number,
+): { signal: AbortSignal; cleanup: () => void } {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	const onUserAbort = () => controller.abort();
+	if (user) {
+		if (user.aborted) controller.abort();
+		else user.addEventListener("abort", onUserAbort, { once: true });
+	}
+	return {
+		signal: controller.signal,
+		cleanup: () => {
+			clearTimeout(timer);
+			user?.removeEventListener("abort", onUserAbort);
+		},
+	};
+}
+
 export async function tripjackRequest<T = unknown>(
 	config: TripjackRequestConfig,
 ): Promise<T> {
-	const { endpoint, method = "POST", body, headers = {} } = config;
+	const {
+		endpoint,
+		method = "POST",
+		body,
+		headers = {},
+		timeoutMs: configTimeoutMs,
+		signal: userSignal,
+	} = config;
 	ensureTripjackConfig(endpoint);
 	const url = buildTripjackUrl(endpoint);
 
@@ -201,19 +242,59 @@ export async function tripjackRequest<T = unknown>(
 		...headers,
 	};
 
-	const requestOptions: RequestInit = {
-		method,
-		headers: baseHeaders,
-	};
-
-	if (body && (method === "POST" || method === "PUT")) {
-		requestOptions.body = JSON.stringify(body);
-	}
+	const bodyPayload =
+		body && (method === "POST" || method === "PUT")
+			? JSON.stringify(body)
+			: undefined;
 
 	let lastError: TripjackApiError | null = null;
 
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-		const response = await fetch(url, requestOptions);
+		if (userSignal?.aborted) {
+			throw new DOMException("Aborted", "AbortError");
+		}
+
+		let timeoutCleanup: (() => void) | undefined;
+		const signal =
+			configTimeoutMs != null && configTimeoutMs > 0
+				? (() => {
+						const { signal: s, cleanup } = combineAbortSignals(
+							userSignal,
+							configTimeoutMs,
+						);
+						timeoutCleanup = cleanup;
+						return s;
+					})()
+				: userSignal;
+
+		const requestOptions: RequestInit = {
+			method,
+			headers: baseHeaders,
+			...(bodyPayload !== undefined ? { body: bodyPayload } : {}),
+			...(signal ? { signal } : {}),
+		};
+
+		let response: Response;
+		try {
+			response = await fetch(url, requestOptions);
+		} catch (e) {
+			timeoutCleanup?.();
+			const isAbort =
+				e instanceof Error &&
+				(e.name === "AbortError" || e.message === "This operation was aborted");
+			if (isAbort && attempt < MAX_RETRIES && !userSignal?.aborted) {
+				const delay = BACKOFF_MS[attempt] || 4000;
+				console.warn(
+					`[TripJack] fetch aborted/timeout on ${endpoint}, retry ${attempt + 1}/${MAX_RETRIES} in ${delay}ms`,
+				);
+				await sleep(delay);
+				continue;
+			}
+			throw e;
+		} finally {
+			timeoutCleanup?.();
+		}
+
 		const rawBody = await response.text();
 
 		let parsedBody: unknown;
@@ -227,13 +308,10 @@ export async function tripjackRequest<T = unknown>(
 			return parsedBody as T;
 		}
 
-		const payload = parsedBody as TripjackErrorPayload;
-		const providerMessage =
-			payload?.message ||
-			(typeof payload?.error === "string"
-				? payload.error
-				: payload?.error?.message) ||
-			`TripJack API request failed with status ${response.status}`;
+		const providerMessage = extractTripjackProviderMessage(
+			parsedBody,
+			response.status,
+		);
 
 		// 403/401: almost always key, base URL, or IP allowlist — log body snippet when empty/non-JSON
 		if (response.status === 403 || response.status === 401) {
@@ -268,7 +346,7 @@ export async function tripjackRequest<T = unknown>(
 			break;
 		}
 
-		// 503 Supplier Unavailable — exponential backoff, max 3 retries
+		// 502/503/504 — exponential backoff, max 3 retries
 		if (RETRYABLE_STATUS.has(response.status) && attempt < MAX_RETRIES) {
 			const delay = BACKOFF_MS[attempt] || 4000;
 			console.warn(
@@ -519,13 +597,25 @@ export async function createTripjackEmbeddedBooking(
 	});
 }
 
+const TRIPJACK_LISTING_PROVIDER_TIMEOUT_MS = 120_000;
+/** HTTP layer slightly longer than TripJack `timeoutMs` so the supplier can finish. */
+const TRIPJACK_LISTING_HTTP_TIMEOUT_MS = TRIPJACK_LISTING_PROVIDER_TIMEOUT_MS + 15_000;
+
 export async function getTripjackHotelListing(
 	payload: TripjackHotelListingRequest,
 ): Promise<TripjackHotelListingResponse> {
+	const body: TripjackHotelListingRequest = {
+		...payload,
+		timeoutMs: payload.timeoutMs ?? TRIPJACK_LISTING_PROVIDER_TIMEOUT_MS,
+	};
 	return tripjackRequest<TripjackHotelListingResponse>({
 		endpoint: "/hms/v3/hotel/listing",
 		method: "POST",
-		body: payload,
+		body,
+		timeoutMs: Math.max(
+			TRIPJACK_LISTING_HTTP_TIMEOUT_MS,
+			(body.timeoutMs ?? 0) + 15_000,
+		),
 	});
 }
 
@@ -591,11 +681,15 @@ export async function getTripjackHotelStaticDetail(
 		});
 	};
 
+	const STATIC_DETAIL_HTTP_MS = 90_000;
+
 	const fetchFromBase = async (base: string): Promise<unknown> => {
+		const body = /^\d+$/.test(hid) ? { hid: Number(hid) } : { hid };
 		const payload = await tripjackRequest<unknown>({
 			endpoint: `${base}/hms/v3/hotel/static-detail`,
 			method: "POST",
-			body: { hid },
+			body,
+			timeoutMs: STATIC_DETAIL_HTTP_MS,
 		});
 		const embeddedError = parseEmbeddedProviderError(payload);
 		if (embeddedError) throw embeddedError;
@@ -606,11 +700,11 @@ export async function getTripjackHotelStaticDetail(
 		const raw = await fetchFromBase(staticBase);
 		return normalizeTripjackStaticDetail(raw, hid);
 	} catch (err) {
-		// Some keys are authorized on apitest-hms but denied on apitest static host.
-		// If static host fails with 403, retry once on the primary API host.
+		// Static catalog host vs HMS host: 403/404 on one base often succeeds on the other
+		// (keys, allowlists, or hotel coverage differ between TRIPJACK_STATIC_API_URL and TRIPJACK_API_URL).
 		if (
 			err instanceof TripjackApiError &&
-			err.status === 403 &&
+			(err.status === 403 || err.status === 404) &&
 			staticBase !== apiBase &&
 			apiBase
 		) {
@@ -690,5 +784,92 @@ export async function fetchTripjackDeletedHotels(payload: {
 		endpoint: `${base}/hms/v3/fetch-static-hotels/deleted`,
 		method: "POST",
 		body: payload,
+	});
+}
+
+function tripjackHmsStaticBaseUrl(): string {
+	return (TRIPJACK_STATIC_API_URL || TRIPJACK_API_URL).replace(/\/$/, "");
+}
+
+/** v3 static content layer — same host as nationality-info / fetch-static-hotels. */
+export async function fetchTripjackHotelContentMapping(
+	payload: TripjackFetchHotelMappingRequest,
+): Promise<TripjackFetchHotelMappingResponse> {
+	const base = tripjackHmsStaticBaseUrl();
+	return tripjackRequest<TripjackFetchHotelMappingResponse>({
+		endpoint: `${base}/hms/v3/content/fetch-hotel-mapping`,
+		method: "POST",
+		body: payload,
+		timeoutMs: 120_000,
+	});
+}
+
+export async function fetchTripjackHotelContentBatch(
+	payload: TripjackFetchHotelContentRequest,
+): Promise<TripjackFetchHotelContentResponse> {
+	const base = tripjackHmsStaticBaseUrl();
+	return tripjackRequest<TripjackFetchHotelContentResponse>({
+		endpoint: `${base}/hms/v3/content/fetch-hotel-content`,
+		method: "POST",
+		body: payload,
+		timeoutMs: 120_000,
+	});
+}
+
+export async function fetchTripjackHotelContentCountries(): Promise<TripjackFetchHotelCountriesResponse> {
+	const base = tripjackHmsStaticBaseUrl();
+	return tripjackRequest<TripjackFetchHotelCountriesResponse>({
+		endpoint: `${base}/hms/v3/content/fetch-countries`,
+		method: "GET",
+		timeoutMs: 60_000,
+	});
+}
+
+export async function fetchTripjackHotelCityRegionIds(params: {
+	limit: number;
+	cursor?: string;
+}): Promise<TripjackFetchCityRegionIdsResponse> {
+	const base = tripjackHmsStaticBaseUrl();
+	const q = new URLSearchParams();
+	q.set("limit", String(params.limit));
+	if (params.cursor) q.set("cursor", params.cursor);
+	return tripjackRequest<TripjackFetchCityRegionIdsResponse>({
+		endpoint: `${base}/hms/v3/content/fetch-city-regionIds?${q.toString()}`,
+		method: "GET",
+		timeoutMs: 120_000,
+	});
+}
+
+export async function fetchTripjackHotelMappingSync(
+	payload: TripjackFetchHotelMappingSyncRequest,
+	page?: number,
+): Promise<TripjackFetchHotelMappingSyncResponse> {
+	const base = tripjackHmsStaticBaseUrl();
+	const suffix =
+		page !== undefined && Number.isFinite(page)
+			? `?page=${encodeURIComponent(String(page))}`
+			: "";
+	return tripjackRequest<TripjackFetchHotelMappingSyncResponse>({
+		endpoint: `${base}/hms/v3/content/fetch-hotel-mapping-sync${suffix}`,
+		method: "POST",
+		body: payload,
+		timeoutMs: 120_000,
+	});
+}
+
+export async function fetchTripjackDeletedHotelMappingSync(
+	payload: TripjackFetchDeletedHotelMappingRequest,
+	page?: number,
+): Promise<TripjackFetchDeletedHotelMappingResponse> {
+	const base = tripjackHmsStaticBaseUrl();
+	const suffix =
+		page !== undefined && Number.isFinite(page)
+			? `?page=${encodeURIComponent(String(page))}`
+			: "";
+	return tripjackRequest<TripjackFetchDeletedHotelMappingResponse>({
+		endpoint: `${base}/hms/v3/content/fetch-deleted-hotel-mapping${suffix}`,
+		method: "POST",
+		body: payload,
+		timeoutMs: 120_000,
 	});
 }

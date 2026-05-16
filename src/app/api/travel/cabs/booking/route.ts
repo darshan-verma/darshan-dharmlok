@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createTripjackBooking } from "@/lib/tripjackClient";
-import type { TripjackBookingRequest } from "@/types/tripjack";
+import { normalizeTripjackCabBookingPayload } from "@/lib/tripjackCabBookingNormalize";
+import type {
+	TripjackBookingRequest,
+	TripjackCabBookingSnapshot,
+} from "@/types/tripjack";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import {
@@ -9,6 +13,7 @@ import {
 	logTravelActivity,
 } from "@/lib/travelLogger";
 import { resolveTripjackError } from "@/lib/tripjackError";
+import { saveTripjackCabTravelBooking } from "@/lib/saveTripjackCabTravelBooking";
 
 function isNonEmptyString(value: unknown): value is string {
 	return typeof value === "string" && value.trim().length > 0;
@@ -122,12 +127,32 @@ export async function POST(request: NextRequest) {
 		}
 
 		const result = await createTripjackBooking(
-			body as unknown as TripjackBookingRequest,
+			normalizeTripjackCabBookingPayload(
+				body as unknown as TripjackBookingRequest,
+			),
 		);
 
+		const session = await getServerSession(authOptions);
+		const userId = session?.user?.id;
+		let travelBookingId: string | undefined;
+
+		if (userId) {
+			try {
+				const saved = await saveTripjackCabTravelBooking({
+					userId,
+					data: result.data as TripjackCabBookingSnapshot,
+				});
+				if (saved.ok) {
+					travelBookingId = saved.bookingId;
+				} else {
+					console.warn("TripJack cab booking not saved to My Trips:", saved.error);
+				}
+			} catch (error) {
+				console.warn("Failed to persist cab booking for My Trips", error);
+			}
+		}
+
 		try {
-			const session = await getServerSession(authOptions);
-			const userId = session?.user?.id;
 			const userEmail = session?.user?.email || undefined;
 			const userName = session?.user?.name || undefined;
 			const quotationInfo = body.quotationInfo as Record<string, unknown>;
@@ -148,6 +173,7 @@ export async function POST(request: NextRequest) {
 					vendorId: quotationInfo.vendorId,
 					status: result?.data?.status,
 					trackingLink: result?.data?.trackingLink,
+					travelBookingId,
 				},
 				ipAddress: getIpAddress(request),
 				userAgent: getUserAgent(request),
@@ -160,6 +186,7 @@ export async function POST(request: NextRequest) {
 			success: true,
 			data: result.data,
 			message: result.message,
+			travelBookingId,
 		});
 	} catch (error) {
 		console.error("TripJack booking error:", error);

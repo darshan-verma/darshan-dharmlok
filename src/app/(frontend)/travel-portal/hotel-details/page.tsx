@@ -33,6 +33,7 @@ import type {
 	TripjackHotelPricingOption,
 } from "@/types/tripjack";
 import { TRIPJACK_HOTEL_PRICING_SESSION_KEY } from "@/lib/tripjackPricingNormalize";
+import { getTripjackGuestNationalityCountryId } from "@/lib/tripjackHotelGuestNationality";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 import { useSearchSession } from "@/hooks/useSearchSession";
 
@@ -519,7 +520,7 @@ function HotelDetailsContent() {
 						checkOut,
 						rooms: tjRooms,
 						currency: "INR",
-						nationality: "106",
+						nationality: getTripjackGuestNationalityCountryId(),
 						correlationId: pricingCorrelation,
 					}),
 				});
@@ -590,6 +591,8 @@ function HotelDetailsContent() {
 										correlationId: cidFinal,
 										checkIn,
 										checkOut,
+										nationalityCountryId:
+											getTripjackGuestNationalityCountryId(),
 									}),
 								);
 							} catch {

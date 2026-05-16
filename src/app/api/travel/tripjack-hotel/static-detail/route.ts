@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTripjackHotelStaticDetail } from "@/lib/tripjackClient";
 import { resolveTripjackError } from "@/lib/tripjackError";
+import { rewriteTripjackStaticDetailProxyImages } from "@/lib/tripjackHotelImageProxy";
 
 export async function POST(req: NextRequest) {
 	let body: Record<string, unknown>;
@@ -10,14 +11,24 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
 	}
 
-	const hid = body.hid;
+	const rawHid = body.hid;
+	const hid =
+		typeof rawHid === "string"
+			? rawHid.trim()
+			: typeof rawHid === "number" && Number.isFinite(rawHid)
+				? String(Math.trunc(rawHid))
+				: "";
 
-	if (!hid || typeof hid !== "string") {
-		return NextResponse.json({ error: "hid is required" }, { status: 400 });
+	if (!hid) {
+		return NextResponse.json(
+			{ error: "hid is required (string or numeric hotel id)" },
+			{ status: 400 },
+		);
 	}
 
 	try {
 		const { data, providerCoreMissing } = await getTripjackHotelStaticDetail(hid);
+		rewriteTripjackStaticDetailProxyImages(data);
 
 		if (process.env.NODE_ENV === "development") {
 			const sample =

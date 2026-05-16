@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,11 @@ import { toast } from "@/lib/toast";
 import type { Room } from "@/types/hotelApi";
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 import { TRIPJACK_HOTEL_PRICING_SESSION_KEY } from "@/lib/tripjackPricingNormalize";
+import { getTripjackGuestNationalityCountryId } from "@/lib/tripjackHotelGuestNationality";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 import TripjackHotelGuestForm from "@/components/travel-portal/TripjackHotelGuestForm";
+import { useTranslation } from "@/components/providers/LanguageProvider";
+import { buildRoomGuestConfig } from "@/lib/hotelGuestUtils";
 
 interface RoomData {
 	bookingCode: string;
@@ -69,6 +72,7 @@ interface PreBookResponse {
 }
 
 function HotelBookingContent() {
+	const { t } = useTranslation();
 	const searchParams = useSearchParams();
 	const router = useRouter();
 
@@ -132,10 +136,29 @@ function HotelBookingContent() {
 	} | null>(null);
 	const [showGuestForm, setShowGuestForm] = useState(false);
 	const [isBooking, setIsBooking] = useState(false);
+	const guestFormRef = useRef<HTMLDivElement>(null);
+
+	const roomCount = Math.max(1, parseInt(rooms || "1", 10) || 1);
+	const adultCount = Math.max(1, parseInt(adults || "1", 10) || 1);
+	const childCount = Math.max(0, parseInt(children || "0", 10) || 0);
+	const roomGuestConfig = buildRoomGuestConfig(
+		roomCount,
+		adultCount,
+		childCount,
+	);
+	const bookingReady = Boolean(
+		(isTripjack && tjReviewResponse) || (!isTripjack && preBookResponse),
+	);
+
+	useEffect(() => {
+		if (bookingReady) {
+			setShowGuestForm(true);
+		}
+	}, [bookingReady]);
 
 	useEffect(() => {
 		if (!bookingCode || !roomDataParam) {
-			setError("Missing booking information");
+			setError(t("hotelBooking.missingBookingInfo"));
 			setIsLoading(false);
 			return;
 		}
@@ -146,7 +169,7 @@ function HotelBookingContent() {
 			parsedRoomData = JSON.parse(decodeURIComponent(roomDataParam));
 			setRoomData(parsedRoomData);
 		} catch (_err) {
-			setError("Invalid room data");
+			setError(t("hotelBooking.invalidRoomData"));
 			setIsLoading(false);
 			return;
 		}
@@ -367,7 +390,7 @@ function HotelBookingContent() {
 						checkOut,
 						rooms: buildRoomsForPricing(),
 						currency: "INR",
-						nationality: "106",
+						nationality: getTripjackGuestNationalityCountryId(),
 						correlationId: refreshedCorrelation,
 					}),
 				});
@@ -443,14 +466,13 @@ function HotelBookingContent() {
 								bookingCode: nextOptionId,
 								name: matched?.roomInfo?.[0]?.name || prev.name,
 								totalFare:
-									typeof matched?.pricing?.totalPrice === "number"
-										? matched.pricing.totalPrice - (matched.pricing.taxes || 0)
+									typeof matched?.pricing?.basePrice === "number"
+										? matched.pricing.basePrice
 										: prev.totalFare,
 								totalTax:
-									typeof matched?.pricing?.taxes === "number"
-										? (matched.pricing.taxes || 0) +
-											(matched?.pricing?.mf || 0) +
-											(matched?.pricing?.mft || 0)
+									typeof matched?.pricing?.totalPrice === "number"
+										? matched.pricing.totalPrice -
+											(matched.pricing.basePrice || 0)
 										: prev.totalTax,
 								mealType: matched?.mealBasis || prev.mealType,
 								isRefundable:
@@ -507,7 +529,7 @@ function HotelBookingContent() {
 			if (!response.ok || !result.status?.success) {
 				const errMsg =
 					result.error ||
-					"Failed to review hotel option. It may no longer be available.";
+					t("hotelBooking.reviewUnavailable");
 				setError(errMsg);
 				setIsLoading(false);
 				return;
@@ -522,11 +544,9 @@ function HotelBookingContent() {
 					prev
 						? {
 								...prev,
-								totalFare: opt.pricing.totalPrice - opt.pricing.taxes,
+								totalFare: opt.pricing.basePrice,
 								totalTax:
-									opt.pricing.taxes +
-									(opt.pricing.mf || 0) +
-									(opt.pricing.mft || 0),
+									opt.pricing.totalPrice - (opt.pricing.basePrice || 0),
 								isRefundable: opt.cancellation.isRefundable,
 							}
 						: prev,
@@ -548,7 +568,7 @@ function HotelBookingContent() {
 		} catch (err) {
 			console.error("Error calling TripJack Review:", err);
 			setError(
-				err instanceof Error ? err.message : "Failed to review hotel option",
+				err instanceof Error ? err.message : t("hotelBooking.failedReview"),
 			);
 			setIsLoading(false);
 		}
@@ -582,7 +602,7 @@ function HotelBookingContent() {
 			const result = await response.json();
 
 			if (!result.success) {
-				setError(result.error || "Failed to prebook room");
+				setError(result.error || t("hotelBooking.failedPrebook"));
 				setIsLoading(false);
 				return;
 			}
@@ -621,12 +641,18 @@ function HotelBookingContent() {
 			setIsLoading(false);
 		} catch (err) {
 			console.error("Error calling PreBook:", err);
-			setError(err instanceof Error ? err.message : "Failed to prebook room");
+			setError(err instanceof Error ? err.message : t("hotelBooking.failedPrebook"));
 			setIsLoading(false);
 		}
 	};
 
-	const totalPrice = roomData ? roomData.totalFare + roomData.totalTax : 0;
+	const tripjackBookAmount =
+		isTripjack && tjReviewResponse?.option?.pricing?.totalPrice != null
+			? tjReviewResponse.option.pricing.totalPrice
+			: null;
+	const totalPrice =
+		tripjackBookAmount ??
+		(roomData ? roomData.totalFare + roomData.totalTax : 0);
 
 	if (isLoading) {
 		return (
@@ -644,7 +670,7 @@ function HotelBookingContent() {
 			<div className="min-h-screen bg-gray-50 flex items-center justify-center">
 				<Card className="max-w-md">
 					<CardContent className="p-6 text-center">
-						<p className="text-red-600 mb-4">{error || "Room not found"}</p>
+						<p className="text-red-600 mb-4">{error || t("hotelBooking.roomNotFound")}</p>
 						<Button onClick={() => router.back()}>Go Back</Button>
 					</CardContent>
 				</Card>
@@ -846,7 +872,7 @@ function HotelBookingContent() {
 										<AlertDescription className="text-sm">
 											{isTripjack && tjReviewResponse
 												? `Room reviewed and confirmed. Booking ID: ${tjReviewResponse.bookingId}. Please complete guest details to proceed.`
-												: "Room has been successfully pre-booked. Please complete guest details to proceed."}
+												: t("hotelBooking.prebookSuccess")}
 										</AlertDescription>
 									</Alert>
 									{isTripjack && tjReviewResponse?.option?.compliance && (
@@ -872,23 +898,21 @@ function HotelBookingContent() {
 							</Card>
 						)}
 
-						{/* TripJack Guest Form */}
-						{showGuestForm && isTripjack && tjReviewResponse && (
+						{/* Guest details — shown after room is selected & prebook/review succeeds */}
+						{showGuestForm && bookingReady && (
+							<div ref={guestFormRef} id="hotel-guest-form" className="space-y-4">
+								<h2 className="text-xl font-bold text-gray-900">
+									Guest information
+								</h2>
+
+						{isTripjack && tjReviewResponse && (
 							<TripjackHotelGuestForm
-								rooms={(() => {
-									const roomParam = rooms ? parseInt(rooms) : 1;
-									const adultParam = adults ? parseInt(adults) : 1;
-									const childParam = children ? parseInt(children) : 0;
-									// Distribute guests across rooms
-									const perRoom = Math.floor(adultParam / roomParam);
-									const extraAdults = adultParam % roomParam;
-									const perRoomChild = Math.floor(childParam / roomParam);
-									const extraChildren = childParam % roomParam;
-									return Array.from({ length: roomParam }, (_, i) => ({
-										adults: perRoom + (i < extraAdults ? 1 : 0),
-										children: perRoomChild + (i < extraChildren ? 1 : 0),
-									}));
-								})()}
+								rooms={roomGuestConfig}
+								checkIn={checkIn}
+								checkOut={checkOut}
+								roomsCount={roomCount}
+								adultsCount={adultCount}
+								childrenCount={childCount}
 								panRequired={
 									tjReviewResponse.option?.compliance?.panRequired || false
 								}
@@ -915,7 +939,13 @@ function HotelBookingContent() {
 													roomTravellerInfo,
 													deliveryInfo,
 													...(!isHoldBooking && {
-														paymentInfos: [{ amount: totalPrice }],
+														paymentInfos: [
+															{
+																amount:
+																	tjReviewResponse.option.pricing
+																		.totalPrice,
+															},
+														],
 													}),
 													type: "HOTEL",
 													hotelMeta: {
@@ -945,14 +975,12 @@ function HotelBookingContent() {
 										const result = await response.json();
 										if (!response.ok || !result.status?.success) {
 											toast.error(
-												result.error || "Booking failed. Please try again.",
+												result.error || t("hotelBooking.bookingFailed"),
 											);
 											setIsBooking(false);
 											return;
 										}
-										toast.success(
-											"Booking submitted! Redirecting to confirmation...",
-										);
+										toast.success(t("hotelBooking.bookingSubmitted"));
 										const bookId =
 											result.bookingId || tjReviewResponse.bookingId;
 										router.push(
@@ -962,12 +990,85 @@ function HotelBookingContent() {
 										toast.error(
 											err instanceof Error
 												? err.message
-												: "Booking request failed",
+												: t("hotelBooking.bookingRequestFailed"),
 										);
 										setIsBooking(false);
 									}
 								}}
 							/>
+						)}
+
+						{!isTripjack && preBookResponse && (
+							<TripjackHotelGuestForm
+								rooms={roomGuestConfig}
+								checkIn={checkIn}
+								checkOut={checkOut}
+								roomsCount={roomCount}
+								adultsCount={adultCount}
+								childrenCount={childCount}
+								panRequired={
+									preBookResponse.ValidationInfo?.PanMandatory || false
+								}
+								passportRequired={
+									preBookResponse.ValidationInfo?.PassportMandatory || false
+								}
+								totalAmount={totalPrice}
+								currency="INR"
+								showHoldBooking={false}
+								submitLabel={t("hotelBooking.submitGuestDetails")}
+								isSubmitting={isBooking}
+								onSubmit={async ({
+									roomTravellerInfo,
+									deliveryInfo,
+								}) => {
+									setIsBooking(true);
+									try {
+										const response = await fetch("/api/travel/hotel/book", {
+											method: "POST",
+											headers: { "Content-Type": "application/json" },
+											body: JSON.stringify({
+												bookingCode,
+												roomTravellerInfo,
+												deliveryInfo,
+												hotelMeta: {
+													hotelName: hotelInfo?.name || "",
+													hotelCode: hotelCode || "",
+													checkIn,
+													checkOut,
+													rooms: roomCount,
+													adults: adultCount,
+													children: childCount,
+													totalAmount: totalPrice,
+													currency: "INR",
+													preBookSnapshot: preBookResponse,
+												},
+											}),
+										});
+										const result = await response.json();
+										if (!response.ok || !result.success) {
+											toast.error(
+												result.error ||
+													t("hotelBooking.couldNotSaveGuest"),
+											);
+											setIsBooking(false);
+											return;
+										}
+										toast.success(t("hotelBooking.guestDetailsSaved"));
+										router.push(
+											`/travel-portal/hotel-booking-confirmation?bookingId=${encodeURIComponent(result.bookingId)}&source=TBO&hotelName=${encodeURIComponent(hotelInfo?.name || "")}&checkIn=${checkIn}&checkOut=${checkOut}`,
+										);
+									} catch (err) {
+										toast.error(
+											err instanceof Error
+												? err.message
+												: t("hotelBooking.bookingRequestFailed"),
+										);
+										setIsBooking(false);
+									}
+								}}
+							/>
+						)}
+							</div>
 						)}
 					</div>
 
@@ -1074,12 +1175,23 @@ function HotelBookingContent() {
 							<Button
 								size="lg"
 								className="bg-blue-600 hover:bg-blue-700 px-6 md:px-8"
+								disabled={!bookingReady}
 								onClick={() => {
+									if (!bookingReady) return;
 									setShowGuestForm(true);
-									window.scrollTo({ top: 0, behavior: "smooth" });
+									requestAnimationFrame(() => {
+										guestFormRef.current?.scrollIntoView({
+											behavior: "smooth",
+											block: "start",
+										});
+									});
 								}}
 							>
-								Continue Booking
+								{showGuestForm && bookingReady
+									? t("hotelBooking.fillGuestDetails")
+									: bookingReady
+										? t("hotelBooking.continueToGuestDetails")
+										: t("hotelBooking.preparingBooking")}
 							</Button>
 						</div>
 					</div>
