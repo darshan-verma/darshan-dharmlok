@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Textfit } from "react-textfit";
+import { useMemo } from "react";
 import cn from "classnames";
 import { resolveSuvicharPlainText } from "@/lib/suvichar/plainText";
 import {
@@ -12,6 +11,7 @@ import {
 	type FrameTextDefaults,
 	type TextStyleOverrides,
 } from "@/lib/suvichar/textStyle";
+import { useAutoFitFontSize } from "./useAutoFitFontSize";
 
 interface SuvicharFitTextAreaProps {
 	blocknoteJson: unknown;
@@ -25,8 +25,8 @@ interface SuvicharFitTextAreaProps {
 }
 
 /**
- * Auto-fit plain quote text into the frame safe area via react-textfit (binary search).
- * Manual overrides layer on top: finalFontSize = autoFitSize * fontScale.
+ * Auto-fit plain quote text into the frame safe area.
+ * finalFontSize = autoFitFontSize * fontScale
  */
 export function SuvicharFitTextArea({
 	blocknoteJson,
@@ -64,26 +64,32 @@ export function SuvicharFitTextArea({
 		() =>
 			[
 				text,
+				safeWidth,
+				safeHeight,
 				contentWidth,
 				contentHeight,
 				style.lineHeight,
 				style.letterSpacing,
 				style.fontWeight,
 				style.textAlign,
+				style.paddingTop,
+				style.paddingRight,
+				style.paddingBottom,
+				style.paddingLeft,
+				style.widthScale,
+				style.heightScale,
 			].join("|"),
-		[text, contentWidth, contentHeight, style],
+		[text, safeWidth, safeHeight, contentWidth, contentHeight, style],
 	);
 
-	const [autoFitSize, setAutoFitSize] = useState<number | null>(null);
+	const { containerRef, textRef, autoFitFontSize } = useAutoFitFontSize({
+		text,
+		fitKey,
+		enabled: Boolean(text),
+	});
 
-	useEffect(() => {
-		setAutoFitSize(null);
-	}, [fitKey]);
-
-	const maxFont = Math.max(1, Math.floor(contentHeight));
-	const minFont = 1;
 	const displayFontSize =
-		autoFitSize != null ? autoFitSize * style.fontScale : undefined;
+		autoFitFontSize != null ? autoFitFontSize * style.fontScale : undefined;
 
 	const paragraphStyle: React.CSSProperties = {
 		color: style.textColor ?? textColor,
@@ -134,45 +140,27 @@ export function SuvicharFitTextArea({
 					overflow: "hidden",
 				}}
 			>
-				{displayFontSize != null ? (
-					<div
-						className="suvichar-textfit"
-						style={{
-							width: contentWidth,
-							height: contentHeight,
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "center",
-						}}
+				<div
+					ref={containerRef}
+					className="suvichar-textfit"
+					style={{
+						width: contentWidth,
+						height: contentHeight,
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+						overflow: "hidden",
+						visibility: autoFitFontSize != null ? "visible" : "hidden",
+					}}
+				>
+					<p
+						ref={textRef}
+						className={cn("suvichar-plain-text")}
+						style={paragraphStyle}
 					>
-						<p className={cn("suvichar-plain-text")} style={paragraphStyle}>
-							{text}
-						</p>
-					</div>
-				) : (
-					<Textfit
-						key={fitKey}
-						mode="multi"
-						min={minFont}
-						max={maxFont}
-						forceSingleModeWidth={false}
-						autoResize={false}
-						throttle={16}
-						onReady={(size) => setAutoFitSize(size)}
-						className="suvichar-textfit"
-						style={{
-							width: contentWidth,
-							height: contentHeight,
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "center",
-						}}
-					>
-						<p className={cn("suvichar-plain-text")} style={paragraphStyle}>
-							{text}
-						</p>
-					</Textfit>
-				)}
+						{text}
+					</p>
+				</div>
 			</div>
 		</div>
 	);
