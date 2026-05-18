@@ -9,6 +9,18 @@ import {
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { linkSnapshotsToBooking } from "@/lib/audit/linkSnapshots";
+import {
+	getBookTotalAmountStringFromPriceInfo,
+	getGrossAmountFromPriceInfo,
+	lookupSsrAmountFromPriceInfo,
+	normalizePriceItenaryInfo,
+	resolveBlockPNRForBook,
+	resolveFareMaskingForBook,
+	formatAiriqBookTotalAmount,
+} from "@/lib/airiqBookingHelpers";
+import { saveAiriqTravelBooking } from "@/lib/saveAiriqTravelBooking";
+import { flightLegDates, flightRouteSummary } from "@/lib/flightTripMeta";
+import type { FlightResult } from "@/types/tbo";
 import type {
 	AiriqBookingRequest,
 	AiriqBookingResponse,
@@ -28,11 +40,12 @@ interface IncomingPassenger {
 	PassportExpiry?: string;
 	PassportIssuedDate?: string;
 	PassportCountryCode?: string;
+	PassportIssueCountryCode?: string;
+	Nationality?: string;
 	AddressLine1?: string;
 	City?: string;
 	CountryCode?: string;
 	CountryName?: string;
-	Nationality?: string;
 	ContactNo?: string;
 	Email?: string;
 	IsLeadPax?: boolean;
@@ -100,6 +113,19 @@ function extractPaxRefFromKey(key: string): number {
 	return match ? parseInt(match[1], 10) + 1 : 1;
 }
 
+/** AIRiQ expects ISO 3166-1 alpha-2 (e.g. "IN"). Frontend uses PassportIssueCountryCode (TBO). */
+function resolvePassportCountryCode(p: IncomingPassenger): string {
+	const raw =
+		p.PassportCountryCode?.trim() ||
+		p.PassportIssueCountryCode?.trim() ||
+		p.Nationality?.trim() ||
+		"IN";
+	const upper = raw.toUpperCase();
+	if (/^[A-Z]{2}$/.test(upper)) return upper;
+	if (upper === "91" || upper === "+91") return "IN";
+	return upper.slice(0, 2) || "IN";
+}
+
 /**
  * Extract AirIqPNR and AirlinePNR from Booking success response (Section 9 - IssueTicket input).
  * ItinearyDetails structure may be object with PNRs or array of segments; try common paths.
@@ -141,29 +167,37 @@ export async function POST(req: NextRequest) {
 			pricingData,
 			passengers,
 			ssrData,
-			flightData: _flightData,
+			flightData,
+			returnFlightData,
 			adultCount,
 			childCount,
 			infantCount,
 			contactInfo,
 			gstInfo,
-			blockPNR,
+			blockPNR: blockPNRLegacy,
+			preferBlockPNR,
 			postAncillaryFlow,
 			tripType: incomingTripType,
 		} = body as {
 			pricingData: AiriqPricingResponse;
 			passengers: IncomingPassenger[];
 			ssrData?: SSRSelection;
-			flightData?: Record<string, unknown>;
+			flightData?: FlightResult;
+			returnFlightData?: FlightResult | null;
 			adultCount?: number;
 			childCount?: number;
 			infantCount?: number;
 			contactInfo?: ContactInfo;
 			gstInfo?: GSTInfoInput;
+			/** @deprecated Use preferBlockPNR — server resolves against Pricing AllowBlockPNR */
 			blockPNR?: boolean;
+			preferBlockPNR?: boolean;
 			postAncillaryFlow?: boolean; // when true, skip IssueTicket so frontend can do add-ons then payment
 			tripType?: string;
 		};
+
+		const preferBlock =
+			preferBlockPNR ?? blockPNRLegacy ?? false;
 
 		if (!pricingData || !passengers || passengers.length === 0) {
 			return NextResponse.json(
@@ -204,13 +238,28 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		const { blockPNR: resolvedBlockPNR, allowBlockPNR } = resolveBlockPNRForBook({
+			preferBlockPNR: preferBlock,
+			pricingData,
+		});
+
+		if (preferBlock && !allowBlockPNR) {
+			console.warn(
+				"AIRiQ Book: preferBlockPNR requested but Pricing AllowBlockPNR is not true; using BlockPNR=false (immediate ticket)."
+			);
+		}
+
 		// --- Build ItineraryFlightsInfo from pricing response ---
 		const itineraryFlightsInfo: AiriqItineraryFlightsInfo[] = [];
 
 		for (const priceInfo of priceItenaryInfo) {
+			const paymentTotal = getBookTotalAmountStringFromPriceInfo(priceInfo);
+
 			const availResponse = priceInfo.AvailabilityResponse;
 			if (!availResponse || availResponse.length === 0) {
-				console.warn("⚠️ No AvailabilityResponse in PriceItenaryInfo, trying FlightDetails fallback");
+				console.warn(
+					"⚠️ No AvailabilityResponse in PriceItenaryInfo, using FlightDetails fallback (Token may be invalid — re-run Pricing or select fare again)"
+				);
 
 				if (priceInfo.FlightDetails && priceInfo.FlightDetails.length > 0) {
 					itineraryFlightsInfo.push({
@@ -228,7 +277,7 @@ export async function POST(req: NextRequest) {
 						BaggSSRInfo: [],
 						MealsSSRInfo: [],
 						OtherSSRInfo: [],
-						PaymentInfo: [{ TotalAmount: String(priceInfo.GrossAmount || "0") }],
+						PaymentInfo: [{ TotalAmount: paymentTotal }],
 					});
 				}
 				continue;
@@ -255,7 +304,7 @@ export async function POST(req: NextRequest) {
 				BaggSSRInfo: [],
 				MealsSSRInfo: [],
 				OtherSSRInfo: [],
-				PaymentInfo: [{ TotalAmount: String(priceInfo.GrossAmount || "0") }],
+				PaymentInfo: [{ TotalAmount: paymentTotal }],
 			});
 		}
 
@@ -266,8 +315,9 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		// --- Map SSR selections into ItineraryFlightsInfo ---
-		if (ssrData) {
+		// --- Map SSR selections into ItineraryFlightsInfo (doc §8: SSR IDs + TotalAmount incl. SSR) ---
+		const pricingPiForSsr = normalizePriceItenaryInfo(pricingData)[0];
+		if (ssrData && pricingPiForSsr) {
 			let totalSSRAmount = 0;
 
 			if (ssrData.seats) {
@@ -293,7 +343,12 @@ export async function POST(req: NextRequest) {
 							BaggageID: bag.Id,
 							PaxRefNumber: paxRef,
 						});
-						totalSSRAmount += bag.Price || 0;
+						const fromPricing = lookupSsrAmountFromPriceInfo(
+							pricingPiForSsr,
+							"baggage",
+							bag.Id
+						);
+						totalSSRAmount += fromPricing > 0 ? fromPricing : bag.Price || 0;
 					}
 				}
 			}
@@ -307,7 +362,12 @@ export async function POST(req: NextRequest) {
 							MealID: meal.Id,
 							PaxRefNumber: paxRef,
 						});
-						totalSSRAmount += meal.Price || 0;
+						const fromPricing = lookupSsrAmountFromPriceInfo(
+							pricingPiForSsr,
+							"meal",
+							meal.Id
+						);
+						totalSSRAmount += fromPricing > 0 ? fromPricing : meal.Price || 0;
 					}
 				}
 			}
@@ -321,15 +381,37 @@ export async function POST(req: NextRequest) {
 							OtherSSRID: svc.Id,
 							PaxRefNumber: paxRef,
 						});
-						totalSSRAmount += svc.Price || 0;
+						const fromPricing = lookupSsrAmountFromPriceInfo(
+							pricingPiForSsr,
+							"other",
+							svc.Id
+						);
+						totalSSRAmount += fromPricing > 0 ? fromPricing : svc.Price || 0;
 					}
 				}
 			}
 
 			if (totalSSRAmount > 0 && itineraryFlightsInfo[0]?.PaymentInfo?.[0]) {
-				const baseAmount = parseFloat(itineraryFlightsInfo[0].PaymentInfo[0].TotalAmount) || 0;
-				itineraryFlightsInfo[0].PaymentInfo[0].TotalAmount = String(baseAmount + totalSSRAmount);
+				const baseAmount =
+					parseFloat(itineraryFlightsInfo[0].PaymentInfo[0].TotalAmount) || 0;
+				const { rawSample } = getGrossAmountFromPriceInfo(pricingPiForSsr);
+				itineraryFlightsInfo[0].PaymentInfo[0].TotalAmount =
+					formatAiriqBookTotalAmount(baseAmount + totalSSRAmount, rawSample);
 			}
+		}
+
+		const invalidPayment = itineraryFlightsInfo.find((it) => {
+			const amt = parseFloat(it.PaymentInfo?.[0]?.TotalAmount || "0");
+			return !amt || amt <= 0;
+		});
+		if (invalidPayment) {
+			return NextResponse.json(
+				{
+					error:
+						"Could not determine booking amount from pricing. Please go back and refresh fare details.",
+				},
+				{ status: 400 }
+			);
 		}
 
 		// --- Build PaxDetailsInfo ---
@@ -345,7 +427,7 @@ export async function POST(req: NextRequest) {
 				PassportNo: p.PassportNo || "",
 				PassportExpiry: p.PassportExpiry ? formatDateToDDMMYYYY(p.PassportExpiry) : "",
 				PassportIssuedDate: p.PassportIssuedDate ? formatDateToDDMMYYYY(p.PassportIssuedDate) : "",
-				PassportCountryCode: p.PassportCountryCode || "",
+				PassportCountryCode: resolvePassportCountryCode(p),
 				InfantRef: "",
 			})
 		);
@@ -406,6 +488,14 @@ export async function POST(req: NextRequest) {
 		const baseOrigin = firstFlightsInfo[0]?.Origin || "";
 		const baseDestination = lastFlightsInfo[lastFlightsInfo.length - 1]?.Destination || "";
 
+		const flightNumbers = itineraryFlightsInfo.flatMap((it) =>
+			(it.FlightsInfo || []).map((f) => f.FlightNumber)
+		);
+		const fareMasking = resolveFareMaskingForBook({
+			pricingData,
+			flightNumbers,
+		});
+
 		// --- Construct the full AIRiQ Book request ---
 		const bookingRequest: AiriqBookingRequest = {
 			AgentInfo: {
@@ -423,7 +513,8 @@ export async function POST(req: NextRequest) {
 			GSTInfo: gstInfoPayload,
 			FFNumberInfo: ffNumberInfo.length > 0 ? ffNumberInfo : undefined,
 			TripType: resolvedTripType,
-			BlockPNR: blockPNR ?? false,
+			BlockPNR: resolvedBlockPNR,
+			Faremasking: fareMasking,
 			BaseOrigin: baseOrigin,
 			BaseDestination: baseDestination,
 			TrackId: trackId,
@@ -462,8 +553,8 @@ export async function POST(req: NextRequest) {
 
 		// --- Ticketing (Section 9): confirm ticket for already blocked itinerary. Skip when postAncillaryFlow so frontend can add ancillaries then pay. ---
 		let ticketingResponse: Awaited<ReturnType<typeof issueTicket>> | undefined;
-		const skipIssueTicket = !!(postAncillaryFlow && (blockPNR ?? false));
-		if (isSuccess && (blockPNR ?? false) && !skipIssueTicket && agentId && airiqUserName) {
+		const skipIssueTicket = !!(postAncillaryFlow && resolvedBlockPNR);
+		if (isSuccess && resolvedBlockPNR && !skipIssueTicket && agentId && airiqUserName) {
 			const pnrs = extractPNRsFromBookingResponse(bookingResponse);
 			const totalBookingAmount = parseFloat(itineraryFlightsInfo[0]?.PaymentInfo?.[0]?.TotalAmount || "0");
 			const bookingAmount = totalBookingAmount > 0 ? totalBookingAmount.toFixed(2) : "0.00";
@@ -506,6 +597,66 @@ export async function POST(req: NextRequest) {
 			console.warn("Could not fetch session for logging:", error);
 		}
 
+		const totalAmount = parseFloat(
+			itineraryFlightsInfo[0]?.PaymentInfo?.[0]?.TotalAmount || "0"
+		);
+
+		if (userId && pnrsForMeta?.airIqPNR && (isSuccess || isPending)) {
+			const lead =
+				passengers.find((p) => p.IsLeadPax) || passengers[0];
+			const saveEmail =
+				lead?.Email?.trim() ||
+				contactInfo?.emailId?.trim() ||
+				userEmail ||
+				"";
+			const displayName = [lead?.Title, lead?.FirstName, lead?.LastName]
+				.filter(Boolean)
+				.join(" ")
+				.trim();
+			const outbound = flightData ?? null;
+			const returnFlight = returnFlightData ?? null;
+			const legDates = outbound
+				? flightLegDates(outbound, returnFlight)
+				: null;
+			const bookingStatus = isPending
+				? "PENDING"
+				: postAncillaryFlow && resolvedBlockPNR
+					? "HOLD"
+					: "CONFIRMED";
+
+			if (saveEmail) {
+			saveAiriqTravelBooking({
+				userId,
+				airIqPnr: pnrsForMeta.airIqPNR,
+				airlinePnr: pnrsForMeta.airlinePNR,
+				name:
+					displayName ||
+					`${lead?.FirstName ?? ""} ${lead?.LastName ?? ""}`.trim() ||
+					"Flight passenger",
+				email: saveEmail,
+				phone: lead?.ContactNo?.trim() || contactInfo?.contactNumber?.trim() || null,
+				leadFirstName: lead?.FirstName ?? null,
+				leadLastName: lead?.LastName ?? null,
+				routeSummary: outbound
+					? flightRouteSummary(outbound, returnFlight)
+					: baseOrigin && baseDestination
+						? `${baseOrigin} → ${baseDestination}`
+						: "Flight booking",
+				travelDate: legDates?.travelDateIso,
+				returnDate: legDates?.returnDateIso,
+				departureTime: legDates?.departureTimeLabel,
+				travelers: (adultCount || 1) + (childCount || 0) + (infantCount || 0),
+				totalAmount,
+				status: bookingStatus,
+				bookingTrackId: bookingResponse.TrackId ?? null,
+				flight: outbound,
+				returnFlight,
+			}).catch((err) => {
+				console.warn("AIRiQ booking not saved to My Trips:", err);
+			});
+			}
+		}
+
 		const flightLogData: FlightLogData = {
 			origin: baseOrigin || undefined,
 			destination: baseDestination || undefined,
@@ -518,8 +669,6 @@ export async function POST(req: NextRequest) {
 			totalFare: parseFloat(itineraryFlightsInfo[0]?.PaymentInfo?.[0]?.TotalAmount || "0") || undefined,
 			bookingStatus: isSuccess ? "success" : isPending ? "pending" : "failed",
 		};
-
-		const totalAmount = parseFloat(itineraryFlightsInfo[0]?.PaymentInfo?.[0]?.TotalAmount || "0");
 
 		if (bookingResponse.TrackId) {
 			linkSnapshotsToBooking(trackId, bookingResponse.TrackId).catch(() => {});
@@ -540,7 +689,9 @@ export async function POST(req: NextRequest) {
 			metadata: {
 				resultCode,
 				isPending,
-				isBlockPNR: blockPNR ?? false,
+				isBlockPNR: resolvedBlockPNR,
+				allowBlockPNR,
+				preferBlockPNR: preferBlock,
 			},
 			ipAddress: getIpAddress(req),
 			userAgent: getUserAgent(req),
@@ -552,8 +703,12 @@ export async function POST(req: NextRequest) {
 			_meta: {
 				isSuccess,
 				isPending,
-				isBlockPNR: blockPNR ?? false,
-				...(pnrsForMeta && (blockPNR ?? false) && {
+				isBlockPNR: resolvedBlockPNR,
+				allowBlockPNR,
+				preferBlockPNR: preferBlock,
+				postAncillarySupported: !!(postAncillaryFlow && resolvedBlockPNR),
+				fareMasking,
+				...(pnrsForMeta && {
 					pnrs: { airIqPNR: pnrsForMeta.airIqPNR, airlinePNR: pnrsForMeta.airlinePNR },
 					bookingTrackId: bookingResponse.TrackId,
 				}),

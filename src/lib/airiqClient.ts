@@ -53,7 +53,14 @@ export interface AiriqRequestConfig {
 	body?: unknown;
 	headers?: Record<string, string>;
 	skipStatusCheck?: boolean;
+	/** Default from AIRIQ_REQUEST_TIMEOUT_MS or 45s (test host is often slow). */
+	timeoutMs?: number;
 }
+
+const AIRIQ_DEFAULT_TIMEOUT_MS = Math.max(
+	15_000,
+	parseInt(process.env.AIRIQ_REQUEST_TIMEOUT_MS || "45000", 10) || 45_000
+);
 
 /**
  * Make an authenticated request to AIRiQ API
@@ -64,7 +71,14 @@ export async function airiqRequest<T = unknown>(
 	config: AiriqRequestConfig,
 	isRetry = false
 ): Promise<T> {
-	const { endpoint, method = "POST", body, headers = {}, skipStatusCheck = false } = config;
+	const {
+		endpoint,
+		method = "POST",
+		body,
+		headers = {},
+		skipStatusCheck = false,
+		timeoutMs = AIRIQ_DEFAULT_TIMEOUT_MS,
+	} = config;
 
 	try {
 		// Get valid token (from cache or by authenticating)
@@ -74,8 +88,12 @@ export async function airiqRequest<T = unknown>(
 			? endpoint
 			: `${API_BASE_URL}/${endpoint}`;
 
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
 		const requestOptions: RequestInit = {
 			method,
+			signal: controller.signal,
 			headers: {
 				"Content-Type": "application/json",
 				Authorization: AUTH_HEADER,
@@ -88,7 +106,12 @@ export async function airiqRequest<T = unknown>(
 		if (body && (method === "POST" || method === "PUT")) {
 			requestOptions.body = JSON.stringify(body);
 		}
-		const response = await fetch(url, requestOptions);
+		let response: Response;
+		try {
+			response = await fetch(url, requestOptions);
+		} finally {
+			clearTimeout(timeoutId);
+		}
 
 		console.log(
 			`📡 AIRiQ ${endpoint} Response Status:`,
@@ -189,10 +212,13 @@ export async function airiqRequest<T = unknown>(
 		const cause = error instanceof Error ? (error as Error & { cause?: { code?: string } }).cause : undefined;
 		const causeCode = cause && typeof cause === "object" && "code" in cause ? (cause as { code?: string }).code : undefined;
 		const errMessage = error instanceof Error ? error.message : String(error);
+		const isAbort =
+			error instanceof Error && error.name === "AbortError";
 		const isTimeout =
+			isAbort ||
 			causeCode === "UND_ERR_CONNECT_TIMEOUT" ||
-			/timeout|ETIMEDOUT/i.test(errMessage) ||
-			(cause && typeof cause === "object" && "message" in cause && /timeout|ETIMEDOUT/i.test(String((cause as { message?: string }).message)));
+			/timeout|ETIMEDOUT|aborted/i.test(errMessage) ||
+			(cause && typeof cause === "object" && "message" in cause && /timeout|ETIMEDOUT|aborted/i.test(String((cause as { message?: string }).message)));
 		const isNetwork =
 			isTimeout ||
 			/ECONNREFUSED|ENOTFOUND|fetch failed|network/i.test(errMessage) ||
@@ -315,6 +341,10 @@ export async function getMultiClass(
 		method: "POST",
 		body: params,
 		skipStatusCheck: true,
+		timeoutMs: Math.max(
+			AIRIQ_DEFAULT_TIMEOUT_MS,
+			parseInt(process.env.AIRIQ_MULTICLASS_TIMEOUT_MS || "60000", 10) || 60_000
+		),
 	});
 }
 
@@ -328,6 +358,10 @@ export async function getMultiClassFare(
 		endpoint: "GetMultiClassFare",
 		method: "POST",
 		body: params,
+		timeoutMs: Math.max(
+			AIRIQ_DEFAULT_TIMEOUT_MS,
+			parseInt(process.env.AIRIQ_MULTICLASS_TIMEOUT_MS || "60000", 10) || 60_000
+		),
 	});
 }
 

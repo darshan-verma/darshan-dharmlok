@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMultiClassFare } from "@/lib/airiqClient";
+import {
+	getAiriqAvailabilityTrackid,
+	isAiriqMultiClassEnabled,
+} from "@/lib/airiqBookingHelpers";
 
 type AiriqOriginalData = {
 	Trackid?: string;
@@ -69,7 +73,16 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const originalData = (flight as { _airiqOriginal?: AiriqOriginalData })?._airiqOriginal;
+		const flightWithOriginal = flight as { _airiqOriginal?: AiriqOriginalData };
+
+		if (!isAiriqMultiClassEnabled(flightWithOriginal)) {
+			return NextResponse.json(
+				{ error: "Multi-class fares are not available for this flight." },
+				{ status: 400 }
+			);
+		}
+
+		const originalData = flightWithOriginal._airiqOriginal;
 		if (!originalData?.FlightDetails?.length) {
 			return NextResponse.json(
 				{ error: "Missing original AIRiQ flight data. Please search again." },
@@ -77,9 +90,15 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const airiqTrackid = originalData.Trackid || traceId;
+		const airiqTrackid = getAiriqAvailabilityTrackid(flightWithOriginal, traceId);
+		if (!airiqTrackid) {
+			return NextResponse.json(
+				{ error: "Missing AIRiQ Availability Trackid. Please search again." },
+				{ status: 400 }
+			);
+		}
 		const { flightsInfo, tripType } = buildFlightsInfoAndTripType(
-			flight as { _airiqOriginal?: AiriqOriginalData },
+			flightWithOriginal,
 			returnFlight as { _airiqOriginal?: AiriqOriginalData } | undefined
 		);
 
@@ -95,7 +114,7 @@ export async function POST(req: NextRequest) {
 				AgentId: agentId,
 				UserName: userName,
 				AppType: "API",
-				Version: "2",
+				Version: "2.0",
 			},
 			FlightsInfo: flightsInfo,
 			ClassFare: classFare.map((c: { AirlineClass: string; SeatAvailFlag: string }) => ({

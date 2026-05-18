@@ -19,6 +19,12 @@ import type { BaggageOption } from "../components/ssr/BaggageSelection";
 import type { MealOption } from "../components/ssr/MealSelection";
 import type { SeatOption } from "../components/ssr/SeatSelection";
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
+import {
+	getAiriqAvailabilityTrackid,
+	isAiriqMultiClassEnabled,
+	mergeMulticlassFareWithPricing,
+} from "@/lib/airiqBookingHelpers";
+import { flightLegDates, flightRouteSummary } from "@/lib/flightTripMeta";
 
 interface AiriqBookingClientProps {
 	adultCount: number;
@@ -37,6 +43,57 @@ export default function AiriqBookingClient({
 	resultIndex,
 }: // isUpsellAllowed reserved for future upsell functionality
 AiriqBookingClientProps) {
+	const persistAiriqFlightToMyTrips = (
+		pnrs: { airIqPNR: string; airlinePNR: string },
+		bookingTrackId: string | undefined,
+		passengerData: PassengerDetail[],
+		opts: { status: string; totalAmount?: number }
+	) => {
+		if (!flightResult) return;
+		const lead = passengerData.find((p) => p.IsLeadPax) || passengerData[0];
+		const email = lead?.Email?.trim();
+		if (!email) return;
+		const displayName = [lead.Title, lead.FirstName, lead.LastName]
+			.filter(Boolean)
+			.join(" ")
+			.trim();
+		const { travelDateIso, returnDateIso, departureTimeLabel } = flightLegDates(
+			flightResult,
+			returnFlightResult
+		);
+		void fetch("/api/bookings/airiq-flight", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				airIqPnr: pnrs.airIqPNR,
+				airlinePnr: pnrs.airlinePNR,
+				bookingTrackId,
+				name: displayName || `${lead.FirstName} ${lead.LastName}`.trim(),
+				email,
+				phone: lead.ContactNo?.trim() || undefined,
+				leadFirstName: lead.FirstName,
+				leadLastName: lead.LastName,
+				routeSummary: flightRouteSummary(flightResult, returnFlightResult),
+				travelDate: travelDateIso,
+				returnDate: returnDateIso,
+				departureTime: departureTimeLabel,
+				travelers: adultCount + childCount + infantCount,
+				totalAmount: opts.totalAmount,
+				status: opts.status,
+				flight: flightResult,
+				returnFlight: returnFlightResult ?? undefined,
+			}),
+		})
+			.then(async (res) => {
+				if (res.status === 401) {
+					toast.info("Sign in to save this trip under My Trips.");
+				}
+			})
+			.catch(() => {
+				/* best-effort; book API also persists when signed in */
+			});
+	};
+
 	const [loading, setLoading] = useState(true);
 	const [flightResult, setFlightResult] = useState<FlightResult | null>(null);
 	const [fareRules, setFareRules] = useState<FareRuleResponse | null>(null);
@@ -334,33 +391,7 @@ AiriqBookingClientProps) {
 				}
 			}
 			const effectivePricingData = selectedMulticlassFare
-				? (() => {
-						const mc = selectedMulticlassFare;
-						if (!mc.Trackid || !mc.FlightDetails?.length || !mc.Fares?.[0]) {
-							return null;
-						}
-						const grossAmount = (mc.Fares[0].Faredescription || []).reduce(
-							(sum, p) => sum + Number(p.GrossAmount || 0),
-							0
-						);
-						return {
-							PriceItenaryInfo: [
-								{
-									Trackid: mc.Trackid,
-									FlightDetails: mc.FlightDetails.map((fd) => ({
-										FlightID: fd.FlightID,
-										FlightNumber: fd.FlightNumber,
-										Origin: fd.Origin,
-										Destination: fd.Destination,
-										DepartureDateTime: fd.DepartureDateTime,
-										ArrivalDateTime: fd.ArrivalDateTime,
-									})),
-									GrossAmount: grossAmount,
-								},
-							],
-							ResponseStatus: mc.Status,
-						} as AiriqPricingResponse;
-				  })()
+				? mergeMulticlassFareWithPricing(selectedMulticlassFare, pricingData)
 				: pricingData;
 			if (!effectivePricingData) {
 				toast.error("Pricing data is not available. Please refresh and try again.");
@@ -408,9 +439,10 @@ AiriqBookingClientProps) {
 				infantCount,
 				ssrData: selectedSSRs,
 				flightData: flightResult,
+				returnFlightData: returnFlightResult ?? undefined,
 				contactInfo,
 				gstInfo: undefined,
-				blockPNR: true,
+				preferBlockPNR: true,
 				postAncillaryFlow: true,
 				tripType,
 			};
@@ -425,10 +457,48 @@ AiriqBookingClientProps) {
 			const isSuccess = result._meta?.isSuccess;
 			const pnrs = result._meta?.pnrs as { airIqPNR: string; airlinePNR: string } | undefined;
 			const bookingTrackId = result._meta?.bookingTrackId as string | undefined;
+			const postAncillarySupported = result._meta?.postAncillarySupported === true;
+			const allowBlockPNR = result._meta?.allowBlockPNR === true;
+
 			if (!isSuccess || !pnrs || !bookingTrackId) {
 				toast.error(result.Status?.Error || "Booking could not be created");
 				return;
 			}
+
+			const offeredFare = flightResult?.Fare?.OfferedFare;
+			persistAiriqFlightToMyTrips(pnrs, bookingTrackId, passengerData, {
+				status:
+					postAncillarySupported && allowBlockPNR
+						? "HOLD"
+						: "CONFIRMED",
+				totalAmount:
+					typeof offeredFare === "number" && Number.isFinite(offeredFare)
+						? offeredFare
+						: undefined,
+			});
+
+			if (!postAncillarySupported) {
+				toast.success(
+					allowBlockPNR
+						? "Booking confirmed. Proceed to payment."
+						: "Ticket issued (hold not available for this fare). Proceed to payment."
+				);
+				try {
+					sessionStorage.setItem(
+						"airiqPostBookingContext",
+						JSON.stringify({
+							airIqPNR: pnrs.airIqPNR,
+							airlinePNR: pnrs.airlinePNR,
+							bookingTrackId,
+							traceId,
+							resultIndex,
+						})
+					);
+				} catch (_) {}
+				window.location.href = `/travel-portal/payment?traceId=${encodeURIComponent(traceId)}&resultIndex=${encodeURIComponent(resultIndex)}`;
+				return;
+			}
+
 			setPostBookingCreated({
 				airIqPNR: pnrs.airIqPNR,
 				airlinePNR: pnrs.airlinePNR,
@@ -601,7 +671,7 @@ AiriqBookingClientProps) {
 					)}
 
 					{/* 3a. Multi-class fare options - same UI style as TBO upsell cards */}
-					{flightResult && (flightResult as { _airiqOriginal?: unknown })._airiqOriginal ? (
+					{flightResult && isAiriqMultiClassEnabled(flightResult) ? (
 						<section>
 							<h3 className="text-lg font-semibold text-gray-900 mb-2">Other fare classes</h3>
 							<AiriqMultiClassCards
@@ -612,13 +682,7 @@ AiriqBookingClientProps) {
 								adultCount={adultCount}
 								childCount={childCount}
 								infantCount={infantCount}
-								pricingTrackid={
-									pricingData?.PriceItenaryInfo &&
-									Array.isArray(pricingData.PriceItenaryInfo) &&
-									pricingData.PriceItenaryInfo.length > 0
-										? pricingData.PriceItenaryInfo[0]?.Trackid
-										: null
-								}
+								availabilityTrackid={getAiriqAvailabilityTrackid(flightResult, traceId)}
 								onSelectFare={(response) => {
 									setSelectedMulticlassFare(response);
 									toast.success("Fare selected. Proceed to book below.");

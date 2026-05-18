@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMultiClass } from "@/lib/airiqClient";
+import {
+	getAiriqAvailabilityTrackid,
+	isAiriqMultiClassEnabled,
+} from "@/lib/airiqBookingHelpers";
 
 type AiriqOriginalData = {
 	Trackid?: string;
-	FlightDetails?: Array<{ FlightID: string }>;
+	FlightDetails?: Array<{ FlightID: string; MultiClass?: string }>;
 };
 
 function buildFlightsInfoAndTripType(
 	flight: { _airiqOriginal?: AiriqOriginalData },
 	returnFlight?: { _airiqOriginal?: AiriqOriginalData } | null
 ): { flightsInfo: Array<{ FlightID: string }>; tripType: string } {
-	const out = (flight._airiqOriginal?.FlightDetails || []).map((s) => ({ FlightID: s.FlightID }));
+	const out = (flight._airiqOriginal?.FlightDetails || []).map((s) => ({
+		FlightID: s.FlightID,
+	}));
 	const seen = new Set(out.map((f) => f.FlightID));
 	if (returnFlight?._airiqOriginal?.FlightDetails) {
 		for (const s of returnFlight._airiqOriginal.FlightDetails) {
@@ -43,7 +49,6 @@ export async function POST(req: NextRequest) {
 			adultCount = 1,
 			childCount = 0,
 			infantCount = 0,
-			pricingTrackid,
 		} = body;
 
 		if (!traceId || !resultIndex || !flight) {
@@ -62,7 +67,22 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const originalData = (flight as { _airiqOriginal?: AiriqOriginalData })?._airiqOriginal;
+		const flightWithOriginal = flight as { _airiqOriginal?: AiriqOriginalData };
+
+		if (!isAiriqMultiClassEnabled(flightWithOriginal)) {
+			return NextResponse.json({
+				AvailDetails: [],
+				Status: {
+					Error: "",
+					ResultCode: "1",
+					SequenceID: "",
+				},
+				_skipped: true,
+				reason: "MultiClass not enabled for this flight in Availability response",
+			});
+		}
+
+		const originalData = flightWithOriginal._airiqOriginal;
 		if (!originalData?.FlightDetails?.length) {
 			return NextResponse.json(
 				{ error: "Missing original AIRiQ flight data. Please search again." },
@@ -70,9 +90,17 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const airiqTrackid = pricingTrackid || originalData.Trackid || traceId;
+		// Doc §17.1: TrackId + FlightID must come from Availability (search), not Pricing.
+		const airiqTrackid = getAiriqAvailabilityTrackid(flightWithOriginal, traceId);
+		if (!airiqTrackid) {
+			return NextResponse.json(
+				{ error: "Missing AIRiQ Availability Trackid. Please search again." },
+				{ status: 400 }
+			);
+		}
+
 		const { flightsInfo, tripType } = buildFlightsInfoAndTripType(
-			flight as { _airiqOriginal?: AiriqOriginalData },
+			flightWithOriginal,
 			returnFlight as { _airiqOriginal?: AiriqOriginalData } | undefined
 		);
 
@@ -97,7 +125,7 @@ export async function POST(req: NextRequest) {
 				AgentId: agentId,
 				UserName: userName,
 				AppType: "API",
-				Version: "2",
+				Version: "2.0",
 			},
 			FlightsInfo: flightsInfo,
 			PassengersInfo: {
@@ -121,7 +149,6 @@ export async function POST(req: NextRequest) {
 					{ status: 400 }
 				);
 			}
-			// ResultCode 0 with empty Error and empty AvailDetails → no other fare classes
 			return NextResponse.json({
 				AvailDetails: [],
 				Status: response.Status,

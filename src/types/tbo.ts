@@ -194,6 +194,13 @@ export interface FlightResult {
 			OnlineRefundAllowed?: boolean;
 		}>
 	>;
+	/** AIRiQ search payload preserved for Pricing / GetMultiClass / seat-map APIs */
+	_airiqOriginal?: {
+		Trackid?: string;
+		FlightDetails?: Array<{ FlightID: string; MultiClass?: string; [key: string]: unknown }>;
+		Fares?: unknown;
+	};
+	_airiqSeatMapAvailable?: boolean;
 }
 
 export interface FlightSearchResponse {

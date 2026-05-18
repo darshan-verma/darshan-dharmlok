@@ -29,7 +29,8 @@ interface AiriqMultiClassCardsProps {
 	adultCount: number;
 	childCount: number;
 	infantCount: number;
-	pricingTrackid?: string | null;
+	/** Doc §17: Availability (search) Trackid — not Pricing Trackid. */
+	availabilityTrackid?: string | null;
 	onSelectFare?: (response: AiriqGetMultiClassFareResponse) => void;
 }
 
@@ -41,7 +42,7 @@ export default function AiriqMultiClassCards({
 	adultCount,
 	childCount,
 	infantCount,
-	pricingTrackid,
+	availabilityTrackid,
 	onSelectFare,
 }: AiriqMultiClassCardsProps) {
 	const [loading, setLoading] = useState(true);
@@ -56,7 +57,7 @@ export default function AiriqMultiClassCards({
 	const firstSegment = segments[0] || null;
 
 	useEffect(() => {
-		if (!pricingTrackid) {
+		if (!availabilityTrackid) {
 			setLoading(false);
 			setClasses([]);
 			return;
@@ -77,7 +78,6 @@ export default function AiriqMultiClassCards({
 						adultCount,
 						childCount,
 						infantCount,
-						pricingTrackid,
 					}),
 				});
 				const data = await res.json();
@@ -118,7 +118,7 @@ export default function AiriqMultiClassCards({
 		return () => {
 			cancelled = true;
 		};
-	}, [traceId, resultIndex, flight, returnFlight, adultCount, childCount, infantCount, pricingTrackid]);
+	}, [traceId, resultIndex, flight, returnFlight, adultCount, childCount, infantCount, availabilityTrackid]);
 
 	const handleGetPrice = async (item: MulticlassCardItem) => {
 		const key = `${item.Class}-${item.Seats}`;

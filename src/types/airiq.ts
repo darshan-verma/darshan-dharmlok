@@ -382,6 +382,8 @@ export interface AiriqBookingRequest {
 	FFNumberInfo?: AiriqFFNumberInfo[];
 	TripType: string; // "O" = One-way, "R" = Round-trip, "Y" = Round-trip Special
 	BlockPNR: boolean;
+	/** Doc §8.3 sample JSON key spelling (IndiGo fare masking). */
+	Faremasking?: boolean;
 	BaseOrigin: string;
 	BaseDestination: string;
 	TrackId: string; // From Pricing response PriceItenaryInfo[].Trackid
@@ -837,19 +839,25 @@ export interface AiriqPricingResponse {
 		TaxAmount?: number;
 		GrossAmount?: number;
 		// Raw API response structure
+		AllowBlockPNR?: boolean;
 		AvailabilityResponse?: Array<{
 			Token?: string;
+			AllowBlockPNR?: boolean;
+			FareMasking?: boolean;
+			Faremasking?: boolean;
 			Flights?: Array<{
-				FlightID: string; // NEW FlightID from Pricing response - MUST be used for seat map
+				FlightID: string;
 				FlightNumber: string;
 				Origin: string;
 				Destination: string;
 				DepartureDateTime: string;
 				ArrivalDateTime: string;
+				AllowBlockPNR?: boolean;
 				[key: string]: unknown;
 			}>;
 			Fares?: Array<{
-				FlightId?: string; // This is the FareId (e.g., "6E_N_1"), different from FlightID
+				AllowBlockPNR?: boolean;
+				FlightId?: string;
 				[key: string]: unknown;
 			}>;
 			Meal?: Array<{
