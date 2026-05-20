@@ -4,6 +4,7 @@ import {
 	countFlightsBySource,
 	mergeAndCapRoundTrip,
 } from "@/lib/flightSearchMerge";
+import { nonEmptyResultLegs } from "@/lib/tripjackMulticityUi";
 import type { FlightResult, FlightSearchResponse } from "@/types/tbo";
 
 export interface MergedFlightSearchResponse {
@@ -138,6 +139,19 @@ export function mergeProviderResponses(
 				mergedResults.Response.Results as FlightResult[][],
 			);
 			mergedResults.Response.Results = [paired];
+		} else if (journeyType === "3") {
+			const capped = capMergedResultsByLeg(
+				mergedResults.Response.Results as FlightResult[][],
+			);
+			const legs = nonEmptyResultLegs(capped);
+			const comboOnly =
+				legs.length > 0 &&
+				legs.every((leg) => leg[0]?._tripjackMulticityMode === "COMBO");
+			mergedResults.Response.Results = comboOnly
+				? [legs.find((leg) => leg[0]?._tripjackMulticityMode === "COMBO") || legs[0]]
+				: legs.length
+					? legs
+					: capped;
 		} else {
 			mergedResults.Response.Results = capMergedResultsByLeg(
 				mergedResults.Response.Results as FlightResult[][],

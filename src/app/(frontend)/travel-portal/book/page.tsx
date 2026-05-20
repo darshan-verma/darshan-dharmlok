@@ -16,6 +16,8 @@ interface PageProps {
 		traceId: string;
 		resultIndex: string;
 		returnResultIndex?: string;
+		/** Comma-separated TripJack price ids (domestic multicity) */
+		priceIds?: string;
 		adultCount?: string;
 		childCount?: string;
 		infantCount?: string;
@@ -30,12 +32,17 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		traceId,
 		resultIndex,
 		returnResultIndex,
+		priceIds: priceIdsParam,
 		adultCount = "1",
 		childCount = "0",
 		infantCount = "0",
 		isUpsellAllowed: isUpsellAllowedParam,
 		apiSource = "TBO",
 	} = params;
+
+	const priceIdsFromQuery = priceIdsParam
+		? priceIdsParam.split(",").map((id) => id.trim()).filter(Boolean)
+		: undefined;
 
 	const isUpsellAllowed = isUpsellAllowedParam === "true";
 
@@ -53,6 +60,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 				traceId={traceId}
 				priceId={resultIndex}
 				returnPriceId={returnResultIndex}
+				priceIds={priceIdsFromQuery}
 				adultCount={parseInt(adultCount)}
 				childCount={parseInt(childCount)}
 				infantCount={parseInt(infantCount)}

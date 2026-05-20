@@ -201,6 +201,10 @@ export interface FlightResult {
 		Fares?: unknown;
 	};
 	_airiqSeatMapAvailable?: boolean;
+	/** TripJack multicity: COMBO (intl) vs per-leg ONWARD (domestic) */
+	_tripjackMulticityMode?: "COMBO" | "DOMESTIC_LEGS";
+	/** Zero-based leg index for domestic multicity search results */
+	_tripjackLegIndex?: number;
 }
 
 export interface FlightSearchResponse {
@@ -340,6 +344,18 @@ export interface PassengerDetail {
 		LastName: string;
 		PAN?: string;
 	};
+	/** Student / senior citizen document id (TripJack `di`) */
+	DocumentId?: string;
+	/** GST fields (lead passenger) — mapped to TripJack `gstInfo` at book */
+	GSTNumber?: string;
+	GSTCompanyName?: string;
+	GSTCompanyAddress?: string;
+	GSTCompanyContactNumber?: string;
+	GSTCompanyEmail?: string;
+	/** Emergency contact when review `iecr` is true */
+	EmergencyEmail?: string;
+	EmergencyContactName?: string;
+	EmergencyContactPhone?: string;
 }
 
 /** TBO Book request. TokenId is injected server-side; do not send from client. */

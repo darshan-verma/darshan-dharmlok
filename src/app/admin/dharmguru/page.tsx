@@ -96,7 +96,7 @@ export default function DharmguruPage() {
 				const data = await response.json();
 
 				// Transform the optimized API response to match Dharmguru structure
-				const mappedDharmgurus = data.dharmgurus.map(
+				const mappedDharmgurus = (data.data || []).map(
 					(user: DharmguruApiResponse) => ({
 						id: user.id,
 						name: user.name || "",
@@ -113,7 +113,10 @@ export default function DharmguruPage() {
 
 				// Update pagination with the new API response structure
 				if (data.pagination) {
-					updatePagination(data.pagination.total, data.pagination.totalPages);
+					updatePagination(
+						data.pagination.totalCount,
+						data.pagination.totalPages
+					);
 				}
 			} catch {
 				toast.error("Failed to load dharmgurus");
@@ -257,10 +260,10 @@ export default function DharmguruPage() {
 			if (!fetchResponse.ok) {
 				throw new Error("Failed to fetch updated dharmgurus");
 			}
-			const fetchData = await fetchResponse.json();
+			const { data: dharmguruList } = await fetchResponse.json();
 
 			// Transform the optimized API response
-			const mappedDharmgurus = fetchData.dharmgurus.map(
+			const mappedDharmgurus = (dharmguruList || []).map(
 				(user: DharmguruApiResponse) => ({
 					id: user.id,
 					name: user.name || "",

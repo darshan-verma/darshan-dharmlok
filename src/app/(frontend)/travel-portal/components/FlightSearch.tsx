@@ -39,11 +39,22 @@ import DateSelector from "../../components/travel-portal/DateSelector";
 import TravellerSelector, {
 	TravellerCount,
 } from "../../components/travel-portal/TravellerSelector";
-import FromToSelector from "../../components/travel-portal/FromToSelector";
+import FromToSelector, {
+	fetchCityFromCode,
+	type City,
+} from "../../components/travel-portal/FromToSelector";
+import { airlineLabelFromFields } from "@/lib/reference-data-client";
+import { AirportCodeLabel } from "@/components/travel-portal/ReferenceCodeLabel";
 import TripTypeSelector from "../../components/travel-portal/TripTypeSelector";
 import SearchButton from "../../components/travel-portal/SearchButton";
 import MultiCitySelector from "../../components/travel-portal/MultiCitySelector";
+import TripjackMulticityLegBar from "./TripjackMulticityLegBar";
 import UpsellModal from "./UpsellModal";
+import {
+	allDomesticMulticityLegsSelected,
+	buildTripjackMulticityBookSearchParams,
+	resolveMulticitySearchView,
+} from "@/lib/tripjackMulticityUi";
 import { Separator } from "@/components/ui/separator";
 import { getFareBreakdown } from "@/lib/tboFareCalculations";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
@@ -56,12 +67,6 @@ import {
 } from "@/lib/searchCache";
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 import MinimalFlightSearch from "@/components/travel-portal/MinimalFlightSearch";
-
-interface City {
-	city: string;
-	airport: string;
-	code: string;
-}
 
 interface CityLeg {
 	id: string;
@@ -151,80 +156,6 @@ const reverseTripTypeMapping: { [key: string]: string } = {
 	"3": "multi-city",
 };
 
-// Airport code to city name mapping
-const airportToCityMap: { [key: string]: string } = {
-	DEL: "Delhi",
-	BLR: "Bengaluru",
-	BOM: "Mumbai",
-	HYD: "Hyderabad",
-	MAA: "Chennai",
-	CCU: "Kolkata",
-	PNQ: "Pune",
-	AMD: "Ahmedabad",
-	GOI: "Goa",
-	JAI: "Jaipur",
-	COK: "Kochi",
-	TRV: "Thiruvananthapuram",
-	GAU: "Guwahati",
-	IXC: "Chandigarh",
-	IXR: "Ranchi",
-	BBI: "Bhubaneswar",
-	VNS: "Varanasi",
-	IXB: "Bagdogra",
-	NAG: "Nagpur",
-	IXL: "Leh",
-	ATQ: "Amritsar",
-	IXJ: "Jammu",
-	SXR: "Srinagar",
-	IXZ: "Port Blair",
-	IXU: "Aurangabad",
-	RPR: "Raipur",
-	IXD: "Allahabad",
-};
-
-// Airport code to airport name mapping
-const airportToNameMap: { [key: string]: string } = {
-	DEL: "Indira Gandhi International Airport",
-	BLR: "Kempegowda International Airport",
-	BOM: "Chhatrapati Shivaji Maharaj International Airport",
-	HYD: "Rajiv Gandhi International Airport",
-	MAA: "Chennai International Airport",
-	CCU: "Netaji Subhas Chandra Bose International Airport",
-	PNQ: "Pune International Airport",
-	AMD: "Sardar Vallabhbhai Patel International Airport",
-	GOI: "Goa International Airport",
-	JAI: "Jaipur International Airport",
-	COK: "Cochin International Airport",
-	TRV: "Trivandrum International Airport",
-	GAU: "Lokpriya Gopinath Bordoloi International Airport",
-	IXC: "Chandigarh International Airport",
-	IXR: "Birsa Munda Airport",
-	BBI: "Biju Patnaik International Airport",
-	VNS: "Lal Bahadur Shastri Airport",
-	IXB: "Bagdogra Airport",
-	NAG: "Dr. Babasaheb Ambedkar International Airport",
-	IXL: "Kushok Bakula Rimpochee Airport",
-	ATQ: "Sri Guru Ram Dass Jee International Airport",
-	IXJ: "Jammu Airport",
-	SXR: "Sheikh ul-Alam International Airport",
-	IXZ: "Veer Savarkar International Airport",
-	IXU: "Aurangabad Airport",
-	RPR: "Swami Vivekananda Airport",
-	IXD: "Allahabad Airport",
-};
-
-// Helper function to get City object from airport code
-const getCityFromCode = (code: string): City => {
-	const upperCode = code.toUpperCase();
-	const city = airportToCityMap[upperCode] || code;
-	const airport = airportToNameMap[upperCode] || `${city} Airport`;
-	return {
-		city,
-		airport,
-		code: upperCode,
-	};
-};
-
 export default function FlightSearch() {
 	const searchParams = useSearchParams();
 	const router = useRouter();
@@ -266,6 +197,15 @@ export default function FlightSearch() {
 	// TripTypeSelector state
 	const [tripType, setTripType] = useState("one-way");
 	const prevTripTypeRef = useRef("one-way");
+
+	/** TripJack domestic multicity: per-leg flight buckets + user selections */
+	const [multicityDomesticLegs, setMulticityDomesticLegs] = useState<
+		FlightResult[][] | null
+	>(null);
+	const [multicitySelections, setMulticitySelections] = useState<
+		(FlightResult | null)[]
+	>([]);
+	const [multicityActiveLeg, setMulticityActiveLeg] = useState(0);
 
 	// Multi-city state
 	const [multiCityLegs, setMultiCityLegs] = useState<CityLeg[]>([
@@ -408,12 +348,15 @@ export default function FlightSearch() {
 
 				// Restore form from lastSearch (UI state only)
 				if (lastSearchParams.origin && lastSearchParams.destination) {
-					const fromCity = getCityFromCode(lastSearchParams.origin);
-					const toCity = getCityFromCode(lastSearchParams.destination);
-					setFrom(fromCity);
-					setTo(toCity);
 					form.setValue("origin", lastSearchParams.origin);
 					form.setValue("destination", lastSearchParams.destination);
+					void Promise.all([
+						fetchCityFromCode(lastSearchParams.origin),
+						fetchCityFromCode(lastSearchParams.destination),
+					]).then(([fromCity, toCity]) => {
+						setFrom(fromCity);
+						setTo(toCity);
+					});
 
 					if (lastSearchParams.departureDate) {
 						const depDate = new Date(lastSearchParams.departureDate);
@@ -457,16 +400,17 @@ export default function FlightSearch() {
 				// For multi-city, restore segments if available
 				if (lastSearchParams.journeyType === "3" && lastSearchParams.segments) {
 					const segments = lastSearchParams.segments;
-					const newLegs: CityLeg[] = segments.map(
-						(seg: FlightSegment, index: number) => ({
-							id: `leg-${index + 1}`,
-							from: getCityFromCode(seg.origin || ""),
-							to: getCityFromCode(seg.destination || ""),
-							date: seg.departureDate ? new Date(seg.departureDate) : undefined,
-						}),
-					);
-					setMultiCityLegs(newLegs);
 					form.setValue("segments", segments);
+					void Promise.all(
+						segments.map(async (seg: FlightSegment, index: number) => ({
+							id: `leg-${index + 1}`,
+							from: await fetchCityFromCode(seg.origin || ""),
+							to: await fetchCityFromCode(seg.destination || ""),
+							date: seg.departureDate
+								? new Date(seg.departureDate)
+								: undefined,
+						})),
+					).then((newLegs) => setMultiCityLegs(newLegs));
 				}
 			}
 		}
@@ -503,73 +447,71 @@ export default function FlightSearch() {
 			setTripType("multi-city");
 			form.setValue("journeyType", "3");
 
-			const newLegs: CityLeg[] = [];
+			void (async () => {
+				const newLegs: CityLeg[] = [];
 
-			// Add leg 1
-			if (leg1From && leg1To) {
-				newLegs.push({
-					id: "leg-1",
-					from: getCityFromCode(leg1From),
-					to: getCityFromCode(leg1To),
-					date: leg1Date ? new Date(leg1Date) : undefined,
+				if (leg1From && leg1To) {
+					newLegs.push({
+						id: "leg-1",
+						from: await fetchCityFromCode(leg1From),
+						to: await fetchCityFromCode(leg1To),
+						date: leg1Date ? new Date(leg1Date) : undefined,
+					});
+				}
+				if (leg2From && leg2To) {
+					newLegs.push({
+						id: "leg-2",
+						from: await fetchCityFromCode(leg2From),
+						to: await fetchCityFromCode(leg2To),
+						date: leg2Date ? new Date(leg2Date) : undefined,
+					});
+				}
+				if (leg3From && leg3To) {
+					newLegs.push({
+						id: "leg-3",
+						from: await fetchCityFromCode(leg3From),
+						to: await fetchCityFromCode(leg3To),
+						date: leg3Date ? new Date(leg3Date) : undefined,
+					});
+				}
+
+				setMultiCityLegs(newLegs);
+
+				const segments = newLegs.map((leg) => ({
+					origin: leg.from.code,
+					destination: leg.to.code,
+					departureDate: leg.date,
+				}));
+				form.setValue("segments", segments);
+
+				handleAutoSearch({
+					origin: "",
+					destination: "",
+					departureDate: undefined,
+					returnDate: undefined,
+					segments: segments,
+					adults: adultCount,
+					children: childCount,
+					infants: infantCount,
+					cabinClass: cabinClass || "1",
+					journeyType: "3",
+					directFlight: true,
+					oneStopFlight: false,
+					fareProfile: "REGULAR",
+					preferredAirlines: "",
 				});
-			}
-
-			// Add leg 2
-			if (leg2From && leg2To) {
-				newLegs.push({
-					id: "leg-2",
-					from: getCityFromCode(leg2From),
-					to: getCityFromCode(leg2To),
-					date: leg2Date ? new Date(leg2Date) : undefined,
-				});
-			}
-
-			// Add leg 3
-			if (leg3From && leg3To) {
-				newLegs.push({
-					id: "leg-3",
-					from: getCityFromCode(leg3From),
-					to: getCityFromCode(leg3To),
-					date: leg3Date ? new Date(leg3Date) : undefined,
-				});
-			}
-
-			setMultiCityLegs(newLegs);
-
-			// Update form segments
-			const segments = newLegs.map((leg) => ({
-				origin: leg.from.code,
-				destination: leg.to.code,
-				departureDate: leg.date,
-			}));
-			form.setValue("segments", segments);
-
-			// Automatically perform multi-city search
-			handleAutoSearch({
-				origin: "",
-				destination: "",
-				departureDate: undefined,
-				returnDate: undefined,
-				segments: segments,
-				adults: adultCount,
-				children: childCount,
-				infants: infantCount,
-				cabinClass: cabinClass || "1",
-				journeyType: "3",
-				directFlight: true,
-				oneStopFlight: false,
-				fareProfile: "REGULAR",
-				preferredAirlines: "",
-			});
+			})();
 		} else if (origin && destination && departureDate) {
 			// One-way or round-trip search
 			form.setValue("origin", origin);
 			form.setValue("destination", destination);
-			const fromCity = getCityFromCode(origin);
-			const toCity = getCityFromCode(destination);
-			setFrom(fromCity);
-			setTo(toCity);
+			void Promise.all([
+				fetchCityFromCode(origin),
+				fetchCityFromCode(destination),
+			]).then(([fromCity, toCity]) => {
+				setFrom(fromCity);
+				setTo(toCity);
+			});
 			const depDate = new Date(departureDate);
 			setDepartureDate(depDate);
 			form.setValue("departureDate", depDate);
@@ -870,8 +812,14 @@ export default function FlightSearch() {
 
 				if (cancelled || !moreJson.success || moreJson.pending) return;
 
-				const chunk = (moreJson.data?.Response?.Results?.[0] ||
-					[]) as FlightResult[];
+				const resultsArrays = (moreJson.data?.Response?.Results ||
+					[]) as FlightResult[][];
+				const journeyType = form.getValues("journeyType");
+				const multicityView = resolveMulticitySearchView(
+					resultsArrays,
+					journeyType,
+				);
+				const chunk = multicityView.displayFlights;
 				const trace =
 					moreJson.data?.Response?.TraceId || statusJson.traceId || "";
 				const total =
@@ -883,10 +831,28 @@ export default function FlightSearch() {
 					if (ck) flightCache.setTraceId(ck, trace);
 				}
 
+				if (multicityView.domesticLegs) {
+					setMulticityDomesticLegs(multicityView.domesticLegs);
+					setMulticitySelections(
+						new Array(multicityView.domesticLegs.length).fill(null),
+					);
+					setMulticityActiveLeg(0);
+				} else {
+					setMulticityDomesticLegs(null);
+					setMulticitySelections([]);
+				}
 				setFlights(chunk);
 				const ck = flightCacheKeyRef.current;
 				if (ck) {
-					flightCache.set(ck, { results: chunk, createdAt: Date.now() });
+					if (multicityView.domesticLegs) {
+						flightCache.set(ck, {
+							results: multicityView.domesticLegs[0] || [],
+							multicityLegs: multicityView.domesticLegs,
+							createdAt: Date.now(),
+						});
+					} else {
+						flightCache.set(ck, { results: chunk, createdAt: Date.now() });
+					}
 				}
 
 				setMergePollSessionId(null);
@@ -919,7 +885,7 @@ export default function FlightSearch() {
 			cancelled = true;
 			clearInterval(interval);
 		};
-	}, [mergePollSessionId]);
+	}, [mergePollSessionId, form]);
 
 	// Update price range when new flights are loaded
 	useEffect(() => {
@@ -1117,6 +1083,10 @@ export default function FlightSearch() {
 				toast.error("Multi-city flights require at least 2 segments");
 				return;
 			}
+			if (searchData.segments.length > 6) {
+				toast.error("Multi-city supports at most 6 legs");
+				return;
+			}
 			const today = new Date();
 			today.setHours(0, 0, 0, 0);
 
@@ -1173,6 +1143,9 @@ export default function FlightSearch() {
 		setFlightSearchSessionId(null);
 		setServerFlightTotal(null);
 		setMergePollSessionId(null);
+		setMulticityDomesticLegs(null);
+		setMulticitySelections([]);
+		setMulticityActiveLeg(0);
 
 		try {
 			// Helper function to format date for API (YYYY-MM-DDT00:00:00)
@@ -1276,7 +1249,19 @@ export default function FlightSearch() {
 					setFlightSearchSessionId(null);
 					setServerFlightTotal(null);
 					setMergePollSessionId(null);
-					setFlights(cached.results as FlightResult[]);
+					const cachedLegs = cached.multicityLegs as
+						| FlightResult[][]
+						| undefined;
+					if (cachedLegs?.length) {
+						setMulticityDomesticLegs(cachedLegs);
+						setMulticitySelections(new Array(cachedLegs.length).fill(null));
+						setMulticityActiveLeg(0);
+						setFlights(cachedLegs[0] || []);
+					} else {
+						setMulticityDomesticLegs(null);
+						setMulticitySelections([]);
+						setFlights(cached.results as FlightResult[]);
+					}
 					// Get traceId from separate storage (not from cache structure)
 					const cachedTraceId = flightCache.getTraceId(cacheKey);
 					if (cachedTraceId) {
@@ -1284,12 +1269,13 @@ export default function FlightSearch() {
 					}
 					setSearchPerformed(true);
 					setLoading(false);
-					if (cached.results.length === 0) {
+					const count = cachedLegs?.length
+						? cachedLegs.reduce((n, leg) => n + leg.length, 0)
+						: cached.results.length;
+					if (count === 0) {
 						toast.info("No flights found (cached)");
 					} else {
-						toast.success(
-							`Found ${cached.results.length} flight options (cached)`,
-						);
+						toast.success(`Found ${count} flight options (cached)`);
 					}
 					return;
 				}
@@ -1390,14 +1376,33 @@ export default function FlightSearch() {
 				}
 			}
 
-			// Round-trip itineraries are paired server-side; one-way and multi-city use Results[0]
-			const flightResults: FlightResult[] =
-				result.data?.Response?.Results?.[0] || [];
+			const resultsArrays = (result.data?.Response?.Results ||
+				[]) as FlightResult[][];
+			const multicityView = resolveMulticitySearchView(
+				resultsArrays,
+				searchData.journeyType,
+			);
+			const flightResults = multicityView.displayFlights;
 
-			flightCache.set(cacheKey, {
-				results: flightResults,
-				createdAt: Date.now(),
-			});
+			if (multicityView.domesticLegs) {
+				setMulticityDomesticLegs(multicityView.domesticLegs);
+				setMulticitySelections(
+					new Array(multicityView.domesticLegs.length).fill(null),
+				);
+				setMulticityActiveLeg(0);
+				flightCache.set(cacheKey, {
+					results: multicityView.domesticLegs[0] || [],
+					multicityLegs: multicityView.domesticLegs,
+					createdAt: Date.now(),
+				});
+			} else {
+				setMulticityDomesticLegs(null);
+				setMulticitySelections([]);
+				flightCache.set(cacheKey, {
+					results: flightResults,
+					createdAt: Date.now(),
+				});
+			}
 
 			// Save last search parameters for form restoration (UI state only)
 			const lastSearchData: Record<
@@ -1506,6 +1511,8 @@ export default function FlightSearch() {
 			}
 
 			setFlights([]);
+			setMulticityDomesticLegs(null);
+			setMulticitySelections([]);
 			setFlightSearchSessionId(null);
 			setServerFlightTotal(null);
 			setMergePollSessionId(null);
@@ -2120,10 +2127,13 @@ export default function FlightSearch() {
 													{Array.from(
 														new Set(flights.map((f) => f.AirlineCode)),
 													).map((airlineCode) => {
-														const airlineName =
-															flights.find((f) => f.AirlineCode === airlineCode)
-																?.Segments?.[0]?.[0]?.Airline?.AirlineName ||
-															airlineCode;
+														const sample = flights.find(
+															(f) => f.AirlineCode === airlineCode,
+														);
+														const airlineName = airlineLabelFromFields(
+															airlineCode,
+															sample?.Segments?.[0]?.[0]?.Airline?.AirlineName,
+														);
 														return (
 															<div
 																key={airlineCode}
@@ -2247,6 +2257,45 @@ export default function FlightSearch() {
 									</div>
 								</CardHeader>
 								<CardContent>
+									{multicityDomesticLegs &&
+									multicityDomesticLegs.length >= 2 ? (
+										<TripjackMulticityLegBar
+											legs={multicityDomesticLegs}
+											selections={multicitySelections}
+											activeLeg={multicityActiveLeg}
+											onActiveLegChange={(index) => {
+												setMulticityActiveLeg(index);
+												setFlights(multicityDomesticLegs[index] || []);
+											}}
+											onContinue={() => {
+												if (
+													!traceId ||
+													!allDomesticMulticityLegsSelected(
+														multicitySelections,
+														multicityDomesticLegs.length,
+													)
+												) {
+													return;
+												}
+												const picks = multicitySelections.filter(
+													(f): f is FlightResult => f != null,
+												);
+												setSelectingFlight(picks[0]?.ResultIndex ?? null);
+												const values = form.getValues();
+												const params = buildTripjackMulticityBookSearchParams({
+													traceId,
+													selections: picks,
+													adultCount: values.adults,
+													childCount: values.children,
+													infantCount: values.infants,
+												});
+												router.push(
+													`/travel-portal/book?${params.toString()}`,
+												);
+											}}
+											continuing={Boolean(selectingFlight)}
+										/>
+									) : null}
 									{filteredFlights.length === 0 ? (
 										<div className="text-center py-8 text-muted-foreground">
 											No flights match your filter criteria. Try adjusting your
@@ -2270,14 +2319,15 @@ export default function FlightSearch() {
 																			legSegments[legSegments.length - 1];
 
 																		// Safely get airline info with fallback
-																		const airlineName =
-																			firstSegment?.Airline?.AirlineName ||
-																			flight.AirlineCode ||
-																			"Unknown Airline";
 																		const airlineCode =
 																			firstSegment?.Airline?.AirlineCode ||
 																			flight.AirlineCode ||
 																			"XX";
+																		const airlineName =
+																			airlineLabelFromFields(
+																				airlineCode,
+																				firstSegment?.Airline?.AirlineName,
+																			);
 
 																		// Calculate total duration for this leg
 																		const totalDuration = legSegments.reduce(
@@ -2325,11 +2375,19 @@ export default function FlightSearch() {
 																						)}
 																					</div>
 																					<div className="text-sm font-medium text-gray-600 mt-1">
-																						{firstSegment?.Origin?.Airport
-																							?.AirportCode ||
-																							firstSegment?.Origin?.Airport
-																								?.CityCode ||
-																							"N/A"}
+																						<AirportCodeLabel
+																							code={
+																								firstSegment?.Origin?.Airport
+																									?.AirportCode ||
+																								firstSegment?.Origin?.Airport
+																									?.CityCode ||
+																								"N/A"
+																							}
+																							city={
+																								firstSegment?.Origin?.Airport
+																									?.CityName
+																							}
+																						/>
 																					</div>
 																				</div>
 
@@ -2360,11 +2418,19 @@ export default function FlightSearch() {
 																						)}
 																					</div>
 																					<div className="text-sm font-medium text-gray-600 mt-1">
-																						{lastSegment?.Destination?.Airport
-																							?.AirportCode ||
-																							lastSegment?.Destination?.Airport
-																								?.CityCode ||
-																							"N/A"}
+																						<AirportCodeLabel
+																							code={
+																								lastSegment?.Destination?.Airport
+																									?.AirportCode ||
+																								lastSegment?.Destination?.Airport
+																									?.CityCode ||
+																								"N/A"
+																							}
+																							city={
+																								lastSegment?.Destination?.Airport
+																									?.CityName
+																							}
+																						/>
 																					</div>
 																					{/* Show +1 day if needed - simplified check */}
 																					{firstSegment?.Origin?.DepTime &&
@@ -2693,7 +2759,42 @@ export default function FlightSearch() {
 																			// Silently fail - don't block user flow
 																		}
 
-																		// If multicity or no upsell available - go straight to booking
+																		// TripJack domestic multicity: pick one fare per leg, then continue
+																		if (
+																			tripType === "multi-city" &&
+																			multicityDomesticLegs &&
+																			multicityDomesticLegs.length >= 2 &&
+																			flight.ApiSource === "TRIPJACK"
+																		) {
+																			const nextSelections = [
+																				...multicitySelections,
+																			];
+																			nextSelections[multicityActiveLeg] =
+																				flight;
+																			setMulticitySelections(nextSelections);
+																			if (
+																				multicityActiveLeg <
+																				multicityDomesticLegs.length - 1
+																			) {
+																				const nextLeg =
+																					multicityActiveLeg + 1;
+																				setMulticityActiveLeg(nextLeg);
+																				setFlights(
+																					multicityDomesticLegs[nextLeg] ||
+																						[],
+																				);
+																				toast.success(
+																					`Leg ${multicityActiveLeg + 1} selected. Choose leg ${nextLeg + 1}.`,
+																				);
+																			} else {
+																				toast.success(
+																					"All legs selected. Tap Continue to booking.",
+																				);
+																			}
+																			return;
+																		}
+
+																		// If multicity (COMBO/intl) or no upsell - go straight to booking
 																		if (
 																			tripType === "multi-city" ||
 																			flight.IsUpsellAllowed !== true

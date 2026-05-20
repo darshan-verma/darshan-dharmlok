@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
 		if (
 			!extractTripjackReviewFlight(data, priceIds[0] ?? "", {
 				returnPriceId: priceIds[1],
+				priceIds,
 			})
 		) {
 			console.warn(

@@ -18,6 +18,8 @@ export function normalizeDate(date: Date | string): string {
 export interface FlightCacheEntry {
 	results: unknown[];
 	createdAt: number;
+	/** TripJack domestic multicity: one flight list per leg */
+	multicityLegs?: unknown[][];
 	providerResults?: {
 		tbo?: unknown[];
 		airiq?: unknown[];

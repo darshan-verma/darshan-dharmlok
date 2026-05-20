@@ -4,8 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FlightResult } from "@/types/tbo";
 import type { PassengerDetail, FareRuleResponse } from "@/types/tbo";
-import type { TripjackReviewResponse, TripjackReviewConditions, TripjackFareAlert, TripjackTravellerInfo } from "@/types/tripjackFlight";
-import { extractTripjackReviewFlight } from "@/lib/tripjackFlightBooking";
+import type {
+	TripjackReviewResponse,
+	TripjackReviewConditions,
+	TripjackFareAlert,
+	TripjackTravellerInfo,
+	TripjackGstInfo,
+} from "@/types/tripjackFlight";
+import { extractTripjackReviewFlight, fareComponentFromReviewTotal } from "@/lib/tripjackFlightBooking";
 import {
 	emptyTripjackSsrPickState,
 	tripjackFlatSegmentsFromReview,
@@ -24,6 +30,7 @@ import FareBreakdown from "@/components/travel-portal/FareBreakdown";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Search, AlertTriangle } from "lucide-react";
 import Link from "next/link";
+import { airportLabelFromFields } from "@/lib/reference-data-client";
 
 /**
  * Derive UI-level flags from `conditions` returned by TripJack review.
@@ -32,36 +39,58 @@ function deriveConditionFlags(cond: TripjackReviewConditions | undefined) {
 	if (!cond) {
 		return {
 			requirePassport: false,
+			requirePassportFull: false,
 			requireDob: false,
 			requireGst: false,
+			gstApplicable: false,
 			requireEmergencyContact: false,
 			requireDocumentId: false,
+			documentIdApplicable: false,
 			requirePan: false,
 		};
 	}
+	const pcsObj = typeof cond.pcs === "object" && cond.pcs !== null ? cond.pcs : null;
 	const requirePassport =
-		cond.pcs === true ||
-		(typeof cond.pcs === "object" && cond.pcs !== null);
+		cond.pcs === true || pcsObj?.pped === true || pcsObj?.pm === true || false;
+	const requirePassportFull =
+		cond.pcs === true || pcsObj?.pped === true || pcsObj?.pid === true || false;
+	const dobObj = typeof cond.dob === "object" && cond.dob !== null ? cond.dob : null;
 	const requireDob =
 		cond.dob === true ||
-		(typeof cond.dob === "object" && cond.dob !== null);
-	const gstObj = typeof cond.gst === "object" && cond.gst !== null ? cond.gst : null;
-	const requireGst =
-		cond.gst === true ||
-		(gstObj && "igm" in gstObj && gstObj.igm === true) ||
+		dobObj?.adobr === true ||
+		dobObj?.cdobr === true ||
+		dobObj?.idobr === true ||
 		false;
+	const gstObj = typeof cond.gst === "object" && cond.gst !== null ? cond.gst : null;
+	const gstApplicable = cond.gst === true || gstObj?.gstappl === true;
+	const requireGst = gstApplicable || gstObj?.igm === true;
 	const requireEmergencyContact = cond.iecr === true;
-	const requireDocumentId =
-		cond.dc === true ||
-		(typeof cond.dc === "object" && cond.dc !== null);
+	const dcObj = typeof cond.dc === "object" && cond.dc !== null ? cond.dc : null;
+	const documentIdApplicable = cond.dc === true || dcObj?.idm === true;
+	const requireDocumentId = documentIdApplicable || dcObj?.ida === true;
 	const requirePan = cond.ipa === true;
 	return {
 		requirePassport,
+		requirePassportFull,
 		requireDob,
 		requireGst,
+		gstApplicable,
 		requireEmergencyContact,
 		requireDocumentId,
+		documentIdApplicable,
 		requirePan,
+	};
+}
+
+function buildTripjackGstInfo(lead: PassengerDetail): TripjackGstInfo | undefined {
+	const gstNum = lead.GSTNumber?.trim();
+	if (!gstNum) return undefined;
+	return {
+		gstNum,
+		registeredName: lead.GSTCompanyName?.trim() || undefined,
+		email: lead.GSTCompanyEmail?.trim() || undefined,
+		mobile: lead.GSTCompanyContactNumber?.trim() || undefined,
+		address: lead.GSTCompanyAddress?.trim() || undefined,
 	};
 }
 
@@ -84,6 +113,8 @@ interface Props {
 	traceId: string;
 	priceId: string;
 	returnPriceId?: string;
+	/** Domestic multicity: all leg price ids in route order */
+	priceIds?: string[];
 	adultCount: number;
 	childCount: number;
 	infantCount: number;
@@ -121,15 +152,19 @@ function tripjackFlightRouteSummary(flight: FlightResult): string {
 	const first = groups[0]?.[0];
 	const lastGroup = groups[groups.length - 1];
 	const last = lastGroup?.[lastGroup.length - 1];
-	const from =
-		first?.Origin?.Airport?.CityName ||
+	const from = airportLabelFromFields(
 		first?.Origin?.Airport?.AirportCode ||
-		"";
-	const to =
-		last?.Destination?.Airport?.CityName ||
+			first?.Origin?.Airport?.CityCode ||
+			"",
+		first?.Origin?.Airport?.CityName,
+	);
+	const to = airportLabelFromFields(
 		last?.Destination?.Airport?.AirportCode ||
-		"";
-	if (from && to) return `${from} → ${to}`;
+			last?.Destination?.Airport?.CityCode ||
+			"",
+		last?.Destination?.Airport?.CityName,
+	);
+	if (from && to && from !== "" && to !== "") return `${from} → ${to}`;
 	return "Flight booking";
 }
 
@@ -194,10 +229,17 @@ export default function TripjackBookingClient({
 	traceId,
 	priceId,
 	returnPriceId,
+	priceIds: priceIdsProp,
 	adultCount,
 	childCount,
 	infantCount,
 }: Props) {
+	const reviewPriceIds = useMemo(() => {
+		if (priceIdsProp?.length) return priceIdsProp;
+		return [priceId, returnPriceId].filter(
+			(id): id is string => typeof id === "string" && id.trim().length > 0,
+		);
+	}, [priceIdsProp, priceId, returnPriceId]);
 	const router = useRouter();
 	const [loading, setLoading] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -213,12 +255,13 @@ export default function TripjackBookingClient({
 			review
 				? extractTripjackReviewFlight(review, priceId, {
 						returnPriceId,
+						priceIds: reviewPriceIds,
 						adultCount,
 						childCount,
 						infantCount,
 					})
 				: null,
-		[review, priceId, returnPriceId, adultCount, childCount, infantCount],
+		[review, priceId, returnPriceId, reviewPriceIds, adultCount, childCount, infantCount],
 	);
 
 	const tjSegments = useMemo(() => tripjackFlatSegmentsFromReview(review), [review]);
@@ -255,7 +298,7 @@ export default function TripjackBookingClient({
 
 	const totalAmount = useMemo(() => {
 		const ssr = tripjackSsrExtraTotal(tjSsrPicks);
-		const fc = review?.totalPriceInfo?.totalFareDetail?.fc;
+		const fc = fareComponentFromReviewTotal(review);
 		const apiTotal = fc?.TF ?? fc?.NF;
 		const fromSupplier = typeof apiTotal === "number" ? apiTotal : undefined;
 		const fromFare = reviewFlight?.Fare?.PublishedFare;
@@ -266,9 +309,7 @@ export default function TripjackBookingClient({
 	}, [review, reviewFlight, tjSsrPicks]);
 
 	useEffect(() => {
-		const priceIds = [priceId, returnPriceId].filter(
-			(x): x is string => typeof x === "string" && x.trim().length > 0,
-		);
+		const priceIds = reviewPriceIds;
 		if (!priceIds.length) {
 			setLoading(false);
 			setError(
@@ -376,7 +417,7 @@ export default function TripjackBookingClient({
 		return () => {
 			cancelled = true;
 		};
-	}, [priceId, returnPriceId, traceId]);
+	}, [reviewPriceIds, traceId]);
 
 	const handleBookingSubmit = async (passengerData: PassengerDetail[]) => {
 		if (!review?.bookingId) {
@@ -393,7 +434,7 @@ export default function TripjackBookingClient({
 			return;
 		}
 
-		const reviewTF = review?.totalPriceInfo?.totalFareDetail?.fc?.TF;
+		const reviewTF = fareComponentFromReviewTotal(review)?.TF;
 		if (typeof reviewTF === "number" && Math.abs(totalAmount - reviewTF - tripjackSsrExtraTotal(tjSsrPicks)) > 1) {
 			console.warn(
 				"[TripJack] Amount mismatch: UI total",
@@ -403,16 +444,33 @@ export default function TripjackBookingClient({
 			);
 		}
 
+		if (conditionFlags.requireGst && !buildTripjackGstInfo(lead)) {
+			const msg = "GST details are required for this booking.";
+			setError(msg);
+			toast.error(msg);
+			return;
+		}
+
 		setIsSubmitting(true);
 		setError(null);
 		try {
 			const phone = tripjackPhoneE164(lead.ContactNo);
+			const roundAmount = Math.round(totalAmount * 100) / 100;
+			const useHold = review.conditions?.isBA === true;
+			const gstInfo = buildTripjackGstInfo(lead);
+
 			const travellers: TripjackTravellerInfo[] = passengerData.map((p, idx) => {
 				const ssr = tripjackTravellerSsrForPax(tjSegments, idx, tjSsrPicks);
 				const dob = tripjackDateOnly(p.DateOfBirth);
 				const passportExpiry = tripjackDateOnly(p.PassportExpiry);
 				const passportIssue = tripjackDateOnly(p.PassportIssueDate);
 				const hasPassport = Boolean(p.PassportNo?.trim());
+				const nationality = p.Nationality?.trim() || p.CountryCode?.trim() || "IN";
+				const pan =
+					p.PAN?.trim() ||
+					((p.PaxType === 2 || p.PaxType === 3) && p.GuardianDetails?.PAN?.trim()
+						? p.GuardianDetails.PAN.trim()
+						: undefined);
 				return {
 					ti: (p.Title || "MR").toUpperCase(),
 					fN: p.FirstName || "",
@@ -425,29 +483,48 @@ export default function TripjackBookingClient({
 								pNum: p.PassportNo!.trim(),
 								eD: passportExpiry,
 								pid: passportIssue,
-								pNat: p.Nationality || "IN",
+								pNat: nationality,
 							}
-						: { pNat: p.Nationality || "IN" }),
-					pan: (p as PassengerDetail & { PanNumber?: string }).PanNumber || undefined,
-					di: (p as PassengerDetail & { DocumentId?: string }).DocumentId || undefined,
+						: { pNat: nationality }),
+					pan,
+					di: p.DocumentId?.trim() || undefined,
 					...ssr,
 				};
 			});
 
+			let contactInfo = {
+				emails: [lead.Email.trim()],
+				contacts: [phone],
+				ecn:
+					[lead.FirstName, lead.LastName].filter(Boolean).join(" ").trim() ||
+					"Lead passenger",
+			};
+			if (conditionFlags.requireEmergencyContact) {
+				const emPhone = lead.EmergencyContactPhone?.trim()
+					? tripjackPhoneE164(lead.EmergencyContactPhone)
+					: phone;
+				contactInfo = {
+					emails: [lead.EmergencyEmail?.trim() || lead.Email.trim()],
+					contacts: [emPhone],
+					ecn: lead.EmergencyContactName?.trim() || contactInfo.ecn,
+				};
+			}
+
+			const bookBody: Record<string, unknown> = {
+				bookingId: review.bookingId,
+				travellerInfo: travellers,
+				contactInfo,
+				deliveryInfo: { emails: [lead.Email.trim()], contacts: [phone] },
+			};
+			if (gstInfo) bookBody.gstInfo = gstInfo;
+			if (!useHold) {
+				bookBody.paymentInfos = [{ amount: roundAmount }];
+			}
+
 			const bookRes = await fetch("/api/travel/tripjack-flight/book", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					bookingId: review.bookingId,
-					travellerInfo: travellers,
-					contactInfo: {
-						emails: [lead.Email.trim()],
-						contacts: [phone],
-						ecn: [lead.FirstName, lead.LastName].filter(Boolean).join(" ").trim() || "Lead passenger",
-					},
-					deliveryInfo: { emails: [lead.Email.trim()], contacts: [phone] },
-					paymentInfos: [{ amount: Math.round(totalAmount * 100) / 100 }],
-				}),
+				body: JSON.stringify(bookBody),
 			});
 			const bookData = await bookRes.json();
 			if (!bookRes.ok || !bookData?.success) {
@@ -466,7 +543,55 @@ export default function TripjackBookingClient({
 				);
 			}
 
+			if (useHold) {
+				const fvRes = await fetch("/api/travel/tripjack-flight/fare-validate", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ bookingId: review.bookingId }),
+				});
+				const fvData = await fvRes.json();
+				if (!fvRes.ok || !fvData?.success) {
+					throw new Error(
+						(typeof fvData?.error === "string" && fvData.error) ||
+							"TripJack fare validation failed before confirm",
+					);
+				}
+
+				const confirmRes = await fetch("/api/travel/tripjack-flight/confirm-book", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						bookingId: review.bookingId,
+						paymentInfos: [{ amount: roundAmount }],
+					}),
+				});
+				const confirmData = await confirmRes.json();
+				if (!confirmRes.ok || !confirmData?.success) {
+					throw new Error(
+						(typeof confirmData?.error === "string" && confirmData.error) ||
+							"TripJack confirm-book failed",
+					);
+				}
+			}
+
 			const finalBookingId = review.bookingId;
+			let pnr: string | undefined;
+			try {
+				const detRes = await fetch("/api/travel/tripjack-flight/booking-details", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						bookingId: finalBookingId,
+						requirePaxPricing: true,
+					}),
+				});
+				const detData = await detRes.json();
+				if (detRes.ok && detData?.success && typeof detData.pnr === "string") {
+					pnr = detData.pnr;
+				}
+			} catch {
+				/* best-effort */
+			}
 
 			if (reviewFlight) {
 				const { travelDateIso, returnDateIso, departureTimeLabel } =
@@ -505,9 +630,12 @@ export default function TripjackBookingClient({
 			}
 
 			toast.success("TripJack booking completed successfully");
-			router.push(
-				`/travel-portal/booking/confirmation?source=tripjack&bookingId=${encodeURIComponent(finalBookingId)}`,
-			);
+			const confirmQs = new URLSearchParams({
+				source: "tripjack",
+				bookingId: finalBookingId,
+			});
+			if (pnr) confirmQs.set("pnr", pnr);
+			router.push(`/travel-portal/booking/confirmation?${confirmQs.toString()}`);
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : "Booking failed";
 			setError(msg);
@@ -582,9 +710,12 @@ export default function TripjackBookingClient({
 							flightResult={reviewFlight}
 							isSubmitting={isSubmitting}
 							requirePassport={conditionFlags.requirePassport}
-							requirePassportFull={conditionFlags.requirePassport}
+							requirePassportFull={conditionFlags.requirePassportFull}
+							requireDob={conditionFlags.requireDob}
 							requireGST={conditionFlags.requireGst}
 							requirePAN={conditionFlags.requirePan}
+							requireDocumentId={conditionFlags.requireDocumentId}
+							requireEmergencyContact={conditionFlags.requireEmergencyContact}
 							ssrCharges={{
 								baggage: fareSsrShape.baggage,
 								meals: fareSsrShape.meals,

@@ -70,6 +70,13 @@ export interface TripjackFareComponent {
 	NF?: number;
 }
 
+/** Review/booking-details total fare block — API uses `fC`; older typings used `fc`. */
+export interface TripjackTotalFareDetail {
+	fC?: TripjackFareComponent;
+	fc?: TripjackFareComponent;
+	afC?: Record<string, Record<string, number>>;
+}
+
 export interface TripjackPaxFareDetail {
 	fC: TripjackFareComponent;
 	afC?: Record<string, Record<string, number>>;
@@ -234,9 +241,7 @@ export interface TripjackReviewResponse {
 	/** Review API: array of legs (onward, return, …). Search uses keyed TripjackTripInfos. */
 	tripInfos?: TripjackTripInfos | TripjackTripInfo[];
 	totalPriceInfo?: {
-		totalFareDetail?: {
-			fc?: TripjackFareComponent;
-		};
+		totalFareDetail?: TripjackTotalFareDetail;
 	};
 	conditions?: TripjackReviewConditions;
 	errors?: Array<{ code?: string; message?: string }>;
@@ -394,10 +399,7 @@ export interface TripjackBookingDetailResponse {
 			/** Search uses keyed legs; booking-details returns an array of tripInfo per API doc. */
 			tripInfos?: TripjackTripInfos | TripjackTripInfo[];
 			totalPriceInfo?: {
-				totalFareDetail?: {
-					fc?: TripjackFareComponent;
-					afC?: Record<string, Record<string, number>>;
-				};
+				totalFareDetail?: TripjackTotalFareDetail;
 			};
 			travellerInfos?: TripjackBookingDetailTraveller[];
 		};

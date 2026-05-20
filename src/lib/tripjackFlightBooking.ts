@@ -121,8 +121,14 @@ export function legsFromTripjackReviewTripInfos(
 	return legs;
 }
 
+export function fareComponentFromReviewTotal(
+	review: TripjackReviewResponse | null | undefined,
+) {
+	return review?.totalPriceInfo?.totalFareDetail?.fC ?? review?.totalPriceInfo?.totalFareDetail?.fc;
+}
+
 function fareFromReviewTotalPrice(review: TripjackReviewResponse): Fare | null {
-	const fc = review.totalPriceInfo?.totalFareDetail?.fc;
+	const fc = fareComponentFromReviewTotal(review);
 	if (!fc || (fc.TF == null && fc.NF == null && fc.BF == null)) return null;
 	const tf = fc.TF ?? fc.NF ?? 0;
 	const bf = fc.BF ?? 0;
@@ -260,6 +266,8 @@ function fareFallbackFirstLegWithPax(
 
 export type ExtractTripjackReviewFlightOptions = {
 	returnPriceId?: string;
+	/** Domestic multicity: one price id per leg, in route order */
+	priceIds?: string[];
 	adultCount?: number;
 	childCount?: number;
 	infantCount?: number;
@@ -284,7 +292,11 @@ export function extractTripjackReviewFlight(
 	const children = options?.childCount ?? 0;
 	const infants = options?.infantCount ?? 0;
 
+	const explicitIds = (options?.priceIds || [])
+		.map((id) => id?.trim())
+		.filter(Boolean) as string[];
 	const priceIdsForLegs = legs.map((_, i) => {
+		if (explicitIds[i]) return explicitIds[i];
 		if (i === 0) return priceIdFallback?.trim() || "";
 		return options?.returnPriceId?.trim() || "";
 	});

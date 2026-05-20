@@ -8,6 +8,12 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "uat:run": "node scripts/tripjack-uat-runner.mjs",
+    "uat:report": "node scripts/generate-uat-report.mjs",
+    "uat": "npm run uat:run && npm run uat:report",
+    "uat:book": "node scripts/tripjack-uat-runner.mjs --book-flow && npm run uat:report",
+    "uat:patch": "node scripts/tripjack-uat-runner.mjs --patch && npm run uat:report",
+    "uat:only": "node scripts/tripjack-uat-runner.mjs --only",
     "preprisma:generate": "cat prisma/models/*.prisma > prisma/schema.prisma",
     "prisma:generate": "npm run preprisma:generate && prisma generate"
   },

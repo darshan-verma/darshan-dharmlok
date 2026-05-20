@@ -12,6 +12,7 @@ import {
 	buildTripjackAirSearchRequest,
 	convertTripjackSearchToTboFormat,
 	isTripjackConfigured,
+	type TripjackRouteRef,
 } from "@/lib/tripjackFlightSearch";
 import { calculateNetPayable } from "@/lib/tboFareCalculations";
 import { countFlightsBySource } from "@/lib/flightSearchMerge";
@@ -99,6 +100,22 @@ function annotateAiriqFlights(flights: FlightSearchResponse | null) {
 	}
 }
 
+function tripjackRoutesForConvert(
+	tripjackPayload: ReturnType<typeof buildTripjackAirSearchRequest> | null,
+	body: { Segments?: Array<{ Origin: string; Destination: string }> },
+): TripjackRouteRef[] {
+	if (tripjackPayload?.searchQuery?.routeInfos?.length) {
+		return tripjackPayload.searchQuery.routeInfos.map((r) => ({
+			from: r.fromCityOrAirport.code,
+			to: r.toCityOrAirport.code,
+		}));
+	}
+	return (body.Segments || []).map((s) => ({
+		from: s.Origin.toUpperCase(),
+		to: s.Destination.toUpperCase(),
+	}));
+}
+
 function annotateTripjackFlights(flights: FlightSearchResponse | null) {
 	if (!flights?.Response?.Results) return;
 	for (const resultArray of flights.Response.Results) {
@@ -125,6 +142,7 @@ function providersFromFirstWin(
 		AdultCount?: string;
 		ChildCount?: string;
 		InfantCount?: string;
+		Segments?: Array<{ Origin: string; Destination: string }>;
 	},
 	tripjackTraceId: string,
 	tripjackPayload: ReturnType<typeof buildTripjackAirSearchRequest> | null,
@@ -136,6 +154,7 @@ function providersFromFirstWin(
 	let tboFlights: FlightSearchResponse | null = null;
 	let airiqFlights: FlightSearchResponse | null = null;
 	let tripjackFlights: FlightSearchResponse | null = null;
+	const tripjackRoutes = tripjackRoutesForConvert(tripjackPayload, body);
 
 	if (first.source === "TBO") {
 		tboFlights = first.raw;
@@ -158,6 +177,7 @@ function providersFromFirstWin(
 			body.JourneyType || "1",
 			tripjackTraceId,
 			{ adults, children, infants },
+			tripjackRoutes,
 		) as FlightSearchResponse;
 		annotateTripjackFlights(tripjackFlights);
 	}
@@ -174,6 +194,7 @@ function processSettledIntoProviders(
 		AdultCount?: string;
 		ChildCount?: string;
 		InfantCount?: string;
+		Segments?: Array<{ Origin: string; Destination: string }>;
 	},
 	tripjackPayload: ReturnType<typeof buildTripjackAirSearchRequest> | null,
 	tripjackTraceId: string,
@@ -182,6 +203,7 @@ function processSettledIntoProviders(
 	airiqFlights: FlightSearchResponse | null;
 	tripjackFlights: FlightSearchResponse | null;
 } {
+	const tripjackRoutes = tripjackRoutesForConvert(tripjackPayload, body);
 	let tboFlights: FlightSearchResponse | null = null;
 	if (tboResult.status === "fulfilled") {
 		tboFlights = tboResult.value;
@@ -213,6 +235,7 @@ function processSettledIntoProviders(
 			body.JourneyType || "1",
 			tripjackTraceId,
 			{ adults, children, infants },
+			tripjackRoutes,
 		) as FlightSearchResponse;
 		annotateTripjackFlights(tripjackFlights);
 	} else if (tripjackResult.status === "rejected") {
@@ -380,6 +403,12 @@ export async function POST(request: NextRequest) {
 
 		// Validate multi-city segment dates and ordering per TBO docs
 		if (body.JourneyType === "3" && body.Segments) {
+			if (body.Segments.length > 6) {
+				return NextResponse.json(
+					{ error: "Multi-city supports at most 6 legs" },
+					{ status: 400 },
+				);
+			}
 			let prevDepartureDate: Date | null = null;
 			for (let i = 0; i < body.Segments.length; i++) {
 				const segment = body.Segments[i];

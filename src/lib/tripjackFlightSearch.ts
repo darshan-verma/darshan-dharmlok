@@ -83,6 +83,7 @@ export function buildTripjackAirSearchRequest(body: {
 	if (journey === "3") {
 		const segs = body.Segments;
 		if (!segs?.length || segs.length < 2) return null;
+		if (segs.length > 6) return null;
 		for (const seg of segs) {
 			const depDate = seg.PreferredDepartureTime || seg.DepartureDateTime;
 			if (!seg.Origin || !seg.Destination || !depDate) return null;
@@ -401,12 +402,44 @@ function firstPaxBaggage(fd: TripjackPriceListEntry["fd"]): {
 	return {};
 }
 
+export type TripjackRouteRef = { from: string; to: string };
+
+type TripjackFlightResultTag = {
+	multicityMode?: "COMBO" | "DOMESTIC_LEGS";
+	legIndex?: number;
+};
+
+/** Group domestic multicity ONWARD trips into per-route buckets (order matches search routes). */
+export function groupOnwardTripInfosByRoutes(
+	trips: TripjackTripInfo[],
+	routes: TripjackRouteRef[],
+): TripjackTripInfo[][] {
+	const buckets = new Map<string, TripjackTripInfo[]>();
+	for (const trip of trips) {
+		const segments = trip.sI || [];
+		if (!segments.length) continue;
+		const from = (segments[0]?.da?.code || "").toUpperCase();
+		const to = (segments[segments.length - 1]?.aa?.code || "").toUpperCase();
+		const key = `${from}-${to}`;
+		if (!buckets.has(key)) buckets.set(key, []);
+		buckets.get(key)!.push(trip);
+	}
+	if (routes.length >= 2) {
+		return routes.map((r) => {
+			const key = `${r.from.toUpperCase()}-${r.to.toUpperCase()}`;
+			return buckets.get(key) || [];
+		});
+	}
+	return [...buckets.values()];
+}
+
 function tripInfoToFlightResults(
 	trips: TripjackTripInfo[],
 	traceId: string,
 	adults: number,
 	children: number,
 	infants: number,
+	tag?: TripjackFlightResultTag,
 ): FlightResult[] {
 	const out: FlightResult[] = [];
 
@@ -530,6 +563,12 @@ function tripInfoToFlightResults(
 					sri: pl.sri,
 					msri: pl.msri,
 				},
+				...(tag?.multicityMode
+					? {
+							_tripjackMulticityMode: tag.multicityMode,
+							_tripjackLegIndex: tag.legIndex,
+						}
+					: {}),
 			} as FlightResult);
 		}
 	}
@@ -549,6 +588,7 @@ export function convertTripjackSearchToTboFormat(
 		children: 0,
 		infants: 0,
 	},
+	requestedRoutes: TripjackRouteRef[] = [],
 ): FlightSearchResponse {
 	const tripInfos = raw?.searchResult?.tripInfos;
 	if (!tripInfos) {
@@ -565,7 +605,59 @@ export function convertTripjackSearchToTboFormat(
 
 	const { adults, children, infants } = pax;
 
-	if (journeyType === "2" || journeyType === "3") {
+	if (journeyType === "3") {
+		const comboRaw = tripInfos.COMBO || [];
+		if (comboRaw.length > 0) {
+			const combo = tripInfoToFlightResults(
+				comboRaw,
+				traceId,
+				adults,
+				children,
+				infants,
+				{ multicityMode: "COMBO", legIndex: 0 },
+			);
+			return {
+				Response: {
+					TraceId: traceId,
+					Results: [combo],
+					Origin: "",
+					Destination: "",
+					FlightCabinClass: 1,
+				},
+			};
+		}
+
+		const onwardRaw = tripInfos.ONWARD || [];
+		const legGroups = groupOnwardTripInfosByRoutes(onwardRaw, requestedRoutes);
+		const results: FlightResult[][] = legGroups.map((trips, legIndex) =>
+			tripInfoToFlightResults(trips, traceId, adults, children, infants, {
+				multicityMode: "DOMESTIC_LEGS",
+				legIndex,
+			}),
+		);
+
+		if (!results.some((leg) => leg.length > 0) && onwardRaw.length > 0) {
+			results.length = 0;
+			results.push(
+				tripInfoToFlightResults(onwardRaw, traceId, adults, children, infants, {
+					multicityMode: "DOMESTIC_LEGS",
+					legIndex: 0,
+				}),
+			);
+		}
+
+		return {
+			Response: {
+				TraceId: traceId,
+				Results: results,
+				Origin: "",
+				Destination: "",
+				FlightCabinClass: 1,
+			},
+		};
+	}
+
+	if (journeyType === "2") {
 		const onward = tripInfoToFlightResults(
 			tripInfos.ONWARD || [],
 			traceId,

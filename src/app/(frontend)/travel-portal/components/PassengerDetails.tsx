@@ -28,6 +28,9 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { getFareBreakdown } from "@/lib/tboFareCalculations";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
+import type { ReferenceCodeWarning } from "@/lib/reference-code-validation";
+import { collectFlightReferenceWarningsClient } from "@/lib/reference-code-validation-client";
+import { AirportCodeLabel } from "@/components/travel-portal/ReferenceCodeLabel";
 
 interface FormPassenger {
 	type: string;
@@ -58,6 +61,10 @@ interface FormPassenger {
 	gstCompanyAddress?: string;
 	gstCompanyContactNumber?: string;
 	gstCompanyEmail?: string;
+	documentId?: string;
+	emergencyEmail?: string;
+	emergencyContactName?: string;
+	emergencyContactPhone?: string;
 }
 
 interface PassengerDetailsProps {
@@ -76,6 +83,12 @@ interface PassengerDetailsProps {
 	requirePAN?: boolean;
 	/** When true, GST details must be collected (IsGSTMandatory). */
 	requireGST?: boolean;
+	/** When true, date of birth is required per review conditions. */
+	requireDob?: boolean;
+	/** Student / senior citizen document id (`di`). */
+	requireDocumentId?: boolean;
+	/** Emergency contact on book `contactInfo` when review `iecr` is true. */
+	requireEmergencyContact?: boolean;
 	ssrCharges?: {
 		baggage?: Record<string, { Price: number } | null>;
 		meals?: Record<string, { Price: number } | null>;
@@ -96,6 +109,9 @@ export default function PassengerDetails({
 	requirePassportFull = false,
 	requirePAN = false,
 	requireGST = false,
+	requireDob = false,
+	requireDocumentId = false,
+	requireEmergencyContact = false,
 	ssrCharges,
 }: PassengerDetailsProps) {
 	const {
@@ -132,6 +148,10 @@ export default function PassengerDetails({
 					gstCompanyAddress: "",
 					gstCompanyContactNumber: "",
 					gstCompanyEmail: "",
+					documentId: "",
+					emergencyEmail: "",
+					emergencyContactName: "",
+					emergencyContactPhone: "",
 				}),
 				...Array(childCount).fill({
 					type: "Child",
@@ -210,6 +230,7 @@ export default function PassengerDetails({
 					City: p.city || "",
 					CountryCode: p.countryCode || "IN",
 					CountryName: "India",
+					Nationality: p.countryCode || "IN",
 					ContactNo: p.contactNo || "",
 					Email: p.email || "",
 					IsLeadPax: index === 0,
@@ -224,11 +245,32 @@ export default function PassengerDetails({
 						PAN: p.guardianPAN || "",
 					};
 				}
+				if (index === 0 && requireGST) {
+					detail.GSTNumber = p.gstNumber || "";
+					detail.GSTCompanyName = p.gstCompanyName || "";
+					detail.GSTCompanyAddress = p.gstCompanyAddress || "";
+					detail.GSTCompanyContactNumber = p.gstCompanyContactNumber || "";
+					detail.GSTCompanyEmail = p.gstCompanyEmail || "";
+				}
+				if (requireDocumentId && p.documentId) {
+					detail.DocumentId = p.documentId;
+				}
+				if (index === 0 && requireEmergencyContact) {
+					detail.EmergencyEmail = p.emergencyEmail || "";
+					detail.EmergencyContactName = p.emergencyContactName || "";
+					detail.EmergencyContactPhone = p.emergencyContactPhone || "";
+				}
 				return detail;
 			});
 			onPassengersChange(transformedPassengers);
 		}
-	}, [watchedPassengers, onPassengersChange]);
+	}, [
+		watchedPassengers,
+		onPassengersChange,
+		requireGST,
+		requireDocumentId,
+		requireEmergencyContact,
+	]);
 
 	const calculateTotalFare = () => {
 		let total = flightResult.Fare
@@ -291,6 +333,10 @@ export default function PassengerDetails({
 		}
 	);
 
+	const [referenceWarnings, setReferenceWarnings] = useState<
+		ReferenceCodeWarning[]
+	>([]);
+
 	const togglePassenger = (index: number) => {
 		setOpenPassengers((prev) => ({
 			...prev,
@@ -298,7 +344,9 @@ export default function PassengerDetails({
 		}));
 	};
 
-	const onSubmit = (data: { passengers: FormPassenger[] }) => {
+	const onSubmit = async (data: { passengers: FormPassenger[] }) => {
+		const warnings = await collectFlightReferenceWarningsClient(flightResult);
+		setReferenceWarnings(warnings);
 		const formattedPassengers = data.passengers.map(
 			(p: FormPassenger, index: number) => {
 				const basePassenger: PassengerDetail = {
@@ -325,6 +373,7 @@ export default function PassengerDetails({
 					City: p.city || "",
 					CountryCode: p.countryCode || "IN",
 					CountryName: "India",
+					Nationality: p.countryCode || "IN",
 					ContactNo: p.contactNo || "",
 					Email: p.email || "",
 					IsLeadPax: index === 0,
@@ -340,6 +389,22 @@ export default function PassengerDetails({
 						LastName: p.guardianLastName || "",
 						PAN: p.guardianPAN || "",
 					};
+				}
+
+				if (index === 0 && requireGST) {
+					basePassenger.GSTNumber = p.gstNumber || "";
+					basePassenger.GSTCompanyName = p.gstCompanyName || "";
+					basePassenger.GSTCompanyAddress = p.gstCompanyAddress || "";
+					basePassenger.GSTCompanyContactNumber = p.gstCompanyContactNumber || "";
+					basePassenger.GSTCompanyEmail = p.gstCompanyEmail || "";
+				}
+				if (requireDocumentId && p.documentId) {
+					basePassenger.DocumentId = p.documentId;
+				}
+				if (index === 0 && requireEmergencyContact) {
+					basePassenger.EmergencyEmail = p.emergencyEmail || "";
+					basePassenger.EmergencyContactName = p.emergencyContactName || "";
+					basePassenger.EmergencyContactPhone = p.emergencyContactPhone || "";
 				}
 
 				return basePassenger;
@@ -359,6 +424,13 @@ export default function PassengerDetails({
 					</CardTitle>
 				</CardHeader>
 				<CardContent className="pt-6">
+					{referenceWarnings.length > 0 && (
+						<div className="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 space-y-1">
+							{referenceWarnings.map((w) => (
+								<p key={`${w.field}-${w.code}`}>{w.message}</p>
+							))}
+						</div>
+					)}
 					<form
 						id="passenger-form"
 						onSubmit={handleSubmit(onSubmit)}
@@ -466,11 +538,14 @@ export default function PassengerDetails({
 											</div>
 
 											<div className="space-y-2">
-												<Label>Date of Birth</Label>
+												<Label>
+													Date of Birth
+													{requireDob ? " (Required)" : ""}
+												</Label>
 												<Input
 													type="date"
 													{...register(`passengers.${index}.dob`, {
-														required: true,
+														required: requireDob || isAdult,
 													})}
 												/>
 											</div>
@@ -508,6 +583,17 @@ export default function PassengerDetails({
 														/>
 													</div>
 												</>
+											)}
+											{requireDocumentId && (
+												<div className="space-y-2 md:col-span-2">
+													<Label>Document ID (Required)</Label>
+													<Input
+														{...register(`passengers.${index}.documentId`, {
+															required: requireDocumentId,
+														})}
+														placeholder="Student / senior citizen document number"
+													/>
+												</div>
 											)}
 											{/* PAN for adults */}
 											{isAdult && requirePAN && (
@@ -616,6 +702,44 @@ export default function PassengerDetails({
 											</div>
 										</div>
 
+										{index === 0 && requireEmergencyContact && (
+											<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+												<div className="md:col-span-2">
+													<p className="text-sm font-medium text-gray-700 mb-2">
+														Emergency contact (required)
+													</p>
+												</div>
+												<div className="space-y-2">
+													<Label>Contact name</Label>
+													<Input
+														{...register(`passengers.${index}.emergencyContactName`, {
+															required: true,
+														})}
+														placeholder="Emergency contact name"
+													/>
+												</div>
+												<div className="space-y-2">
+													<Label>Phone</Label>
+													<Input
+														{...register(`passengers.${index}.emergencyContactPhone`, {
+															required: true,
+														})}
+														placeholder="Emergency phone"
+													/>
+												</div>
+												<div className="space-y-2 md:col-span-2">
+													<Label>Email</Label>
+													<Input
+														type="email"
+														{...register(`passengers.${index}.emergencyEmail`, {
+															required: true,
+														})}
+														placeholder="Emergency email"
+													/>
+												</div>
+											</div>
+										)}
+
 										{/* GST Details - only for lead passenger when mandatory */}
 										{index === 0 && requireGST && (
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -697,11 +821,23 @@ export default function PassengerDetails({
 
 							<div className="hidden sm:flex flex-col">
 								<div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-									<span>{firstSegment?.Origin?.Airport?.CityCode || "--"}</span>
+									<AirportCodeLabel
+										code={
+											firstSegment?.Origin?.Airport?.AirportCode ||
+											firstSegment?.Origin?.Airport?.CityCode ||
+											"--"
+										}
+										city={firstSegment?.Origin?.Airport?.CityName}
+									/>
 									<Plane className="h-4 w-4 text-gray-400" />
-									<span>
-										{lastSegment?.Destination?.Airport?.CityCode || "--"}
-									</span>
+									<AirportCodeLabel
+										code={
+											lastSegment?.Destination?.Airport?.AirportCode ||
+											lastSegment?.Destination?.Airport?.CityCode ||
+											"--"
+										}
+										city={lastSegment?.Destination?.Airport?.CityName}
+									/>
 								</div>
 								<div className="text-xs text-gray-500 mt-0.5">
 									{formatTime(firstSegment?.Origin?.DepTime)} —{" "}

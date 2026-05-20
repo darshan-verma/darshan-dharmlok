@@ -5,12 +5,22 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import AirlineLogo from "@/components/travel-portal/AirlineLogo";
 import type { FlightResult } from "@/types/tbo";
+import { airlineLabelFromFields } from "@/lib/reference-data-client";
+import { AirportCodeLabel } from "@/components/travel-portal/ReferenceCodeLabel";
 
 interface FlightDetailsProps {
 	flightResult: FlightResult;
 }
 
 export default function FlightDetails({ flightResult }: FlightDetailsProps) {
+	const headerAirlineCode =
+		flightResult.Segments?.[0]?.[0]?.Airline?.AirlineCode ||
+		flightResult.AirlineCode;
+	const headerAirlineName = airlineLabelFromFields(
+		headerAirlineCode,
+		flightResult.Segments?.[0]?.[0]?.Airline?.AirlineName,
+	);
+
 	return (
 		<Card className="shadow-sm border-blue-200">
 			<CardHeader className="pb-3 border-b bg-blue-50/30">
@@ -21,7 +31,7 @@ export default function FlightDetails({ flightResult }: FlightDetailsProps) {
 					</div>
 					<div className="flex items-center gap-2">
 						<span className="font-medium text-gray-900 text-lg">
-							{flightResult.AirlineCode}
+							{headerAirlineName}
 						</span>
 						<Badge variant={flightResult.IsLCC ? "secondary" : "default"}>
 							{flightResult.IsLCC ? "LCC" : "Full Service"}
@@ -71,7 +81,12 @@ export default function FlightDetails({ flightResult }: FlightDetailsProps) {
 															size="sm"
 														/>
 													</div>
-													<span>{segment.Airline.AirlineName}</span>
+													<span>
+														{airlineLabelFromFields(
+															segment.Airline.AirlineCode,
+															segment.Airline.AirlineName,
+														)}
+													</span>
 													<span className="text-gray-400">•</span>
 													<span className="font-medium">
 														{segment.Airline.AirlineCode}-
@@ -89,8 +104,13 @@ export default function FlightDetails({ flightResult }: FlightDetailsProps) {
 														{segment.Origin.Airport.AirportName}
 													</div>
 													<div className="text-xs text-gray-500">
-														{segment.Origin.Airport.CityName} (
-														{segment.Origin.Airport.CityCode})
+														<AirportCodeLabel
+															code={
+																segment.Origin.Airport.AirportCode ||
+																segment.Origin.Airport.CityCode
+															}
+															city={segment.Origin.Airport.CityName}
+														/>
 													</div>
 												</div>
 												<div className="text-right">
@@ -98,8 +118,13 @@ export default function FlightDetails({ flightResult }: FlightDetailsProps) {
 														{segment.Destination.Airport.AirportName}
 													</div>
 													<div className="text-xs text-gray-500">
-														{segment.Destination.Airport.CityName} (
-														{segment.Destination.Airport.CityCode})
+														<AirportCodeLabel
+															code={
+																segment.Destination.Airport.AirportCode ||
+																segment.Destination.Airport.CityCode
+															}
+															city={segment.Destination.Airport.CityName}
+														/>
 													</div>
 												</div>
 											</div>
