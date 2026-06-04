@@ -36,6 +36,14 @@ import {
 	createPendingFlightSearchSession,
 	finalizeFlightSearchSession,
 } from "@/lib/flightSearchSessionCache";
+import {
+	buildTboFlightSegment,
+	isReturnJourneyType,
+	normalizeTboCabinClass,
+	tboSourcesForSearch,
+	validateTboPassengerCounts,
+	type TboSpecialReturnChannel,
+} from "@/lib/tboFlightSearch";
 
 /** First page size; remainder loaded via GET /api/travel/flights/search/more */
 const FLIGHT_FIRST_PAGE_SIZE = Math.max(
@@ -55,6 +63,12 @@ const TRIPJACK_FIRST_MS = Math.max(
 	1000,
 	parseInt(process.env.FLIGHT_PROVIDER_TIMEOUT_TRIPJACK || "8000", 10) || 8000,
 );
+const PROVIDER_TIMEOUT_MS = Math.max(
+	1000,
+	parseInt(process.env.FLIGHT_PROVIDER_TIMEOUT_MS || "30000", 10) || 30000,
+);
+
+type ProviderState = "loading" | "done" | "failed";
 
 interface RequestSegment {
 	Origin: string;
@@ -219,6 +233,8 @@ function processSettledIntoProviders(
 			body.JourneyType,
 		) as FlightSearchResponse;
 		annotateAiriqFlights(airiqFlights);
+	} else if (airiqResult.status === "rejected") {
+		console.error("AIRiQ search failed:", airiqResult.reason);
 	}
 
 	let tripjackFlights: FlightSearchResponse | null = null;
@@ -243,6 +259,18 @@ function processSettledIntoProviders(
 	}
 
 	return { tboFlights, airiqFlights, tripjackFlights };
+}
+
+function providerStatesFromSettled(
+	tboResult: PromiseSettledResult<unknown>,
+	airiqResult: PromiseSettledResult<unknown>,
+	tripjackResult: PromiseSettledResult<unknown>,
+): { tbo: ProviderState; airiq: ProviderState; tripjack: ProviderState } {
+	return {
+		tbo: tboResult.status === "fulfilled" ? "done" : "failed",
+		airiq: airiqResult.status === "fulfilled" ? "done" : "failed",
+		tripjack: tripjackResult.status === "fulfilled" ? "done" : "failed",
+	};
 }
 
 type Pagination = {
@@ -445,8 +473,20 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
+		const journeyType = String(body.JourneyType || "1");
+
+		// TBO: max 9 passengers per search
+		const paxError = validateTboPassengerCounts(
+			parseInt(body.AdultCount || "1", 10),
+			parseInt(body.ChildCount || "0", 10),
+			parseInt(body.InfantCount || "0", 10),
+		);
+		if (paxError) {
+			return NextResponse.json({ error: paxError }, { status: 400 });
+		}
+
 		// Validate origin/destination for non-multi-city
-		if (body.JourneyType !== "3") {
+		if (journeyType !== "3") {
 			if (!body.Origin || !body.Destination) {
 				return NextResponse.json(
 					{ error: "Origin and Destination are required" },
@@ -455,8 +495,19 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
+		if (
+			isReturnJourneyType(journeyType) &&
+			(!body.ReturnPreferredDepartureTime ||
+				String(body.ReturnPreferredDepartureTime).trim() === "")
+		) {
+			return NextResponse.json(
+				{ error: "Return date is required for return and special return journeys" },
+				{ status: 400 },
+			);
+		}
+
 		// Validate SpecialReturn constraints: cannot use with MultiCity
-		if (body.JourneyType === "3" && body.Sources?.includes("6E_SPECIAL_RETURN")) {
+		if (journeyType === "3" && body.Sources?.includes("6E_SPECIAL_RETURN")) {
 			return NextResponse.json(
 				{ error: "SpecialReturn (6E) is only available for Return journeys, not MultiCity" },
 				{ status: 400 },
@@ -474,93 +525,113 @@ export async function POST(request: NextRequest) {
 			return `${year}-${month}-${day}T${hours}:${minutes}:00`;
 		};
 
+		const cabinClass = normalizeTboCabinClass(body.FlightCabinClass);
+
+		const specialReturnChannel =
+			body.SpecialReturnChannel === "GDS"
+				? ("GDS" as TboSpecialReturnChannel)
+				: body.SpecialReturnChannel === "LCC"
+					? ("LCC" as TboSpecialReturnChannel)
+					: undefined;
+
 		// Format search parameters to match TBO API exactly
 		const searchParams = {
 			EndUserIp: "183.83.54.192", // Use the IP provided by user
 			AdultCount: body.AdultCount || "1",
 			ChildCount: body.ChildCount || "0",
 			InfantCount: body.InfantCount || "0",
-			DirectFlight: "false", // Include all flight types
-			OneStopFlight: "false", // Include all flight types
-			JourneyType: body.JourneyType || "1", // 1: OneWay, 2: Return, 3: MultiCity
+			DirectFlight: body.DirectFlight ?? "false",
+			OneStopFlight: body.OneStopFlight ?? "false",
+			JourneyType: journeyType,
 			PreferredAirlines: body.PreferredAirlines || null,
 			Segments: [] as FlightSegment[],
-			Sources: null, // Let TBO decide the best sources
-			MaxResults: 100, // Maximum number of results to return
+			Sources: tboSourcesForSearch(journeyType, {
+				sources: body.Sources ?? null,
+				specialReturnChannel,
+			}),
+			MaxResults: 100,
 		};
 
 		// Handle different journey types
-		if (body.JourneyType === "3" && body.Segments) {
+		if (journeyType === "3" && body.Segments) {
 			// Multi-city: use segments from request body
-			searchParams.Segments = body.Segments.map((segment: RequestSegment) => ({
-				Origin: segment.Origin,
-				Destination: segment.Destination,
-				FlightCabinClass: body.FlightCabinClass || "1",
-				PreferredDepartureTime:
-					segment.DepartureDateTime || segment.PreferredDepartureTime || "",
-				...(segment.PreferredArrivalTime && {
-					PreferredArrivalTime: segment.PreferredArrivalTime,
-				}),
-			}));
-		} else {
-			// One-way or round-trip: build segments from Origin/Destination
-			// Add outbound segment first
-			searchParams.Segments.push({
-				Origin: body.Origin,
-				Destination: body.Destination,
-				FlightCabinClass: body.FlightCabinClass || "1",
-				PreferredDepartureTime: body.PreferredDepartureTime
-					? formatDate(body.PreferredDepartureTime)
-					: "",
-				...(body.PreferredArrivalTime && {
-					PreferredArrivalTime: formatDate(body.PreferredArrivalTime),
-				}),
+			searchParams.Segments = body.Segments.map((segment: RequestSegment) => {
+				const dep =
+					segment.DepartureDateTime || segment.PreferredDepartureTime || "";
+				const depFormatted = dep ? formatDate(dep) : "";
+				return buildTboFlightSegment(
+					segment.Origin,
+					segment.Destination,
+					depFormatted,
+					cabinClass,
+					segment.PreferredArrivalTime
+						? formatDate(segment.PreferredArrivalTime)
+						: undefined,
+				);
 			});
+		} else {
+			const outboundDep = body.PreferredDepartureTime
+				? formatDate(body.PreferredDepartureTime)
+				: "";
+			searchParams.Segments.push(
+				buildTboFlightSegment(
+					body.Origin,
+					body.Destination,
+					outboundDep,
+					cabinClass,
+					body.PreferredArrivalTime
+						? formatDate(body.PreferredArrivalTime)
+						: undefined,
+				),
+			);
 
-			// If return journey, add return segment below the outbound
-			if (
-				body.JourneyType == "2" &&
-				body.ReturnPreferredDepartureTime &&
-				body.ReturnPreferredDepartureTime.trim() !== ""
-			) {
-				searchParams.Segments.push({
-					Origin: body.Destination,
-					Destination: body.Origin,
-					FlightCabinClass: body.FlightCabinClass || "1",
-					PreferredDepartureTime: formatDate(body.ReturnPreferredDepartureTime),
-					...(body.ReturnPreferredArrivalTime && {
-						PreferredArrivalTime: formatDate(body.ReturnPreferredArrivalTime),
-					}),
-				});
+			if (isReturnJourneyType(journeyType) && body.ReturnPreferredDepartureTime) {
+				const returnDep = formatDate(body.ReturnPreferredDepartureTime);
+				searchParams.Segments.push(
+					buildTboFlightSegment(
+						body.Destination,
+						body.Origin,
+						returnDep,
+						cabinClass,
+						body.ReturnPreferredArrivalTime
+							? formatDate(body.ReturnPreferredArrivalTime)
+							: undefined,
+					),
+				);
 			}
 		}
 
 		let airiqParams;
 		try {
 			airiqParams = convertTboToAiriqParams(searchParams);
-			// AIRiQ doesn't support multi-city (TripType "M")
-			// Skip AIRiQ for multi-city searches
-			if (searchParams.JourneyType === "3") {
+			// AIRiQ: no multi-city or TBO-only journey types (4 Advance, 5 Special Return)
+			if (journeyType === "3" || journeyType === "4" || journeyType === "5") {
 				airiqParams = null;
 			}
 		} catch (_err) {
 			airiqParams = null;
 		}
 
-		const tripjackPayload = isTripjackConfigured()
-			? buildTripjackAirSearchRequest(body)
-			: null;
+		const tripjackPayload =
+			isTripjackConfigured() && journeyType !== "5" && journeyType !== "4"
+				? buildTripjackAirSearchRequest(body)
+				: null;
 		const tripjackTraceId = randomUUID();
 
-		const tboP = searchFlights(searchParams);
+		const tboP = withTimeout(
+			searchFlights(searchParams),
+			PROVIDER_TIMEOUT_MS,
+			"TBO",
+		);
 		const airiqP = airiqParams
-			? searchAiriqFlights(airiqParams).catch(() => null)
+			? withTimeout(searchAiriqFlights(airiqParams), PROVIDER_TIMEOUT_MS, "AIRiQ")
 			: Promise.resolve(null);
 		const tjP = tripjackPayload
-			? searchTripjackFlights(tripjackPayload).catch((err) => {
-					console.error("TripJack search failed:", err);
-					return null;
-				})
+			? withTimeout(
+					searchTripjackFlights(tripjackPayload),
+					PROVIDER_TIMEOUT_MS,
+					"TRIPJACK",
+				)
 			: Promise.resolve(null);
 
 		const firstCandidates: Promise<FirstWin>[] = [
@@ -594,8 +665,6 @@ export async function POST(request: NextRequest) {
 		} catch {
 			firstWin = null;
 		}
-
-		const journeyType = body.JourneyType || "1";
 
 		/** Early partial response: first successful provider within per-API timeouts */
 		if (firstWin) {
@@ -784,6 +853,11 @@ export async function POST(request: NextRequest) {
 					airiq: airiqDone,
 					tripjack: tjDone,
 				},
+				providerStates: {
+					tbo: tboDone ? "done" : "loading",
+					airiq: airiqDone ? "done" : "loading",
+					tripjack: tjDone ? "done" : "loading",
+				},
 				stats: {
 					tboFlightCount: partial.tboFlightCount,
 					airiqFlightCount: partial.airiqFlightCount,
@@ -848,6 +922,11 @@ export async function POST(request: NextRequest) {
 				tripjack:
 					tripjackResult.status === "fulfilled" && !!tripjackResult.value,
 			},
+			providerStates: providerStatesFromSettled(
+				tboResult,
+				airiqResult,
+				tripjackResult,
+			),
 			stats: {
 				tboFlightCount: merged.tboFlightCount,
 				airiqFlightCount: merged.airiqFlightCount,

@@ -24,6 +24,12 @@ import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import { toast } from "@/lib/toast";
 import { useEffect } from "react";
+import LocaleTabs from "@/components/admin/LocaleTabs";
+import type { ContentLang } from "@/lib/content-lang";
+import {
+	ADMIN_LOCALE_TAB_FIELDS,
+	switchContentLocale,
+} from "@/lib/admin-locale-sync";
 
 type Props = {
 	editedTemple: TempleData | null;
@@ -53,6 +59,8 @@ type Props = {
 	travelByRoad: string[];
 	setTravelByRoad: (val: string[] | ((prev: string[]) => string[])) => void;
 	setEditedTemple: (cb: (prev: TempleData | null) => TempleData | null) => void;
+	contentLocale: ContentLang;
+	onContentLocaleChange: (locale: ContentLang) => void;
 	onSave: () => void;
 };
 
@@ -83,6 +91,8 @@ export function TempleInfoCard({
 	travelByRoad,
 	setTravelByRoad,
 	setEditedTemple,
+	contentLocale,
+	onContentLocaleChange,
 	onSave,
 }: Props) {
 	// Move useCreateBlockNote hooks to the top level
@@ -322,6 +332,28 @@ export function TempleInfoCard({
 		setEditedTemple((prev) => (prev ? { ...prev, [field]: val } : prev));
 	}
 
+	const handleLocaleChange = (next: ContentLang) => {
+		setEditedTemple((prev) => {
+			if (!prev) return prev;
+			const withLocaleFields = {
+				...prev,
+				amenities,
+				travelByAir,
+				travelByTrain,
+				travelByBus,
+				travelByRoad,
+			};
+			return switchContentLocale(
+				withLocaleFields,
+				"temple",
+				contentLocale,
+				next,
+				ADMIN_LOCALE_TAB_FIELDS.temple
+			);
+		});
+		onContentLocaleChange(next);
+	};
+
 	return (
 		<>
 			{/* Map Section */}
@@ -383,12 +415,23 @@ export function TempleInfoCard({
 			{/* Main Temple Info Card */}
 			<Card className="mt-6">
 				<CardContent className="space-y-6 pt-6">
-					{/* Temple Info Section */}
+					{/* Translatable content (English / Hindi tabs) */}
 					<Card className="mb-4">
-						<CardHeader>
-							<CardTitle>Temple Information</CardTitle>
+						<CardHeader className="space-y-3">
+							<CardTitle>Temple Content</CardTitle>
+							{isEditing && (
+								<LocaleTabs
+									activeLocale={contentLocale}
+									onLocaleChange={handleLocaleChange}
+									translationStatus={editedTemple?.translationStatus}
+								/>
+							)}
 						</CardHeader>
-						<CardContent className="space-y-4">
+						<CardContent className="space-y-6">
+							<div className="space-y-4">
+								<h3 className="text-sm font-semibold text-muted-foreground">
+									Temple Information
+								</h3>
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								{/* Description Card */}
 								<Card>
@@ -398,6 +441,7 @@ export function TempleInfoCard({
 									<CardContent>
 										{isEditing ? (
 											<BlockNoteEditor
+												key={`description-${contentLocale}`}
 												initialContent={editedTemple?.description || ""}
 												onChange={(val: string) =>
 													handleBlockNoteChange("description", val)
@@ -431,6 +475,7 @@ export function TempleInfoCard({
 									<CardContent>
 										{isEditing ? (
 											<BlockNoteEditor
+												key={`history-${contentLocale}`}
 												initialContent={editedTemple?.history || ""}
 												onChange={(val: string) =>
 													handleBlockNoteChange("history", val)
@@ -464,6 +509,7 @@ export function TempleInfoCard({
 									<CardContent>
 										{isEditing ? (
 											<BlockNoteEditor
+												key={`additionalInfo-${contentLocale}`}
 												initialContent={editedTemple?.additionalInfo || ""}
 												onChange={(val: string) =>
 													handleBlockNoteChange("additionalInfo", val)
@@ -491,6 +537,7 @@ export function TempleInfoCard({
 									<CardContent>
 										{isEditing ? (
 											<BlockNoteEditor
+												key={`rituals-${contentLocale}`}
 												initialContent={editedTemple?.rituals || ""}
 												onChange={(val: string) =>
 													handleBlockNoteChange("rituals", val)
@@ -531,15 +578,12 @@ export function TempleInfoCard({
 									disabled={!isEditing}
 								/>
 							</div>
-						</CardContent>
-					</Card>
+							</div>
 
-					{/* Travel Card */}
-					<Card className="mb-4">
-						<CardHeader>
-							<CardTitle>Best Way of Travel</CardTitle>
-						</CardHeader>
-						<CardContent className="space-y-4">
+							<div className="space-y-4 border-t pt-6">
+								<h3 className="text-sm font-semibold text-muted-foreground">
+									Best Way of Travel
+								</h3>
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								{/* By Air */}
 								<div className="space-y-2">
@@ -707,17 +751,9 @@ export function TempleInfoCard({
 									)}
 								</div>
 							</div>
-						</CardContent>
-					</Card>
+							</div>
 
-					{/* Amenities & FAQ Card */}
-					<Card className="mb-4">
-						<CardHeader>
-							<CardTitle>Amenities & FAQs</CardTitle>
-						</CardHeader>
-						<CardContent className="space-y-6">
-							{/* Amenities */}
-							<div className="space-y-2">
+							<div className="space-y-2 border-t pt-6">
 								<Label>Amenities Nearby</Label>
 								<div className="flex gap-2">
 									<Input
@@ -763,8 +799,15 @@ export function TempleInfoCard({
 									))}
 								</div>
 							</div>
+						</CardContent>
+					</Card>
 
-							{/* FAQ Section */}
+					{/* FAQs (shared, not localized in tabs) */}
+					<Card className="mb-4">
+						<CardHeader>
+							<CardTitle>FAQs</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-4">
 							<div className="space-y-2">
 								<Label>FAQs</Label>
 								{faqs.map((faq, idx) => (

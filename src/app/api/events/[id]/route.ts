@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { parseLangParam, getTranslation } from "@/lib/content-lang";
+import {
+	formatEventResponse,
+	prepareTranslationsForSave,
+	rawFindById,
+	safeFormatDate,
+	safeFormatDateOnly,
+} from "@/lib/content-api";
 
 export interface EventApi {
 	id: string;
@@ -37,32 +45,6 @@ function parseArrayField(field: unknown): string[] {
 	return [];
 }
 
-function formatDateOnly(value: unknown): string {
-	if (value instanceof Date) {
-		return Number.isNaN(value.getTime())
-			? ""
-			: value.toISOString().split("T")[0];
-	}
-	if (typeof value === "string") {
-		const parsed = new Date(value);
-		return Number.isNaN(parsed.getTime())
-			? value
-			: parsed.toISOString().split("T")[0];
-	}
-	return "";
-}
-
-function formatIsoDateTime(value: unknown): string | undefined {
-	if (value instanceof Date) {
-		return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
-	}
-	if (typeof value === "string") {
-		const parsed = new Date(value);
-		return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-	}
-	return undefined;
-}
-
 // GET /api/events/[id]
 export async function GET(req: NextRequest) {
 	try {
@@ -70,31 +52,17 @@ export async function GET(req: NextRequest) {
 		const pathnameParts = url.pathname.split("/");
 		const id = pathnameParts[pathnameParts.length - 1];
 
-		const event = await prisma.event.findUnique({ where: { id } });
+		const locale = parseLangParam(req.nextUrl.searchParams.get("lang")) ?? "en";
+		const event = await rawFindById("Event", id);
 		if (!event)
 			return NextResponse.json({ error: "Not found" }, { status: 404 });
-		const result: EventApi = {
-			id: event.id,
-			title: event.title,
-			description: event.description || "",
-			bookingUrl: event.bookingUrl || "",
-			address: event.address || "",
-			fromDate: formatDateOnly(event.fromDate),
-			fromTime: event.fromTime || "",
-			toDate: formatDateOnly(event.toDate),
-			toTime: event.toTime || "",
-			place: event.place || "",
-			location: event.location || "",
-			category: event.category,
-			type: event.type,
-			price: event.price ?? undefined,
-			bannerImage: event.bannerImage || "",
-			relatedImages: parseArrayField(event.relatedImages),
-			status: event.status,
-			createdAt: formatIsoDateTime(event.createdAt),
-			updatedAt: formatIsoDateTime(event.updatedAt),
-		};
-		return NextResponse.json(result);
+		return NextResponse.json(
+			formatEventResponse(event, locale, {
+				formatDateOnly: safeFormatDateOnly,
+				formatIsoDateTime: (v) => safeFormatDate(v) || undefined,
+				parseArrayField,
+			})
+		);
 	} catch {
 		return NextResponse.json(
 			{ error: "Failed to fetch event" },
@@ -112,16 +80,9 @@ export async function PUT(req: NextRequest) {
 
 		const body = await req.json();
 		const {
-			title,
-			description,
 			bookingUrl,
-			address,
 			fromDate,
-			fromTime,
 			toDate,
-			toTime,
-			place,
-			location,
 			category,
 			type,
 			price,
@@ -142,7 +103,23 @@ export async function PUT(req: NextRequest) {
 			});
 		}
 
-		if (!title || !fromDate || !toDate || !category || !type || !status) {
+		const existing = await prisma.event.findUnique({ where: { id } });
+		if (!existing) {
+			return NextResponse.json({ error: "Not found" }, { status: 404 });
+		}
+
+		const { translations, translationStatus } = prepareTranslationsForSave(
+			"event",
+			body,
+			existing
+		);
+
+		const titleEn = getTranslation(
+			{ translations } as Record<string, unknown>,
+			"en",
+			"title"
+		);
+		if (!titleEn || !fromDate || !toDate || !category || !type || !status) {
 			return NextResponse.json(
 				{ error: "Missing required fields" },
 				{ status: 400 }
@@ -152,16 +129,11 @@ export async function PUT(req: NextRequest) {
 		const updated = await prisma.event.update({
 			where: { id },
 			data: {
-				title,
-				description: description || "",
+				translations: translations as object,
+				translationStatus,
 				bookingUrl: bookingUrl || "",
-				address: address || "",
 				fromDate: new Date(fromDate),
-				fromTime: fromTime || "",
 				toDate: new Date(toDate),
-				toTime: toTime || "",
-				place: place || "",
-				location: location || "",
 				category,
 				type,
 				price: price !== undefined && price !== null ? Number(price) : null,
@@ -170,28 +142,15 @@ export async function PUT(req: NextRequest) {
 				status,
 			},
 		});
-		const result: EventApi = {
-			id: updated.id,
-			title: updated.title,
-			description: updated.description || "",
-			bookingUrl: updated.bookingUrl || "",
-			address: updated.address || "",
-			fromDate: formatDateOnly(updated.fromDate),
-			fromTime: updated.fromTime || "",
-			toDate: formatDateOnly(updated.toDate),
-			toTime: updated.toTime || "",
-			place: updated.place || "",
-			location: updated.location || "",
-			category: updated.category,
-			type: updated.type,
-			price: updated.price ?? undefined,
-			bannerImage: updated.bannerImage || "",
-			relatedImages: parseArrayField(updated.relatedImages),
-			status: updated.status,
-			createdAt: formatIsoDateTime(updated.createdAt),
-			updatedAt: formatIsoDateTime(updated.updatedAt),
-		};
-		return NextResponse.json(result);
+
+		const locale = parseLangParam(body.locale) ?? "en";
+		return NextResponse.json(
+			formatEventResponse(updated as unknown as Record<string, unknown>, locale, {
+				formatDateOnly: safeFormatDateOnly,
+				formatIsoDateTime: (v) => safeFormatDate(v) || undefined,
+				parseArrayField,
+			})
+		);
 	} catch {
 		return NextResponse.json(
 			{ error: "Failed to update event" },

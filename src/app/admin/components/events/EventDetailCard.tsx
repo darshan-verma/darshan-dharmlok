@@ -26,7 +26,7 @@ export function EventDetailCard({
 		<Card className="md:col-span-1 h-fit">
 			<CardHeader className="text-center p-4 pb-2">
 				<CardTitle className="text-center text-lg">{event.title}</CardTitle>
-				<CardDescription>
+				<CardDescription className="flex flex-wrap justify-center gap-1">
 					<span
 						className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
 							event.status === "Active"
@@ -36,6 +36,11 @@ export function EventDetailCard({
 					>
 						{event.status}
 					</span>
+					{event.translationStatus && (
+						<span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700">
+							{event.translationStatus}
+						</span>
+					)}
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-3 p-4 pt-0">

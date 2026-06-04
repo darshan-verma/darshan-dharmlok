@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { parseLangParam } from "@/lib/content-lang";
+import {
+	formatPanditjiResponse,
+	prepareTranslationsForSave,
+} from "@/lib/content-api";
 
 /**
  * GET /api/users/[id]
@@ -67,6 +72,9 @@ export async function GET(
 
 					// Classification and status
 					category: true,
+					description: true,
+					translations: true,
+					translationStatus: true,
 					rank: true,
 					status: true, // Active/Inactive
 
@@ -105,6 +113,16 @@ export async function GET(
 					videos: true,
 				},
 			});
+
+			if (user?.userType === "panditji") {
+				const locale =
+					parseLangParam(new URL(_request.url).searchParams.get("lang")) ?? "en";
+				const formatted = formatPanditjiResponse(
+					user as unknown as Record<string, unknown>,
+					locale
+				);
+				return NextResponse.json({ ...user, ...formatted });
+			}
 
 			return NextResponse.json(user);
 		} catch (prismaError) {
@@ -228,6 +246,18 @@ export async function PUT(
 			console.log("Updating user with data:", JSON.stringify(data, null, 2));
 			console.log("Rank value before update:", data.rank);
 
+			const existingUser = await prisma.user.findUnique({
+				where: { id },
+				select: {
+					userType: true,
+					translations: true,
+					name: true,
+					bio: true,
+					description: true,
+					category: true,
+				},
+			});
+
 			// Prepare update data with conditional field inclusion
 			const userUpdateData: Prisma.UserUpdateInput = {
 				// Basic information updates (only if provided)
@@ -249,6 +279,9 @@ export async function PUT(
 					coverImageUrl: data.coverImageUrl,
 				}),
 				...(data.bio !== undefined && { bio: data.bio }),
+				...(data.description !== undefined && {
+					description: data.description,
+				}),
 
 				// Explicitly include rank field (important for kathavachak/dharmguru)
 				rank: data.rank || "",
@@ -279,6 +312,32 @@ export async function PUT(
 			// Add this to handle profileImageUrl removal
 			if ("profileImageUrl" in data) {
 				userUpdateData.profileImageUrl = data.profileImageUrl ?? null;
+			}
+
+			if (
+				existingUser?.userType === "panditji" &&
+				(data.translations !== undefined ||
+					data.name !== undefined ||
+					data.bio !== undefined ||
+					data.description !== undefined ||
+					data.category !== undefined)
+			) {
+				const { translations, translationStatus } = prepareTranslationsForSave(
+					"panditji",
+					data,
+					existingUser
+				);
+				const enSlice = (translations.en ?? {}) as Record<string, unknown>;
+				userUpdateData.translations = translations as object;
+				userUpdateData.translationStatus = translationStatus;
+				if (enSlice.name) userUpdateData.name = String(enSlice.name);
+				if (enSlice.bio !== undefined) userUpdateData.bio = String(enSlice.bio);
+				if (enSlice.description !== undefined) {
+					userUpdateData.description = String(enSlice.description);
+				}
+				if (enSlice.category !== undefined) {
+					userUpdateData.category = String(enSlice.category);
+				}
 			}
 
 			console.log(

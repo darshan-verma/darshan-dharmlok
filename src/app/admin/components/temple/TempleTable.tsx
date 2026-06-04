@@ -33,10 +33,12 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatAdminDate } from "@/lib/utils";
 
 // Temple interface
 export interface Temple {
 	id: string;
+	lang?: "en" | "hi";
 	name: string;
 	date: string;
 	state: string;
@@ -59,17 +61,6 @@ const getStatusColor = (status: string): string =>
 	status === "Active"
 		? "bg-green-100 text-green-800"
 		: "bg-red-100 text-red-800";
-
-// Helper for formatting date
-const formatDate = (dateString: string) => {
-	if (!dateString) return "";
-	const date = new Date(dateString);
-	return date.toLocaleDateString("en-IN", {
-		day: "2-digit",
-		month: "short",
-		year: "numeric",
-	});
-};
 
 export default function TempleTable({
 	temples,
@@ -218,7 +209,7 @@ export default function TempleTable({
 							paginatedTemples.map((temple) => (
 								<TableRow key={temple.id}>
 									<TableCell className="font-medium">{temple.name}</TableCell>
-									<TableCell>{formatDate(temple.date)}</TableCell>
+									<TableCell>{formatAdminDate(temple.date)}</TableCell>
 									<TableCell>{temple.state}</TableCell>
 									<TableCell>{temple.city}</TableCell>
 									<TableCell>

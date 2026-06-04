@@ -3,6 +3,8 @@
  * Provides consistent caching behavior across the application
  */
 
+import { normalizeTboCabinClass } from "@/lib/tboFlightSearch";
+
 /**
  * Canonical date normalizer - converts Date to YYYY-MM-DD format
  * Use this function everywhere dates are used for cache key generation, lastSearch saving, URL restore, multi-city segments
@@ -103,8 +105,9 @@ export async function generateCacheKey(
 		normalizedRequest.adults = params.AdultCount || params.adults || 1;
 		normalizedRequest.children = params.ChildCount || params.children || 0;
 		normalizedRequest.infants = params.InfantCount || params.infants || 0;
-		normalizedRequest.cabinClass =
-			params.FlightCabinClass || params.cabinClass || "1";
+		normalizedRequest.cabinClass = normalizeTboCabinClass(
+			String(params.FlightCabinClass || params.cabinClass || ""),
+		);
 		normalizedRequest.directFlight =
 			params.DirectFlight || params.directFlight || "true";
 		normalizedRequest.oneStopFlight =
@@ -114,7 +117,8 @@ export async function generateCacheKey(
 	// Handle one-way and round-trip
 	if (
 		normalizedRequest.journeyType === "1" ||
-		normalizedRequest.journeyType === "2"
+		normalizedRequest.journeyType === "2" ||
+		normalizedRequest.journeyType === "5"
 	) {
 		normalizedRequest.origin = String(
 			params.Origin || params.origin || "",
@@ -129,7 +133,8 @@ export async function generateCacheKey(
 			);
 		}
 		if (
-			normalizedRequest.journeyType === "2" &&
+			(normalizedRequest.journeyType === "2" ||
+				normalizedRequest.journeyType === "5") &&
 			(params.ReturnPreferredDepartureTime || params.returnDate)
 		) {
 			const retDate = params.ReturnPreferredDepartureTime || params.returnDate;
@@ -208,7 +213,9 @@ export function generateCacheKeySync(params: Record<string, unknown>): string {
 		adults: params.AdultCount || params.adults || 1,
 		children: params.ChildCount || params.children || 0,
 		infants: params.InfantCount || params.infants || 0,
-		cabinClass: params.FlightCabinClass || params.cabinClass || "1",
+		cabinClass: normalizeTboCabinClass(
+			String(params.FlightCabinClass || params.cabinClass || ""),
+		),
 		directFlight: params.DirectFlight || params.directFlight || "true",
 		oneStopFlight: params.OneStopFlight || params.oneStopFlight || "false",
 	};
@@ -216,7 +223,8 @@ export function generateCacheKeySync(params: Record<string, unknown>): string {
 	// Handle one-way and round-trip
 	if (
 		normalizedRequest.journeyType === "1" ||
-		normalizedRequest.journeyType === "2"
+		normalizedRequest.journeyType === "2" ||
+		normalizedRequest.journeyType === "5"
 	) {
 		normalizedRequest.origin = String(
 			params.Origin || params.origin || "",
@@ -231,7 +239,8 @@ export function generateCacheKeySync(params: Record<string, unknown>): string {
 			);
 		}
 		if (
-			normalizedRequest.journeyType === "2" &&
+			(normalizedRequest.journeyType === "2" ||
+				normalizedRequest.journeyType === "5") &&
 			(params.ReturnPreferredDepartureTime || params.returnDate)
 		) {
 			const retDate = params.ReturnPreferredDepartureTime || params.returnDate;

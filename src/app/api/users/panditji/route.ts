@@ -3,6 +3,11 @@ import prisma from "@/lib/prisma";
 import { uploadToS3 } from "@/lib/uploadToS3";
 import bcrypt from "bcrypt";
 import { UserWhereConditions } from "@/types/user";
+import { parseLangParam } from "@/lib/content-lang";
+import {
+	formatPanditjiResponse,
+	prepareTranslationsForSave,
+} from "@/lib/content-api";
 
 // GET - List all panditji users with optimized queries
 export async function GET(request: NextRequest) {
@@ -16,6 +21,7 @@ export async function GET(request: NextRequest) {
 		const kycApproved = searchParams.get("kycApproved");
 		const availability = searchParams.get("availability");
 
+		const locale = parseLangParam(searchParams.get("lang")) ?? "en";
 		const skip = (page - 1) * limit;
 
 		// Build filter conditions for panditji users
@@ -70,6 +76,8 @@ export async function GET(request: NextRequest) {
 					bio: true,
 					description: true,
 					category: true,
+					translations: true,
+					translationStatus: true,
 					userType: true,
 					status: true,
 					active: true,
@@ -142,7 +150,9 @@ export async function GET(request: NextRequest) {
 
 		return NextResponse.json({
 			success: true,
-			data: users,
+			data: users.map((u) =>
+				formatPanditjiResponse(u as unknown as Record<string, unknown>, locale)
+			),
 			pagination: {
 				currentPage: page,
 				totalPages,
@@ -266,12 +276,34 @@ export async function POST(request: NextRequest) {
 			}
 		}
 
+		const translationsField = formData.get("translations");
+		const translationBody: Record<string, unknown> = translationsField
+			? { translations: JSON.parse(translationsField as string) }
+			: {
+					locale: "en",
+					name: userData.name,
+					bio: userData.bio,
+					description: userData.description,
+					category: userData.category,
+				};
+		const { translations, translationStatus } =
+			prepareTranslationsForSave("panditji", translationBody);
+		const enSlice = (translations.en ?? {}) as Record<string, unknown>;
+
 		// Create panditji user with transaction for consistency
 		const result = await prisma.$transaction(async (tx) => {
 			// Create the user
 			const newUser = await tx.user.create({
 				data: {
 					...userData,
+					name: String(enSlice.name ?? userData.name),
+					bio: String(enSlice.bio ?? userData.bio ?? ""),
+					description: String(
+						enSlice.description ?? userData.description ?? ""
+					),
+					category: String(enSlice.category ?? userData.category ?? ""),
+					translations: translations as object,
+					translationStatus,
 					password: hashedPassword,
 					profileImageUrl: profileImageUrl || undefined,
 					bannerImageUrl: bannerImageUrl || undefined,

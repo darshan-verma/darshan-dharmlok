@@ -1,3 +1,8 @@
+import type {
+	LocaleTranslations,
+	TranslationStatus,
+} from "@/lib/content-lang";
+
 export interface Event {
 	id: string;
 	title: string;
@@ -16,6 +21,8 @@ export interface Event {
 	bannerImage?: string;
 	relatedImages?: string[];
 	status: string;
+	translations?: LocaleTranslations;
+	translationStatus?: TranslationStatus;
 	createdAt?: string;
 	updatedAt?: string;
 }

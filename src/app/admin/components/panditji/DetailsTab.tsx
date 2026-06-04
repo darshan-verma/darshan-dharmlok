@@ -20,6 +20,9 @@ import {
 import { Save, Plus, Trash2, MapPin } from "lucide-react";
 import { Panditji, FormErrors } from "./types";
 import React, { useEffect, useState } from "react";
+import LocaleTabs from "@/components/admin/LocaleTabs";
+import type { ContentLang } from "@/lib/content-lang";
+import { switchContentLocale } from "@/lib/admin-locale-sync";
 
 interface DetailsTabProps {
 	panditji: Panditji | null;
@@ -35,6 +38,8 @@ interface DetailsTabProps {
 	formatDate: (dateString: string | Date) => string;
 	formatPhoneNumber: (value: string) => string;
 	setAddressesToDelete: React.Dispatch<React.SetStateAction<string[]>>;
+	contentLocale: ContentLang;
+	onContentLocaleChange: (locale: ContentLang) => void;
 }
 
 export default function DetailsTab({
@@ -49,7 +54,22 @@ export default function DetailsTab({
 	formatDate,
 	formatPhoneNumber,
 	setAddressesToDelete,
+	contentLocale,
+	onContentLocaleChange,
 }: DetailsTabProps) {
+	const handleLocaleChange = (locale: ContentLang) => {
+		setEditedPanditji((prev) =>
+			prev
+				? (switchContentLocale(
+						prev as unknown as Record<string, unknown>,
+						"panditji",
+						contentLocale,
+						locale
+					) as unknown as Partial<Panditji>)
+				: prev
+		);
+		onContentLocaleChange(locale);
+	};
 	// Offerings state for view mode
 	const [offerings, setOfferings] = useState<
 		{
@@ -132,11 +152,17 @@ export default function DetailsTab({
 	// Offerings state for view mode
 	return (
 		<Card>
-			<CardHeader>
+			<CardHeader className="space-y-3">
 				<CardTitle>Personal Information</CardTitle>
 				<CardDescription>
 					Update Panditji&apos;s personal details and contact information.
 				</CardDescription>
+				{isEditing && (
+					<LocaleTabs
+						activeLocale={contentLocale}
+						onLocaleChange={handleLocaleChange}
+					/>
+				)}
 			</CardHeader>
 			<CardContent className="space-y-4">
 				{isEditing ? (

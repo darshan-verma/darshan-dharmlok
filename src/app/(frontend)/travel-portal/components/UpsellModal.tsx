@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 import AirlineLogo from "@/components/travel-portal/AirlineLogo";
 import type { FlightResult } from "@/types/tbo";
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
+import { tboSeparateReturnResultIndex } from "@/lib/tboFlightSearch";
 
 interface FareUpsellRequestBody {
 	TraceId: string;
@@ -30,7 +31,7 @@ interface UpsellModalProps {
 	traceId: string;
 	resultIndex: string;
 	returnResultIndex?: string | null;
-	journeyType?: number; // 1=one-way,2=roundtrip,3=multicity
+	journeyType?: number | string; // 1=one-way, 2=return, 3=multicity, 5=special return
 	adultCount?: number;
 	childCount?: number;
 	infantCount?: number;
@@ -102,9 +103,13 @@ export default function UpsellModal({
 					ResultIndex: resultIndex,
 					EndUserIp: "",
 				};
-				// include returnResultIndex when provided (some APIs expect pairing for round-trip)
-				if (typeof returnResultIndex !== "undefined" && returnResultIndex) {
-					body.ReturnResultIndex = returnResultIndex;
+				const pairedReturn = tboSeparateReturnResultIndex(
+					resultIndex,
+					returnResultIndex ?? undefined,
+					String(journeyType),
+				);
+				if (pairedReturn) {
+					body.ReturnResultIndex = pairedReturn;
 				}
 				if (typeof adultCount !== "undefined") body.AdultCount = adultCount;
 				if (typeof childCount !== "undefined") body.ChildCount = childCount;
@@ -146,6 +151,7 @@ export default function UpsellModal({
 		traceId,
 		resultIndex,
 		returnResultIndex,
+		journeyType,
 		adultCount,
 		childCount,
 		infantCount,
@@ -274,6 +280,7 @@ export default function UpsellModal({
 								isUpsellAllowed={true}
 								traceId={traceId}
 								returnResultIndex={returnResultIndex}
+								journeyType={journeyType}
 								adultCount={adultCount}
 								childCount={childCount}
 								infantCount={infantCount}

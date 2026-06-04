@@ -4,6 +4,7 @@ import {
 	countFlightsBySource,
 	mergeAndCapRoundTrip,
 } from "@/lib/flightSearchMerge";
+import { pairTboSpecialReturnFlights, TBO_JOURNEY } from "@/lib/tboFlightSearch";
 import { nonEmptyResultLegs } from "@/lib/tripjackMulticityUi";
 import type { FlightResult, FlightSearchResponse } from "@/types/tbo";
 
@@ -134,7 +135,14 @@ export function mergeProviderResponses(
 	const preCounts = countFlightsBySource(preMergeFlat);
 
 	if (mergedResults?.Response?.Results?.length) {
-		if (journeyType === "2") {
+		if (journeyType === TBO_JOURNEY.SPECIAL_RETURN) {
+			const flat: FlightResult[] = [];
+			for (const leg of mergedResults.Response.Results) {
+				if (Array.isArray(leg)) flat.push(...(leg as FlightResult[]));
+			}
+			const paired = pairTboSpecialReturnFlights(flat);
+			mergedResults.Response.Results = [paired];
+		} else if (journeyType === TBO_JOURNEY.RETURN) {
 			const paired = mergeAndCapRoundTrip(
 				mergedResults.Response.Results as FlightResult[][],
 			);

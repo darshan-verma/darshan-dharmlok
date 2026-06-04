@@ -6,6 +6,8 @@ export type Faq = {
 
 export type DharamshalaData = {
 	id: string;
+	translations?: Record<string, unknown>;
+	translationStatus?: "none" | "partial" | "complete";
 	name: string;
 	date: string;
 	state: string;

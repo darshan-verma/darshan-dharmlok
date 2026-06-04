@@ -23,6 +23,9 @@ import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import { useEffect } from "react";
+import LocaleTabs from "@/components/admin/LocaleTabs";
+import type { ContentLang } from "@/lib/content-lang";
+import { switchContentLocale } from "@/lib/admin-locale-sync";
 
 type Props = {
 	editedDharamshala: DharamshalaData | null;
@@ -54,6 +57,8 @@ type Props = {
 	setEditedDharamshala: (
 		cb: (prev: DharamshalaData | null) => DharamshalaData | null
 	) => void;
+	contentLocale: ContentLang;
+	onContentLocaleChange: (locale: ContentLang) => void;
 	onSave: () => void;
 };
 
@@ -84,6 +89,8 @@ export function DharamshalaInfoCard({
 	travelByRoad,
 	setTravelByRoad,
 	setEditedDharamshala,
+	contentLocale,
+	onContentLocaleChange,
 	onSave,
 }: Props) {
 	const descriptionEditor = useCreateBlockNote();
@@ -374,8 +381,27 @@ export function DharamshalaInfoCard({
 				<CardContent className="space-y-6 pt-6">
 					{/* Dharamshala Info Section */}
 					<Card className="mb-4">
-						<CardHeader>
+						<CardHeader className="space-y-3">
 							<CardTitle>Dharamshala Information</CardTitle>
+							{isEditing && (
+								<LocaleTabs
+									activeLocale={contentLocale}
+									onLocaleChange={(next) => {
+										setEditedDharamshala((prev) =>
+											prev
+												? switchContentLocale(
+														prev,
+														"dharamshala",
+														contentLocale,
+														next
+													)
+												: prev
+										);
+										onContentLocaleChange(next);
+									}}
+									translationStatus={editedDharamshala?.translationStatus}
+								/>
+							)}
 						</CardHeader>
 						<CardContent className="space-y-4">
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">

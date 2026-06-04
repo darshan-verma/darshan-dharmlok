@@ -126,6 +126,65 @@ function resolvePassportCountryCode(p: IncomingPassenger): string {
 	return upper.slice(0, 2) || "IN";
 }
 
+const INVALID_PNRS = ["n/a", "na", "-", "--", "none", "null", ""];
+
+function isInvalidPnr(pnr: unknown): boolean {
+	return (
+		typeof pnr !== "string" || INVALID_PNRS.includes(pnr.toLowerCase().trim())
+	);
+}
+
+function findAirlinePnrInSegments(item: Record<string, unknown>): string {
+	const travellers = (item.TravellerInfo as Record<string, unknown> | undefined)
+		?.Item;
+	const travArr = Array.isArray(travellers)
+		? travellers
+		: travellers
+			? [travellers]
+			: [];
+	for (const t of travArr) {
+		const traveller = t as Record<string, unknown>;
+		const segments = (traveller.SegmentInformation as Record<string, unknown> | undefined)
+			?.Item;
+		const segArr = Array.isArray(segments)
+			? segments
+			: segments
+				? [segments]
+				: [];
+		for (const seg of segArr) {
+			const airlinePNR = (seg as Record<string, unknown>).AirlinePNR;
+			if (typeof airlinePNR === "string" && !isInvalidPnr(airlinePNR)) {
+				return airlinePNR;
+			}
+		}
+	}
+	return "";
+}
+
+function airlinePnrFromBookNode(node: Record<string, unknown>): string {
+	const topPnr = node.AirlinePNR;
+	if (typeof topPnr === "string" && !isInvalidPnr(topPnr)) {
+		return topPnr;
+	}
+
+	const crsPnr = node.CRSPNR;
+	if (typeof crsPnr === "string" && !isInvalidPnr(crsPnr)) {
+		return crsPnr;
+	}
+
+	return findAirlinePnrInSegments(node);
+}
+
+function extractPnrsFromBookItem(
+	it: Record<string, unknown>
+): { airIqPNR: string; airlinePNR: string } | null {
+	if (typeof it.AirIqPNR !== "string" || !it.AirIqPNR) return null;
+	return {
+		airIqPNR: it.AirIqPNR,
+		airlinePNR: airlinePnrFromBookNode(it),
+	};
+}
+
 /**
  * Extract AirIqPNR and AirlinePNR from Booking success response (Section 9 - IssueTicket input).
  * ItinearyDetails structure may be object with PNRs or array of segments; try common paths.
@@ -136,27 +195,47 @@ function extractPNRsFromBookingResponse(
 	const details = response.Bookingresponse?.ItinearyDetails;
 	if (!details || typeof details !== "object") return null;
 
-	const raw = details as Record<string, unknown>;
-	// Top-level on ItinearyDetails
-	if (typeof raw.AirIqPNR === "string" && typeof raw.AirlinePNR === "string") {
-		return { airIqPNR: raw.AirIqPNR, airlinePNR: raw.AirlinePNR };
-	}
-	// Array of segments: first segment may have PNRs
-	if (Array.isArray(raw) && raw.length > 0) {
-		const first = raw[0] as Record<string, unknown>;
-		if (typeof first.AirIqPNR === "string" && typeof first.AirlinePNR === "string") {
-			return { airIqPNR: first.AirIqPNR, airlinePNR: first.AirlinePNR };
+	const detailList = Array.isArray(details) ? details : [details];
+	for (const detail of detailList) {
+		if (!detail || typeof detail !== "object") continue;
+		const node = detail as Record<string, unknown>;
+
+		if (typeof node.AirIqPNR === "string" && node.AirIqPNR) {
+			return {
+				airIqPNR: node.AirIqPNR,
+				airlinePNR: airlinePnrFromBookNode(node),
+			};
+		}
+
+		const items = node.Item;
+		const itemArr = Array.isArray(items) ? items : items ? [items] : [];
+		for (const it of itemArr) {
+			const pnrs = extractPnrsFromBookItem(it as Record<string, unknown>);
+			if (pnrs) return pnrs;
 		}
 	}
-	// Nested under a key (e.g. ItineraryDetails[0].PNRDetails)
-	for (const value of Object.values(raw)) {
-		if (value && typeof value === "object" && !Array.isArray(value)) {
-			const inner = value as Record<string, unknown>;
-			if (typeof inner.AirIqPNR === "string" && typeof inner.AirlinePNR === "string") {
-				return { airIqPNR: inner.AirIqPNR, airlinePNR: inner.AirlinePNR };
+
+	if (!Array.isArray(details)) {
+		const raw = details as Record<string, unknown>;
+		if (typeof raw.AirIqPNR === "string" && raw.AirIqPNR) {
+			return {
+				airIqPNR: raw.AirIqPNR,
+				airlinePNR: airlinePnrFromBookNode(raw),
+			};
+		}
+		for (const value of Object.values(raw)) {
+			if (value && typeof value === "object" && !Array.isArray(value)) {
+				const inner = value as Record<string, unknown>;
+				if (typeof inner.AirIqPNR === "string" && inner.AirIqPNR) {
+					return {
+						airIqPNR: inner.AirIqPNR,
+						airlinePNR: airlinePnrFromBookNode(inner),
+					};
+				}
 			}
 		}
 	}
+
 	return null;
 }
 

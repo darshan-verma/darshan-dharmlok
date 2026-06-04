@@ -3,6 +3,8 @@
  * Does not import JSON — use /api/airports for autocomplete and label resolution.
  */
 
+export { getAirlineLogoUrl } from "./airline-logo";
+
 export type AirportSearchResult = {
 	code: string;
 	name: string;

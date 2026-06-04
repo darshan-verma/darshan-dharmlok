@@ -12,10 +12,15 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Dharamshala } from "./DharamShalaTable";
+import LocaleTabs from "@/components/admin/LocaleTabs";
+import type { ContentLang } from "@/lib/content-lang";
+import { finalizeTranslationsPayload } from "@/lib/admin-locale-sync";
 
 interface DharamshalaFormProps {
 	initialData?: Partial<Dharamshala>;
-	onSubmit: (dharamshalaData: Omit<Dharamshala, "id">) => Promise<void>;
+	onSubmit: (
+		dharamshalaData: Omit<Dharamshala, "id"> & { translations?: unknown }
+	) => Promise<void>;
 	onCancel: () => void;
 	isLoading?: boolean;
 }
@@ -32,10 +37,10 @@ export default function DharamshalaForm({
 	onCancel,
 	isLoading = false,
 }: DharamshalaFormProps) {
-	const [dharamshalaData, setDharamshalaData] = useState<
-		Omit<Dharamshala, "id">
-	>({
-		name: initialData.name || "",
+	const [contentLocale, setContentLocale] = useState<ContentLang>("en");
+	const [enName, setEnName] = useState(initialData.name || "");
+	const [hiName, setHiName] = useState("");
+	const [shared, setShared] = useState({
 		date: initialData.date || "",
 		state: initialData.state || "",
 		city: initialData.city || "",
@@ -44,43 +49,65 @@ export default function DharamshalaForm({
 
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-	const validateForm = (data: typeof dharamshalaData) => {
+	const validateForm = () => {
 		const errors: Record<string, string> = {};
-		if (!data.name?.trim()) errors.name = "Name is required";
-		if (!data.date?.trim()) errors.date = "Date is required";
-		if (!data.state?.trim()) errors.state = "State is required";
-		if (!data.city?.trim()) errors.city = "City is required";
-		if (!data.status) errors.status = "Status is required";
+		if (!enName.trim()) errors.name = "English name is required";
+		if (!shared.date?.trim()) errors.date = "Date is required";
+		if (!shared.state?.trim()) errors.state = "State is required";
+		if (!shared.city?.trim()) errors.city = "City is required";
+		if (!shared.status) errors.status = "Status is required";
 		return errors;
 	};
 
 	const handleSubmit = async () => {
-		const errors = validateForm(dharamshalaData);
+		const errors = validateForm();
 		setFormErrors(errors);
 		if (Object.keys(errors).length > 0) return;
 		try {
-			await onSubmit(dharamshalaData);
+			const record = {
+				name: contentLocale === "en" ? enName : hiName,
+				...shared,
+				translations: {
+					en: { name: enName },
+					hi: hiName.trim() ? { name: hiName } : null,
+				},
+			};
+			const translations = finalizeTranslationsPayload(
+				record,
+				"dharamshala",
+				contentLocale
+			);
+			await onSubmit({
+				...shared,
+				name: enName,
+				translations,
+			} as Omit<Dharamshala, "id"> & { translations?: unknown });
 		} catch (error) {
 			console.error("Error in form submission:", error);
 		}
 	};
 
-	const handleInputChange = (
-		field: keyof typeof dharamshalaData,
-		value: string
-	) => {
-		setDharamshalaData({ ...dharamshalaData, [field]: value });
-		if (formErrors[field]) setFormErrors({ ...formErrors, [field]: "" });
-	};
-
 	return (
 		<div className="grid gap-4 py-4">
+			<LocaleTabs
+				activeLocale={contentLocale}
+				onLocaleChange={setContentLocale}
+				translationStatus={
+					hiName.trim() ? (enName.trim() ? "complete" : "partial") : "none"
+				}
+			/>
 			<div className="space-y-2">
-				<Label htmlFor="name">Dharamshala Name *</Label>
+				<Label htmlFor="name">
+					Dharamshala Name * ({contentLocale === "en" ? "English" : "हिंदी"})
+				</Label>
 				<Input
 					id="name"
-					value={dharamshalaData.name}
-					onChange={(e) => handleInputChange("name", e.target.value)}
+					value={contentLocale === "en" ? enName : hiName}
+					onChange={(e) =>
+						contentLocale === "en"
+							? setEnName(e.target.value)
+							: setHiName(e.target.value)
+					}
 					placeholder="Enter dharamshala name"
 					className={formErrors.name ? "border-red-500" : ""}
 				/>
@@ -93,45 +120,34 @@ export default function DharamshalaForm({
 				<Input
 					id="date"
 					type="date"
-					value={dharamshalaData.date}
-					onChange={(e) => handleInputChange("date", e.target.value)}
+					value={shared.date}
+					onChange={(e) => setShared({ ...shared, date: e.target.value })}
 					className={formErrors.date ? "border-red-500" : ""}
 				/>
-				{formErrors.date && (
-					<p className="text-sm text-red-500">{formErrors.date}</p>
-				)}
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="state">State *</Label>
 				<Input
 					id="state"
-					value={dharamshalaData.state}
-					onChange={(e) => handleInputChange("state", e.target.value)}
-					placeholder="Enter state"
+					value={shared.state}
+					onChange={(e) => setShared({ ...shared, state: e.target.value })}
 					className={formErrors.state ? "border-red-500" : ""}
 				/>
-				{formErrors.state && (
-					<p className="text-sm text-red-500">{formErrors.state}</p>
-				)}
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="city">City *</Label>
 				<Input
 					id="city"
-					value={dharamshalaData.city}
-					onChange={(e) => handleInputChange("city", e.target.value)}
-					placeholder="Enter city"
+					value={shared.city}
+					onChange={(e) => setShared({ ...shared, city: e.target.value })}
 					className={formErrors.city ? "border-red-500" : ""}
 				/>
-				{formErrors.city && (
-					<p className="text-sm text-red-500">{formErrors.city}</p>
-				)}
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="status">Status *</Label>
 				<Select
-					value={dharamshalaData.status}
-					onValueChange={(value) => handleInputChange("status", value)}
+					value={shared.status}
+					onValueChange={(value) => setShared({ ...shared, status: value })}
 				>
 					<SelectTrigger id="status">
 						<SelectValue placeholder="Select status" />
@@ -141,15 +157,12 @@ export default function DharamshalaForm({
 						<SelectItem value="Inactive">Inactive</SelectItem>
 					</SelectContent>
 				</Select>
-				{formErrors.status && (
-					<p className="text-sm text-red-500">{formErrors.status}</p>
-				)}
 			</div>
-			<div className="flex justify-end gap-2 mt-4">
-				<Button type="button" variant="outline" onClick={onCancel}>
+			<div className="flex justify-end gap-2">
+				<Button variant="outline" onClick={onCancel} disabled={isLoading}>
 					Cancel
 				</Button>
-				<Button type="submit" onClick={handleSubmit} disabled={isLoading}>
+				<Button onClick={handleSubmit} disabled={isLoading}>
 					{isLoading ? "Saving..." : "Save Dharamshala"}
 				</Button>
 			</div>

@@ -10,10 +10,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, AlertCircle, X } from "lucide-react";
 import Image from "next/image";
 import { PoojaCategory } from "./PoojaCategoryTable";
+import LocaleTabs from "@/components/admin/LocaleTabs";
+import type { ContentLang } from "@/lib/content-lang";
+import { finalizeTranslationsPayload } from "@/lib/admin-locale-sync";
 
 interface PoojaCategoryFormProps {
 	initialData?: Partial<PoojaCategory>;
-	onSubmit: (data: Omit<PoojaCategory, "id">) => Promise<void>;
+	onSubmit: (
+		data: Omit<PoojaCategory, "id"> & { translations?: unknown }
+	) => Promise<void>;
 	onCancel: () => void;
 	isLoading?: boolean;
 	title?: string;
@@ -34,6 +39,14 @@ export default function PoojaCategoryForm({
 	isLoading = false,
 	title = "Pooja Category Form",
 }: PoojaCategoryFormProps) {
+	const [contentLocale, setContentLocale] = useState<ContentLang>("en");
+	const [enName, setEnName] = useState(initialData.name || "");
+	const [hiName, setHiName] = useState("");
+	const [enDetails, setEnDetails] = useState(
+		initialData.details || initialData.description || ""
+	);
+	const [hiDetails, setHiDetails] = useState("");
+
 	const [formData, setFormData] = useState<Omit<PoojaCategory, "id">>({
 		name: initialData.name || "",
 		description: initialData.description || "",
@@ -53,11 +66,11 @@ export default function PoojaCategoryForm({
 		const errors: FormErrors = {};
 
 		// Name validation
-		if (!data.name.trim()) {
-			errors.name = "Pooja name is required";
-		} else if (data.name.trim().length < 2) {
+		if (!enName.trim()) {
+			errors.name = "English pooja name is required";
+		} else if (enName.trim().length < 2) {
 			errors.name = "Pooja name must be at least 2 characters";
-		} else if (data.name.trim().length > 100) {
+		} else if (enName.trim().length > 100) {
 			errors.name = "Pooja name must be less than 100 characters";
 		}
 
@@ -89,12 +102,13 @@ export default function PoojaCategoryForm({
 		}
 
 		// Details validation (optional but with length limit)
-		if (data.details && data.details.length > 1000) {
+		const detailsVal = contentLocale === "en" ? enDetails : hiDetails;
+		if (detailsVal && detailsVal.length > 1000) {
 			errors.details = "Description must be less than 1000 characters";
 		}
 
 		return errors;
-	}, []);
+	}, [enName, enDetails, hiDetails, contentLocale]);
 
 	const handleImageUpload = async (files: FileList | null) => {
 		if (!files || files.length === 0) return;
@@ -200,7 +214,39 @@ export default function PoojaCategoryForm({
 		}
 
 		try {
-			await onSubmit(formData);
+			const record = {
+				...formData,
+				name: contentLocale === "en" ? enName : hiName,
+				description: contentLocale === "en" ? enDetails : hiDetails,
+				details: contentLocale === "en" ? enDetails : hiDetails,
+				translations: {
+					en: {
+						name: enName,
+						description: enDetails,
+						details: enDetails,
+					},
+					hi:
+						hiName.trim() || hiDetails.trim()
+							? {
+									name: hiName,
+									description: hiDetails,
+									details: hiDetails,
+								}
+							: null,
+				},
+			};
+			const translations = finalizeTranslationsPayload(
+				record,
+				"poojaCategory",
+				contentLocale
+			);
+			await onSubmit({
+				...formData,
+				name: enName,
+				description: enDetails,
+				details: enDetails,
+				translations,
+			});
 		} catch (error) {
 			setFormErrors({
 				general:
@@ -245,6 +291,17 @@ export default function PoojaCategoryForm({
 			</CardHeader>
 			<CardContent>
 				<form onSubmit={handleSubmit} className="space-y-6">
+					<LocaleTabs
+						activeLocale={contentLocale}
+						onLocaleChange={setContentLocale}
+						translationStatus={
+							hiName.trim() || hiDetails.trim()
+								? enName.trim()
+									? "partial"
+									: "none"
+								: "none"
+						}
+					/>
 					{formErrors.general && (
 						<Alert variant="destructive">
 							<AlertCircle className="h-4 w-4" />
@@ -259,8 +316,12 @@ export default function PoojaCategoryForm({
 						</Label>
 						<Input
 							id="name"
-							value={formData.name}
-							onChange={(e) => handleInputChange("name", e.target.value)}
+							value={contentLocale === "en" ? enName : hiName}
+							onChange={(e) => {
+								if (contentLocale === "en") setEnName(e.target.value);
+								else setHiName(e.target.value);
+								setIsDirty(true);
+							}}
 							placeholder="Enter pooja name"
 							className={
 								formErrors.name ? "border-red-500 focus:border-red-500" : ""
@@ -283,8 +344,12 @@ export default function PoojaCategoryForm({
 						</Label>
 						<Textarea
 							id="details"
-							value={formData.details}
-							onChange={(e) => handleInputChange("details", e.target.value)}
+							value={contentLocale === "en" ? enDetails : hiDetails}
+							onChange={(e) => {
+								if (contentLocale === "en") setEnDetails(e.target.value);
+								else setHiDetails(e.target.value);
+								setIsDirty(true);
+							}}
 							placeholder="Enter pooja description and details"
 							rows={4}
 							className={
@@ -308,7 +373,9 @@ export default function PoojaCategoryForm({
 									</span>
 								)}
 							</span>
-							<span>{(formData.details ?? "").length}/1000</span>
+							<span>
+								{(contentLocale === "en" ? enDetails : hiDetails).length}/1000
+							</span>
 						</div>
 					</div>
 

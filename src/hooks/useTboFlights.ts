@@ -13,8 +13,9 @@ interface FlightSearchParams {
 	adults: number;
 	children?: number;
 	infants?: number;
-	cabinClass?: number;
-	journeyType?: 1 | 2 | 3; // 1: OneWay, 2: Return, 3: MultiCity
+	cabinClass?: number | string;
+	journeyType?: 1 | 2 | 3 | 5; // 1: OneWay, 2: Return, 3: MultiCity, 5: Special Return
+	specialReturnChannel?: "LCC" | "GDS";
 }
 
 export function useTboFlights() {
@@ -39,10 +40,11 @@ export function useTboFlights() {
 					AdultCount: String(params.adults),
 					ChildCount: String(params.children || 0),
 					InfantCount: String(params.infants || 0),
-					FlightCabinClass: String(params.cabinClass || 1),
+					FlightCabinClass: String(params.cabinClass ?? 2),
 					JourneyType: String(params.journeyType || 1),
-					ReturnDate: params.returnDate,
-					DirectFlight: "true", // Default to direct flights
+					ReturnPreferredDepartureTime: params.returnDate,
+					SpecialReturnChannel: params.specialReturnChannel,
+					DirectFlight: "true",
 					OneStopFlight: "false",
 				}),
 			});

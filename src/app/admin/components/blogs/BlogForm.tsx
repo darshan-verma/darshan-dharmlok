@@ -14,6 +14,9 @@ import {
 import Image from "next/image"; // Import next/image
 import { Trash2, UploadCloud } from "lucide-react"; // Import icons
 import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
+import LocaleTabs from "@/components/admin/LocaleTabs";
+import type { ContentLang } from "@/lib/content-lang";
+import { finalizeTranslationsPayload } from "@/lib/admin-locale-sync";
 
 const blogStatuses = [
 	{ value: "Active", label: "Active" },
@@ -23,6 +26,8 @@ const blogStatuses = [
 export interface BlogFormData {
 	title: string;
 	content: string;
+	translations?: { en?: Record<string, unknown>; hi?: Record<string, unknown> | null };
+	translationStatus?: "none" | "partial" | "complete";
 	status: string;
 	coverImageUrl?: string | null; // Allow null for explicit removal
 	coverImageFile?: File | null; // Add coverImageFile field
@@ -51,6 +56,20 @@ export default function BlogForm({
 	onCancel,
 	isLoading = false,
 }: BlogFormProps) {
+	const [contentLocale, setContentLocale] = useState<ContentLang>("en");
+	const initialTranslations = initialData.translations as
+		| { en?: { title?: string; content?: string }; hi?: { title?: string; content?: string } | null }
+		| undefined;
+	const [enTitle, setEnTitle] = useState(
+		initialTranslations?.en?.title ?? initialData.title ?? ""
+	);
+	const [hiTitle, setHiTitle] = useState(initialTranslations?.hi?.title ?? "");
+	const [enContent, setEnContent] = useState(
+		initialTranslations?.en?.content ?? initialData.content ?? ""
+	);
+	const [hiContent, setHiContent] = useState(
+		initialTranslations?.hi?.content ?? ""
+	);
 	const [blogData, setBlogData] = useState<BlogFormData>({
 		title: initialData.title || "",
 		content: initialData.content || "",
@@ -70,6 +89,13 @@ export default function BlogForm({
 
 	useEffect(() => {
 		// Reset form data when initialData changes (for editing existing blogs)
+		const tr = initialData.translations as
+			| { en?: { title?: string; content?: string }; hi?: { title?: string; content?: string } | null }
+			| undefined;
+		setEnTitle(tr?.en?.title ?? initialData.title ?? "");
+		setHiTitle(tr?.hi?.title ?? "");
+		setEnContent(tr?.en?.content ?? initialData.content ?? "");
+		setHiContent(tr?.hi?.content ?? "");
 		setBlogData({
 			title: initialData.title || "",
 			content: initialData.content || "",
@@ -85,6 +111,7 @@ export default function BlogForm({
 	}, [
 		initialData.title,
 		initialData.content,
+		initialData.translations,
 		initialData.status,
 		initialData.coverImageUrl,
 		initialData.bannerImageUrl,
@@ -92,21 +119,21 @@ export default function BlogForm({
 		initialData.bannerImageFile,
 	]);
 
-	const validateForm = (data: BlogFormData) => {
+	const validateForm = () => {
 		const errors: Record<string, string> = {};
-		if (!data.title?.trim()) errors.title = "Title is required";
-		if (!data.content?.trim()) errors.content = "Content is required";
-		if (!data.status) errors.status = "Status is required";
+		if (!enTitle.trim()) errors.title = "English title is required";
+		if (!enContent.trim()) errors.content = "English content is required";
+		if (!blogData.status) errors.status = "Status is required";
 
-		// Basic validation for coverImageFile if present
-		if (data.coverImageFile && data.coverImageFile.size > 5 * 1024 * 1024) {
-			// 5MB limit
+		if (blogData.coverImageFile && blogData.coverImageFile.size > 5 * 1024 * 1024) {
 			errors.coverImageFile = "Cover image size should be less than 5MB.";
 		}
+
+		// Basic validation for coverImageFile if present
 		if (
-			data.coverImageFile &&
+			blogData.coverImageFile &&
 			!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(
-				data.coverImageFile.type
+				blogData.coverImageFile.type
 			)
 		) {
 			errors.coverImageFile =
@@ -114,14 +141,13 @@ export default function BlogForm({
 		}
 
 		// Basic validation for bannerImageFile if present
-		if (data.bannerImageFile && data.bannerImageFile.size > 5 * 1024 * 1024) {
-			// 5MB limit
+		if (blogData.bannerImageFile && blogData.bannerImageFile.size > 5 * 1024 * 1024) {
 			errors.bannerImageFile = "Banner image size should be less than 5MB.";
 		}
 		if (
-			data.bannerImageFile &&
+			blogData.bannerImageFile &&
 			!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(
-				data.bannerImageFile.type
+				blogData.bannerImageFile.type
 			)
 		) {
 			errors.bannerImageFile =
@@ -131,12 +157,34 @@ export default function BlogForm({
 	};
 
 	const handleSubmit = async () => {
-		// Pass the full blogData including imageFiles to the parent
-		const dataToSubmit: BlogFormData = { ...blogData };
-
-		const errors = validateForm(dataToSubmit);
+		const errors = validateForm();
 		setFormErrors(errors);
 		if (Object.keys(errors).length > 0) return;
+
+		const record = {
+			title: contentLocale === "en" ? enTitle : hiTitle,
+			content: contentLocale === "en" ? enContent : hiContent,
+			translations: {
+				en: { title: enTitle, content: enContent },
+				hi:
+					hiTitle.trim() || hiContent.trim()
+						? { title: hiTitle, content: hiContent }
+						: null,
+			},
+		};
+		const translations = finalizeTranslationsPayload(record, "blog", contentLocale);
+
+		const dataToSubmit: BlogFormData = {
+			...blogData,
+			title: enTitle,
+			content: enContent,
+			translations: translations as BlogFormData["translations"],
+			translationStatus: translations.hi
+				? hiTitle.trim() && hiContent.trim()
+					? "complete"
+					: "partial"
+				: "none",
+		};
 
 		try {
 			await onSubmit(dataToSubmit);
@@ -161,11 +209,6 @@ export default function BlogForm({
 	) => {
 		setBlogData({ ...blogData, [field]: value });
 		if (formErrors[field]) setFormErrors({ ...formErrors, [field]: "" });
-	};
-
-	const handleContentChange = (value: string) => {
-		setBlogData({ ...blogData, content: value });
-		if (formErrors.content) setFormErrors({ ...formErrors, content: "" });
 	};
 
 	const handleCoverImageUrlChange = (value: string) => {
@@ -258,12 +301,31 @@ export default function BlogForm({
 
 	return (
 		<div className="grid gap-4 py-4">
+			<LocaleTabs
+				activeLocale={contentLocale}
+				onLocaleChange={setContentLocale}
+				translationStatus={
+					hiTitle.trim() || hiContent.trim()
+						? enTitle.trim() && enContent.trim()
+							? hiTitle.trim() && hiContent.trim()
+								? "complete"
+								: "partial"
+							: "partial"
+						: "none"
+				}
+			/>
 			<div className="space-y-2">
-				<Label htmlFor="title">Title *</Label>
+				<Label htmlFor="title">
+					Title * ({contentLocale === "en" ? "English" : "हिंदी"})
+				</Label>
 				<Input
 					id="title"
-					value={blogData.title}
-					onChange={(e) => handleInputChange("title", e.target.value)}
+					value={contentLocale === "en" ? enTitle : hiTitle}
+					onChange={(e) =>
+						contentLocale === "en"
+							? setEnTitle(e.target.value)
+							: setHiTitle(e.target.value)
+					}
 					placeholder="Enter blog title"
 					className={formErrors.title ? "border-red-500" : ""}
 				/>
@@ -272,11 +334,16 @@ export default function BlogForm({
 				)}
 			</div>
 			<div className="space-y-2">
-				<Label htmlFor="content">Content *</Label>
+				<Label htmlFor="content">
+					Content * ({contentLocale === "en" ? "English" : "हिंदी"})
+				</Label>
 				<div className="min-h-[300px] border rounded-md">
 					<BlockNoteEditor
-						onChange={handleContentChange}
-						initialContent={blogData.content}
+						key={`blog-content-${contentLocale}`}
+						onChange={(val: string) =>
+							contentLocale === "en" ? setEnContent(val) : setHiContent(val)
+						}
+						initialContent={contentLocale === "en" ? enContent : hiContent}
 						editable={true}
 					/>
 				</div>

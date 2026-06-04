@@ -14,6 +14,9 @@ type Props = {
 	isEditing: boolean;
 	errors: Record<string, string>;
 	onEdit: () => void;
+	setEditedDharamshala?: React.Dispatch<
+		React.SetStateAction<DharamshalaData | null>
+	>;
 };
 
 export function DharamshalaDetailCard({
@@ -21,6 +24,7 @@ export function DharamshalaDetailCard({
 	isEditing,
 	errors,
 	onEdit,
+	setEditedDharamshala: _setEditedDharamshala,
 }: Props) {
 	if (!dharamshala) return null;
 
@@ -30,7 +34,20 @@ export function DharamshalaDetailCard({
 				<CardTitle className="text-center text-lg">
 					{dharamshala.name}
 				</CardTitle>
-				<CardDescription>
+				<CardDescription className="flex flex-wrap items-center justify-center gap-1">
+					{dharamshala.translationStatus && (
+						<span
+							className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+								dharamshala.translationStatus === "complete"
+									? "bg-green-100 text-green-800"
+									: dharamshala.translationStatus === "partial"
+										? "bg-yellow-100 text-yellow-800"
+										: "bg-orange-100 text-orange-800"
+							}`}
+						>
+							Hindi: {dharamshala.translationStatus}
+						</span>
+					)}
 					<span
 						className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
 							dharamshala.status === "Active"

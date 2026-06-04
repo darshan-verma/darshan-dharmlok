@@ -8,12 +8,14 @@ import AirlineLogo from "@/components/travel-portal/AirlineLogo";
 import { TrendingUp } from "lucide-react";
 import type { FlightResult } from "@/types/tbo";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
+import { tboSeparateReturnResultIndex } from "@/lib/tboFlightSearch";
 
 interface Props {
 	upsellOptions: FlightResult[];
 	isUpsellAllowed: boolean;
 	traceId: string;
 	returnResultIndex?: string | null;
+	journeyType?: string | number;
 	adultCount?: string | number;
 	childCount?: string | number;
 	infantCount?: string | number;
@@ -25,6 +27,7 @@ export default function FareUpsellList({
 	isUpsellAllowed,
 	traceId,
 	returnResultIndex,
+	journeyType = "1",
 	adultCount = "1",
 	childCount = "0",
 	infantCount = "0",
@@ -89,8 +92,16 @@ export default function FareUpsellList({
 						upsellParams.set("isUpsellAllowed", "true");
 					}
 
-					if (returnResultIndex) {
-						upsellParams.set("returnResultIndex", String(returnResultIndex));
+					const pairedReturn = tboSeparateReturnResultIndex(
+						String(deal.ResultIndex),
+						returnResultIndex ?? undefined,
+						String(journeyType),
+					);
+					if (pairedReturn) {
+						upsellParams.set("returnResultIndex", pairedReturn);
+					}
+					if (journeyType) {
+						upsellParams.set("journeyType", String(journeyType));
 					}
 
 					const href = `/travel-portal/book?${upsellParams.toString()}`;

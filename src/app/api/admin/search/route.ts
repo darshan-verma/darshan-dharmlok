@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getTranslation } from "@/lib/content-lang";
+import { buildTranslationSearchOr } from "@/lib/translation-search";
+import { rawFindCollection } from "@/lib/content-api";
 
 export async function GET(req: NextRequest) {
 	const q = req.nextUrl.searchParams.get("q")?.trim();
@@ -32,38 +35,32 @@ export async function GET(req: NextRequest) {
 					select: { id: true, name: true, pricePerUnit: true, images: true, status: true },
 					take: 5,
 				}),
-				prisma.temple.findMany({
-					where: {
-						OR: [
-							{ name: { contains: q, mode: "insensitive" } },
-							{ city: { contains: q, mode: "insensitive" } },
-							{ state: { contains: q, mode: "insensitive" } },
+				rawFindCollection({
+					collection: "Temple",
+					filter: {
+						$or: [
+							...buildTranslationSearchOr("temple", q),
+							{ city: { $regex: q, $options: "i" } },
+							{ state: { $regex: q, $options: "i" } },
 						],
 					},
-					select: { id: true, name: true, city: true, state: true },
-					take: 5,
+					limit: 5,
 				}),
-				prisma.dharamshala.findMany({
-					where: {
-						OR: [
-							{ name: { contains: q, mode: "insensitive" } },
-							{ city: { contains: q, mode: "insensitive" } },
-							{ state: { contains: q, mode: "insensitive" } },
+				rawFindCollection({
+					collection: "Dharamshala",
+					filter: {
+						$or: [
+							...buildTranslationSearchOr("dharamshala", q),
+							{ city: { $regex: q, $options: "i" } },
+							{ state: { $regex: q, $options: "i" } },
 						],
 					},
-					select: { id: true, name: true, city: true, state: true },
-					take: 5,
+					limit: 5,
 				}),
-				prisma.event.findMany({
-					where: {
-						OR: [
-							{ title: { contains: q, mode: "insensitive" } },
-							{ category: { contains: q, mode: "insensitive" } },
-							{ place: { contains: q, mode: "insensitive" } },
-						],
-					},
-					select: { id: true, title: true, category: true, place: true, status: true },
-					take: 5,
+				rawFindCollection({
+					collection: "Event",
+					filter: { $or: buildTranslationSearchOr("event", q) },
+					limit: 5,
 				}),
 				prisma.booking.findMany({
 					where: {
@@ -85,12 +82,10 @@ export async function GET(req: NextRequest) {
 					take: 5,
 					orderBy: { createdAt: "desc" },
 				}),
-				prisma.blog.findMany({
-					where: {
-						OR: [{ title: { contains: q, mode: "insensitive" } }],
-					},
-					select: { id: true, title: true, status: true },
-					take: 5,
+				rawFindCollection({
+					collection: "Blog",
+					filter: { $or: buildTranslationSearchOr("blog", q) },
+					limit: 5,
 				}),
 				prisma.eBook.findMany({
 					where: {
@@ -156,10 +151,11 @@ export async function GET(req: NextRequest) {
 		}
 
 		for (const t of temples) {
+			const name = getTranslation(t, "en", "name");
 			results.push({
 				category: "Temples",
-				id: t.id,
-				title: t.name,
+				id: String(t.id),
+				title: name,
 				subtitle: `${t.city}, ${t.state}`,
 				href: `/admin/temple/${t.id}`,
 				icon: "temple",
@@ -167,10 +163,11 @@ export async function GET(req: NextRequest) {
 		}
 
 		for (const d of dharamshalas) {
+			const name = getTranslation(d, "en", "name");
 			results.push({
 				category: "Dharamshalas",
-				id: d.id,
-				title: d.name,
+				id: String(d.id),
+				title: name,
 				subtitle: `${d.city}, ${d.state}`,
 				href: `/admin/dharamshala/${d.id}`,
 				icon: "dharamshala",
@@ -178,11 +175,13 @@ export async function GET(req: NextRequest) {
 		}
 
 		for (const e of events) {
+			const title = getTranslation(e, "en", "title");
+			const place = getTranslation(e, "en", "place");
 			results.push({
 				category: "Events",
-				id: e.id,
-				title: e.title,
-				subtitle: `${e.category} · ${e.place || ""}`.trim(),
+				id: String(e.id),
+				title,
+				subtitle: `${e.category} · ${place || ""}`.trim(),
 				href: `/admin/events/${e.id}`,
 				icon: "event",
 			});
@@ -202,9 +201,9 @@ export async function GET(req: NextRequest) {
 		for (const bl of blogs) {
 			results.push({
 				category: "Blogs",
-				id: bl.id,
-				title: bl.title,
-				subtitle: bl.status || "",
+				id: String(bl.id),
+				title: getTranslation(bl, "en", "title"),
+				subtitle: String(bl.status || ""),
 				href: `/admin/blogs`,
 				icon: "blog",
 			});

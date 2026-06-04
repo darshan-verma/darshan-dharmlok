@@ -8,6 +8,8 @@ import { toast } from "@/lib/toast";
 import { EventDetailCard } from "@/app/admin/components/events/EventDetailCard";
 import { EventInfoCard } from "@/app/admin/components/events/EventInfoCard";
 import { Event } from "@/app/admin/components/events/types";
+import type { ContentLang } from "@/lib/content-lang";
+import { finalizeTranslationsPayload } from "@/lib/admin-locale-sync";
 
 export default function EventDetailPage() {
 	const params = useParams();
@@ -21,6 +23,7 @@ export default function EventDetailPage() {
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [isUploadingBanner, setIsUploadingBanner] = useState(false);
 	const [isUploadingRelated, setIsUploadingRelated] = useState(false);
+	const [contentLocale, setContentLocale] = useState<ContentLang>("en");
 
 	useEffect(() => {
 		const fetchEvent = async () => {
@@ -60,10 +63,15 @@ export default function EventDetailPage() {
 		if (Object.keys(validation).length > 0) return;
 		setIsSaving(true);
 		try {
+			const translations = finalizeTranslationsPayload(
+				editedEvent as unknown as Record<string, unknown>,
+				"event",
+				contentLocale
+			);
 			const response = await fetch(`/api/events/${eventId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(editedEvent),
+				body: JSON.stringify({ ...editedEvent, translations }),
 			});
 			if (!response.ok) throw new Error("Failed to update event");
 			const updated = await response.json();
@@ -114,6 +122,8 @@ export default function EventDetailPage() {
 						setIsUploadingBanner={setIsUploadingBanner}
 						isUploadingRelated={isUploadingRelated}
 						setIsUploadingRelated={setIsUploadingRelated}
+						contentLocale={contentLocale}
+						onContentLocaleChange={setContentLocale}
 						onSave={handleSave}
 					/>
 				</div>

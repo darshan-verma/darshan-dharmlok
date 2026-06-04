@@ -16,6 +16,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/components/providers/LanguageProvider";
 
 const PAGE_SIZE = 24;
 
@@ -39,6 +40,7 @@ interface FilterLocation {
 
 export default function TemplePage() {
 	const router = useRouter();
+	const { locale } = useLanguage();
 	const [items, setItems] = useState<Temple[]>([]);
 	const [totalCount, setTotalCount] = useState(0);
 	const [loading, setLoading] = useState(true);
@@ -58,8 +60,8 @@ export default function TemplePage() {
 	const activeFilterKeyRef = useRef("");
 
 	const activeFilterKey = useMemo(
-		() => `${debouncedSearchQuery}|${selectedState}|${selectedCity}`,
-		[debouncedSearchQuery, selectedState, selectedCity]
+		() => `${locale}|${debouncedSearchQuery}|${selectedState}|${selectedCity}`,
+		[locale, debouncedSearchQuery, selectedState, selectedCity]
 	);
 
 	useEffect(() => {
@@ -109,7 +111,9 @@ export default function TemplePage() {
 
 	const fetchFilterOptions = useCallback(async () => {
 		try {
-			const res = await fetch("/api/temple?filtersOnly=true&status=Active");
+			const res = await fetch(
+				`/api/temple?filtersOnly=true&status=Active&lang=${locale}`
+			);
 			if (!res.ok) throw new Error("Failed to fetch filter options");
 
 			const data = await res.json();
@@ -126,7 +130,7 @@ export default function TemplePage() {
 		} catch (err) {
 			console.error("Error fetching temple filters:", err);
 		}
-	}, []);
+	}, [locale]);
 
 	const fetchPage = useCallback(async (nextPage: number, force = false) => {
 		if (isFetchingRef.current && !force) return;
@@ -146,6 +150,7 @@ export default function TemplePage() {
 				page: String(nextPage),
 				limit: String(PAGE_SIZE),
 				status: "Active",
+				lang: locale,
 			});
 
 			if (debouncedSearchQuery) {
@@ -192,7 +197,7 @@ export default function TemplePage() {
 			}
 			isFetchingRef.current = false;
 			}
-	}, [activeFilterKey, debouncedSearchQuery, selectedCity, selectedState]);
+	}, [activeFilterKey, debouncedSearchQuery, locale, selectedCity, selectedState]);
 
 	useEffect(() => {
 		void fetchFilterOptions();

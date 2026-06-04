@@ -1,6 +1,8 @@
 import airports from "@/data/airports.json";
 import airlines from "@/data/airlines.json";
 
+export { getAirlineLogoUrl } from "./airline-logo";
+
 export type Airport = {
 	code: string;
 	name: string;

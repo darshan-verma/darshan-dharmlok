@@ -25,6 +25,8 @@ import BiographyTab from "@/app/admin/components/panditji/BiographyTab";
 import PanditjiPostsTab from "@/app/admin/components/panditji/PanditjiPostsTab";
 import PreferencesTab from "@/app/admin/components/panditji/PreferencesTab";
 import ActivityTab from "@/app/admin/components/panditji/ActivityTab";
+import type { ContentLang } from "@/lib/content-lang";
+import { finalizeTranslationsPayload } from "@/lib/admin-locale-sync";
 
 export default function PanditjiDetailPage() {
 	// Delete handler for Panditji with shadcn dialog
@@ -70,6 +72,7 @@ export default function PanditjiDetailPage() {
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 	const [isUploadingImage, setIsUploadingImage] = useState(false);
 	const [isSavingBiography, setIsSavingBiography] = useState(false);
+	const [contentLocale, setContentLocale] = useState<ContentLang>("en");
 
 	const [postImages, setPostImages] = useState<ImageObject[]>([]);
 	const [postVideos, setPostVideos] = useState<VideoObject[]>([]);
@@ -291,8 +294,14 @@ export default function PanditjiDetailPage() {
 			const imagesToSave = postImages.filter((img) => !img._isFromDialog);
 			const videosToSave = postVideos.filter((vid) => !vid._isFromDialog);
 
+			const translations = finalizeTranslationsPayload(
+				editedPanditji as Record<string, unknown>,
+				"panditji",
+				contentLocale
+			);
 			const dataToSave = {
 				...editedPanditji,
+				translations,
 				images: imagesToSave,
 				videos: videosToSave,
 				deletedImages,
@@ -418,11 +427,17 @@ export default function PanditjiDetailPage() {
 	const handleSaveBiography = async () => {
 		setIsSavingBiography(true);
 		try {
+			const translations = finalizeTranslationsPayload(
+				(editedPanditji ?? {}) as Record<string, unknown>,
+				"panditji",
+				contentLocale
+			);
 			const response = await fetch(`/api/users/${panditjiId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					bio: editedPanditji?.bio || "",
+					translations,
 				}),
 			});
 			if (!response.ok) {
@@ -568,16 +583,22 @@ export default function PanditjiDetailPage() {
 								formatDate={formatDate}
 								formatPhoneNumber={formatPhoneNumber}
 								setAddressesToDelete={setAddressesToDelete}
+								contentLocale={contentLocale}
+								onContentLocaleChange={setContentLocale}
 							/>
 						</TabsContent>
 						<TabsContent value="biography">
 							<BiographyTab
 								editedPanditji={editedPanditji}
+								editedPanditjiRecord={editedPanditji}
+								setEditedPanditji={setEditedPanditji}
 								isEditing={isEditing}
 								handleBlockNoteChange={handleBlockNoteChange}
 								safeBlockNoteHtml={safeBlockNoteHtml}
 								onSave={handleSaveBiography}
 								isSaving={isSavingBiography}
+								contentLocale={contentLocale}
+								onContentLocaleChange={setContentLocale}
 							/>
 						</TabsContent>
 						<TabsContent value="posts">

@@ -67,6 +67,11 @@ import {
 } from "@/lib/searchCache";
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 import MinimalFlightSearch from "@/components/travel-portal/MinimalFlightSearch";
+import {
+	TBO_API_CABIN_TO_UI,
+	TBO_CABIN_CLASS,
+	TBO_UI_CABIN_TO_API,
+} from "@/lib/tboFlightSearch";
 
 interface CityLeg {
 	id: string;
@@ -85,7 +90,7 @@ interface FlightSearchForm {
 	children: number;
 	infants: number;
 	cabinClass: string;
-	journeyType: "1" | "2" | "3"; // 1: OneWay, 2: Return, 3: MultiCity
+	journeyType: "1" | "2" | "3" | "5"; // 1: OW, 2: Return, 3: MC, 5: Special Return
 	directFlight: boolean;
 	oneStopFlight: boolean;
 	/** TripJack searchModifiers.pft — Regular omits pft on API */
@@ -105,7 +110,7 @@ interface FlightSearchParams {
 	ChildCount: string;
 	InfantCount: string;
 	FlightCabinClass: string;
-	JourneyType: "1" | "2" | "3";
+	JourneyType: "1" | "2" | "3" | "5";
 	DirectFlight: string;
 	OneStopFlight: string;
 	Segments?: ApiFlightSegment[];
@@ -115,6 +120,8 @@ interface FlightSearchParams {
 	ReturnPreferredDepartureTime?: string;
 	pft?: "STUDENT" | "SENIOR_CITIZEN";
 	PreferredAirlines?: string[] | null;
+	Sources?: string[] | null;
+	SpecialReturnChannel?: "LCC" | "GDS";
 }
 
 const timeSlots = [
@@ -127,33 +134,22 @@ const timeSlots = [
 const FLIGHT_LIST_INITIAL = 25;
 const FLIGHT_LIST_STEP = 25;
 
-const cabinClassMapping: { [key: string]: string } = {
-	Economy: "1",
-	"Premium Economy": "3",
-	Business: "4",
-	"Premium Business": "5",
-	First: "6",
-};
+const cabinClassMapping = TBO_UI_CABIN_TO_API;
 
-const reverseCabinClassMapping: { [key: string]: string } = {
-	"1": "Economy",
-	"2": "Economy",
-	"3": "Premium Economy",
-	"4": "Business",
-	"5": "Premium Business",
-	"6": "First",
-};
+const reverseCabinClassMapping = TBO_API_CABIN_TO_UI;
 
 const tripTypeMapping: { [key: string]: string } = {
 	"one-way": "1",
 	"round-trip": "2",
 	"multi-city": "3",
+	"special-return": "5",
 };
 
 const reverseTripTypeMapping: { [key: string]: string } = {
 	"1": "one-way",
 	"2": "round-trip",
 	"3": "multi-city",
+	"5": "special-return",
 };
 
 export default function FlightSearch() {
@@ -196,6 +192,9 @@ export default function FlightSearch() {
 
 	// TripTypeSelector state
 	const [tripType, setTripType] = useState("one-way");
+	const [specialReturnChannel, setSpecialReturnChannel] = useState<
+		"LCC" | "GDS"
+	>("LCC");
 	const prevTripTypeRef = useRef("one-way");
 
 	/** TripJack domestic multicity: per-leg flight buckets + user selections */
@@ -265,6 +264,7 @@ export default function FlightSearch() {
 	const [expandedFareBreakdown, setExpandedFareBreakdown] = useState<
 		string | null
 	>(null);
+	const hasPendingProviders = loading || mergePollSessionId !== null;
 
 	const form = useForm<FlightSearchForm>({
 		defaultValues: {
@@ -279,7 +279,7 @@ export default function FlightSearch() {
 			adults: 1,
 			children: 0,
 			infants: 0,
-			cabinClass: "1",
+			cabinClass: TBO_CABIN_CLASS.ECONOMY,
 			journeyType: "1",
 			directFlight: true,
 			oneStopFlight: false,
@@ -382,7 +382,7 @@ export default function FlightSearch() {
 				if (lastSearchParams.journeyType) {
 					form.setValue(
 						"journeyType",
-						lastSearchParams.journeyType as "1" | "2" | "3",
+						lastSearchParams.journeyType as "1" | "2" | "3" | "5",
 					);
 					setTripType(
 						reverseTripTypeMapping[lastSearchParams.journeyType] || "one-way",
@@ -493,7 +493,7 @@ export default function FlightSearch() {
 					adults: adultCount,
 					children: childCount,
 					infants: infantCount,
-					cabinClass: cabinClass || "1",
+					cabinClass: cabinClass || TBO_CABIN_CLASS.ECONOMY,
 					journeyType: "3",
 					directFlight: true,
 					oneStopFlight: false,
@@ -522,7 +522,10 @@ export default function FlightSearch() {
 			}
 
 			if (journeyType) {
-				form.setValue("journeyType", journeyType as "1" | "2");
+				form.setValue(
+					"journeyType",
+					journeyType as "1" | "2" | "3" | "5",
+				);
 				setTripType(reverseTripTypeMapping[journeyType] || "one-way");
 			}
 			if (cabinClass) {
@@ -539,8 +542,8 @@ export default function FlightSearch() {
 				adults: adultCount,
 				children: childCount,
 				infants: infantCount,
-				cabinClass: cabinClass || "1",
-				journeyType: (journeyType as "1" | "2") || "1",
+				cabinClass: cabinClass || TBO_CABIN_CLASS.ECONOMY,
+				journeyType: (journeyType as "1" | "2" | "3" | "5") || "1",
 				directFlight: true,
 				oneStopFlight: false,
 				fareProfile: "REGULAR",
@@ -594,7 +597,7 @@ export default function FlightSearch() {
 
 	const handleTripTypeChange = (type: string) => {
 		setTripType(type);
-		form.setValue("journeyType", tripTypeMapping[type] as "1" | "2" | "3");
+		form.setValue("journeyType", tripTypeMapping[type] as "1" | "2" | "3" | "5");
 
 		if (type === "multi-city" && departureDate) {
 			setMultiCityLegs((prev) => {
@@ -651,7 +654,10 @@ export default function FlightSearch() {
 			}
 
 			// Departure time (for round trip)
-			if (tripType === "round-trip" && selectedDepartureTimes.length > 0) {
+			if (
+				(tripType === "round-trip" || tripType === "special-return") &&
+				selectedDepartureTimes.length > 0
+			) {
 				const timeString =
 					flight.Segments?.[0]?.[0]?.Origin?.DepTime ||
 					flight.Segments?.[0]?.[0]?.DepartureTime;
@@ -1016,7 +1022,11 @@ export default function FlightSearch() {
 		const forceRefresh = options?.forceRefresh === true;
 
 		// Comprehensive validation for all journey types
-		if (searchData.journeyType === "1" || searchData.journeyType === "2") {
+		if (
+			searchData.journeyType === "1" ||
+			searchData.journeyType === "2" ||
+			searchData.journeyType === "5"
+		) {
 			// One-way and Round-trip validation
 			if (!searchData.origin || searchData.origin.trim() === "") {
 				toast.error("Please select a departure city");
@@ -1043,15 +1053,18 @@ export default function FlightSearch() {
 				toast.error("Departure date cannot be in the past");
 				return;
 			}
-			if (searchData.journeyType === "2") {
+			if (
+				searchData.journeyType === "2" ||
+				searchData.journeyType === "5"
+			) {
 				if (!searchData.returnDate) {
-					toast.error("Please select a return date for round trip flights");
+					toast.error("Please select a return date");
 					return;
 				}
 				const returnDate = new Date(searchData.returnDate);
 				returnDate.setHours(0, 0, 0, 0);
 				if (returnDate < departureDate) {
-					toast.error("Return date must be after departure date");
+					toast.error("Return date must be on or after departure date");
 					return;
 				}
 			}
@@ -1071,9 +1084,11 @@ export default function FlightSearch() {
 			return;
 		}
 
-		// Validate round trip requires return date
-		if (searchData.journeyType === "2" && !searchData.returnDate) {
-			toast.error("Please select a return date for round trip flights");
+		if (
+			(searchData.journeyType === "2" || searchData.journeyType === "5") &&
+			!searchData.returnDate
+		) {
+			toast.error("Please select a return date");
 			return;
 		}
 
@@ -1182,11 +1197,18 @@ export default function FlightSearch() {
 				searchParams.PreferredDepartureTime = searchData.departureDate
 					? formatDateForAPI(new Date(searchData.departureDate))
 					: "";
-				if (searchData.journeyType === "2") {
+				if (
+					searchData.journeyType === "2" ||
+					searchData.journeyType === "5"
+				) {
 					searchParams.ReturnPreferredDepartureTime = searchData.returnDate
 						? formatDateForAPI(new Date(searchData.returnDate))
 						: "";
 				}
+			}
+
+			if (searchData.journeyType === "5") {
+				searchParams.SpecialReturnChannel = specialReturnChannel;
 			}
 
 			const preferredCodes = searchData.preferredAirlines
@@ -1232,7 +1254,10 @@ export default function FlightSearch() {
 				cacheKeyParams.PreferredDepartureTime = searchData.departureDate
 					? normalizeDate(new Date(searchData.departureDate))
 					: "";
-				if (searchData.journeyType === "2") {
+				if (
+					searchData.journeyType === "2" ||
+					searchData.journeyType === "5"
+				) {
 					cacheKeyParams.ReturnPreferredDepartureTime = searchData.returnDate
 						? normalizeDate(new Date(searchData.returnDate))
 						: "";
@@ -1459,11 +1484,13 @@ export default function FlightSearch() {
 				searchData.infants,
 			);
 
-			if (flightResults.length === 0) {
+			if (flightResults.length === 0 && !mergePending) {
 				toast.info("No flights found for the selected criteria");
 			} else if (mergePending) {
-				toast.success(
-					`Showing first results — updating when all suppliers finish…`,
+				toast.info(
+					flightResults.length > 0
+						? "Loading more results..."
+						: "Searching flights...",
 				);
 			} else {
 				const totalOptions = paginationMeta?.total ?? flightResults.length;
@@ -1559,7 +1586,7 @@ export default function FlightSearch() {
 			cacheKeyParams.PreferredDepartureTime = data.departureDate
 				? normalizeDate(new Date(data.departureDate))
 				: "";
-			if (data.journeyType === "2") {
+			if (data.journeyType === "2" || data.journeyType === "5") {
 				cacheKeyParams.ReturnPreferredDepartureTime = data.returnDate
 					? normalizeDate(new Date(data.returnDate))
 					: "";
@@ -1722,7 +1749,31 @@ export default function FlightSearch() {
 					</CardHeader>
 					<CardContent>
 						<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-							{/* Trip Type Selector moved into header to reduce vertical space */}
+							{tripType === "special-return" && (
+								<div className="flex flex-wrap items-center gap-4 text-sm rounded-md border border-amber-200 bg-amber-50/80 px-3 py-2">
+									<span className="text-amber-900 font-medium">
+										Special return (same airline, combined fare)
+									</span>
+									<label className="flex items-center gap-1.5 cursor-pointer">
+										<input
+											type="radio"
+											name="specialReturnChannel"
+											checked={specialReturnChannel === "LCC"}
+											onChange={() => setSpecialReturnChannel("LCC")}
+										/>
+										LCC — 6E, SG, G8
+									</label>
+									<label className="flex items-center gap-1.5 cursor-pointer">
+										<input
+											type="radio"
+											name="specialReturnChannel"
+											checked={specialReturnChannel === "GDS"}
+											onChange={() => setSpecialReturnChannel("GDS")}
+										/>
+										GDS
+									</label>
+								</div>
+							)}
 
 							{/* Main Booking Section - Horizontal Layout */}
 							<div className="flex flex-wrap gap-4 items-start">
@@ -1762,7 +1813,10 @@ export default function FlightSearch() {
 												setReturnDate(date);
 												form.setValue("returnDate", date);
 											}}
-											isRoundTrip={tripType === "round-trip"}
+											isRoundTrip={
+												tripType === "round-trip" ||
+												tripType === "special-return"
+											}
 										/>
 									</div>
 								)}
@@ -1782,7 +1836,7 @@ export default function FlightSearch() {
 											setTravelClass(cls);
 											form.setValue(
 												"cabinClass",
-												cabinClassMapping[cls] || "1",
+												cabinClassMapping[cls] || TBO_CABIN_CLASS.ECONOMY,
 											);
 										}}
 									/>
@@ -1845,6 +1899,10 @@ export default function FlightSearch() {
 				{/* Loading Skeleton */}
 				{loading && (
 					<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+						<div className="lg:col-span-4 text-sm text-muted-foreground flex items-center gap-2">
+							<Loader2 className="h-4 w-4 animate-spin" />
+							Searching flights...
+						</div>
 						{/* Filters Skeleton */}
 						<div className="lg:col-span-1">
 							<Card>
@@ -1961,6 +2019,18 @@ export default function FlightSearch() {
 					</div>
 				)}
 
+				{/* Search pending with no visible flights yet */}
+				{searchPerformed && mergePollSessionId && flights.length === 0 && !loading && (
+					<Card>
+						<CardContent className="py-10">
+							<div className="text-center text-muted-foreground flex items-center justify-center gap-2">
+								<Loader2 className="h-4 w-4 animate-spin" />
+								Searching flights...
+							</div>
+						</CardContent>
+					</Card>
+				)}
+
 				{/* Flight Results */}
 				{searchPerformed && flights.length > 0 && (
 					<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -2027,7 +2097,8 @@ export default function FlightSearch() {
 											</div>
 
 											{/* Departure Time Filter (for round trip) */}
-											{tripType === "round-trip" && (
+											{(tripType === "round-trip" ||
+												tripType === "special-return") && (
 												<div className="space-y-3">
 													<Label className="text-sm font-medium">
 														Departure Time
@@ -2192,47 +2263,9 @@ export default function FlightSearch() {
 											{mergePollSessionId ? (
 												<p className="text-sm text-muted-foreground flex items-center gap-2">
 													<Loader2 className="h-4 w-4 animate-spin shrink-0" />
-													Finding better prices from other suppliers…
+													Loading more results...
 												</p>
 											) : null}
-											{/* API Source Breakdown */}
-											{flights.length > 0 && (
-												<div className="flex gap-2 items-center text-xs">
-													{(() => {
-														const tboCount = flights.filter(
-															(f) => f.ApiSource === "TBO",
-														).length;
-														const airiqCount = flights.filter(
-															(f) => f.ApiSource === "AIRiQ",
-														).length;
-														const tripjackCount = flights.filter(
-															(f) => f.ApiSource === "TRIPJACK",
-														).length;
-														return (
-															<>
-																{tboCount > 0 && (
-																	<div className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded border border-blue-300 font-medium">
-																		<span className="w-2 h-2 rounded-full bg-blue-500"></span>
-																		TBO: {tboCount}
-																	</div>
-																)}
-																{airiqCount > 0 && (
-																	<div className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded border border-green-300 font-medium">
-																		<span className="w-2 h-2 rounded-full bg-green-500"></span>
-																		AIRiQ: {airiqCount}
-																	</div>
-																)}
-																{tripjackCount > 0 && (
-																	<div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-900 rounded border border-amber-300 font-medium">
-																		<span className="w-2 h-2 rounded-full bg-amber-500"></span>
-																		TripJack: {tripjackCount}
-																	</div>
-																)}
-															</>
-														);
-													})()}
-												</div>
-											)}
 										</div>
 										<div>
 											<Button
@@ -2352,18 +2385,6 @@ export default function FlightSearch() {
 																					<div className="text-[10px] text-gray-500 font-medium truncate">
 																						{airlineName}
 																					</div>
-																					{/* API Source Badge */}
-																					{flight.ApiSource && (
-																						<div
-																							className={`mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded text-center ${
-																								flight.ApiSource === "TBO"
-																									? "bg-blue-100 text-blue-700 border border-blue-300"
-																									: "bg-green-100 text-green-700 border border-green-300"
-																							}`}
-																						>
-																							{flight.ApiSource}
-																						</div>
-																					)}
 																				</div>
 
 																				{/* Departure */}
@@ -2807,6 +2828,7 @@ export default function FlightSearch() {
 																				childCount: String(values.children),
 																				infantCount: String(values.infants),
 																				apiSource: flight.ApiSource || "TBO",
+																				journeyType: values.journeyType,
 																			});
 																			if (flight.IsUpsellAllowed === true) {
 																				params.append(
@@ -2814,7 +2836,10 @@ export default function FlightSearch() {
 																					"true",
 																				);
 																			}
-																			if (flight.ReturnResultIndex) {
+																			if (
+																				flight.ReturnResultIndex &&
+																				values.journeyType !== "5"
+																			) {
 																				params.append(
 																					"returnResultIndex",
 																					flight.ReturnResultIndex,
@@ -2933,6 +2958,30 @@ export default function FlightSearch() {
 							</Card>
 						</div>
 					</div>
+				)}
+
+				{/* Empty final state */}
+				{searchPerformed && !hasPendingProviders && flights.length === 0 && (
+					<Card>
+						<CardContent className="py-10">
+							<div className="text-center space-y-3">
+								<p className="text-muted-foreground">
+									No flights found. Please try different dates or routes.
+								</p>
+								<Button
+									type="button"
+									variant="outline"
+									onClick={() => {
+										void handleAutoSearch(form.getValues(), {
+											forceRefresh: true,
+										});
+									}}
+								>
+									Search Again
+								</Button>
+							</div>
+						</CardContent>
+					</Card>
 				)}
 			</div>
 		</div>

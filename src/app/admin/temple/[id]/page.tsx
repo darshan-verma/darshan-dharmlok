@@ -8,6 +8,11 @@ import { ArrowLeft } from "lucide-react";
 import { TempleDetailCard } from "@/app/admin/components/temple/TempleDetailCard";
 import { TempleInfoCard } from "@/app/admin/components/temple/TempleInfoCard";
 import { TempleData, Faq } from "@/app/admin/components/temple/types";
+import type { ContentLang } from "@/lib/content-lang";
+import {
+	ADMIN_LOCALE_TAB_FIELDS,
+	finalizeTranslationsPayload,
+} from "@/lib/admin-locale-sync";
 
 export default function TempleDetailPage() {
 	const params = useParams();
@@ -30,9 +35,13 @@ export default function TempleDetailPage() {
 	const [travelByTrain, setTravelByTrain] = useState<string[]>([]);
 	const [travelByBus, setTravelByBus] = useState<string[]>([]);
 	const [travelByRoad, setTravelByRoad] = useState<string[]>([]);
+	const [contentLocale, setContentLocale] = useState<ContentLang>("en");
 
 	useEffect(() => {
 		if (editedTemple) {
+			setAmenities(
+				Array.isArray(editedTemple.amenities) ? editedTemple.amenities : []
+			);
 			setTravelByAir(
 				Array.isArray(editedTemple.travelByAir)
 					? editedTemple.travelByAir
@@ -114,11 +123,28 @@ export default function TempleDetailPage() {
 		if (Object.keys(validation).length > 0) return;
 		setIsSaving(true);
 		try {
+			const recordForTranslations = {
+				...(editedTemple as unknown as Record<string, unknown>),
+				amenities,
+				travelByAir,
+				travelByTrain,
+				travelByBus,
+				travelByRoad,
+			};
+			const translations = finalizeTranslationsPayload(
+				recordForTranslations,
+				"temple",
+				contentLocale,
+				ADMIN_LOCALE_TAB_FIELDS.temple
+			);
+
 			const response = await fetch(`/api/temple/${templeId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					...editedTemple,
+					translations,
+					locale: contentLocale,
 					amenities,
 					templeFaq: faqs,
 					imageFile: imageFiles,
@@ -172,10 +198,11 @@ export default function TempleDetailPage() {
 			</div>
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<TempleDetailCard
-					temple={temple}
+					temple={editedTemple ?? temple}
 					isEditing={isEditing}
 					errors={errors}
 					onEdit={() => setIsEditing((v) => !v)}
+					setEditedTemple={setEditedTemple}
 				/>
 				<div className="md:col-span-2">
 					<TempleInfoCard
@@ -206,6 +233,8 @@ export default function TempleDetailPage() {
 						travelByRoad={travelByRoad}
 						setTravelByRoad={setTravelByRoad}
 						setEditedTemple={setEditedTemple}
+						contentLocale={contentLocale}
+						onContentLocaleChange={setContentLocale}
 						onSave={handleSave}
 					/>
 				</div>

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { parseLangParam } from "@/lib/content-lang";
+import { formatDharamshalaResponse } from "@/lib/content-api";
 import { uploadToS3 } from "@/lib/uploadToS3";
 import bcrypt from "bcrypt";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
@@ -30,11 +32,13 @@ async function deleteS3Media(mediaUrls: string[]) {
 
 // GET - Get individual hotel dharamshala vendor by ID with dharamshala integration
 export async function GET(
-	_request: NextRequest,
+	request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> }
 ) {
 	try {
 		const { id: userId } = await params;
+		const locale =
+			parseLangParam(request.nextUrl.searchParams.get("lang")) ?? "en";
 
 		if (!userId) {
 			return NextResponse.json(
@@ -152,25 +156,18 @@ export async function GET(
 				.map((service) => service.targetId)
 				.filter(Boolean);
 			if (dharamshalaIds.length > 0) {
-				relatedDharamshalas = await prisma.dharamshala.findMany({
+				const rows = await prisma.dharamshala.findMany({
 					where: {
-						id: {
-							in: dharamshalaIds,
-						},
+						id: { in: dharamshalaIds },
 						status: "active",
 					},
-					select: {
-						id: true,
-						name: true,
-						city: true,
-						state: true,
-						description: true,
-						imageFile: true,
-						address: true,
-						location: true,
-						amenities: true,
-					},
 				});
+				relatedDharamshalas = rows.map((row) =>
+					formatDharamshalaResponse(
+						row as unknown as Record<string, unknown>,
+						locale
+					)
+				) as unknown as Dharamshala[];
 			}
 		}
 
@@ -178,7 +175,7 @@ export async function GET(
 		const vendorLocation = user.addresses[0];
 		let nearbyDharamshalas: Dharamshala[] = [];
 		if (vendorLocation) {
-			nearbyDharamshalas = await prisma.dharamshala.findMany({
+			const nearbyRows = await prisma.dharamshala.findMany({
 				where: {
 					OR: [
 						{ city: vendorLocation.city },
@@ -186,16 +183,14 @@ export async function GET(
 					],
 					status: "active",
 				},
-				select: {
-					id: true,
-					name: true,
-					city: true,
-					state: true,
-					description: true,
-					imageFile: true,
-				},
 				take: 10,
 			});
+			nearbyDharamshalas = nearbyRows.map((row) =>
+				formatDharamshalaResponse(
+					row as unknown as Record<string, unknown>,
+					locale
+				)
+			) as unknown as Dharamshala[];
 		}
 
 		// Calculate accommodation analytics

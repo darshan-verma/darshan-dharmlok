@@ -56,6 +56,8 @@ export default function BlogsPage() {
 		const formData: Partial<BlogFormData> = {
 			title: blog.title,
 			content: blog.content,
+			translations: (blog as Blog & { translations?: unknown }).translations as BlogFormData["translations"],
+			translationStatus: (blog as Blog & { translationStatus?: string }).translationStatus as BlogFormData["translationStatus"],
 			status: blog.status,
 			coverImageUrl: blog.coverImage || null,
 			bannerImageUrl: blog.bannerImage || null,
@@ -201,11 +203,10 @@ export default function BlogsPage() {
 
 			// 3. Prepare blog data for API
 			const dataToSave = {
-				title: blogFormData.title,
-				content: blogFormData.content,
+				translations: blogFormData.translations,
 				status: blogFormData.status,
-				coverImage: finalCoverImageUrl, // Use the potentially updated cover image URL
-				bannerImage: finalBannerImageUrl, // Use the potentially updated banner image URL
+				coverImage: finalCoverImageUrl,
+				bannerImage: finalBannerImageUrl,
 			};
 
 			const url = currentBlog?.id

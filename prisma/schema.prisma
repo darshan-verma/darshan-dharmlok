@@ -65,6 +65,9 @@ model User {
     hotelBookings  HotelBooking[]
     travelPortalQueries TravelPortalQuery[]
 
+    translations       Json     @default("{}")
+    translationStatus  String   @default("none") // "none" | "partial" | "complete"
+
     // Optimized indexes for user-type specific API queries
     @@index([userType]) // Primary index for user type filtering
     @@index([userType, status]) // Combined index for type + status queries
@@ -173,17 +176,18 @@ enum BalVidhyaTrendingStatus {
 }
 // Pooja Category Model
 model PoojaCategory {
-    id          String   @id @default(auto()) @map("_id") @db.ObjectId
-    name        String
-    description String?
-    date        DateTime?
-    price       Float?
-    status      String? @default("Active")
-    details     String?
-    images      String[]
-    videos      String[]
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+    id                String    @id @default(auto()) @map("_id") @db.ObjectId
+    translations      Json      @default("{}")
+    translationStatus String    @default("none")
+    date              DateTime?
+    price             Float?
+    status            String?   @default("Active")
+    images            String[]
+    videos            String[]
+    createdAt         DateTime  @default(now())
+    updatedAt         DateTime  @updatedAt
+
+    @@index([translationStatus])
 }
 // Service Offering Model
 model ServiceOffering {
@@ -362,88 +366,72 @@ model Comment {
     postId    String?  @db.ObjectId
 }
 model Temple {
-    id             String   @id @default(auto()) @map("_id") @db.ObjectId
-    name           String
-    date           DateTime @default(now())
-    state          String
-    city           String
-    status         String
-    imageFile      String?
-    videoFile      String?
-    bannerImage    String?  // NEW: URL for banner image
-    coverImage     String?  // NEW: URL for cover image
-    address       String?
-    location      String?
-    description    String?
-    history        String?
-    additionalInfo String?
-    rituals        String?
-    travelByAir    String?
-    travelByTrain  String?
-    travelByBus    String?
-    travelByRoad   String?
-    timings        String?
-    amenities      String?
+    id                String   @id @default(auto()) @map("_id") @db.ObjectId
+    translations      Json     @default("{}")
+    translationStatus String   @default("none") // "none" | "partial" | "complete"
+    date              DateTime @default(now())
+    state             String
+    city              String
+    status            String
+    imageFile         String?
+    videoFile         String?
+    bannerImage       String?
+    coverImage        String?
 
-  // This field name 'templeFaq' is what 'include' will use.
-  // The relation name "TempleToTempleFaqRelation" can be anything, but must match on both sides.
-    templeFaq      TempleFaq[] @relation("TempleToTempleFaqRelation")
+    templeFaq         TempleFaq[] @relation("TempleToTempleFaqRelation")
 
-    createdAt      DateTime @default(now())
-    updatedAt      DateTime @updatedAt
+    createdAt         DateTime @default(now())
+    updatedAt         DateTime @updatedAt
+
+    @@index([translationStatus])
+    @@index([translationStatus, status])
 }
 
 model TempleFaq {
-    id        String   @id @default(auto()) @map("_id") @db.ObjectId
-    question  String
-    answer    String
-    templeId  String   @db.ObjectId
-    // This establishes the other side of the relation.
-    temple    Temple   @relation(fields: [templeId], references: [id], onDelete: Cascade, name: "TempleToTempleFaqRelation")
+    id                String   @id @default(auto()) @map("_id") @db.ObjectId
+    translations      Json     @default("{}")
+    translationStatus String   @default("none")
+    templeId          String   @db.ObjectId
+    temple            Temple   @relation(fields: [templeId], references: [id], onDelete: Cascade, name: "TempleToTempleFaqRelation")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    createdAt         DateTime @default(now())
+    updatedAt         DateTime @updatedAt
+
+    @@index([templeId])
+    @@index([templeId, translationStatus])
 }
 // Dharamshala Model
 model Dharamshala {
-    id             String      @id @default(auto()) @map("_id") @db.ObjectId
-    name           String
-    date           DateTime    @default(now())
-    state          String
-    city           String
-    status         String      // e.g. "active", "inactive"
-    imageFile      Json?       // image URLs (legacy stringified JSON or array)
-    videoFile      Json?       // video URLs (legacy stringified JSON or array)
-    bannerImage    String?     // NEW: URL for banner image
-    coverImage     String?     // NEW: URL for cover image
-    // Location (map)
-    address       String?
-    location      String?
-    // Details page fields
-    description    String?
-    additionalInfo String?
-    // Travel
-    travelByAir    Json?       // Best way by air
-    travelByTrain  Json?       // Best way by train
-    travelByBus    Json?       // Best way by bus
-    travelByRoad   Json?       // Best way by road
-    timings        String?     // Opening/closing times, special schedules
-    amenities      Json?       // Nearby amenities
-    // FAQ
-    dharamshalaFaqs           DharamshalaFaq[]       @relation("DharamshalaFaqs")
-    createdAt      DateTime    @default(now())
-    updatedAt      DateTime    @updatedAt
+    id                String           @id @default(auto()) @map("_id") @db.ObjectId
+    translations      Json             @default("{}")
+    translationStatus String           @default("none")
+    date              DateTime         @default(now())
+    state             String
+    city              String
+    status            String
+    imageFile         Json?
+    videoFile         Json?
+    bannerImage       String?
+    coverImage        String?
+    dharamshalaFaqs   DharamshalaFaq[] @relation("DharamshalaFaqs")
+    createdAt         DateTime         @default(now())
+    updatedAt         DateTime         @updatedAt
+
+    @@index([translationStatus])
+    @@index([translationStatus, status])
 }
 model DharamshalaFaq {
-    id        String   @id @default(auto()) @map("_id") @db.ObjectId
-    question  String
-    answer    String
-    dharamshalaId String @db.ObjectId
-    // This establishes the other side of the relation.
-    dharamshala Dharamshala @relation(fields: [dharamshalaId], references: [id], onDelete: Cascade, name: "DharamshalaFaqs")
+    id                String      @id @default(auto()) @map("_id") @db.ObjectId
+    translations      Json        @default("{}")
+    translationStatus String      @default("none")
+    dharamshalaId     String      @db.ObjectId
+    dharamshala       Dharamshala @relation(fields: [dharamshalaId], references: [id], onDelete: Cascade, name: "DharamshalaFaqs")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    createdAt         DateTime    @default(now())
+    updatedAt         DateTime    @updatedAt
+
+    @@index([dharamshalaId])
+    @@index([dharamshalaId, translationStatus])
 }
 // Playlist Model
 model Playlist {
@@ -518,25 +506,20 @@ model Category {
 }
 // model Events and Bookings
 model Event {
-    id            String   @id @default(auto()) @map("_id") @db.ObjectId
-    title         String
-    description   String?
-    bookingUrl    String?
-    address       String?
-    fromDate      DateTime
-    fromTime      String?
-    toDate        DateTime
-    toTime        String?
-    place         String?
-    location      String?
-    category      String
-    type          String
-    price         Float?
-    bannerImage   String?
-    relatedImages String[] // or Json if you want more flexibility
-    status        String
-    createdAt     DateTime @default(now())
-    updatedAt     DateTime @updatedAt
+    id                String   @id @default(auto()) @map("_id") @db.ObjectId
+    translations      Json     @default("{}")
+    translationStatus String   @default("none")
+    bookingUrl        String?
+    fromDate          DateTime
+    toDate            DateTime
+    category          String
+    type              String
+    price             Float?
+    bannerImage       String?
+    relatedImages     String[]
+    status            String
+    createdAt         DateTime @default(now())
+    updatedAt         DateTime @updatedAt
 
     // Optimized indexes for event queries
     @@index([status]) // Index for status filtering (active/inactive)
@@ -544,8 +527,7 @@ model Event {
     @@index([type]) // Index for event type filtering
     @@index([fromDate]) // Index for date-based queries
     @@index([toDate]) // Index for end date queries
-    @@index([location]) // Index for location-based searches
-    @@index([place]) // Index for place-based searches
+    @@index([translationStatus])
     @@index([category, status]) // Combined index for category + status
     @@index([type, status]) // Combined index for type + status
     @@index([fromDate, status]) // Combined index for date + status
@@ -749,18 +731,18 @@ model MotivationSpeaker {
 
 // Blog Model
 model Blog {
-    id          String   @id @default(auto()) @map("_id") @db.ObjectId
-    title       String
-    content     String   // Blog content/description
-    coverImage  String?  // Cover image URL
-    bannerImage String?  // Banner image URL
-    status      String   @default("Active") // "Active" | "Inactive"
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+    id                String   @id @default(auto()) @map("_id") @db.ObjectId
+    translations      Json     @default("{}")
+    translationStatus String   @default("none")
+    coverImage        String?
+    bannerImage       String?
+    status            String   @default("Active")
+    createdAt         DateTime @default(now())
+    updatedAt         DateTime @updatedAt
 
-    // Indexes
     @@index([status])
     @@index([createdAt])
+    @@index([translationStatus])
 }
 
 // Dharmlok Travels models

@@ -33,10 +33,12 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatAdminDate } from "@/lib/utils";
 
 // Dharamshala interface
 export interface Dharamshala {
 	id: string;
+	lang?: "en" | "hi";
 	name: string;
 	date: string;
 	state: string;
@@ -61,17 +63,6 @@ const getStatusColor = (status: string): string =>
 	status === "Active"
 		? "bg-green-100 text-green-800"
 		: "bg-red-100 text-red-800";
-
-// Helper for formatting date
-const formatDate = (dateString: string) => {
-	if (!dateString) return "";
-	const date = new Date(dateString);
-	return date.toLocaleDateString("en-IN", {
-		day: "2-digit",
-		month: "short",
-		year: "numeric",
-	});
-};
 
 export default function DharamshalaTable({
 	dharamshalas,
@@ -223,7 +214,7 @@ export default function DharamshalaTable({
 									<TableCell className="font-medium">
 										{dharamshala.name}
 									</TableCell>
-									<TableCell>{formatDate(dharamshala.date)}</TableCell>
+									<TableCell>{formatAdminDate(dharamshala.date)}</TableCell>
 									<TableCell>{dharamshala.state}</TableCell>
 									<TableCell>{dharamshala.city}</TableCell>
 									<TableCell>

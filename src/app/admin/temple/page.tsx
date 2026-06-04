@@ -33,7 +33,8 @@ export default function TemplePage() {
 				const response = await fetch("/api/temple");
 				if (!response.ok) throw new Error("Failed to fetch temples");
 				const data = await response.json();
-				setTemples(data);
+				const list = Array.isArray(data) ? data : data.content ?? [];
+				setTemples(list);
 			} catch {
 				toast.error("Failed to load temples");
 			} finally {

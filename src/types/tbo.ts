@@ -36,7 +36,7 @@ export interface FlightSearchRequest {
 	InfantCount: string; // API expects string: "0", "1", etc.
 	DirectFlight: string; // API expects string: "true", "false"
 	OneStopFlight: string; // API expects string: "true", "false"
-	JourneyType: string; // API expects string: "1", "2", "3"
+	JourneyType: string; // API expects string: "1", "2", "3", "4", "5"
 	PreferredAirlines?: string[] | null;
 	Segments: FlightSegment[];
 	Sources?: string[] | null;
@@ -142,7 +142,9 @@ export interface FlightResult {
 	ValidatingAirline?: string;
 	AirlineRemark: string;
 	Fare?: Fare;
-	ReturnResultIndex?: string; // Added for round-trip flights
+	ReturnResultIndex?: string; // Normal return (JT=2): separate IB index; special return (JT=5): IB part of comma-separated ResultIndex
+	/** Set when outbound+inbound paired for TBO JourneyType 5 */
+	_tboSpecialReturn?: boolean;
 	ApiSource?: "TBO" | "AIRiQ" | "TRIPJACK"; // API source identifier
 	FareBreakdown: Array<{
 		Currency?: string;

@@ -1,6 +1,13 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { parseLangParam, getTranslation } from "@/lib/content-lang";
+import {
+	formatPoojaCategoryResponse,
+	prepareTranslationsForSave,
+} from "@/lib/content-api";
+import { buildTranslationSearchOr } from "@/lib/translation-search";
+import { rawCountCollection, rawFindCollection } from "@/lib/content-api";
 
 // GET /api/pooja-categories?page=1&limit=12
 export async function GET(req: NextRequest) {
@@ -13,6 +20,7 @@ export async function GET(req: NextRequest) {
 		const minPriceParam = Number(searchParams.get("minPrice"));
 		const maxPriceParam = Number(searchParams.get("maxPrice"));
 		const filtersOnly = searchParams.get("filtersOnly") === "true";
+		const locale = parseLangParam(searchParams.get("lang")) ?? "en";
 
 		const parsedPage = Number(pageParam ?? "1");
 		const parsedLimit = Number(limitParam ?? "12");
@@ -24,118 +32,83 @@ export async function GET(req: NextRequest) {
 				? Math.min(parsedLimit, 100)
 				: 12;
 
-		const andConditions: Prisma.PoojaCategoryWhereInput[] = [];
+		const andConditions: Record<string, unknown>[] = [];
 
 		if (searchParam) {
 			andConditions.push({
-				OR: [
-					{ name: { contains: searchParam, mode: "insensitive" } },
-					{ description: { contains: searchParam, mode: "insensitive" } },
-					{ details: { contains: searchParam, mode: "insensitive" } },
-				],
+				$or: buildTranslationSearchOr("poojaCategory", searchParam),
 			});
 		}
 
 		if (statusParam && statusParam.toLowerCase() !== "all") {
 			andConditions.push({
-				status: {
-					equals: statusParam,
-					mode: "insensitive",
-				},
+				status: { $regex: statusParam, $options: "i" },
 			});
 		}
 
 		if (Number.isFinite(minPriceParam)) {
-			andConditions.push({
-				price: {
-					gte: minPriceParam,
-				},
-			});
+			andConditions.push({ price: { $gte: minPriceParam } });
 		}
 
 		if (Number.isFinite(maxPriceParam)) {
-			andConditions.push({
-				price: {
-					lte: maxPriceParam,
-				},
-			});
+			andConditions.push({ price: { $lte: maxPriceParam } });
 		}
 
-		const where: Prisma.PoojaCategoryWhereInput =
-			andConditions.length > 0 ? { AND: andConditions } : {};
+		const mongoFilter =
+			andConditions.length > 0 ? { $and: andConditions } : {};
 
 		if (filtersOnly) {
-			const [statusRows, priceStats] = await Promise.all([
-				prisma.poojaCategory.findMany({
-					where,
-					select: { status: true },
-				}),
-				prisma.poojaCategory.aggregate({
-					where,
-					_min: { price: true },
-					_max: { price: true },
-				}),
-			]);
+			const statusRows = await rawFindCollection({
+				collection: "PoojaCategory",
+				filter: mongoFilter,
+			});
+			const prices = await rawFindCollection({
+				collection: "PoojaCategory",
+				filter: mongoFilter,
+			});
+			const priceValues = prices
+				.map((r) => r.price)
+				.filter((p): p is number => typeof p === "number");
 
 			const statuses = Array.from(
 				new Set(
 					statusRows
-						.map((row) => row.status?.trim())
-						.filter((value): value is string => Boolean(value))
+						.map((row) => String(row.status ?? "").trim())
+						.filter(Boolean)
 				)
 			).sort((a, b) => a.localeCompare(b));
 
 			return Response.json({
 				statuses,
 				priceRange: {
-					min: typeof priceStats._min.price === "number" ? priceStats._min.price : null,
-					max: typeof priceStats._max.price === "number" ? priceStats._max.price : null,
+					min: priceValues.length ? Math.min(...priceValues) : null,
+					max: priceValues.length ? Math.max(...priceValues) : null,
 				},
 			});
 		}
 
-		const queryOptions: {
-			where?: Prisma.PoojaCategoryWhereInput;
-			skip?: number;
-			take?: number;
-			orderBy: { createdAt: "desc" };
-		} = {
-			orderBy: { createdAt: "desc" },
-		};
-
-		if (Object.keys(where).length > 0) {
-			queryOptions.where = where;
-		}
-
-		if (hasPaginationParams && limit > 0) {
-			queryOptions.skip = (page - 1) * limit;
-			queryOptions.take = limit;
-		}
+		const skip = hasPaginationParams && limit > 0 ? (page - 1) * limit : 0;
+		const take = hasPaginationParams && limit > 0 ? limit : undefined;
 
 		const [categories, total] = await Promise.all([
-			prisma.poojaCategory.findMany(queryOptions),
-			prisma.poojaCategory.count({ where: queryOptions.where }),
+			rawFindCollection({
+				collection: "PoojaCategory",
+				filter: mongoFilter,
+				sort: { createdAt: -1 },
+				skip,
+				limit: take,
+			}),
+			rawCountCollection("PoojaCategory", mongoFilter),
 		]);
 
 		return Response.json({
-			categories: categories.map((cat) => ({
-				id: cat.id,
-				name: cat.name,
-				description: cat.description || "",
-				date: cat.date ? cat.date.toISOString() : "",
-				price: typeof cat.price === "number" ? cat.price : undefined,
-				details: cat.details || "",
-				status: cat.status || "Inactive",
-				images:
-					cat.images && cat.images.length > 0
-						? cat.images
-						: ["https://via.placeholder.com/300x200?text=Pooja+Image"],
-				videos: cat.videos && cat.videos.length > 0 ? cat.videos : [],
-			})),
+			categories: categories.map((cat) =>
+				formatPoojaCategoryResponse(cat, locale)
+			),
 			total,
 			pagination: {
 				currentPage: page,
-				totalPages: Math.ceil(total / limit),
+				totalPages: Math.ceil(total / limit) || 1,
 				limit,
 			},
 		});
@@ -155,39 +128,44 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
 	try {
 		const body = await req.json();
-		const { name, description, date, price, details, images, videos } = body;
+		const { date, price, images, videos, status } = body;
 
-		if (!name || typeof name !== "string" || name.trim().length < 2)
+		const { translations, translationStatus } = prepareTranslationsForSave(
+			"poojaCategory",
+			body
+		);
+
+		const nameEn = getTranslation(
+			{ translations } as Record<string, unknown>,
+			"en",
+			"name"
+		);
+		if (!nameEn || String(nameEn).trim().length < 2) {
 			return Response.json(
 				{ message: "Name is required and must be at least 2 characters" },
 				{ status: 400 }
 			);
+		}
 
 		const created = await prisma.poojaCategory.create({
 			data: {
-				name,
-				description: description ?? "",
+				translations: translations as Prisma.InputJsonValue,
+				translationStatus,
 				date: date ? new Date(date) : undefined,
 				price: price !== undefined && price !== "" ? Number(price) : undefined,
-				details: details ?? "",
 				images: images || [],
 				videos: videos || [],
+				status: status || "Inactive",
 			},
 		});
 
-		return Response.json({
-			id: created.id,
-			name: created.name,
-			description: created.description || "",
-			date: created.date ? created.date.toISOString() : "",
-			price: typeof created.price === "number" ? created.price : undefined,
-			details: created.details || "",
-			images:
-				created.images && created.images.length > 0
-					? created.images
-					: ["https://via.placeholder.com/300x200?text=Pooja+Image"],
-			videos: created.videos && created.videos.length > 0 ? created.videos : [],
-		});
+		const locale = parseLangParam(body.locale) ?? "en";
+		return Response.json(
+			formatPoojaCategoryResponse(
+				created as unknown as Record<string, unknown>,
+				locale
+			)
+		);
 	} catch {
 		return Response.json(
 			{ message: "Failed to create Pooja Category" },

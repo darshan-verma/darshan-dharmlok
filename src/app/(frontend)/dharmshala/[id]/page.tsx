@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
+import { useLanguage } from "@/components/providers/LanguageProvider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -143,6 +144,7 @@ function normalizeStringArray(value: unknown): string[] {
 export default function DharmshalaDetailsPage() {
 	const params = useParams();
 	const router = useRouter();
+	const { locale } = useLanguage();
 	const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
 	const [data, setData] = useState<Dharamshala | null>(null);
@@ -157,7 +159,7 @@ export default function DharmshalaDetailsPage() {
 			try {
 				setLoading(true);
 				setError(null);
-				const res = await fetch(`/api/dharamshala/${id}`);
+				const res = await fetch(`/api/dharamshala/${id}?lang=${locale}`);
 				if (!res.ok) {
 					if (res.status === 404) throw new Error("Dharmshala not found");
 					throw new Error("Failed to fetch dharmshala details");
@@ -173,7 +175,7 @@ export default function DharmshalaDetailsPage() {
 		};
 
 		fetchOne();
-	}, [id]);
+	}, [id, locale]);
 
 	const mapSrc = useMemo(() => extractGoogleMapsSrc(data?.location), [data?.location]);
 	const descriptionContent = useMemo(

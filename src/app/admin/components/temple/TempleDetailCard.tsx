@@ -14,16 +14,36 @@ type Props = {
 	isEditing: boolean;
 	errors: Record<string, string>;
 	onEdit: () => void;
+	setEditedTemple?: React.Dispatch<React.SetStateAction<TempleData | null>>;
 };
 
-export function TempleDetailCard({ temple, isEditing, errors, onEdit }: Props) {
+export function TempleDetailCard({
+	temple,
+	isEditing,
+	errors,
+	onEdit,
+	setEditedTemple: _setEditedTemple,
+}: Props) {
 	if (!temple) return null;
 
 	return (
 		<Card className="h-fit">
 			<CardHeader className="text-center p-4 pb-2">
 				<CardTitle className="text-center text-lg">{temple.name}</CardTitle>
-				<CardDescription>
+				<CardDescription className="flex flex-wrap items-center justify-center gap-1">
+					{temple.translationStatus && (
+						<span
+							className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+								temple.translationStatus === "complete"
+									? "bg-green-100 text-green-800"
+									: temple.translationStatus === "partial"
+										? "bg-yellow-100 text-yellow-800"
+										: "bg-orange-100 text-orange-800"
+							}`}
+						>
+							Hindi: {temple.translationStatus}
+						</span>
+					)}
 					<span
 						className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
 							temple.status === "Active"

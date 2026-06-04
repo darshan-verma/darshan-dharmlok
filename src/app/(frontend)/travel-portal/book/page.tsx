@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import BookingClient from "./BookingClient";
 import TripjackBookingClient from "./TripjackBookingClient";
+import { fareQuoteResultIndexes } from "@/lib/tboFlightSearch";
 
 interface PageProps {
 	searchParams: Promise<{
@@ -23,6 +24,7 @@ interface PageProps {
 		infantCount?: string;
 		isUpsellAllowed?: string;
 		apiSource?: string; // "TBO" or "AIRiQ"
+		journeyType?: string;
 	}>;
 }
 
@@ -38,6 +40,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		infantCount = "0",
 		isUpsellAllowed: isUpsellAllowedParam,
 		apiSource = "TBO",
+		journeyType = "1",
 	} = params;
 
 	const priceIdsFromQuery = priceIdsParam
@@ -85,6 +88,12 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		);
 	}
 
+	const fareIndexes = fareQuoteResultIndexes(
+		resultIndex,
+		returnResultIndex,
+		journeyType,
+	);
+
 	// Continue with TBO booking flow (fare rules via API route for consistency)
 	const baseUrl =
 		process.env.NEXT_PUBLIC_APP_URL ||
@@ -94,7 +103,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
 			TraceId: traceId,
-			ResultIndex: resultIndex,
+			ResultIndex: fareIndexes.primary,
 			EndUserIp: "192.168.1.1",
 		}),
 	}).then(async (res) => {
@@ -108,9 +117,11 @@ export default async function BookingPage({ searchParams }: PageProps) {
 	const fareUpsellPromise = isUpsellAllowed
 		? getFareUpsell({
 				TraceId: traceId,
-				ResultIndex: resultIndex,
+				ResultIndex: fareIndexes.primary,
 				EndUserIp: "192.168.1.1",
-				...(returnResultIndex && { ReturnResultIndex: returnResultIndex }),
+				...(fareIndexes.secondary && {
+					ReturnResultIndex: fareIndexes.secondary,
+				}),
 		  }).then((result) => {
 				console.log("=== Fare Upsell API Success ===");
 				console.log("Raw API response:", JSON.stringify(result, null, 2));
@@ -120,24 +131,24 @@ export default async function BookingPage({ searchParams }: PageProps) {
 
 	const ssrPromise = getSSR({
 		TraceId: traceId,
-		ResultIndex: resultIndex,
+		ResultIndex: fareIndexes.primary,
 		EndUserIp: "192.168.1.1",
 	});
 
-	// Fetch fare quote(s)
+	// Fetch fare quote(s): JT=5 or comma-separated index → single FareQuote per TBO doc
 	let fareQuoteResponse;
 	let returnFareQuoteResponse;
 	try {
 		fareQuoteResponse = await getFareQuote({
 			TraceId: traceId,
-			ResultIndex: resultIndex,
+			ResultIndex: fareIndexes.primary,
 			EndUserIp: "192.168.1.1",
 		});
 
-		if (returnResultIndex) {
+		if (fareIndexes.secondary) {
 			returnFareQuoteResponse = await getFareQuote({
 				TraceId: traceId,
-				ResultIndex: returnResultIndex,
+				ResultIndex: fareIndexes.secondary,
 				EndUserIp: "192.168.1.1",
 			});
 		}
@@ -466,7 +477,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 				childCount={parseInt(childCount)}
 				infantCount={parseInt(infantCount)}
 				traceId={traceId}
-				resultIndex={resultIndex}
+				resultIndex={fareIndexes.primary}
 				flightResult={flightResult}
 				upsellOptions={upsellOptions}
 				isUpsellAllowed={isUpsellAllowed}

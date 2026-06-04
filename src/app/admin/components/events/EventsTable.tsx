@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 import Pagination from "../Pagination/Pagination";
+import { formatAdminDate } from "@/lib/utils";
 
 export interface Event {
 	id: string;
@@ -64,17 +65,6 @@ const getStatusColor = (status: string): string =>
 	status === "Active"
 		? "bg-green-100 text-green-800"
 		: "bg-red-100 text-red-800";
-
-// Helper for formatting date
-const formatDate = (dateString: string) => {
-	if (!dateString) return "";
-	const date = new Date(dateString);
-	return date.toLocaleDateString("en-IN", {
-		day: "2-digit",
-		month: "short",
-		year: "numeric",
-	});
-};
 
 export default function EventsTable({
 	events,
@@ -212,10 +202,10 @@ export default function EventsTable({
 							paginatedEvents.map((event) => (
 								<TableRow key={event.id}>
 									<TableCell className="font-medium">{event.title}</TableCell>
-									<TableCell>{formatDate(event.createdAt ?? "")}</TableCell>
+									<TableCell>{formatAdminDate(event.createdAt)}</TableCell>
 									<TableCell>{event.category}</TableCell>
-									<TableCell>{formatDate(event.fromDate)}</TableCell>
-									<TableCell>{formatDate(event.toDate)}</TableCell>
+									<TableCell>{formatAdminDate(event.fromDate)}</TableCell>
+									<TableCell>{formatAdminDate(event.toDate)}</TableCell>
 									<TableCell>{event.type}</TableCell>
 									<TableCell>
 										<Button

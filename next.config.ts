@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const s3Hostname = process.env.NEXT_PUBLIC_S3_HOSTNAME?.trim();
+
 const nextConfig: NextConfig = {
 	/* config options here */
 	images: {
@@ -24,7 +26,7 @@ const nextConfig: NextConfig = {
 			},
 			{
 				protocol: "https",
-				hostname: "dharmlok.s3.us-east-1.amazonaws.com",
+				hostname: "d18us13qqo82ck.cloudfront.net",
 				port: "",
 				pathname: "/**",
 			},
@@ -109,6 +111,17 @@ const nextConfig: NextConfig = {
 				port: "",
 				pathname: "/**",
 			},
+			// Airline logo PNGs (NEXT_PUBLIC_AIRLINE_IMAGES_BASE_URL)
+			...(s3Hostname
+				? [
+						{
+							protocol: "https" as const,
+							hostname: s3Hostname,
+							port: "",
+							pathname: "/**",
+						},
+					]
+				: []),
 		],
 	},
 	// ... any other existing configurations

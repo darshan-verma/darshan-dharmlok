@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { getAirlineLogoUrl } from "@/lib/airline-logo";
 
 interface AirlineLogoProps {
 	airlineCode: string;
@@ -8,33 +9,19 @@ interface AirlineLogoProps {
 	size?: "sm" | "md";
 }
 
-// Utility function to get airline logo
-const getAirlineLogo = (airlineCode: string): string | null => {
-	const logoMap: { [key: string]: string } = {
-		AI: "/flight-tail-logos/air-india-logo-tail.png",
-		IX: "/flight-tail-logos/air-india-express-logo-tail.png",
-		"6E": "/flight-tail-logos/indigo-logo-tail.png",
-		SG: "/flight-tail-logos/spicejet-logo-tail.png",
-		UK: "/flight-tail-logos/vistara-logo-tail.png",
-	};
-
-	return logoMap[airlineCode] || null;
-};
-
 export default function AirlineLogo({
 	airlineCode,
 	airlineName,
 	size = "sm",
 }: AirlineLogoProps) {
-	const logoPath = getAirlineLogo(airlineCode);
+	const normalizedCode = airlineCode.trim().toUpperCase();
 
-	if (!logoPath) {
-		return (
-			<span className="text-xs font-bold text-gray-600">{airlineCode}</span>
-		);
+	if (!normalizedCode) {
+		return null;
 	}
 
-	const dimensions = size === "sm" ? 20 : 24;
+	const logoPath = getAirlineLogoUrl(normalizedCode);
+	const dimensions = size === "sm" ? 28 : 32;
 
 	return (
 		<Image
@@ -48,7 +35,7 @@ export default function AirlineLogo({
 				target.style.display = "none";
 				const parent = target.parentElement;
 				if (parent) {
-					parent.innerHTML = `<span class="text-xs font-bold text-gray-600">${airlineCode}</span>`;
+					parent.innerHTML = `<span class="text-xs font-bold text-gray-600">${normalizedCode}</span>`;
 				}
 			}}
 		/>

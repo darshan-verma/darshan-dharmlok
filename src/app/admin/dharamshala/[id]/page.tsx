@@ -8,6 +8,8 @@ import { toast } from "@/lib/toast";
 import { DharamshalaDetailCard } from "@/app/admin/components/dharamshala/DharamshalaDetailCard";
 import { DharamshalaInfoCard } from "@/app/admin/components/dharamshala/DharamshalaInfoCard";
 import { DharamshalaData, Faq } from "@/app/admin/components/dharamshala/types";
+import type { ContentLang } from "@/lib/content-lang";
+import { finalizeTranslationsPayload } from "@/lib/admin-locale-sync";
 
 export default function DharamshalaDetailPage() {
 	const params = useParams();
@@ -31,6 +33,7 @@ export default function DharamshalaDetailPage() {
 	const [travelByTrain, setTravelByTrain] = useState<string[]>([]);
 	const [travelByBus, setTravelByBus] = useState<string[]>([]);
 	const [travelByRoad, setTravelByRoad] = useState<string[]>([]);
+	const [contentLocale, setContentLocale] = useState<ContentLang>("en");
 
 	useEffect(() => {
 		if (editedDharamshala) {
@@ -116,11 +119,18 @@ export default function DharamshalaDetailPage() {
 		if (Object.keys(validation).length > 0) return;
 		setIsSaving(true);
 		try {
+			const translations = finalizeTranslationsPayload(
+				editedDharamshala as unknown as Record<string, unknown>,
+				"dharamshala",
+				contentLocale
+			);
+
 			const response = await fetch(`/api/dharamshala/${dharamshalaId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					...editedDharamshala,
+					translations,
 					amenities,
 					dharamshalaFaqs,
 					imageFile: imageFiles,
@@ -174,10 +184,11 @@ export default function DharamshalaDetailPage() {
 			</div>
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<DharamshalaDetailCard
-					dharamshala={dharamshala}
+					dharamshala={editedDharamshala ?? dharamshala}
 					isEditing={isEditing}
 					errors={errors}
 					onEdit={() => setIsEditing((v) => !v)}
+					setEditedDharamshala={setEditedDharamshala}
 				/>
 				<div className="md:col-span-2">
 					<DharamshalaInfoCard
@@ -208,6 +219,8 @@ export default function DharamshalaDetailPage() {
 						travelByRoad={travelByRoad}
 						setTravelByRoad={setTravelByRoad}
 						setEditedDharamshala={setEditedDharamshala}
+						contentLocale={contentLocale}
+						onContentLocaleChange={setContentLocale}
 						onSave={handleSave}
 					/>
 				</div>

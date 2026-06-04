@@ -21,6 +21,7 @@ import {
 	FileText,
 	Plane,
 	Ship,
+	Languages,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -83,6 +84,19 @@ export function AdminSidebar({ className }: { className?: string }) {
 							Manage
 						</div>
 					</div>
+
+					<SidebarMenuItem>
+						<SidebarMenuButton
+							className="gap-3 px-4 py-2.5 rounded-lg hover:bg-muted/60 transition-all"
+							isActive={pathname === "/admin/translations"}
+							asChild
+						>
+							<Link href="/admin/translations">
+								<Languages className="h-5 w-5 text-violet-500" />
+								<span>Translation Status</span>
+							</Link>
+						</SidebarMenuButton>
+					</SidebarMenuItem>
 
 					<SidebarMenuItem>
 						<SidebarMenuButton

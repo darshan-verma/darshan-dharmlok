@@ -1,5 +1,12 @@
 import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import { parseLangParam, getTranslation } from "@/lib/content-lang";
+import {
+	formatPoojaCategoryResponse,
+	prepareTranslationsForSave,
+	rawFindById,
+} from "@/lib/content-api";
 
 // GET /api/pooja-categories/[id]
 export async function GET(req: NextRequest) {
@@ -7,30 +14,16 @@ export async function GET(req: NextRequest) {
 		const url = new URL(req.url);
 		const pathnameParts = url.pathname.split("/");
 		const id = pathnameParts[pathnameParts.length - 1];
+		const locale = parseLangParam(req.nextUrl.searchParams.get("lang")) ?? "en";
 
-		const pooja = await prisma.poojaCategory.findUnique({
-			where: { id },
-		});
+		const pooja = await rawFindById("PoojaCategory", id);
 		if (!pooja) {
 			return Response.json(
 				{ message: "Pooja Category not found" },
 				{ status: 404 }
 			);
 		}
-		return Response.json({
-			id: pooja.id,
-			name: pooja.name,
-			description: pooja.description || "",
-			date: pooja.date ? pooja.date.toISOString() : "",
-			price: typeof pooja.price === "number" ? pooja.price : undefined,
-			details: pooja.details || "",
-			status: pooja.status || "Inactive",
-			images:
-				pooja.images && pooja.images.length > 0
-					? pooja.images
-					: ["https://via.placeholder.com/300x200?text=Pooja+Image"],
-			videos: pooja.videos && pooja.videos.length > 0 ? pooja.videos : [],
-		});
+		return Response.json(formatPoojaCategoryResponse(pooja, locale));
 	} catch {
 		return Response.json(
 			{ message: "Failed to fetch Pooja Category" },
@@ -47,75 +40,70 @@ export async function PUT(req: NextRequest) {
 		const id = pathnameParts[pathnameParts.length - 1];
 
 		const body = await req.json();
-		const { name, description, date, price, details, status, images, videos } =
-			body;
+		const { date, price, status, images, videos } = body;
 
-		// Allow status-only update
 		if (
 			typeof status === "string" &&
-			name === undefined &&
-			description === undefined &&
-			date === undefined &&
-			price === undefined &&
-			details === undefined &&
-			images === undefined &&
-			videos === undefined
+			Object.keys(body).length === 1
 		) {
 			const updated = await prisma.poojaCategory.update({
 				where: { id },
 				data: { status },
 			});
-			return Response.json({
-				id: updated.id,
-				name: updated.name,
-				description: updated.description || "",
-				date: updated.date ? updated.date.toISOString() : "",
-				price: typeof updated.price === "number" ? updated.price : undefined,
-				details: updated.details || "",
-				status: updated.status || "Inactive",
-				images:
-					updated.images && updated.images.length > 0
-						? updated.images
-						: ["https://via.placeholder.com/300x200?text=Pooja+Image"],
-				videos:
-					updated.videos && updated.videos.length > 0 ? updated.videos : [],
-			});
+			return Response.json(
+				formatPoojaCategoryResponse(
+					updated as unknown as Record<string, unknown>,
+					"en"
+				)
+			);
 		}
 
-		if (!name || typeof name !== "string" || name.trim().length < 2)
+		const existing = await prisma.poojaCategory.findUnique({ where: { id } });
+		if (!existing) {
+			return Response.json(
+				{ message: "Pooja Category not found" },
+				{ status: 404 }
+			);
+		}
+
+		const { translations, translationStatus } = prepareTranslationsForSave(
+			"poojaCategory",
+			body,
+			existing
+		);
+
+		const nameEn = getTranslation(
+			{ translations } as Record<string, unknown>,
+			"en",
+			"name"
+		);
+		if (!nameEn || String(nameEn).trim().length < 2) {
 			return Response.json(
 				{ message: "Name is required and must be at least 2 characters" },
 				{ status: 400 }
 			);
+		}
 
 		const updated = await prisma.poojaCategory.update({
 			where: { id },
 			data: {
-				name,
-				description: description ?? "",
+				translations: translations as Prisma.InputJsonValue,
+				translationStatus,
 				date: date ? new Date(date) : undefined,
 				price: price !== undefined && price !== "" ? Number(price) : undefined,
-				details: details ?? "",
 				images: images || [],
 				videos: videos || [],
 				...(status && { status }),
 			},
 		});
 
-		return Response.json({
-			id: updated.id,
-			name: updated.name,
-			description: updated.description || "",
-			date: updated.date ? updated.date.toISOString() : "",
-			price: typeof updated.price === "number" ? updated.price : undefined,
-			details: updated.details || "",
-			status: updated.status || "Inactive",
-			images:
-				updated.images && updated.images.length > 0
-					? updated.images
-					: ["https://via.placeholder.com/300x200?text=Pooja+Image"],
-			videos: updated.videos && updated.videos.length > 0 ? updated.videos : [],
-		});
+		const locale = parseLangParam(body.locale) ?? "en";
+		return Response.json(
+			formatPoojaCategoryResponse(
+				updated as unknown as Record<string, unknown>,
+				locale
+			)
+		);
 	} catch {
 		return Response.json(
 			{ message: "Failed to update Pooja Category" },
@@ -132,7 +120,7 @@ export async function DELETE(req: NextRequest) {
 		const id = pathnameParts[pathnameParts.length - 1];
 
 		await prisma.poojaCategory.delete({ where: { id } });
-		return Response.json({ message: "Pooja Category deleted" });
+		return Response.json({ message: "Pooja Category deleted successfully" });
 	} catch {
 		return Response.json(
 			{ message: "Failed to delete Pooja Category" },

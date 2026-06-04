@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Image from "next/image";
 import React from "react";
+import { formatAdminDate } from "@/lib/utils";
 
 // Blog interface
 export interface Blog {
@@ -227,15 +228,7 @@ export default function BlogTable({
 											{blog.status}
 										</span>
 									</TableCell>
-									<TableCell>
-										{blog.createdAt
-											? new Date(blog.createdAt).toLocaleDateString("en-IN", {
-													day: "2-digit",
-													month: "short",
-													year: "numeric",
-											  })
-											: ""}
-									</TableCell>
+									<TableCell>{formatAdminDate(blog.createdAt)}</TableCell>
 									<TableCell>
 										<DropdownMenu>
 											<DropdownMenuTrigger asChild>

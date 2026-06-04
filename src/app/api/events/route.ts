@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { parseLangParam, getTranslation } from "@/lib/content-lang";
+import {
+	findEventsWithOptionalSearch,
+	formatEventResponse,
+	prepareTranslationsForSave,
+	safeFormatDate,
+	safeFormatDateOnly,
+} from "@/lib/content-api";
 
 export interface EventApi {
 	id: string;
@@ -39,35 +46,10 @@ function parseArrayField(field: unknown): string[] {
 	return [];
 }
 
-function formatDateOnly(value: unknown): string {
-	if (value instanceof Date) {
-		return Number.isNaN(value.getTime())
-			? ""
-			: value.toISOString().split("T")[0];
-	}
-	if (typeof value === "string") {
-		const parsed = new Date(value);
-		return Number.isNaN(parsed.getTime())
-			? value
-			: parsed.toISOString().split("T")[0];
-	}
-	return "";
-}
-
-function formatIsoDateTime(value: unknown): string | undefined {
-	if (value instanceof Date) {
-		return Number.isNaN(value.getTime()) ? undefined : value.toISOString();
-	}
-	if (typeof value === "string") {
-		const parsed = new Date(value);
-		return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-	}
-	return undefined;
-}
-
 // GET /api/events
 export async function GET(req: NextRequest) {
 	try {
+		const locale = parseLangParam(req.nextUrl.searchParams.get("lang")) ?? "en";
 		const searchParams = req.nextUrl.searchParams;
 		const pageParam = searchParams.get("page");
 		const limitParam = searchParams.get("limit");
@@ -87,54 +69,19 @@ export async function GET(req: NextRequest) {
 				? Math.min(parsedLimit, 100)
 				: 0;
 
-		const where: Prisma.EventWhereInput = {};
-		const andConditions: Prisma.EventWhereInput[] = [];
-
-		if (statusParam) {
-			andConditions.push({
-				status: { equals: statusParam, mode: "insensitive" },
-			});
-		}
-
-		if (categoryParam) {
-			andConditions.push({
-				category: { contains: categoryParam, mode: "insensitive" },
-			});
-		}
-
-		if (typeParam) {
-			andConditions.push({
-				type: { contains: typeParam, mode: "insensitive" },
-			});
-		}
-
-		if (searchParam) {
-			andConditions.push({
-				OR: [
-					{ title: { contains: searchParam, mode: "insensitive" } },
-					{ description: { contains: searchParam, mode: "insensitive" } },
-					{ category: { contains: searchParam, mode: "insensitive" } },
-					{ type: { contains: searchParam, mode: "insensitive" } },
-					{ place: { contains: searchParam, mode: "insensitive" } },
-					{ location: { contains: searchParam, mode: "insensitive" } },
-				],
-			});
-		}
-
-		if (andConditions.length > 0) {
-			where.AND = andConditions;
-		}
-
 		if (filtersOnly) {
-			const rows = await prisma.event.findMany({
-				where: Object.keys(where).length > 0 ? where : undefined,
-				select: { category: true, type: true },
+			const { rows } = await findEventsWithOptionalSearch({
+				status: statusParam,
+				category: categoryParam,
+				type: typeParam,
 			});
 
 			const categories = Array.from(
 				new Set(
 					rows
-						.map((row) => row.category?.trim())
+						.map((row) =>
+							typeof row.category === "string" ? row.category.trim() : ""
+						)
 						.filter((value): value is string => Boolean(value))
 				)
 			).sort((a, b) => a.localeCompare(b));
@@ -142,7 +89,9 @@ export async function GET(req: NextRequest) {
 			const types = Array.from(
 				new Set(
 					rows
-						.map((row) => row.type?.trim())
+						.map((row) =>
+							typeof row.type === "string" ? row.type.trim() : ""
+						)
 						.filter((value): value is string => Boolean(value))
 				)
 			).sort((a, b) => a.localeCompare(b));
@@ -150,40 +99,28 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ categories, types });
 		}
 
-		const events = await prisma.event.findMany({
-			where: Object.keys(where).length > 0 ? where : undefined,
-			orderBy: { createdAt: "desc" },
-			...(hasPaginationParams && limit > 0
-				? { skip: (page - 1) * limit, take: limit }
-				: {}),
+		const skip =
+			hasPaginationParams && limit > 0 ? (page - 1) * limit : undefined;
+		const take = hasPaginationParams && limit > 0 ? limit : undefined;
+
+		const { rows: events, total } = await findEventsWithOptionalSearch({
+			search: searchParam,
+			category: categoryParam,
+			type: typeParam,
+			status: statusParam,
+			skip,
+			limit: take,
 		});
 
-		const result: EventApi[] = events.map((event) => ({
-			id: event.id,
-			title: event.title,
-			description: event.description || "",
-			bookingUrl: event.bookingUrl || "",
-			address: event.address || "",
-			fromDate: formatDateOnly(event.fromDate),
-			fromTime: event.fromTime || "",
-			toDate: formatDateOnly(event.toDate),
-			toTime: event.toTime || "",
-			place: event.place || "",
-			location: event.location || "",
-			category: event.category,
-			type: event.type,
-			price: event.price ?? undefined,
-			bannerImage: event.bannerImage || "",
-			relatedImages: parseArrayField(event.relatedImages),
-			status: event.status,
-			createdAt: formatIsoDateTime(event.createdAt),
-			updatedAt: formatIsoDateTime(event.updatedAt),
-		}));
+		const result = events.map((event) =>
+			formatEventResponse(event, locale, {
+				formatDateOnly: safeFormatDateOnly,
+				formatIsoDateTime: (v) => safeFormatDate(v) || undefined,
+				parseArrayField: parseArrayField,
+			})
+		) as unknown as EventApi[];
 
 		if (hasPaginationParams && limit > 0) {
-			const total = await prisma.event.count({
-				where: Object.keys(where).length > 0 ? where : undefined,
-			});
 			const totalPages = Math.ceil(total / limit);
 			return NextResponse.json({
 				content: result,
@@ -211,16 +148,9 @@ export async function POST(req: NextRequest) {
 	try {
 		const body = await req.json();
 		const {
-			title,
-			description,
 			bookingUrl,
-			address,
 			fromDate,
-			fromTime,
 			toDate,
-			toTime,
-			place,
-			location,
 			category,
 			type,
 			price,
@@ -229,7 +159,17 @@ export async function POST(req: NextRequest) {
 			status,
 		} = body as Omit<EventApi, "id" | "createdAt" | "updatedAt">;
 
-		if (!title || !fromDate || !toDate || !category || !type || !status) {
+		const { translations, translationStatus } = prepareTranslationsForSave(
+			"event",
+			body
+		);
+
+		const titleEn = getTranslation(
+			{ translations } as Record<string, unknown>,
+			"en",
+			"title"
+		);
+		if (!titleEn || !fromDate || !toDate || !category || !type || !status) {
 			return NextResponse.json(
 				{ error: "Missing required fields" },
 				{ status: 400 }
@@ -238,16 +178,11 @@ export async function POST(req: NextRequest) {
 
 		const event = await prisma.event.create({
 			data: {
-				title,
-				description: description || "",
+				translations: translations as object,
+				translationStatus,
 				bookingUrl: bookingUrl || "",
-				address: address || "",
 				fromDate: new Date(fromDate),
-				fromTime: fromTime || "",
 				toDate: new Date(toDate),
-				toTime: toTime || "",
-				place: place || "",
-				location: location || "",
 				category,
 				type,
 				price: price !== undefined && price !== null ? Number(price) : null,
@@ -256,28 +191,13 @@ export async function POST(req: NextRequest) {
 				status,
 			},
 		});
-		const result: EventApi = {
-			id: event.id,
-			title: event.title,
-			description: event.description || "",
-			bookingUrl: event.bookingUrl || "",
-			address: event.address || "",
-			fromDate: formatDateOnly(event.fromDate),
-			fromTime: event.fromTime || "",
-			toDate: formatDateOnly(event.toDate),
-			toTime: event.toTime || "",
-			place: event.place || "",
-			location: event.location || "",
-			category: event.category,
-			type: event.type,
-			price: event.price ?? undefined,
-			bannerImage: event.bannerImage || "",
-			relatedImages: parseArrayField(event.relatedImages),
-			status: event.status,
-			createdAt: formatIsoDateTime(event.createdAt),
-			updatedAt: formatIsoDateTime(event.updatedAt),
-		};
-		return NextResponse.json(result);
+		return NextResponse.json(
+			formatEventResponse(event as unknown as Record<string, unknown>, "en", {
+				formatDateOnly: safeFormatDateOnly,
+				formatIsoDateTime: (v) => safeFormatDate(v) || undefined,
+				parseArrayField,
+			})
+		);
 	} catch {
 		return NextResponse.json(
 			{ error: "Failed to create event" },

@@ -26,6 +26,9 @@ import {
 	statusOptions,
 	extractGoogleMapsSrc,
 } from "./types";
+import LocaleTabs from "@/components/admin/LocaleTabs";
+import type { ContentLang } from "@/lib/content-lang";
+import { switchContentLocale } from "@/lib/admin-locale-sync";
 
 interface EventInfoCardProps {
 	event: Event | null;
@@ -38,6 +41,8 @@ interface EventInfoCardProps {
 	setIsUploadingBanner: React.Dispatch<React.SetStateAction<boolean>>;
 	isUploadingRelated: boolean;
 	setIsUploadingRelated: React.Dispatch<React.SetStateAction<boolean>>;
+	contentLocale: ContentLang;
+	onContentLocaleChange: (locale: ContentLang) => void;
 	onSave: () => Promise<void>;
 }
 
@@ -52,8 +57,23 @@ export function EventInfoCard({
 	setIsUploadingBanner,
 	isUploadingRelated,
 	setIsUploadingRelated,
+	contentLocale,
+	onContentLocaleChange,
 	onSave,
 }: EventInfoCardProps) {
+	const handleLocaleChange = (locale: ContentLang) => {
+		setEditedEvent((prev) =>
+			prev
+				? (switchContentLocale(
+						prev as unknown as Record<string, unknown>,
+						"event",
+						contentLocale,
+						locale
+					) as unknown as Event)
+				: prev
+		);
+		onContentLocaleChange(locale);
+	};
 	const bannerFileInputRef = useRef<HTMLInputElement>(null);
 	const relatedFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -141,8 +161,12 @@ export function EventInfoCard({
 		<>
 			{isEditing ? (
 				<Card>
-					<CardHeader>
+					<CardHeader className="space-y-3">
 						<CardTitle>Edit Event</CardTitle>
+						<LocaleTabs
+							activeLocale={contentLocale}
+							onLocaleChange={handleLocaleChange}
+						/>
 					</CardHeader>
 					<CardContent className="space-y-4">
 						<div className="space-y-2">

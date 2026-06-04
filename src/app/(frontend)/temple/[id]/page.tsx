@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
+import { useLanguage } from "@/components/providers/LanguageProvider";
 import {
 	Accordion,
 	AccordionContent,
@@ -133,6 +134,7 @@ function Section({
 export default function TempleDetailsPage() {
 	const params = useParams();
 	const router = useRouter();
+	const { locale } = useLanguage();
 	const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
 	const [data, setData] = useState<Temple | null>(null);
@@ -147,7 +149,7 @@ export default function TempleDetailsPage() {
 			try {
 				setLoading(true);
 				setError(null);
-				const res = await fetch(`/api/temple/${id}`);
+				const res = await fetch(`/api/temple/${id}?lang=${locale}`);
 				if (!res.ok) {
 					if (res.status === 404) throw new Error("Temple not found");
 					throw new Error("Failed to fetch temple details");
@@ -163,7 +165,7 @@ export default function TempleDetailsPage() {
 		};
 
 		fetchOne();
-	}, [id]);
+	}, [id, locale]);
 
 	const mapSrc = useMemo(() => extractGoogleMapsSrc(data?.location), [data?.location]);
 	const descriptionContent = useMemo(

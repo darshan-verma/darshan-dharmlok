@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcrypt";
+import { parseLangParam } from "@/lib/content-lang";
+import {
+	formatPanditjiResponse,
+	formatPoojaCategoryResponse,
+	prepareTranslationsForSave,
+} from "@/lib/content-api";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import s3Client from "@/lib/s3Client";
 import { PoojaCategory, UserUpdateData } from "@/types/user";
@@ -34,6 +40,7 @@ export async function GET(
 ) {
 	try {
 		const { id: userId } = await params;
+		const locale = parseLangParam(_request.nextUrl.searchParams.get("lang")) ?? "en";
 
 		if (!userId) {
 			return NextResponse.json(
@@ -58,6 +65,8 @@ export async function GET(
 				bio: true,
 				description: true,
 				category: true,
+				translations: true,
+				translationStatus: true,
 				userType: true,
 				status: true,
 				active: true,
@@ -153,28 +162,34 @@ export async function GET(
 				.map((service) => service.targetId)
 				.filter(Boolean);
 			if (categoryIds.length > 0) {
-				poojaCategories = await prisma.poojaCategory.findMany({
+				const rows = await prisma.poojaCategory.findMany({
 					where: {
-						id: {
-							in: categoryIds,
-						},
+						id: { in: categoryIds },
 						status: "Active",
 					},
-					select: {
-						id: true,
-						name: true,
-						description: true,
-						price: true,
-						details: true,
-					},
 				});
+				poojaCategories = rows.map((row) =>
+					formatPoojaCategoryResponse(
+						row as unknown as Record<string, unknown>,
+						locale
+					)
+				) as unknown as PoojaCategory[];
 			}
 		}
 
+		const formatted = formatPanditjiResponse(
+			user as unknown as Record<string, unknown>,
+			locale
+		);
 		return NextResponse.json({
 			success: true,
 			data: {
-				...user,
+				...formatted,
+				addresses: user.addresses,
+				serviceOfferings: user.serviceOfferings,
+				images: user.images,
+				posts: user.posts,
+				_count: user._count,
 				poojaCategories,
 			},
 		});
@@ -214,6 +229,11 @@ export async function PUT(
 				bannerImageUrl: true,
 				email: true,
 				phone: true,
+				translations: true,
+				name: true,
+				bio: true,
+				description: true,
+				category: true,
 			},
 		});
 
@@ -346,6 +366,31 @@ export async function PUT(
 			// Handle URL update (when image was uploaded separately) or clearing (empty string)
 			updateData.bannerImageUrl = bannerImageUrl || undefined;
 		}
+
+		const translationsField = formData.get("translations");
+		const translationBody: Record<string, unknown> = translationsField
+			? { translations: JSON.parse(translationsField as string) }
+			: {
+					locale: "en",
+					name: updateData.name,
+					bio: updateData.bio,
+					description: updateData.description,
+					category: updateData.category,
+				};
+		const { translations, translationStatus } = prepareTranslationsForSave(
+			"panditji",
+			translationBody,
+			existingUser
+		);
+		const enSlice = (translations.en ?? {}) as Record<string, unknown>;
+		if (enSlice.name) updateData.name = String(enSlice.name);
+		if (enSlice.bio !== undefined) updateData.bio = String(enSlice.bio);
+		if (enSlice.description !== undefined)
+			updateData.description = String(enSlice.description);
+		if (enSlice.category !== undefined)
+			updateData.category = String(enSlice.category);
+		updateData.translations = translations as object;
+		updateData.translationStatus = translationStatus;
 
 		// Use transaction to update user and related data
 		const result = await prisma.$transaction(async (tx) => {

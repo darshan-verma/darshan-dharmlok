@@ -868,11 +868,15 @@ export function convertTboToAiriqParams(
 		segmentsCount: (tboParams.Segments as FlightSegment[])?.length || 0,
 	});
 
-	// Convert cabin class: "1" = Economy (E), "4" = Business (B), "6" = First (F)
+	// TBO FlightCabinClass: 2=Economy, 3=PremiumEconomy, 4=Business, 6=First
 	const segments = (tboParams.Segments as FlightSegment[]) || [];
-	const cabinClass = segments[0]?.FlightCabinClass || "1";
+	const cabinClass = segments[0]?.FlightCabinClass || "2";
 	const farecabinOption =
-		cabinClass === "4" ? "B" : cabinClass === "6" ? "F" : "E";
+		cabinClass === "6"
+			? "F"
+			: cabinClass === "4" || cabinClass === "5"
+				? "B"
+				: "E";
 
 	// Convert segments to AIRiQ AvailInfo format
 	const availInfo = segments.map((segment, index) => {

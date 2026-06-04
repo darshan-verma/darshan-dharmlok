@@ -1,109 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
-
-// Helper function to safely parse JSON string fields that should be arrays
-const parseJsonArrayField = <T = unknown>(fieldValue: unknown): T[] => {
-	if (!fieldValue) return [];
-	if (Array.isArray(fieldValue)) return fieldValue as T[];
-	if (typeof fieldValue !== "string") return [];
-
-	try {
-		const parsed = JSON.parse(fieldValue);
-		return Array.isArray(parsed) ? (parsed as T[]) : [];
-	} catch {
-		const trimmed = fieldValue.trim();
-		return trimmed ? ([trimmed] as T[]) : [];
-	}
-};
-
-const isInputJsonValue = (value: unknown): value is Prisma.InputJsonValue => {
-	if (value === null) return true;
-	if (
-		typeof value === "string" ||
-		typeof value === "number" ||
-		typeof value === "boolean"
-	) {
-		return true;
-	}
-
-	if (Array.isArray(value)) {
-		return value.every(
-			(item) => item !== undefined && isInputJsonValue(item)
-		);
-	}
-
-	if (typeof value === "object") {
-		return Object.values(value as Record<string, unknown>).every(
-			(item) => item !== undefined && isInputJsonValue(item)
-		);
-	}
-
-	return false;
-};
-
-const normalizeArrayInput = (value: unknown): Prisma.InputJsonValue => {
-	if (!value) return [];
-
-	if (Array.isArray(value)) {
-		return value.filter(
-			(item): item is Prisma.InputJsonValue =>
-				item !== undefined && isInputJsonValue(item)
-		);
-	}
-
-	if (typeof value === "string") {
-		try {
-			const parsed = JSON.parse(value);
-			if (Array.isArray(parsed)) {
-				return parsed.filter(
-					(item): item is Prisma.InputJsonValue =>
-						item !== undefined && isInputJsonValue(item)
-				);
-			}
-			return [];
-		} catch {
-			const trimmed = value.trim();
-			return trimmed ? [trimmed] : [];
-		}
-	}
-
-	return [];
-};
+import { parseLangParam } from "@/lib/content-lang";
+import {
+	formatDharamshalaResponse,
+	normalizeArrayInput,
+	prepareTranslationsForSave,
+	rawFindById,
+} from "@/lib/content-api";
+import { flattenDharamshalaWithFaqs } from "@/lib/localize-document";
 
 export async function GET(
-	_: NextRequest,
+	req: NextRequest,
 	context: { params: Promise<{ id: string }> }
 ) {
 	const { id } = await context.params;
 	try {
-		const dharamshala = await prisma.dharamshala.findUnique({
-			where: { id },
-			include: { dharamshalaFaqs: true }, // Use dharamshalaFaqs
-		});
+		const locale = parseLangParam(req.nextUrl.searchParams.get("lang")) ?? "en";
+
+		const dharamshala = await rawFindById("Dharamshala", id);
 		if (!dharamshala)
 			return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-		const result = {
-			...dharamshala,
-			amenities: parseJsonArrayField(dharamshala.amenities),
-			imageFile: parseJsonArrayField(dharamshala.imageFile),
-			videoFile: parseJsonArrayField(dharamshala.videoFile),
-			travelByAir: parseJsonArrayField(dharamshala.travelByAir),
-			travelByTrain: parseJsonArrayField(dharamshala.travelByTrain),
-			travelByBus: parseJsonArrayField(dharamshala.travelByBus),
-			travelByRoad: parseJsonArrayField(dharamshala.travelByRoad),
-			// bannerImage and coverImage are already strings, no parsing needed
-			// dharamshalaFaqs will be included directly
-		};
-		return NextResponse.json(result);
+		const dharamshalaFaqs = await prisma.dharamshalaFaq.findMany({
+			where: { dharamshalaId: id },
+		});
+
+		return NextResponse.json(
+			formatDharamshalaResponse(
+				flattenDharamshalaWithFaqs(
+					{
+						...dharamshala,
+						dharamshalaFaqs: dharamshalaFaqs as unknown as Record<
+							string,
+							unknown
+						>[],
+					},
+					locale
+				),
+				locale
+			)
+		);
 	} catch (error) {
 		console.error(`[GET /api/dharamshala/${id}] Error:`, error);
 		return NextResponse.json(
-			{
-				error: "Failed to fetch dharamshala",
-				details: (error as Error).message,
-			},
+			{ error: "Failed to fetch dharamshala" },
 			{ status: 500 }
 		);
 	}
@@ -125,28 +65,20 @@ export async function PUT(
 			return NextResponse.json(updated);
 		}
 
-		const {
-			name,
-			date,
-			state,
-			city,
-			status,
-			description,
-			additionalInfo,
-			address, // Added for text address
-			location, // Added for iframe URL
-			travelByAir,
-			travelByTrain,
-			travelByBus,
-			travelByRoad,
-			timings,
-			amenities,
-			imageFile,
-			videoFile,
-			bannerImage, // NEW: Accept bannerImage
-			coverImage, // NEW: Accept coverImage
-			dharamshalaFaqs, // Expect 'dharamshalaFaqs' from client
-		} = body;
+		const existing = await prisma.dharamshala.findUnique({ where: { id } });
+		if (!existing) {
+			return NextResponse.json({ error: "Not found" }, { status: 404 });
+		}
+
+		const { translations, translationStatus } = prepareTranslationsForSave(
+			"dharamshala",
+			body,
+			existing
+		);
+
+		const en = translations.en ?? {};
+		const name = String(en.name ?? body.name ?? "");
+		const { date, state, city, status } = body;
 
 		if (!name || !date || !state || !city || !status) {
 			return NextResponse.json(
@@ -155,91 +87,75 @@ export async function PUT(
 			);
 		}
 
-		// Update FAQs: delete all and recreate
 		await prisma.dharamshalaFaq.deleteMany({ where: { dharamshalaId: id } });
-		const faqsData = // This variable name is local, 'dharamshalaFaqs' from body is used
-			dharamshalaFaqs?.map((faq: { question: string; answer: string }) => ({
-				question: faq.question,
-				answer: faq.answer,
-				dharamshalaId: id,
-			})) || [];
 
-		const dharamshalaUpdateData: Prisma.DharamshalaUpdateInput = {
-			name,
-			date: new Date(date),
-			state,
-			city,
-			status,
-			description,
-			additionalInfo,
-			address, // Use address field
-			location, // Use location field for iframe
-			timings,
-			amenities: normalizeArrayInput(amenities),
-			imageFile: normalizeArrayInput(imageFile),
-			videoFile: normalizeArrayInput(videoFile),
-			bannerImage, // NEW: Direct string assignment
-			coverImage, // NEW: Direct string assignment
-			travelByAir: normalizeArrayInput(travelByAir),
-			travelByTrain: normalizeArrayInput(travelByTrain),
-			travelByBus: normalizeArrayInput(travelByBus),
-			travelByRoad: normalizeArrayInput(travelByRoad),
-			// No direct update for dharamshalaFaqs here as they are handled separately
-		};
+		const dharamshalaFaqs = body.dharamshalaFaqs as
+			| { question: string; answer: string; translations?: unknown }[]
+			| undefined;
 
-		Object.keys(dharamshalaUpdateData).forEach((key) => {
-			const typedKey = key as keyof typeof dharamshalaUpdateData;
-			if (dharamshalaUpdateData[typedKey] === undefined) {
-				delete dharamshalaUpdateData[typedKey];
-			}
-		});
+		const faqsData =
+			dharamshalaFaqs?.map((faq) => {
+				const faqTrans = faq.translations
+					? prepareTranslationsForSave("dharamshalaFaq", {
+							translations: faq.translations,
+						})
+					: prepareTranslationsForSave("dharamshalaFaq", {
+							locale: "en",
+							question: faq.question,
+							answer: faq.answer,
+						});
+				return {
+					translations: faqTrans.translations as object,
+					translationStatus: faqTrans.translationStatus,
+					dharamshalaId: id,
+				};
+			}) ?? [];
 
 		await prisma.dharamshala.update({
 			where: { id },
-			data: dharamshalaUpdateData,
+			data: {
+				translations: translations as object,
+				translationStatus,
+				date: new Date(date),
+				state,
+				city,
+				status,
+				imageFile: normalizeArrayInput(body.imageFile),
+				videoFile: normalizeArrayInput(body.videoFile),
+				bannerImage: body.bannerImage,
+				coverImage: body.coverImage,
+			},
 		});
 
 		if (faqsData.length > 0) {
 			await prisma.dharamshalaFaq.createMany({ data: faqsData });
 		}
 
-		const updatedDharamshalaWithFaqs = await prisma.dharamshala.findUnique({
+		const updated = await prisma.dharamshala.findUnique({
 			where: { id },
-			include: { dharamshalaFaqs: true }, // Use dharamshalaFaqs
+			include: { dharamshalaFaqs: true },
 		});
 
-		if (!updatedDharamshalaWithFaqs) {
-			throw new Error("Failed to retrieve updated dharamshala with FAQs.");
+		if (!updated) {
+			throw new Error("Failed to retrieve updated dharamshala.");
 		}
 
-		const result = {
-			...updatedDharamshalaWithFaqs,
-			amenities: parseJsonArrayField(updatedDharamshalaWithFaqs.amenities),
-			imageFile: parseJsonArrayField(updatedDharamshalaWithFaqs.imageFile),
-			videoFile: parseJsonArrayField(updatedDharamshalaWithFaqs.videoFile),
-			travelByAir: parseJsonArrayField(updatedDharamshalaWithFaqs.travelByAir),
-			travelByTrain: parseJsonArrayField(
-				updatedDharamshalaWithFaqs.travelByTrain
-			),
-			travelByBus: parseJsonArrayField(updatedDharamshalaWithFaqs.travelByBus),
-			travelByRoad: parseJsonArrayField(
-				updatedDharamshalaWithFaqs.travelByRoad
-			),
-			// bannerImage and coverImage are already strings
-			// dharamshalaFaqs will be included directly
-		};
-		return NextResponse.json(result);
+		const locale = parseLangParam(body.locale as string) ?? "en";
+		return NextResponse.json(
+			formatDharamshalaResponse(
+				flattenDharamshalaWithFaqs(
+					updated as unknown as Record<string, unknown> & {
+						dharamshalaFaqs?: Record<string, unknown>[];
+					},
+					locale
+				),
+				locale
+			)
+		);
 	} catch (error) {
 		console.error(`[PUT /api/dharamshala/${id}] Error:`, error);
-		const errorMessage =
-			error instanceof Error ? error.message : "Unknown error";
-		const errorStack = error instanceof Error ? error.stack : undefined;
 		return NextResponse.json(
-			{
-				error: "Failed to update dharamshala",
-				details: errorMessage,
-				stack: process.env.NODE_ENV === "development" ? errorStack : undefined,
-			},
+			{ error: "Failed to update dharamshala" },
 			{ status: 500 }
 		);
 	}
@@ -251,18 +167,13 @@ export async function DELETE(
 ) {
 	const { id } = await context.params;
 	try {
-		// First delete related DharamshalaFaqs
 		await prisma.dharamshalaFaq.deleteMany({ where: { dharamshalaId: id } });
-		// Then delete the Dharamshala
 		await prisma.dharamshala.delete({ where: { id } });
 		return NextResponse.json({ success: true });
 	} catch (error) {
 		console.error(`[DELETE /api/dharamshala/${id}] Error:`, error);
 		return NextResponse.json(
-			{
-				error: "Failed to delete dharamshala",
-				details: (error as Error).message,
-			},
+			{ error: "Failed to delete dharamshala" },
 			{ status: 500 }
 		);
 	}
