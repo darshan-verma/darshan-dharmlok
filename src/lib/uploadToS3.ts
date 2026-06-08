@@ -1,6 +1,6 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import s3 from "./s3Client";
-
+ 
 export async function uploadToS3(
 	fileBuffer: Buffer,
 	fileName: string,
@@ -15,5 +15,6 @@ export async function uploadToS3(
 			ContentType: mimeType,
 		})
 	);
-	return `https://${bucket}.s3.${process.env.MY_AWS_REGION}.amazonaws.com/${fileName}`;
+	return `https://${process.env.NEXT_PUBLIC_S3_HOSTNAME}/${fileName}`;
 }
+ 
