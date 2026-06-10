@@ -3,6 +3,12 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { Address } from "@/types/user";
+import {
+	applyReligiousCategoryFilter,
+	buildDualWriteReligiousFields,
+	hasReligiousCategoryInput,
+	mapWithReligiousCategories,
+} from "@/lib/religious-categories";
 
 interface DharmguruCreateData {
 	name: string;
@@ -32,21 +38,25 @@ export async function GET(request: Request) {
 		const limit = Math.min(parseInt(searchParams.get("limit") || "10"), 50); // Max 50 per page
 		const search = searchParams.get("search") || "";
 		const status = searchParams.get("status");
+		const religiousCategory = searchParams.get("religiousCategory");
 
 		const skip = (page - 1) * limit;
 
 		// Build where conditions for dharmgurus
-		const whereConditions: Prisma.UserWhereInput = {
-			userType: "Dharmguru", // Always filter for dharmgurus
-			...(search && {
-				OR: [
-					{ name: { contains: search, mode: "insensitive" } },
-					{ email: { contains: search, mode: "insensitive" } },
-					{ category: { contains: search, mode: "insensitive" } },
-				],
-			}),
-			...(status && { status }),
-		};
+		const whereConditions: Prisma.UserWhereInput = applyReligiousCategoryFilter(
+			{
+				userType: "Dharmguru",
+				...(search && {
+					OR: [
+						{ name: { contains: search, mode: "insensitive" } },
+						{ email: { contains: search, mode: "insensitive" } },
+						{ category: { contains: search, mode: "insensitive" } },
+					],
+				}),
+				...(status && { status }),
+			},
+			religiousCategory
+		);
 
 		// Optimized parallel queries
 		const [dharmgurus, totalCount] = await Promise.all([
@@ -63,6 +73,7 @@ export async function GET(request: Request) {
 					bio: true,
 					description: true,
 					category: true,
+					religiousCategories: true,
 					rank: true,
 					status: true,
 					kycApproved: true,
@@ -104,7 +115,7 @@ export async function GET(request: Request) {
 
 		return NextResponse.json({
 			success: true,
-			data: dharmgurus,
+			data: dharmgurus.map(mapWithReligiousCategories),
 			pagination: {
 				currentPage: page,
 				totalPages,
@@ -163,8 +174,7 @@ export async function POST(request: Request) {
 
 		console.log("Received dharmguru data:", data);
 
-		// Validate required fields for dharmguru
-		const requiredFields = ["name", "email", "phone", "category"];
+		const requiredFields = ["name", "email", "phone"];
 		const missingFields = requiredFields.filter((field) => !data[field]);
 
 		if (missingFields.length > 0) {
@@ -174,8 +184,19 @@ export async function POST(request: Request) {
 			);
 		}
 
-		// Type assertion after validation
-		const validatedData = data as unknown as DharmguruCreateData;
+		if (!hasReligiousCategoryInput(data as { category?: string; religiousCategories?: unknown })) {
+			return NextResponse.json(
+				{ error: "Missing required fields: category or religiousCategories" },
+				{ status: 400 }
+			);
+		}
+
+		const validatedData = data as unknown as DharmguruCreateData & {
+			religiousCategories?: string[];
+		};
+		const { religiousCategories, category } = buildDualWriteReligiousFields(
+			validatedData
+		);
 
 		// Check for existing email
 		const existingUser = await prisma.user.findUnique({
@@ -201,8 +222,9 @@ export async function POST(request: Request) {
 				name: validatedData.name,
 				email: validatedData.email,
 				phone: validatedData.phone,
-				userType: "Dharmguru", // Always set as Dharmguru
-				category: validatedData.category,
+				userType: "Dharmguru",
+				category,
+				religiousCategories,
 				rank: validatedData.rank || "",
 				bio: validatedData.bio || null,
 				profileImageUrl: validatedData.profileImageUrl || null,
@@ -236,6 +258,7 @@ export async function POST(request: Request) {
 				phone: true,
 				userType: true,
 				category: true,
+				religiousCategories: true,
 				rank: true,
 				bio: true,
 				profileImageUrl: true,
@@ -247,7 +270,9 @@ export async function POST(request: Request) {
 			},
 		});
 
-		return NextResponse.json(dharmguru, { status: 201 });
+		return NextResponse.json(mapWithReligiousCategories(dharmguru), {
+			status: 201,
+		});
 	} catch (error) {
 		console.error("Error creating dharmguru:", error);
 

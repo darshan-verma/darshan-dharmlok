@@ -16,6 +16,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
 
 const PAGE_SIZE = 24;
 
@@ -53,9 +54,8 @@ export default function EventsPage() {
 	const [hasMore, setHasMore] = useState(true);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-	const [selectedCategory, setSelectedCategory] = useState("all");
 	const [selectedType, setSelectedType] = useState("all");
-	const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+	const [selectedReligiousCategory, setSelectedReligiousCategory] = useState("all");
 	const [typeOptions, setTypeOptions] = useState<string[]>([]);
 
 	const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -63,8 +63,9 @@ export default function EventsPage() {
 	const activeFilterKeyRef = useRef("");
 
 	const activeFilterKey = useMemo(
-		() => `${debouncedSearchQuery}|${selectedCategory}|${selectedType}`,
-		[debouncedSearchQuery, selectedCategory, selectedType]
+		() =>
+			`${debouncedSearchQuery}|${selectedType}|${selectedReligiousCategory}`,
+		[debouncedSearchQuery, selectedType, selectedReligiousCategory]
 	);
 
 	useEffect(() => {
@@ -81,8 +82,8 @@ export default function EventsPage() {
 
 	const clearFilters = useCallback(() => {
 		setSearchQuery("");
-		setSelectedCategory("all");
 		setSelectedType("all");
+		setSelectedReligiousCategory("all");
 	}, []);
 
 	const fetchFilterOptions = useCallback(async () => {
@@ -92,7 +93,6 @@ export default function EventsPage() {
 				throw new Error("Failed to fetch event filters");
 			}
 			const data = await response.json();
-			setCategoryOptions(Array.isArray(data?.categories) ? data.categories : []);
 			setTypeOptions(Array.isArray(data?.types) ? data.types : []);
 		} catch (err) {
 			console.error("Error fetching event filters:", err);
@@ -123,11 +123,11 @@ export default function EventsPage() {
 				if (debouncedSearchQuery) {
 					params.set("search", debouncedSearchQuery);
 				}
-				if (selectedCategory !== "all") {
-					params.set("category", selectedCategory);
-				}
 				if (selectedType !== "all") {
 					params.set("type", selectedType);
+				}
+				if (selectedReligiousCategory !== "all") {
+					params.set("religiousCategory", selectedReligiousCategory);
 				}
 
 				const response = await fetch(`/api/events?${params.toString()}`);
@@ -165,7 +165,12 @@ export default function EventsPage() {
 				isFetchingRef.current = false;
 			}
 		},
-		[activeFilterKey, debouncedSearchQuery, selectedCategory, selectedType]
+		[
+			activeFilterKey,
+			debouncedSearchQuery,
+			selectedType,
+			selectedReligiousCategory,
+		]
 	);
 
 	useEffect(() => {
@@ -230,19 +235,16 @@ export default function EventsPage() {
 								/>
 							</div>
 
-							<Select value={selectedCategory} onValueChange={setSelectedCategory}>
-								<SelectTrigger className="h-11 w-full rounded-xl border-white/60 bg-white/55 text-[#243142] data-[placeholder]:text-[#738295] sm:w-[220px]">
-									<SelectValue placeholder="Filter by category" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="all">All categories</SelectItem>
-									{categoryOptions.map((category) => (
-										<SelectItem key={category} value={category}>
-											{category}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+							<ReligiousCategoryFilter
+								variant="select"
+								hideLabel
+								allLabel="All traditions"
+								value={selectedReligiousCategory}
+								onChange={setSelectedReligiousCategory}
+								page="events"
+								className="w-full sm:w-[200px]"
+								selectClassName="h-11 w-full rounded-xl border-white/60 bg-white/55 text-[#243142] data-[placeholder]:text-[#738295]"
+							/>
 
 							<Select value={selectedType} onValueChange={setSelectedType}>
 								<SelectTrigger className="h-11 w-full rounded-xl border-white/60 bg-white/55 text-[#243142] data-[placeholder]:text-[#738295] sm:w-[180px]">

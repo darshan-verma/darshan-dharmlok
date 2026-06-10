@@ -33,6 +33,13 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 // Define the PoojaCategory interface
 export interface PoojaCategory {
@@ -43,6 +50,7 @@ export interface PoojaCategory {
 	price?: number;
 	details?: string;
 	status?: string; // "Active" | "Inactive"
+	religiousCategories?: ReligiousCategory[];
 	images?: string[];
 	videos?: string[];
 }
@@ -64,15 +72,24 @@ export default function PoojaCategoryTable({
 	onUpdateStatus, // add this prop
 }: PoojaCategoryTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 
 	// Filter poojas based on search
 	const filteredPoojaCategories = poojaCategories.filter((pooja) => {
 		const term = searchTerm.toLowerCase();
-		return (
+		const matchesSearch =
 			pooja.name.toLowerCase().includes(term) ||
 			(pooja.description && pooja.description.toLowerCase().includes(term)) ||
-			(pooja.details && pooja.details.toLowerCase().includes(term))
+			(pooja.details && pooja.details.toLowerCase().includes(term)) ||
+			resolveReligiousCategories(pooja)
+				.join(" ")
+				.toLowerCase()
+				.includes(term);
+		const matchesReligious = matchesReligiousFilter(
+			resolveReligiousCategories(pooja),
+			religiousFilter === "all" ? null : religiousFilter
 		);
+		return matchesSearch && matchesReligious;
 	});
 
 	return (
@@ -99,6 +116,12 @@ export default function PoojaCategoryTable({
 						</Button>
 					)}
 				</div>
+				<ReligiousCategoryFilter
+					value={religiousFilter}
+					onChange={setReligiousFilter}
+					page="admin-pooja-category"
+					variant="select" hideLabel allLabel="All Traditions" className="w-44"
+				/>
 				{/* Results Count */}
 				<div className="text-sm text-gray-500">
 					{filteredPoojaCategories.length} pooja categor
@@ -111,6 +134,7 @@ export default function PoojaCategoryTable({
 					<TableHeader>
 						<TableRow>
 							<TableHead>Pooja Name</TableHead>
+							<TableHead>Religion</TableHead>
 							<TableHead>Description</TableHead>
 							<TableHead>Date</TableHead>
 							<TableHead>Price</TableHead>
@@ -124,6 +148,11 @@ export default function PoojaCategoryTable({
 							filteredPoojaCategories.map((pooja) => (
 								<TableRow key={pooja.id}>
 									<TableCell className="font-medium">{pooja.name}</TableCell>
+									<TableCell>
+										<ReligiousCategoryBadges
+											religiousCategories={pooja.religiousCategories}
+										/>
+									</TableCell>
 									<TableCell title={pooja.details}>
 										{pooja.details
 											? pooja.details.length > 40
@@ -227,7 +256,7 @@ export default function PoojaCategoryTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={8} className="text-center py-6">
+								<TableCell colSpan={9} className="text-center py-6">
 									No pooja categories found. Try a different search or add a new
 									one.
 								</TableCell>

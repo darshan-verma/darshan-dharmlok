@@ -10,6 +10,7 @@ import {
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import s3Client from "@/lib/s3Client";
 import { PoojaCategory, UserUpdateData } from "@/types/user";
+import { parseReligiousCategoriesFromFormData } from "@/lib/user-religious-api";
 
 // Helper function to delete S3 media
 async function deleteS3Media(mediaUrls: string[]) {
@@ -65,6 +66,7 @@ export async function GET(
 				bio: true,
 				description: true,
 				category: true,
+				religiousCategories: true,
 				translations: true,
 				translationStatus: true,
 				userType: true,
@@ -392,6 +394,11 @@ export async function PUT(
 		updateData.translations = translations as object;
 		updateData.translationStatus = translationStatus;
 
+		const religiousUpdate = parseReligiousCategoriesFromFormData(formData);
+		if (religiousUpdate) {
+			Object.assign(updateData, religiousUpdate);
+		}
+
 		// Use transaction to update user and related data
 		const result = await prisma.$transaction(async (tx) => {
 			// Update panditji user
@@ -407,6 +414,8 @@ export async function PUT(
 					bannerImageUrl: true,
 					bio: true,
 					description: true,
+					category: true,
+					religiousCategories: true,
 					userType: true,
 					status: true,
 					active: true,

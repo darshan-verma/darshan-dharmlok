@@ -6,6 +6,7 @@ import {
 	prepareTranslationsForSave,
 	rawFindById,
 } from "@/lib/content-api";
+import { normalizeReligiousCategories } from "@/lib/religious-categories";
 import { flattenTempleWithFaqs } from "@/lib/localize-document";
 
 export async function GET(
@@ -123,6 +124,13 @@ export async function PUT(
 				videoFile: stringify(body.videoFile),
 				bannerImage: body.bannerImage,
 				coverImage: body.coverImage,
+				...(body.religiousCategories !== undefined
+					? {
+							religiousCategories: normalizeReligiousCategories(
+								body.religiousCategories
+							),
+						}
+					: {}),
 			},
 		});
 

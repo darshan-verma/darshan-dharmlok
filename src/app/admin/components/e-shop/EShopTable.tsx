@@ -32,6 +32,12 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 // Product interface
 export interface Product {
@@ -39,6 +45,7 @@ export interface Product {
 	name: string;
 	date: string;
 	category: string[]; // changed from string to string[]
+	religiousCategories?: ReligiousCategory[];
 	pricePerUnit: number;
 	availableQty: number;
 	detail?: string;
@@ -89,6 +96,7 @@ export default function EshopTable({
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 	const [currentPage, setCurrentPage] = useState(1);
 	const itemsPerPage = 10;
 
@@ -107,7 +115,12 @@ export default function EshopTable({
 		const matchesCategory =
 			categoryFilter === "all" || product.category.includes(categoryFilter);
 
-		return matchesSearch && matchesStatus && matchesCategory;
+		const matchesReligious = matchesReligiousFilter(
+			product.religiousCategories,
+			religiousFilter === "all" ? null : religiousFilter
+		);
+
+		return matchesSearch && matchesStatus && matchesCategory && matchesReligious;
 	});
 
 	const totalItems = filteredProducts.length;
@@ -146,6 +159,12 @@ export default function EshopTable({
 				</div>
 				{/* Filters */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
+					<ReligiousCategoryFilter
+						value={religiousFilter}
+						onChange={setReligiousFilter}
+						page="admin-e-shop"
+						variant="select" hideLabel allLabel="All Traditions" className="w-44"
+					/>
 					{/* Category Filter */}
 					<div className="w-40">
 						<select
@@ -187,6 +206,7 @@ export default function EshopTable({
 							<TableHead>Product Name</TableHead>
 							<TableHead>Date</TableHead>
 							<TableHead>Category</TableHead>
+							<TableHead>Religion</TableHead>
 							<TableHead>Price per Unit</TableHead>
 							<TableHead>Available Quantity</TableHead>
 							<TableHead>Details</TableHead>
@@ -200,7 +220,12 @@ export default function EshopTable({
 								<TableRow key={product.id}>
 									<TableCell className="font-medium">{product.name}</TableCell>
 									<TableCell>{formatDate(product.date)}</TableCell>
-									<TableCell>{product.category}</TableCell>
+									<TableCell>{product.category.join(", ")}</TableCell>
+									<TableCell>
+										<ReligiousCategoryBadges
+											religiousCategories={product.religiousCategories}
+										/>
+									</TableCell>
 									<TableCell>
 										₹{product.pricePerUnit.toLocaleString("en-IN")}
 									</TableCell>
@@ -289,7 +314,7 @@ export default function EshopTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={8} className="text-center py-6">
+								<TableCell colSpan={9} className="text-center py-6">
 									No products found. Try a different search or add a new
 									product.
 								</TableCell>

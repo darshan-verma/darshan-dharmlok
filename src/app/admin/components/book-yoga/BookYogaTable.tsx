@@ -46,6 +46,13 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { toastSuccess, toastError } from "@/lib/toast";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 // Define the YogaSession interface
 export interface YogaSession {
@@ -57,6 +64,7 @@ export interface YogaSession {
 	serviceType: string;
 	description: string;
 	status: string;
+	religiousCategories?: ReligiousCategory[];
 	bannerImage?: string;
 	coverImage?: string;
 	images: string[];
@@ -87,6 +95,7 @@ export default function BookYogaTable({
 }: BookYogaTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 
 	// State for delete confirmation dialog and loading
 	const [deleteDialog, setDeleteDialog] = useState<{
@@ -108,7 +117,12 @@ export default function BookYogaTable({
 		const matchesStatus =
 			statusFilter === "all" || session.status === statusFilter;
 
-		return matchesSearch && matchesStatus;
+		const matchesReligious = matchesReligiousFilter(
+			resolveReligiousCategories(session),
+			religiousFilter === "all" ? null : religiousFilter
+		);
+
+		return matchesSearch && matchesStatus && matchesReligious;
 	});
 
 	return (
@@ -138,6 +152,12 @@ export default function BookYogaTable({
 
 				{/* Filters */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
+					<ReligiousCategoryFilter
+						value={religiousFilter}
+						onChange={setReligiousFilter}
+						page="admin-book-yoga"
+						variant="select" hideLabel allLabel="All Traditions" className="w-44"
+					/>
 					{/* Status Filter */}
 					<div className="w-32">
 						<Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -167,6 +187,7 @@ export default function BookYogaTable({
 							<TableHead>Trainer Name</TableHead>
 							<TableHead>Date</TableHead>
 							<TableHead>Service Type</TableHead>
+							<TableHead>Religion</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>View</TableHead>
 							<TableHead>Actions</TableHead>
@@ -183,6 +204,11 @@ export default function BookYogaTable({
 										{new Date(session.date).toLocaleDateString()}
 									</TableCell>
 									<TableCell>{session.serviceType}</TableCell>
+									<TableCell>
+										<ReligiousCategoryBadges
+											religiousCategories={session.religiousCategories}
+										/>
+									</TableCell>
 									<TableCell>
 										<span
 											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -270,7 +296,7 @@ export default function BookYogaTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={6} className="text-center py-6">
+								<TableCell colSpan={7} className="text-center py-6">
 									No sessions found. Try a different search or add a new
 									session.
 								</TableCell>

@@ -8,6 +8,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
 
 /**
  * Props for the KathavachakDharmguruCard component.
@@ -30,6 +31,7 @@ interface KathavachakDharmguruCardProps extends Omit<
 		bio?: string;
 		description?: string;
 		category?: string;
+		religiousCategories?: string[];
 		rank?: string;
 	};
 	/** Optional click handler for the "Get in touch" button. */
@@ -246,19 +248,19 @@ export const KathavachakDharmguruCard = React.forwardRef<
 
 					{/* Badges */}
 					<motion.div
-						className="my-6 flex items-center justify-center gap-2 flex-wrap"
+						className="my-6 flex flex-col items-center justify-center gap-2"
 						variants={itemVariants}
 					>
-						{/* Rating Badge */}
-						<Badge variant="rating" icon={Star}>
-							4.8
-						</Badge>
-						{/* Category Badge */}
-						<Badge variant="category">
-							{dharmguru.category || "Spiritual"}
-						</Badge>
-						{/* Availability Badge */}
-						<Badge variant="available">Available</Badge>
+						<ReligiousCategoryBadges
+							religiousCategories={dharmguru.religiousCategories}
+							category={dharmguru.category}
+						/>
+						<div className="flex items-center justify-center gap-2 flex-wrap">
+							<Badge variant="rating" icon={Star}>
+								4.8
+							</Badge>
+							<Badge variant="available">Available</Badge>
+						</div>
 					</motion.div>
 
 					{/* Action Button */}

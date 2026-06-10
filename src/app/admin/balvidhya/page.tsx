@@ -17,6 +17,7 @@ import BalvidhyaForm, {
 } from "../components/balvidhya/BalvidhyaForm";
 import Pagination from "../components/Pagination/Pagination";
 import { usePagination } from "../hooks/usePagination";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 interface BalvidhyaData {
 	id: string;
@@ -24,6 +25,7 @@ interface BalvidhyaData {
 	description?: string;
 	type?: string;
 	category?: string;
+	religiousCategories?: string[];
 	status?: string;
 	trending?: boolean;
 	thumbnailUrl?: string;
@@ -75,6 +77,7 @@ export default function BalvidhyaPage() {
 					description: item.description || "",
 					type: item.type || "",
 					category: item.category || "",
+					religiousCategories: resolveReligiousCategories(item),
 					status: item.status || "Draft",
 					trending: item.trending || false,
 					thumbnailUrl: item.thumbnailUrl || "",

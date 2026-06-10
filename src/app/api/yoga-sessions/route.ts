@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
+import {
+	applyReligiousCategoryFilter,
+	mapWithReligiousCategories,
+	normalizeReligiousCategories,
+} from "@/lib/religious-categories";
 
 export interface YogaSession {
 	id: string;
@@ -17,6 +23,7 @@ export interface YogaSession {
 	price?: number;
 	duration?: number;
 	capacity?: number;
+	religiousCategories?: string[];
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -27,11 +34,27 @@ export async function GET(req: NextRequest) {
 		const { searchParams } = new URL(req.url);
 		const page = parseInt(searchParams.get("page") || "1", 10);
 		const limit = parseInt(searchParams.get("limit") || "12", 10);
+		const religiousCategory = searchParams.get("religiousCategory");
+		const search = searchParams.get("search")?.trim();
 		const skip = (page - 1) * limit;
+		const where = applyReligiousCategoryFilter(
+			{
+				...(search
+					? {
+							OR: [
+								{ name: { contains: search, mode: "insensitive" as const } },
+								{ description: { contains: search, mode: "insensitive" as const } },
+							],
+						}
+					: {}),
+			} as Prisma.YogaSessionWhereInput,
+			religiousCategory
+		);
 
 		const [total, yogaSessions] = await Promise.all([
-			prisma.yogaSession.count(),
+			prisma.yogaSession.count({ where }),
 			prisma.yogaSession.findMany({
+				where,
 				include: {
 					trainer: {
 						select: {
@@ -64,6 +87,10 @@ export async function GET(req: NextRequest) {
 			price: session.price || undefined,
 			duration: session.duration || undefined,
 			capacity: session.capacity || undefined,
+			religiousCategories: mapWithReligiousCategories({
+				category: null,
+				religiousCategories: session.religiousCategories,
+			}).religiousCategories,
 			createdAt: session.createdAt?.toISOString?.() ?? "",
 			updatedAt: session.updatedAt?.toISOString?.() ?? "",
 		}));
@@ -137,6 +164,10 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		const religiousCategories = normalizeReligiousCategories(
+			body.religiousCategories
+		);
+
 		const newSession = await prisma.yogaSession.create({
 			data: {
 				trainerId,
@@ -152,6 +183,7 @@ export async function POST(req: NextRequest) {
 				price,
 				duration,
 				capacity,
+				religiousCategories,
 			},
 			include: {
 				trainer: {
@@ -181,6 +213,10 @@ export async function POST(req: NextRequest) {
 			price: newSession.price || undefined,
 			duration: newSession.duration || undefined,
 			capacity: newSession.capacity || undefined,
+			religiousCategories: mapWithReligiousCategories({
+				category: null,
+				religiousCategories: newSession.religiousCategories,
+			}).religiousCategories,
 			createdAt: newSession.createdAt?.toISOString?.() ?? "",
 			updatedAt: newSession.updatedAt?.toISOString?.() ?? "",
 		};

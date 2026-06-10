@@ -20,6 +20,9 @@ import {
 } from "@/components/ui/select";
 import { Plus, Trash2, Video as VideoIcon, Save } from "lucide-react";
 import { Product, statusOptions } from "./types";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import type { ReligiousCategory } from "@/lib/religious-categories";
 
 interface ProductInfoCardProps {
 	product: Product | null;
@@ -344,6 +347,15 @@ export function ProductInfoCard({
 								<p className="text-sm text-red-500">{errors.status}</p>
 							)}
 						</div>
+						<ReligiousCategoryPills
+							value={editedProduct.religiousCategories || []}
+							onChange={(value: ReligiousCategory[]) =>
+								setEditedProduct({
+									...editedProduct,
+									religiousCategories: value,
+								})
+							}
+						/>
 						<div className="space-y-2">
 							<Label>Description</Label>
 							<Input
@@ -467,6 +479,14 @@ export function ProductInfoCard({
 						<CardTitle>Product Information</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-4">
+						<div className="space-y-2">
+							<h3 className="text-sm font-medium text-muted-foreground">
+								Religious Category
+							</h3>
+							<ReligiousCategoryBadges
+								religiousCategories={product.religiousCategories}
+							/>
+						</div>
 						<div className="space-y-2">
 							<h3 className="text-sm font-medium text-muted-foreground">
 								Description

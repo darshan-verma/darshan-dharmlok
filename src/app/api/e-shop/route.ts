@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getToken } from "next-auth/jwt";
 import { Prisma } from "@prisma/client";
+import {
+	applyReligiousCategoryFilter,
+	mapWithReligiousCategories,
+	normalizeReligiousCategories,
+} from "@/lib/religious-categories";
 
 // Product type for API
 interface ProductApi {
@@ -9,6 +14,7 @@ interface ProductApi {
 	name: string;
 	date: string;
 	category: string[];
+	religiousCategories?: string[];
 	pricePerUnit: number;
 	availableQty: number;
 	description?: string;
@@ -39,6 +45,7 @@ const mapProductToApi = (product: {
 	name: string;
 	date: Date;
 	category: string[];
+	religiousCategories: string[];
 	pricePerUnit: number;
 	availableQty: number;
 	description: string | null;
@@ -47,7 +54,12 @@ const mapProductToApi = (product: {
 	status: string;
 	createdAt: Date;
 	updatedAt: Date;
-}): ProductApi => ({
+}): ProductApi => {
+	const withReligious = mapWithReligiousCategories({
+		category: null,
+		religiousCategories: product.religiousCategories,
+	});
+	return {
 	id: product.id,
 	name: product.name,
 	date:
@@ -59,6 +71,7 @@ const mapProductToApi = (product: {
 		: typeof product.category === "string"
 			? [product.category]
 			: [],
+	religiousCategories: withReligious.religiousCategories,
 	pricePerUnit: Number(product.pricePerUnit),
 	availableQty: Number(product.availableQty),
 	description: product.description || "",
@@ -67,7 +80,8 @@ const mapProductToApi = (product: {
 	status: product.status,
 	createdAt: product.createdAt?.toISOString(),
 	updatedAt: product.updatedAt?.toISOString(),
-});
+};
+};
 
 // GET /api/e-shop
 export async function GET(req: NextRequest) {
@@ -78,6 +92,7 @@ export async function GET(req: NextRequest) {
 		const limitParam = url.searchParams.get("limit");
 		const searchParam = url.searchParams.get("search")?.trim();
 		const categoryParam = url.searchParams.get("category")?.trim();
+		const religiousCategoryParam = url.searchParams.get("religiousCategory");
 		const statusParam = url.searchParams.get("status")?.trim();
 		const filtersOnly = url.searchParams.get("filtersOnly") === "true";
 
@@ -91,7 +106,7 @@ export async function GET(req: NextRequest) {
 				? Math.min(parsedLimit, 100)
 				: 0;
 
-		const where: Prisma.ProductWhereInput = {};
+		let where: Prisma.ProductWhereInput = {};
 		const andConditions: Prisma.ProductWhereInput[] = [];
 
 		if (mine === "true") {
@@ -132,6 +147,8 @@ export async function GET(req: NextRequest) {
 		if (andConditions.length > 0) {
 			where.AND = andConditions;
 		}
+
+		where = applyReligiousCategoryFilter(where, religiousCategoryParam);
 
 		if (filtersOnly) {
 			const productsForFilters = await prisma.product.findMany({
@@ -233,11 +250,16 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		const religiousCategories = normalizeReligiousCategories(
+			body.religiousCategories
+		);
+
 		const product = await prisma.product.create({
 			data: {
 				name,
 				date: new Date(date),
 				category: category,
+				religiousCategories,
 				pricePerUnit: Number(pricePerUnit),
 				availableQty: Number(availableQty),
 				description: description || "",

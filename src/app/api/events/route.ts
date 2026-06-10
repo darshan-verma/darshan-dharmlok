@@ -8,6 +8,7 @@ import {
 	safeFormatDate,
 	safeFormatDateOnly,
 } from "@/lib/content-api";
+import { buildDualWriteReligiousFields } from "@/lib/religious-categories";
 
 export interface EventApi {
 	id: string;
@@ -55,6 +56,8 @@ export async function GET(req: NextRequest) {
 		const limitParam = searchParams.get("limit");
 		const searchParam = searchParams.get("search")?.trim();
 		const categoryParam = searchParams.get("category")?.trim();
+		const religiousCategoryParam =
+			searchParams.get("religiousCategory")?.trim() || categoryParam;
 		const typeParam = searchParams.get("type")?.trim();
 		const statusParam = searchParams.get("status")?.trim();
 		const filtersOnly = searchParams.get("filtersOnly") === "true";
@@ -72,7 +75,7 @@ export async function GET(req: NextRequest) {
 		if (filtersOnly) {
 			const { rows } = await findEventsWithOptionalSearch({
 				status: statusParam,
-				category: categoryParam,
+				religiousCategory: religiousCategoryParam,
 				type: typeParam,
 			});
 
@@ -105,7 +108,7 @@ export async function GET(req: NextRequest) {
 
 		const { rows: events, total } = await findEventsWithOptionalSearch({
 			search: searchParam,
-			category: categoryParam,
+			religiousCategory: religiousCategoryParam,
 			type: typeParam,
 			status: statusParam,
 			skip,
@@ -176,6 +179,13 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		const { religiousCategories, category: legacyCategory } =
+			buildDualWriteReligiousFields({
+				religiousCategories: (body as { religiousCategories?: unknown })
+					.religiousCategories,
+				category,
+			});
+
 		const event = await prisma.event.create({
 			data: {
 				translations: translations as object,
@@ -183,7 +193,8 @@ export async function POST(req: NextRequest) {
 				bookingUrl: bookingUrl || "",
 				fromDate: new Date(fromDate),
 				toDate: new Date(toDate),
-				category,
+				category: legacyCategory ?? category,
+				religiousCategories,
 				type,
 				price: price !== undefined && price !== null ? Number(price) : null,
 				bannerImage: bannerImage || "",

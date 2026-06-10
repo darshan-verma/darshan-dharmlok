@@ -13,6 +13,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Yoga } from "./YogaTable";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import {
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 interface YogaFormProps {
 	initialData?: Partial<Yoga>;
@@ -34,12 +39,17 @@ export default function YogaForm({
 	onCancel,
 	isLoading = false,
 }: YogaFormProps) {
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+	});
+
 	const [yogaData, setYogaData] = useState<
 		Omit<Yoga, "id" | "createdAt" | "updatedAt">
 	>({
 		name: initialData.name || "",
 		date: initialData.date || new Date(),
 		description: initialData.description || "",
+		religiousCategories: initialReligious,
 		status: initialData.status || "Active",
 		images: initialData.images || [],
 		videos: initialData.videos || [],
@@ -97,7 +107,7 @@ export default function YogaForm({
 
 	const handleInputChange = (
 		field: keyof typeof yogaData,
-		value: string | Date
+		value: string | Date | ReligiousCategory[]
 	) => {
 		setYogaData({ ...yogaData, [field]: value });
 
@@ -171,6 +181,11 @@ export default function YogaForm({
 					</SelectContent>
 				</Select>
 			</div>
+
+			<ReligiousCategoryPills
+				value={yogaData.religiousCategories || []}
+				onChange={(value) => handleInputChange("religiousCategories", value)}
+			/>
 
 			<div className="flex justify-end gap-2 mt-4">
 				<Button type="button" variant="outline" onClick={onCancel}>

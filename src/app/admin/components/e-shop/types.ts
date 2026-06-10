@@ -1,8 +1,11 @@
+import type { ReligiousCategory } from "@/lib/religious-categories";
+
 export interface Product {
 	id: string;
 	name: string;
 	description?: string;
 	category: string[];
+	religiousCategories?: ReligiousCategory[];
 	date: string;
 	pricePerUnit: number;
 	availableQty: number;

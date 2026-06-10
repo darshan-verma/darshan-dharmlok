@@ -7,6 +7,7 @@ import Header from "@/components/landing/Header";
 import Footer from "@/components/landing/Footer";
 import { ProfileCard } from "@/components/ui/profile-card";
 import { PageBanner } from "@/components/shared/PageBanner";
+import { SimpleSearchFilterBar } from "@/components/shared/SimpleSearchFilterBar";
 
 interface AlbumSong {
   id: string;
@@ -29,13 +30,35 @@ export default function AudioLibraryPage() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [selectedReligiousCategory, setSelectedReligiousCategory] = useState("all");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setSelectedReligiousCategory("all");
+  };
 
   useEffect(() => {
     const fetchAlbums = async () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch("/api/audio-library");
+        const params = new URLSearchParams({ status: "Active" });
+        if (selectedReligiousCategory !== "all") {
+          params.set("religiousCategory", selectedReligiousCategory);
+        }
+        if (debouncedSearchQuery) {
+          params.set("search", debouncedSearchQuery);
+        }
+        const response = await fetch(`/api/audio-library?${params.toString()}`);
         if (!response.ok) throw new Error("Failed to fetch albums");
         const data = await response.json();
         const list: Album[] = Array.isArray(data) ? data : [];
@@ -49,7 +72,7 @@ export default function AudioLibraryPage() {
       }
     };
     fetchAlbums();
-  }, []);
+  }, [selectedReligiousCategory, debouncedSearchQuery]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -67,6 +90,20 @@ export default function AudioLibraryPage() {
 
       <section className="py-16 bg-[#f5f5f0]">
         <div className="container mx-auto px-4 max-w-7xl">
+          <SimpleSearchFilterBar
+            page="audio-library"
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search albums by name"
+            religiousValue={selectedReligiousCategory}
+            onReligiousChange={setSelectedReligiousCategory}
+            onClear={clearFilters}
+            resultText={
+              !loading && !error
+                ? `${albums.length} album${albums.length !== 1 ? "s" : ""} found`
+                : undefined
+            }
+          />
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />

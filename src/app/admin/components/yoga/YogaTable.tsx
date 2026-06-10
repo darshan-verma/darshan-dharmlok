@@ -46,6 +46,13 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { toastSuccess, toastError } from "@/lib/toast";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 // Define the Yoga interface
 export interface YogaImage {
@@ -61,6 +68,7 @@ export interface Yoga {
 	date: Date;
 	description: string;
 	status: string;
+	religiousCategories?: ReligiousCategory[];
 	images: YogaImage[];
 	videos: string[];
 	coverImage?: string;
@@ -87,6 +95,7 @@ export default function YogaTable({
 }: YogaTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 
 	// State for delete confirmation dialog and loading
 	const [deleteDialog, setDeleteDialog] = useState<{
@@ -106,7 +115,12 @@ export default function YogaTable({
 		const matchesStatus =
 			statusFilter === "all" || yoga.status === statusFilter;
 
-		return matchesSearch && matchesStatus;
+		const matchesReligious = matchesReligiousFilter(
+			resolveReligiousCategories(yoga),
+			religiousFilter === "all" ? null : religiousFilter
+		);
+
+		return matchesSearch && matchesStatus && matchesReligious;
 	});
 
 	return (
@@ -136,6 +150,12 @@ export default function YogaTable({
 
 				{/* Filters */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
+					<ReligiousCategoryFilter
+						value={religiousFilter}
+						onChange={setReligiousFilter}
+						page="admin-yoga"
+						variant="select" hideLabel allLabel="All Traditions" className="w-44"
+					/>
 					{/* Status Filter */}
 					<div className="w-32">
 						<Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -165,6 +185,7 @@ export default function YogaTable({
 							<TableHead>Yoga Name</TableHead>
 							<TableHead>Date</TableHead>
 							<TableHead>Description</TableHead>
+							<TableHead>Religion</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>View</TableHead>
 							<TableHead>Actions</TableHead>
@@ -180,6 +201,11 @@ export default function YogaTable({
 									</TableCell>
 									<TableCell>
 										<div className="max-w-xs truncate">{yoga.description}</div>
+									</TableCell>
+									<TableCell>
+										<ReligiousCategoryBadges
+											religiousCategories={yoga.religiousCategories}
+										/>
 									</TableCell>
 									<TableCell>
 										<span
@@ -262,7 +288,7 @@ export default function YogaTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={6} className="text-center py-6">
+								<TableCell colSpan={7} className="text-center py-6">
 									No yogas found. Try a different search or add a new yoga.
 								</TableCell>
 							</TableRow>

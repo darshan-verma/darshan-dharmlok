@@ -34,6 +34,13 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatAdminDate } from "@/lib/utils";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 // Temple interface
 export interface Temple {
@@ -44,6 +51,7 @@ export interface Temple {
 	state: string;
 	city: string;
 	status: string;
+	religiousCategories?: ReligiousCategory[];
 }
 
 interface TempleTableProps {
@@ -74,6 +82,7 @@ export default function TempleTable({
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [stateFilter, setStateFilter] = useState<string>("all");
 	const [cityFilter, setCityFilter] = useState<string>("all");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 	const [currentPage, setCurrentPage] = useState(1);
 	const itemsPerPage = 10;
 
@@ -90,7 +99,18 @@ export default function TempleTable({
 
 		const matchesCity = cityFilter === "all" || temple.city === cityFilter;
 
-		return matchesSearch && matchesStatus && matchesState && matchesCity;
+		const matchesReligious = matchesReligiousFilter(
+			resolveReligiousCategories(temple),
+			religiousFilter === "all" ? null : religiousFilter
+		);
+
+		return (
+			matchesSearch &&
+			matchesStatus &&
+			matchesState &&
+			matchesCity &&
+			matchesReligious
+		);
 	});
 
 	const totalItems = filteredTemples.length;
@@ -133,6 +153,15 @@ export default function TempleTable({
 				</div>
 				{/* Filters */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
+					<ReligiousCategoryFilter
+						value={religiousFilter}
+						onChange={(val) => {
+							setReligiousFilter(val);
+							setCurrentPage(1);
+						}}
+						page="admin-temple"
+						variant="select" hideLabel allLabel="All Traditions" className="w-44"
+					/>
 					{/* State Filter */}
 					<div className="w-40">
 						<select
@@ -199,6 +228,7 @@ export default function TempleTable({
 							<TableHead>Date</TableHead>
 							<TableHead>State</TableHead>
 							<TableHead>City</TableHead>
+							<TableHead>Religion</TableHead>
 							<TableHead>Details</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>Actions</TableHead>
@@ -212,6 +242,11 @@ export default function TempleTable({
 									<TableCell>{formatAdminDate(temple.date)}</TableCell>
 									<TableCell>{temple.state}</TableCell>
 									<TableCell>{temple.city}</TableCell>
+									<TableCell>
+										<ReligiousCategoryBadges
+											religiousCategories={temple.religiousCategories}
+										/>
+									</TableCell>
 									<TableCell>
 										<Button
 											variant="ghost"
@@ -292,7 +327,7 @@ export default function TempleTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={7} className="text-center py-6">
+								<TableCell colSpan={8} className="text-center py-6">
 									No temples found. Try a different search or add a new temple.
 								</TableCell>
 							</TableRow>

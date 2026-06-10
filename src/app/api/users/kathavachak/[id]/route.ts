@@ -5,6 +5,10 @@ import bcrypt from "bcrypt";
 import s3Client from "@/lib/s3Client";
 import { UserUpdateData } from "@/types/user";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+	mapWithReligiousCategories,
+	parseReligiousCategoriesFromFormData,
+} from "@/lib/user-religious-api";
 
 // Helper function to delete S3 media
 async function deleteS3Media(mediaUrls: string[]) {
@@ -60,6 +64,7 @@ export async function GET(
 				description: true,
 				userType: true,
 				category: true,
+				religiousCategories: true,
 				status: true,
 				active: true,
 				kycApproved: true,
@@ -140,7 +145,7 @@ export async function GET(
 
 		return NextResponse.json({
 			success: true,
-			data: user,
+			data: mapWithReligiousCategories(user),
 		});
 	} catch (error) {
 		console.error("Error fetching kathavachak user:", error);
@@ -353,6 +358,11 @@ export async function PUT(
 			updateData.bannerImageUrl = bannerImageUrl || undefined;
 		}
 
+		const religiousUpdate = parseReligiousCategoriesFromFormData(formData);
+		if (religiousUpdate) {
+			Object.assign(updateData, religiousUpdate);
+		}
+
 		// Update kathavachak user
 		const updatedUser = await prisma.user.update({
 			where: { id: userId },
@@ -367,6 +377,8 @@ export async function PUT(
 				bio: true,
 				description: true,
 				userType: true,
+				category: true,
+				religiousCategories: true,
 				status: true,
 				active: true,
 				availability: true,

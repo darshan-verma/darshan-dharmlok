@@ -34,6 +34,13 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatAdminDate } from "@/lib/utils";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 // Dharamshala interface
 export interface Dharamshala {
@@ -44,6 +51,7 @@ export interface Dharamshala {
 	state: string;
 	city: string;
 	status: string;
+	religiousCategories?: ReligiousCategory[];
 	bannerImage?: string; // NEW
 	coverImage?: string; // NEW
 }
@@ -76,6 +84,7 @@ export default function DharamshalaTable({
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [stateFilter, setStateFilter] = useState<string>("all");
 	const [cityFilter, setCityFilter] = useState<string>("all");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 	const [currentPage, setCurrentPage] = useState(1);
 	const itemsPerPage = 10;
 
@@ -93,7 +102,18 @@ export default function DharamshalaTable({
 
 		const matchesCity = cityFilter === "all" || dharamshala.city === cityFilter;
 
-		return matchesSearch && matchesStatus && matchesState && matchesCity;
+		const matchesReligious = matchesReligiousFilter(
+			resolveReligiousCategories(dharamshala),
+			religiousFilter === "all" ? null : religiousFilter
+		);
+
+		return (
+			matchesSearch &&
+			matchesStatus &&
+			matchesState &&
+			matchesCity &&
+			matchesReligious
+		);
 	});
 
 	const totalItems = filteredDharamshalas.length;
@@ -136,6 +156,15 @@ export default function DharamshalaTable({
 				</div>
 				{/* Filters */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
+					<ReligiousCategoryFilter
+						value={religiousFilter}
+						onChange={(val) => {
+							setReligiousFilter(val);
+							setCurrentPage(1);
+						}}
+						page="admin-dharamshala"
+						variant="select" hideLabel allLabel="All Traditions" className="w-44"
+					/>
 					{/* State Filter */}
 					<div className="w-40">
 						<select
@@ -202,6 +231,7 @@ export default function DharamshalaTable({
 							<TableHead>Date</TableHead>
 							<TableHead>State</TableHead>
 							<TableHead>City</TableHead>
+							<TableHead>Religion</TableHead>
 							<TableHead>Details</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>Actions</TableHead>
@@ -217,6 +247,11 @@ export default function DharamshalaTable({
 									<TableCell>{formatAdminDate(dharamshala.date)}</TableCell>
 									<TableCell>{dharamshala.state}</TableCell>
 									<TableCell>{dharamshala.city}</TableCell>
+									<TableCell>
+										<ReligiousCategoryBadges
+											religiousCategories={dharamshala.religiousCategories}
+										/>
+									</TableCell>
 									<TableCell>
 										<Button
 											variant="ghost"
@@ -308,7 +343,7 @@ export default function DharamshalaTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={7} className="text-center py-6">
+								<TableCell colSpan={8} className="text-center py-6">
 									No dharamshalas found. Try a different search or add a new
 									dharamshala.
 								</TableCell>

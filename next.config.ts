@@ -32,6 +32,18 @@ const nextConfig: NextConfig = {
 			},
 			{
 				protocol: "https",
+				hostname: "dharmlok.s3.us-east-1.amazonaws.com",
+				port: "",
+				pathname: "/**",
+			},
+			{
+				protocol: "https",
+				hostname: "dharmlok.s3.ap-south-1.amazonaws.com",
+				port: "",
+				pathname: "/**",
+			},
+			{
+				protocol: "https",
 				hostname: "example.com",
 				port: "",
 				pathname: "/**",

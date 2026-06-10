@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import TempleTable, { Temple } from "../components/temple/TempleTable";
 import TempleForm from "../components/temple/TempleForm";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 export default function TemplePage() {
 	const [temples, setTemples] = useState<Temple[]>([]);
@@ -34,7 +35,12 @@ export default function TemplePage() {
 				if (!response.ok) throw new Error("Failed to fetch temples");
 				const data = await response.json();
 				const list = Array.isArray(data) ? data : data.content ?? [];
-				setTemples(list);
+				setTemples(
+					list.map((item: Temple) => ({
+						...item,
+						religiousCategories: resolveReligiousCategories(item),
+					}))
+				);
 			} catch {
 				toast.error("Failed to load temples");
 			} finally {

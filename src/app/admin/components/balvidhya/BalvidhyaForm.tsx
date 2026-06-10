@@ -13,32 +13,16 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import {
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
+import { categoryOptions, typeOptions, statusOptions } from "./types";
 
-// These enums match your schema precisely
-const balvidhyaTypes = [
-	{ value: "video", label: "Video" },
-	{ value: "book", label: "Book" },
-];
-
-const balvidhyaStatuses = [
-	{ value: "Active", label: "Active" },
-	{ value: "Inactive", label: "Inactive" },
-];
-
-const balvidhyaCategories = [
-	{ value: "Sanatan", label: "Sanatan" },
-	{ value: "Buddhism", label: "Buddhism" },
-	{ value: "Sikh", label: "Sikh" },
-	{ value: "Jain", label: "Jain" },
-	{ value: "BhagavadGita", label: "Bhagavad Gita" },
-	{ value: "Ramayana", label: "Ramayana" },
-	{ value: "Mahabharata", label: "Mahabharata" },
-	{ value: "Vedas", label: "Vedas" },
-	{ value: "Puranas", label: "Puranas" },
-	{ value: "Upanishads", label: "Upanishads" },
-	{ value: "BhaktiYoga", label: "Bhakti Yoga" },
-	{ value: "Other", label: "Other" },
-];
+const balvidhyaTypes = typeOptions;
+const balvidhyaStatuses = statusOptions;
+const balvidhyaCategories = categoryOptions;
 
 // Define the shape of data the form will submit
 export interface BalvidhyaSubmitData {
@@ -46,6 +30,7 @@ export interface BalvidhyaSubmitData {
 	description: string;
 	type: string;
 	category: string;
+	religiousCategories?: ReligiousCategory[];
 	status: string;
 	trending: boolean;
 	thumbnailUrl: string | null;
@@ -55,7 +40,9 @@ export interface BalvidhyaSubmitData {
 }
 
 // Use a more specific type for initialData
-type BalvidhyaFormInitialData = Partial<BalvidhyaSubmitData> & {
+type BalvidhyaFormInitialData = Partial<
+	BalvidhyaSubmitData & { religiousCategories?: ReligiousCategory[] }
+> & {
 	id?: string;
 	dateAdded?: string | Date;
 	createdAt?: string | Date;
@@ -87,11 +74,21 @@ export default function BalvidhyaForm({
 	onCancel,
 	isLoading = false,
 }: BalvidhyaFormProps) {
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+		category: ["Sanatan", "Jain", "Buddhism", "Buddhist", "Sikh"].includes(
+			initialData.category || ""
+		)
+			? initialData.category
+			: undefined,
+	});
+
 	const [balvidhyaData, setBalvidhyaData] = useState(() => ({
 		name: initialData.name || "",
 		description: initialData.description || "",
 		type: initialData.type || "video",
 		category: initialData.category || "Other",
+		religiousCategories: initialReligious,
 		status: initialData.status || "Active",
 		trending:
 			typeof initialData.trending === "boolean"
@@ -110,11 +107,20 @@ export default function BalvidhyaForm({
 	// Prevent infinite update loop by only updating state if initialData actually changes
 	useEffect(() => {
 		setBalvidhyaData((prev) => {
+			const nextReligious = resolveReligiousCategories({
+				religiousCategories: initialData.religiousCategories,
+				category: ["Sanatan", "Jain", "Buddhism", "Buddhist", "Sikh"].includes(
+					initialData.category || ""
+				)
+					? initialData.category
+					: undefined,
+			});
 			const next = {
 				name: initialData.name || "",
 				description: initialData.description || "",
 				type: initialData.type || "video",
 				category: initialData.category || "Other",
+				religiousCategories: nextReligious,
 				status: initialData.status || "Active",
 				trending:
 					typeof initialData.trending === "boolean"
@@ -138,6 +144,7 @@ export default function BalvidhyaForm({
 		initialData.description,
 		initialData.type,
 		initialData.category,
+		initialData.religiousCategories,
 		initialData.status,
 		initialData.trending,
 		initialData.trendingStatus,
@@ -236,6 +243,7 @@ export default function BalvidhyaForm({
 				type: balvidhyaData.type,
 				status: balvidhyaData.status,
 				category: balvidhyaData.category,
+				religiousCategories: balvidhyaData.religiousCategories || [],
 				trending: !!balvidhyaData.trending,
 				thumbnailUrl: balvidhyaData.thumbnailUrl || null, // Ensure null if empty
 				videoUrl: balvidhyaData.videoUrl || null,
@@ -253,8 +261,8 @@ export default function BalvidhyaForm({
 	};
 
 	const handleInputChange = (
-		field: keyof typeof balvidhyaData & string, // Allows any key of balvidhyaData state
-		value: string | boolean | Date // Accommodate potential date if kept in state
+		field: keyof typeof balvidhyaData & string,
+		value: string | boolean | Date | ReligiousCategory[]
 	) => {
 		setBalvidhyaData({ ...balvidhyaData, [field]: value });
 		if (formErrors[field]) setFormErrors({ ...formErrors, [field]: "" });
@@ -342,6 +350,10 @@ export default function BalvidhyaForm({
 					)}
 				</div>
 			</div>
+			<ReligiousCategoryPills
+				value={balvidhyaData.religiousCategories || []}
+				onChange={(value) => handleInputChange("religiousCategories", value)}
+			/>
 			<div className="space-y-2">
 				<Label htmlFor="thumbnailUrl">Thumbnail URL (Optional)</Label>
 				<Input

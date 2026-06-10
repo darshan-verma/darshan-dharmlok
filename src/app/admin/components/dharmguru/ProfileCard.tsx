@@ -24,7 +24,8 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Dharmguru } from "./types";
-import { getCategoryColor, getRankColor } from "./DharmguruTable";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { getRankColor } from "./DharmguruTable";
 
 interface ProfileCardProps {
 	dharmguru: Dharmguru | null;
@@ -172,14 +173,14 @@ export default function ProfileCard({
 					<div className="flex items-center gap-2 text-sm">
 						<BookOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
 						<div className="flex-1">
-							<span className="text-xs text-muted-foreground">Category: </span>
-							<span
-								className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
-									dharmguru?.category || ""
-								)} w-20`}
-							>
-								{dharmguru?.category || "Not specified"}
+							<span className="text-xs text-muted-foreground">
+								Religious:{" "}
 							</span>
+							<ReligiousCategoryBadges
+								religiousCategories={dharmguru?.religiousCategories}
+								category={dharmguru?.category}
+								emptyLabel="Not specified"
+							/>
 						</div>
 					</div>
 					<div className="flex items-center gap-2 text-sm">

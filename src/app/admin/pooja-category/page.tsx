@@ -14,6 +14,7 @@ import PoojaCategoryTable, {
 import PoojaCategoryForm from "../components/pooja_category/PoojaCategoryForm";
 import Pagination from "../components/Pagination/Pagination";
 import { usePagination } from "../hooks/usePagination";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 interface ApiErrorResponse {
 	details?: Record<string, unknown> | string[];
@@ -54,6 +55,7 @@ export default function PoojaCategoryPage() {
 					price?: number;
 					details?: string;
 					status?: string;
+					religiousCategories?: string[];
 					images?: string[];
 					videos?: string[];
 				};
@@ -65,6 +67,7 @@ export default function PoojaCategoryPage() {
 					price: item.price ?? undefined,
 					details: item.details || "",
 					status: item.status || "Inactive",
+					religiousCategories: resolveReligiousCategories(item),
 					images: item.images || [],
 					videos: item.videos || [],
 				}));
@@ -156,6 +159,7 @@ export default function PoojaCategoryPage() {
 					date: item.date || "",
 					price: item.price ?? undefined,
 					details: item.details || "",
+					religiousCategories: resolveReligiousCategories(item),
 					images: item.images || [],
 					videos: item.videos || [],
 				}))

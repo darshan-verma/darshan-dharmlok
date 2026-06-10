@@ -38,6 +38,13 @@ import {
 import Image from "next/image";
 import React from "react";
 import { formatAdminDate } from "@/lib/utils";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 // Blog interface
 export interface Blog {
@@ -47,6 +54,7 @@ export interface Blog {
 	coverImage?: string;
 	bannerImage?: string;
 	status: string;
+	religiousCategories?: ReligiousCategory[];
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -112,6 +120,7 @@ export default function BlogTable({
 }: BlogTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 	const [currentPage, setCurrentPage] = useState(1);
 	const itemsPerPage = 10;
 
@@ -123,7 +132,12 @@ export default function BlogTable({
 		const matchesStatus =
 			statusFilter === "all" || blog.status === statusFilter;
 
-		return matchesSearch && matchesStatus;
+		const matchesReligious = matchesReligiousFilter(
+			resolveReligiousCategories(blog),
+			religiousFilter === "all" ? null : religiousFilter
+		);
+
+		return matchesSearch && matchesStatus && matchesReligious;
 	});
 
 	// Pagination logic
@@ -137,7 +151,7 @@ export default function BlogTable({
 	// Reset to first page if filters/search change
 	React.useEffect(() => {
 		setCurrentPage(1);
-	}, [searchTerm, statusFilter]);
+	}, [searchTerm, statusFilter, religiousFilter]);
 
 	return (
 		<div className="space-y-4">
@@ -166,6 +180,12 @@ export default function BlogTable({
 				</div>
 				{/* Filters */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
+					<ReligiousCategoryFilter
+						value={religiousFilter}
+						onChange={setReligiousFilter}
+						page="admin-blogs"
+						variant="select" hideLabel allLabel="All Traditions" className="w-44"
+					/>
 					{/* Status Filter */}
 					<div className="w-32">
 						<select
@@ -191,6 +211,7 @@ export default function BlogTable({
 						<TableRow>
 							<TableHead>Cover Image</TableHead>
 							<TableHead>Title</TableHead>
+							<TableHead>Religion</TableHead>
 							<TableHead>Content</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>Created At</TableHead>
@@ -216,6 +237,11 @@ export default function BlogTable({
 										)}
 									</TableCell>
 									<TableCell className="font-medium">{blog.title}</TableCell>
+									<TableCell>
+										<ReligiousCategoryBadges
+											religiousCategories={blog.religiousCategories}
+										/>
+									</TableCell>
 									<TableCell className="max-w-xs truncate">
 										{extractPlainTextFromBlockNote(blog.content)}
 									</TableCell>
@@ -288,7 +314,7 @@ export default function BlogTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={6} className="text-center py-6">
+								<TableCell colSpan={7} className="text-center py-6">
 									No blogs found. Try a different search or add a new blog.
 								</TableCell>
 							</TableRow>

@@ -32,6 +32,13 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 // Ebook interface
 export interface Ebook {
@@ -41,6 +48,7 @@ export interface Ebook {
 	description: string;
 	type: string;
 	category: string;
+	religiousCategories?: ReligiousCategory[];
 	detail: string;
 	status: string;
 }
@@ -73,6 +81,7 @@ export default function EbookTable({
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 	const [typeFilter, setTypeFilter] = useState<string>("all");
 
 	const filteredEbooks = ebooks.filter((ebook) => {
@@ -88,9 +97,20 @@ export default function EbookTable({
 		const matchesCategory =
 			categoryFilter === "all" || ebook.category === categoryFilter;
 
+		const matchesReligious = matchesReligiousFilter(
+			resolveReligiousCategories(ebook),
+			religiousFilter === "all" ? null : religiousFilter
+		);
+
 		const matchesType = typeFilter === "all" || ebook.type === typeFilter;
 
-		return matchesSearch && matchesStatus && matchesCategory && matchesType;
+		return (
+			matchesSearch &&
+			matchesStatus &&
+			matchesCategory &&
+			matchesReligious &&
+			matchesType
+		);
 	});
 
 	// Unique categories/types for filters
@@ -122,6 +142,12 @@ export default function EbookTable({
 				</div>
 				{/* Filters */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
+					<ReligiousCategoryFilter
+						value={religiousFilter}
+						onChange={setReligiousFilter}
+						page="admin-ebook"
+						variant="select" hideLabel allLabel="All Traditions" className="w-44"
+					/>
 					{/* Category Filter */}
 					<div className="w-40">
 						<select
@@ -180,6 +206,7 @@ export default function EbookTable({
 							<TableHead>Description</TableHead>
 							<TableHead>Type</TableHead>
 							<TableHead>Category</TableHead>
+							<TableHead>Religion</TableHead>
 							<TableHead>Detail</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>View</TableHead>
@@ -195,6 +222,11 @@ export default function EbookTable({
 									<TableCell>{ebook.description}</TableCell>
 									<TableCell>{ebook.type}</TableCell>
 									<TableCell>{ebook.category}</TableCell>
+									<TableCell>
+										<ReligiousCategoryBadges
+											religiousCategories={ebook.religiousCategories}
+										/>
+									</TableCell>
 									<TableCell>{ebook.detail}</TableCell>
 									<TableCell>
 										<span
@@ -274,7 +306,7 @@ export default function EbookTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={9} className="text-center py-6">
+								<TableCell colSpan={10} className="text-center py-6">
 									No ebooks found. Try a different search or add a new ebook.
 								</TableCell>
 							</TableRow>

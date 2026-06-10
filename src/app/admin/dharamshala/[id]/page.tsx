@@ -10,6 +10,7 @@ import { DharamshalaInfoCard } from "@/app/admin/components/dharamshala/Dharamsh
 import { DharamshalaData, Faq } from "@/app/admin/components/dharamshala/types";
 import type { ContentLang } from "@/lib/content-lang";
 import { finalizeTranslationsPayload } from "@/lib/admin-locale-sync";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 export default function DharamshalaDetailPage() {
 	const params = useParams();
@@ -75,8 +76,12 @@ export default function DharamshalaDetailPage() {
 				const response = await fetch(`/api/dharamshala/${dharamshalaId}`);
 				if (!response.ok) throw new Error("Failed to fetch dharamshala");
 				const data = await response.json();
-				setDharamshala(data);
-				setEditedDharamshala(data);
+				const mapped = {
+					...data,
+					religiousCategories: resolveReligiousCategories(data),
+				};
+				setDharamshala(mapped);
+				setEditedDharamshala(mapped);
 				setAmenities(data.amenities || []);
 				setDharamshalaFaqs(data.dharamshalaFaqs || []);
 				setImageFiles(

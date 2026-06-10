@@ -8,6 +8,7 @@ import {
 	safeFormatDate,
 	safeFormatDateOnly,
 } from "@/lib/content-api";
+import { buildDualWriteReligiousFields } from "@/lib/religious-categories";
 
 export interface EventApi {
 	id: string;
@@ -126,6 +127,13 @@ export async function PUT(req: NextRequest) {
 			);
 		}
 
+		const { religiousCategories, category: legacyCategory } =
+			buildDualWriteReligiousFields({
+				religiousCategories: (body as { religiousCategories?: unknown })
+					.religiousCategories,
+				category,
+			});
+
 		const updated = await prisma.event.update({
 			where: { id },
 			data: {
@@ -134,7 +142,8 @@ export async function PUT(req: NextRequest) {
 				bookingUrl: bookingUrl || "",
 				fromDate: new Date(fromDate),
 				toDate: new Date(toDate),
-				category,
+				category: legacyCategory ?? category,
+				religiousCategories,
 				type,
 				price: price !== undefined && price !== null ? Number(price) : null,
 				bannerImage: bannerImage || "",

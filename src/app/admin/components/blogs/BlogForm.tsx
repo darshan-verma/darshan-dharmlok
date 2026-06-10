@@ -17,6 +17,11 @@ import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 import LocaleTabs from "@/components/admin/LocaleTabs";
 import type { ContentLang } from "@/lib/content-lang";
 import { finalizeTranslationsPayload } from "@/lib/admin-locale-sync";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import {
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 const blogStatuses = [
 	{ value: "Active", label: "Active" },
@@ -29,6 +34,7 @@ export interface BlogFormData {
 	translations?: { en?: Record<string, unknown>; hi?: Record<string, unknown> | null };
 	translationStatus?: "none" | "partial" | "complete";
 	status: string;
+	religiousCategories?: ReligiousCategory[];
 	coverImageUrl?: string | null; // Allow null for explicit removal
 	coverImageFile?: File | null; // Add coverImageFile field
 	bannerImageUrl?: string | null; // Allow null for explicit removal
@@ -70,10 +76,15 @@ export default function BlogForm({
 	const [hiContent, setHiContent] = useState(
 		initialTranslations?.hi?.content ?? ""
 	);
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+	});
+
 	const [blogData, setBlogData] = useState<BlogFormData>({
 		title: initialData.title || "",
 		content: initialData.content || "",
 		status: initialData.status || "Active",
+		religiousCategories: initialReligious,
 		coverImageUrl: initialData.coverImageUrl || null,
 		coverImageFile: initialData.coverImageFile || null,
 		bannerImageUrl: initialData.bannerImageUrl || null,
@@ -100,6 +111,9 @@ export default function BlogForm({
 			title: initialData.title || "",
 			content: initialData.content || "",
 			status: initialData.status || "Active",
+			religiousCategories: resolveReligiousCategories({
+				religiousCategories: initialData.religiousCategories,
+			}),
 			coverImageUrl: initialData.coverImageUrl || null,
 			coverImageFile: initialData.coverImageFile || null,
 			bannerImageUrl: initialData.bannerImageUrl || null,
@@ -113,6 +127,7 @@ export default function BlogForm({
 		initialData.content,
 		initialData.translations,
 		initialData.status,
+		initialData.religiousCategories,
 		initialData.coverImageUrl,
 		initialData.bannerImageUrl,
 		initialData.coverImageFile,
@@ -514,6 +529,12 @@ export default function BlogForm({
 					</SelectContent>
 				</Select>
 			</div>
+			<ReligiousCategoryPills
+				value={blogData.religiousCategories || []}
+				onChange={(value) =>
+					setBlogData({ ...blogData, religiousCategories: value })
+				}
+			/>
 			<div className="flex justify-end gap-2 mt-4">
 				<Button type="button" variant="outline" onClick={onCancel}>
 					Cancel

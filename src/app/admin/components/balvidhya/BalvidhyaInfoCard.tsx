@@ -36,6 +36,9 @@ import {
 } from "./types";
 import { getTypeIcon } from "./BalvidhyaDetailCard";
 import { toast } from "@/lib/toast";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import type { ReligiousCategory } from "@/lib/religious-categories";
 
 type Props = {
 	balvidhya: BalvidhyaData | null;
@@ -232,6 +235,15 @@ export function BalvidhyaInfoCard({
 										)}
 									</div>
 								</div>
+								<ReligiousCategoryPills
+									value={editedBalvidhya.religiousCategories || []}
+									onChange={(value: ReligiousCategory[]) =>
+										setEditedBalvidhya({
+											...editedBalvidhya,
+											religiousCategories: value,
+										})
+									}
+								/>
 								<div className="space-y-2">
 									<Label htmlFor="thumbnailUrl">Thumbnail URL (Optional)</Label>
 									<Input
@@ -463,6 +475,14 @@ export function BalvidhyaInfoCard({
 										>
 											{categoryLabel(balvidhya.category || "")}
 										</span>
+									</div>
+									<div className="space-y-2">
+										<h3 className="text-sm font-medium text-muted-foreground">
+											Religious Category
+										</h3>
+										<ReligiousCategoryBadges
+											religiousCategories={balvidhya.religiousCategories}
+										/>
 									</div>
 									<div className="space-y-2">
 										<h3 className="text-sm font-medium text-muted-foreground">

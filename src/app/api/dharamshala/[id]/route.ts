@@ -7,6 +7,7 @@ import {
 	prepareTranslationsForSave,
 	rawFindById,
 } from "@/lib/content-api";
+import { normalizeReligiousCategories } from "@/lib/religious-categories";
 import { flattenDharamshalaWithFaqs } from "@/lib/localize-document";
 
 export async function GET(
@@ -124,6 +125,13 @@ export async function PUT(
 				videoFile: normalizeArrayInput(body.videoFile),
 				bannerImage: body.bannerImage,
 				coverImage: body.coverImage,
+				...(body.religiousCategories !== undefined
+					? {
+							religiousCategories: normalizeReligiousCategories(
+								body.religiousCategories
+							),
+						}
+					: {}),
 			},
 		});
 

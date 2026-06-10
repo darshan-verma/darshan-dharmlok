@@ -62,6 +62,10 @@ import {
 	buildTranslationSearchOr,
 	mergeSearchIntoFilter,
 } from "@/lib/translation-search";
+import {
+	mapWithReligiousCategories,
+	mergeMongoReligiousFilter,
+} from "@/lib/religious-categories";
 
 /** Recursively convert MongoDB BSON extended JSON to plain JS values. */
 export function normalizeMongoDoc(doc: unknown): unknown {
@@ -200,6 +204,10 @@ export function formatTempleResponse(
 		travelByTrain: parseJsonArrayField(flat.travelByTrain),
 		travelByBus: parseJsonArrayField(flat.travelByBus),
 		travelByRoad: parseJsonArrayField(flat.travelByRoad),
+		...mapWithReligiousCategories({
+			category: null,
+			religiousCategories: temple.religiousCategories as string[] | null,
+		}),
 	});
 }
 
@@ -214,6 +222,10 @@ export function formatBlogResponse(
 		bannerImage: flat.bannerImage ?? "",
 		createdAt: safeFormatDate(blog.createdAt),
 		updatedAt: safeFormatDate(blog.updatedAt),
+		...mapWithReligiousCategories({
+			category: null,
+			religiousCategories: blog.religiousCategories as string[] | null,
+		}),
 	});
 }
 
@@ -245,6 +257,10 @@ export function formatEventResponse(
 		place: flat.place ?? "",
 		location: flat.location ?? "",
 		category: event.category,
+		religiousCategories: mapWithReligiousCategories({
+			category: event.category as string | null,
+			religiousCategories: event.religiousCategories as string[] | null,
+		}).religiousCategories,
 		type: event.type,
 		price: event.price ?? undefined,
 		bannerImage: event.bannerImage ?? "",
@@ -271,6 +287,10 @@ export function formatPoojaCategoryResponse(
 		status: row.status ?? "Inactive",
 		images: parseJsonArrayField(row.images ?? flat.images),
 		videos: parseJsonArrayField(row.videos ?? flat.videos),
+		...mapWithReligiousCategories({
+			category: null,
+			religiousCategories: row.religiousCategories as string[] | null,
+		}),
 	});
 }
 
@@ -279,7 +299,13 @@ export function formatPanditjiResponse(
 	locale: ContentLang
 ) {
 	const flat = flattenDocument(user, "panditji", locale) as Record<string, unknown>;
-	return withTranslationMeta(user, flat);
+	return withTranslationMeta(user, {
+		...flat,
+		...mapWithReligiousCategories({
+			category: user.category as string | null,
+			religiousCategories: user.religiousCategories as string[] | null,
+		}),
+	});
 }
 
 export function formatDharamshalaResponse(
@@ -302,6 +328,10 @@ export function formatDharamshalaResponse(
 		travelByTrain: parseJsonArrayField(flat.travelByTrain),
 		travelByBus: parseJsonArrayField(flat.travelByBus),
 		travelByRoad: parseJsonArrayField(flat.travelByRoad),
+		...mapWithReligiousCategories({
+			category: null,
+			religiousCategories: row.religiousCategories as string[] | null,
+		}),
 	});
 }
 
@@ -417,6 +447,7 @@ export async function findTemplesWithOptionalSearch(params: {
 	state?: string;
 	city?: string;
 	status?: string;
+	religiousCategory?: string;
 	skip?: number;
 	limit?: number;
 }): Promise<{ rows: Record<string, unknown>[]; total: number }> {
@@ -432,7 +463,10 @@ export async function findTemplesWithOptionalSearch(params: {
 	}
 
 	const searchOr = buildTranslationSearchOr("temple", params.search ?? "");
-	const filter = mergeSearchIntoFilter(baseFilter, searchOr);
+	const filter = mergeMongoReligiousFilter(
+		mergeSearchIntoFilter(baseFilter, searchOr),
+		params.religiousCategory
+	);
 
 	// Raw Mongo read preserves legacy root fields (name, etc.) until migration completes.
 	const [rows, total] = await Promise.all([
@@ -454,6 +488,7 @@ export async function findDharamshalasWithOptionalSearch(params: {
 	state?: string;
 	city?: string;
 	status?: string;
+	religiousCategory?: string;
 	skip?: number;
 	limit?: number;
 }): Promise<{ rows: Record<string, unknown>[]; total: number }> {
@@ -469,7 +504,10 @@ export async function findDharamshalasWithOptionalSearch(params: {
 	}
 
 	const searchOr = buildTranslationSearchOr("dharamshala", params.search ?? "");
-	const filter = mergeSearchIntoFilter(baseFilter, searchOr);
+	const filter = mergeMongoReligiousFilter(
+		mergeSearchIntoFilter(baseFilter, searchOr),
+		params.religiousCategory
+	);
 
 	const [rows, total] = await Promise.all([
 		rawFindCollection({
@@ -488,6 +526,7 @@ export async function findDharamshalasWithOptionalSearch(params: {
 export async function findEventsWithOptionalSearch(params: {
 	search?: string;
 	category?: string;
+	religiousCategory?: string;
 	type?: string;
 	status?: string;
 	skip?: number;
@@ -511,7 +550,10 @@ export async function findEventsWithOptionalSearch(params: {
 			{ type: { $regex: params.search, $options: "i" } }
 		);
 	}
-	const filter = mergeSearchIntoFilter(baseFilter, searchOr);
+	const filter = mergeMongoReligiousFilter(
+		mergeSearchIntoFilter(baseFilter, searchOr),
+		params.religiousCategory ?? params.category
+	);
 
 	const [rows, total] = await Promise.all([
 		rawFindCollection({
@@ -529,8 +571,15 @@ export async function findEventsWithOptionalSearch(params: {
 export async function findBlogs(params?: {
 	skip?: number;
 	limit?: number;
+	religiousCategory?: string;
+	search?: string;
 }): Promise<{ rows: Record<string, unknown>[]; total: number }> {
-	const filter: Record<string, unknown> = {};
+	const baseFilter = mergeMongoReligiousFilter(
+		{},
+		params?.religiousCategory
+	);
+	const searchOr = buildTranslationSearchOr("blog", params?.search ?? "");
+	const filter = mergeSearchIntoFilter(baseFilter, searchOr);
 	const [rows, total] = await Promise.all([
 		rawFindCollection({
 			collection: "Blog",

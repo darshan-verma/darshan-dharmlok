@@ -11,11 +11,13 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
 import {
-	Kathavachak,
-	kathavachakCategories,
-	kathavachakRanks,
-} from "./KathavachakTable";
+	buildDualWriteReligiousFields,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
+import { Kathavachak, kathavachakRanks } from "./KathavachakTable";
 
 interface KathavachakFormProps {
 	initialData?: Partial<Kathavachak>;
@@ -38,11 +40,15 @@ export default function KathavachakForm({
 	onCancel,
 	isLoading = false,
 }: KathavachakFormProps) {
-	const [kathavachakData, setKathavachakData] = useState<
-		Omit<Kathavachak, "id">
-	>({
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+		category: initialData.category,
+	});
+
+	const [kathavachakData, setKathavachakData] = useState<Omit<Kathavachak, "id">>({
 		name: initialData.name || "",
-		category: initialData.category || "",
+		category: initialData.category || initialReligious[0] || "",
+		religiousCategories: initialReligious,
 		phone: initialData.phone || "",
 		email: initialData.email || "",
 		status: initialData.status || "Active",
@@ -57,33 +63,28 @@ export default function KathavachakForm({
 	const validateForm = (data: typeof kathavachakData) => {
 		const errors: Record<string, string> = {};
 
-		// Name validation
 		if (!data.name?.trim()) {
 			errors.name = "Name is required";
 		} else if (data.name.length < 2) {
 			errors.name = "Name must be at least 2 characters";
 		}
 
-		// Category validation
-		if (!data.category) {
-			errors.category = "Category is required";
+		if (!data.religiousCategories || data.religiousCategories.length === 0) {
+			errors.religiousCategories = "Select at least one religious category";
 		}
 
-		// Email validation
 		if (!data.email) {
 			errors.email = "Email is required";
 		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
 			errors.email = "Please enter a valid email address";
 		}
 
-		// Phone validation (Indian format)
 		if (!data.phone) {
 			errors.phone = "Phone number is required";
 		} else if (!/^[6-9]\d{9}$/.test(data.phone.replace(/\D/g, ""))) {
 			errors.phone = "Please enter a valid 10-digit Indian phone number";
 		}
 
-		// Rank validation
 		if (!data.rank) {
 			errors.rank = "Rank is required";
 		}
@@ -94,19 +95,23 @@ export default function KathavachakForm({
 	const handleSubmit = async () => {
 		if (buttonLoading) return;
 		setButtonLoading(true);
-		console.log("Form submit triggered with data:", kathavachakData);
 		const errors = validateForm(kathavachakData);
 		setFormErrors(errors);
 
-		// If there are errors, don't proceed
 		if (Object.keys(errors).length > 0) {
-			console.log("Form validation errors:", errors);
 			setButtonLoading(false);
 			return;
 		}
 
 		try {
-			await onSubmit(kathavachakData);
+			const { religiousCategories, category } = buildDualWriteReligiousFields({
+				religiousCategories: kathavachakData.religiousCategories,
+			});
+			await onSubmit({
+				...kathavachakData,
+				religiousCategories,
+				category: category || "",
+			});
 		} catch (error) {
 			console.error("Error in form submission:", error);
 		} finally {
@@ -116,14 +121,25 @@ export default function KathavachakForm({
 
 	const handleInputChange = (
 		field: keyof typeof kathavachakData,
-		value: string | boolean
+		value: string | boolean | ReligiousCategory[]
 	) => {
-		console.log(`Field ${field} changed to:`, value);
 		setKathavachakData({ ...kathavachakData, [field]: value });
-
-		// Clear error for this field if it exists
 		if (formErrors[field]) {
 			setFormErrors({ ...formErrors, [field]: "" });
+		}
+	};
+
+	const handleReligiousChange = (value: ReligiousCategory[]) => {
+		const { religiousCategories, category } = buildDualWriteReligiousFields({
+			religiousCategories: value,
+		});
+		setKathavachakData({
+			...kathavachakData,
+			religiousCategories,
+			category: category || "",
+		});
+		if (formErrors.religiousCategories) {
+			setFormErrors({ ...formErrors, religiousCategories: "" });
 		}
 	};
 
@@ -173,30 +189,14 @@ export default function KathavachakForm({
 				)}
 			</div>
 
-			<div className="space-y-2">
-				<Label htmlFor="category">Category *</Label>
-				<Select
-					value={kathavachakData.category}
-					onValueChange={(value) => handleInputChange("category", value)}
-				>
-					<SelectTrigger
-						id="category"
-						className={formErrors.category ? "border-red-500" : ""}
-					>
-						<SelectValue placeholder="Select category" />
-					</SelectTrigger>
-					<SelectContent>
-						{kathavachakCategories.map((category) => (
-							<SelectItem key={category} value={category}>
-								{category}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				{formErrors.category && (
-					<p className="text-sm text-red-500">{formErrors.category}</p>
-				)}
-			</div>
+			<ReligiousCategoryPills
+				value={kathavachakData.religiousCategories || []}
+				onChange={handleReligiousChange}
+				allowEmpty={false}
+			/>
+			{formErrors.religiousCategories && (
+				<p className="text-sm text-red-500">{formErrors.religiousCategories}</p>
+			)}
 
 			<div className="space-y-2">
 				<Label htmlFor="rank">Rank *</Label>

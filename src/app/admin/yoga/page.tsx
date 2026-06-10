@@ -13,6 +13,7 @@ import YogaTable, { Yoga } from "../components/yoga/YogaTable";
 import YogaForm from "../components/yoga/YogaForm";
 import Pagination from "../components/Pagination/Pagination";
 import { usePagination } from "../hooks/usePagination";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 interface YogaApiResponse {
 	id: string;
@@ -20,6 +21,7 @@ interface YogaApiResponse {
 	date: string;
 	description: string;
 	status: string;
+	religiousCategories?: string[];
 	createdAt: string;
 	updatedAt: string;
 }
@@ -86,6 +88,7 @@ export default function YogaPage() {
 					date: new Date(yoga.date),
 					description: yoga.description || "",
 					status: yoga.status || "Active",
+					religiousCategories: resolveReligiousCategories(yoga),
 					createdAt: new Date(yoga.createdAt),
 					updatedAt: new Date(yoga.updatedAt),
 				}));
@@ -188,6 +191,7 @@ export default function YogaPage() {
 				date: new Date(yoga.date),
 				description: yoga.description || "",
 				status: yoga.status || "Active",
+				religiousCategories: resolveReligiousCategories(yoga),
 				createdAt: new Date(yoga.createdAt),
 				updatedAt: new Date(yoga.updatedAt),
 			}));

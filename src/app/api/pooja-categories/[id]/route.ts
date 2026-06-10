@@ -7,6 +7,7 @@ import {
 	prepareTranslationsForSave,
 	rawFindById,
 } from "@/lib/content-api";
+import { normalizeReligiousCategories } from "@/lib/religious-categories";
 
 // GET /api/pooja-categories/[id]
 export async function GET(req: NextRequest) {
@@ -84,6 +85,11 @@ export async function PUT(req: NextRequest) {
 			);
 		}
 
+		const religiousCategories =
+			body.religiousCategories !== undefined
+				? normalizeReligiousCategories(body.religiousCategories)
+				: undefined;
+
 		const updated = await prisma.poojaCategory.update({
 			where: { id },
 			data: {
@@ -94,6 +100,7 @@ export async function PUT(req: NextRequest) {
 				images: images || [],
 				videos: videos || [],
 				...(status && { status }),
+				...(religiousCategories !== undefined && { religiousCategories }),
 			},
 		});
 

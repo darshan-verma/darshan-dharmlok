@@ -49,12 +49,22 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { toastSuccess, toastError } from "@/lib/toast";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
-// Define the Panditji interface
+export { RELIGIOUS_CATEGORIES as panditjiCategories } from "@/lib/religious-categories";
+export { getReligiousCategoryColor as getCategoryColor } from "@/lib/religious-categories";
+
 export interface Panditji {
 	id: string;
 	name: string;
 	category: string;
+	religiousCategories?: ReligiousCategory[];
 	phone: string;
 	email: string;
 	status: string;
@@ -73,13 +83,8 @@ interface PanditjiTableProps {
 	onLoginAsPanditji: (panditji: Panditji) => void;
 }
 
-// Categories for Panditji
-export const panditjiCategories = ["Sanatan", "Jain", "Sikh", "Buddhism"];
-
-// Ranks for Panditji
 export const panditjiRanks = ["Junior", "Senior", "Expert", "Master"];
 
-// Function to get color based on rank
 export const getRankColor = (rank: string): string => {
 	switch (rank) {
 		case "Junior":
@@ -95,22 +100,6 @@ export const getRankColor = (rank: string): string => {
 	}
 };
 
-// Function to get color based on category
-export const getCategoryColor = (category: string): string => {
-	switch (category) {
-		case "Sanatan":
-			return "bg-orange-100 text-orange-800";
-		case "Jain":
-			return "bg-rose-100 text-rose-800";
-		case "Sikh":
-			return "bg-indigo-100 text-indigo-800";
-		case "Buddhism":
-			return "bg-emerald-100 text-emerald-800";
-		default:
-			return "bg-gray-100 text-gray-800";
-	}
-};
-
 export default function PanditjiTable({
 	panditjis,
 	setPanditjis,
@@ -121,7 +110,7 @@ export default function PanditjiTable({
 	onToggleApproval,
 }: PanditjiTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
-	const [categoryFilter, setCategoryFilter] = useState<string>("all");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [rankFilter, setRankFilter] = useState<string>("all");
 	const [approvalFilter, setApprovalFilter] = useState<string>("all");
@@ -146,12 +135,16 @@ export default function PanditjiTable({
 			panditji.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			panditji.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
 			panditji.phone.includes(searchTerm) ||
-			panditji.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			resolveReligiousCategories(panditji)
+				.join(" ")
+				.toLowerCase()
+				.includes(searchTerm.toLowerCase()) ||
 			panditji.rank.toLowerCase().includes(searchTerm.toLowerCase());
 
-		// Apply category filter
-		const matchesCategory =
-			categoryFilter === "all" || panditji.category === categoryFilter;
+		const matchesCategory = matchesReligiousFilter(
+			resolveReligiousCategories(panditji),
+			religiousFilter === "all" ? null : religiousFilter
+		);
 
 		// Apply status filter
 		const matchesStatus =
@@ -211,22 +204,12 @@ export default function PanditjiTable({
 
 				{/* Filters */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
-					{/* Category Filter */}
-					<div className="w-40">
-						<Select value={categoryFilter} onValueChange={setCategoryFilter}>
-							<SelectTrigger className="h-8">
-								<SelectValue placeholder="Select category" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="all">All Categories</SelectItem>
-								{panditjiCategories.map((category) => (
-									<SelectItem key={category} value={category}>
-										{category}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					</div>
+					<ReligiousCategoryFilter
+						value={religiousFilter}
+						onChange={setReligiousFilter}
+						page="admin-panditji"
+						variant="select" hideLabel allLabel="All Traditions" className="w-44"
+					/>
 
 					{/* Rank Filter */}
 					<div className="w-36">
@@ -302,13 +285,10 @@ export default function PanditjiTable({
 								<TableRow key={panditji.id}>
 									<TableCell className="font-medium">{panditji.name}</TableCell>
 									<TableCell>
-										<span
-											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getCategoryColor(
-												panditji.category
-											)}`}
-										>
-											{panditji.category}
-										</span>
+										<ReligiousCategoryBadges
+											religiousCategories={panditji.religiousCategories}
+											category={panditji.category}
+										/>
 									</TableCell>
 									<TableCell>{panditji.phone}</TableCell>
 									<TableCell>{panditji.email}</TableCell>

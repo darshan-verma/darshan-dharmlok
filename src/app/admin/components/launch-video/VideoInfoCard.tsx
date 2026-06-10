@@ -20,6 +20,9 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { Save } from "lucide-react";
 import { VideoData, VideoFormErrors } from "./types";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import type { ReligiousCategory } from "@/lib/religious-categories";
 
 const videoCategories = [
 	"Tutorial",
@@ -40,6 +43,7 @@ type Props = {
 	errors: VideoFormErrors;
 	onFieldChange: (field: keyof VideoData, value: string) => void;
 	onSave: () => void;
+	setEditedVideo?: React.Dispatch<React.SetStateAction<VideoData | null>>;
 };
 
 export function VideoInfoCard({
@@ -50,6 +54,7 @@ export function VideoInfoCard({
 	errors,
 	onFieldChange,
 	onSave,
+	setEditedVideo,
 }: Props) {
 	return (
 		<Card>
@@ -169,6 +174,16 @@ export function VideoInfoCard({
 								<p className="text-sm text-red-500">{errors.status}</p>
 							)}
 						</div>
+						{setEditedVideo && (
+							<ReligiousCategoryPills
+								value={editedVideo?.religiousCategories || []}
+								onChange={(value: ReligiousCategory[]) =>
+									setEditedVideo((prev) =>
+										prev ? { ...prev, religiousCategories: value } : prev
+									)
+								}
+							/>
+						)}
 						<div className="space-y-2">
 							<Label htmlFor="videoUrl">Video URL *</Label>
 							<Input
@@ -216,6 +231,14 @@ export function VideoInfoCard({
 								<span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium">
 									{video?.category}
 								</span>
+							</div>
+							<div className="space-y-2">
+								<h3 className="text-sm font-medium text-muted-foreground">
+									Religious Category
+								</h3>
+								<ReligiousCategoryBadges
+									religiousCategories={video?.religiousCategories}
+								/>
 							</div>
 							<div className="space-y-2">
 								<h3 className="text-sm font-medium text-muted-foreground">

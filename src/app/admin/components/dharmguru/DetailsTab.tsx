@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/select";
 import { Save, Plus, Trash2, MapPin } from "lucide-react";
 import { Dharmguru, FormErrors } from "./types";
-import { getCategoryColor, getRankColor } from "./DharmguruTable";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { getRankColor } from "./DharmguruTable";
 
 interface DetailsTabProps {
 	dharmguru: Dharmguru | null;
@@ -132,14 +133,12 @@ export default function DetailsTab({
 						</div>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
 							<div className="space-y-2">
-								<Label>Category</Label>
-								<span
-									className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
-										dharmguru?.category || ""
-									)} w-20`}
-								>
-									{dharmguru?.category || "Not specified"}
-								</span>
+								<Label>Religious Category</Label>
+								<ReligiousCategoryBadges
+									religiousCategories={dharmguru?.religiousCategories}
+									category={dharmguru?.category}
+									emptyLabel="Not specified"
+								/>
 							</div>
 							<div className="space-y-2">
 								<Label>Rank</Label>
@@ -596,15 +595,13 @@ export default function DetailsTab({
 							</div>
 							<div className="space-y-2">
 								<h3 className="text-sm font-medium text-muted-foreground">
-									Category
+									Religious Category
 								</h3>
-								<span
-									className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(
-										dharmguru?.category || ""
-									)} w-20`}
-								>
-									{dharmguru?.category || "Not specified"}
-								</span>
+								<ReligiousCategoryBadges
+									religiousCategories={dharmguru?.religiousCategories}
+									category={dharmguru?.category}
+									emptyLabel="Not specified"
+								/>
 							</div>
 							<div className="space-y-2">
 								<h3 className="text-sm font-medium text-muted-foreground">

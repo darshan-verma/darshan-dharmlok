@@ -8,6 +8,9 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DharamshalaData } from "./types";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import type { ReligiousCategory } from "@/lib/religious-categories";
 
 type Props = {
 	dharamshala: DharamshalaData | null;
@@ -24,7 +27,7 @@ export function DharamshalaDetailCard({
 	isEditing,
 	errors,
 	onEdit,
-	setEditedDharamshala: _setEditedDharamshala,
+	setEditedDharamshala,
 }: Props) {
 	if (!dharamshala) return null;
 
@@ -73,6 +76,23 @@ export function DharamshalaDetailCard({
 					<span>
 						{dharamshala.date ? dharamshala.date.split("T")[0] : "N/A"}
 					</span>
+				</div>
+				<div className="space-y-2">
+					<span className="font-medium text-sm">Religious Category</span>
+					{isEditing && setEditedDharamshala ? (
+						<ReligiousCategoryPills
+							value={dharamshala.religiousCategories || []}
+							onChange={(value: ReligiousCategory[]) =>
+								setEditedDharamshala((prev) =>
+									prev ? { ...prev, religiousCategories: value } : prev
+								)
+							}
+						/>
+					) : (
+						<ReligiousCategoryBadges
+							religiousCategories={dharamshala.religiousCategories}
+						/>
+					)}
 				</div>
 				{isEditing && errors.name && (
 					<p className="text-sm text-red-500">{errors.name}</p>

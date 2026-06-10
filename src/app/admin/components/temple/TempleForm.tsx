@@ -15,6 +15,11 @@ import { Temple } from "./TempleTable";
 import LocaleTabs from "@/components/admin/LocaleTabs";
 import type { ContentLang } from "@/lib/content-lang";
 import { finalizeTranslationsPayload } from "@/lib/admin-locale-sync";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import {
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 interface TempleFormProps {
 	initialData?: Partial<Temple>;
@@ -38,11 +43,16 @@ export default function TempleForm({
 	const [contentLocale, setContentLocale] = useState<ContentLang>("en");
 	const [enName, setEnName] = useState(initialData.name || "");
 	const [hiName, setHiName] = useState("");
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+	});
+
 	const [shared, setShared] = useState({
 		date: initialData.date || "",
 		state: initialData.state || "",
 		city: initialData.city || "",
 		status: initialData.status || "Active",
+		religiousCategories: initialReligious,
 	});
 
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -161,6 +171,12 @@ export default function TempleForm({
 					</SelectContent>
 				</Select>
 			</div>
+			<ReligiousCategoryPills
+				value={shared.religiousCategories || []}
+				onChange={(value: ReligiousCategory[]) =>
+					setShared({ ...shared, religiousCategories: value })
+				}
+			/>
 			<div className="flex justify-end gap-2">
 				<Button variant="outline" onClick={onCancel} disabled={isLoading}>
 					Cancel

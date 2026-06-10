@@ -13,6 +13,11 @@ import { PoojaCategory } from "./PoojaCategoryTable";
 import LocaleTabs from "@/components/admin/LocaleTabs";
 import type { ContentLang } from "@/lib/content-lang";
 import { finalizeTranslationsPayload } from "@/lib/admin-locale-sync";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import {
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 interface PoojaCategoryFormProps {
 	initialData?: Partial<PoojaCategory>;
@@ -47,12 +52,17 @@ export default function PoojaCategoryForm({
 	);
 	const [hiDetails, setHiDetails] = useState("");
 
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+	});
+
 	const [formData, setFormData] = useState<Omit<PoojaCategory, "id">>({
 		name: initialData.name || "",
 		description: initialData.description || "",
 		date: initialData.date || "",
 		price: initialData.price ?? undefined,
 		details: initialData.details || "",
+		religiousCategories: initialReligious,
 		images: initialData.images || [],
 		videos: initialData.videos || [],
 	});
@@ -378,6 +388,16 @@ export default function PoojaCategoryForm({
 							</span>
 						</div>
 					</div>
+
+					<ReligiousCategoryPills
+						value={formData.religiousCategories || []}
+						onChange={(value: ReligiousCategory[]) =>
+							setFormData((prev) => ({
+								...prev,
+								religiousCategories: value,
+							}))
+						}
+					/>
 
 					{/* Date Field */}
 					<div className="space-y-2">

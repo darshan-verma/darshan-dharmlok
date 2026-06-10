@@ -11,6 +11,7 @@ import {
 	VideoData,
 	VideoFormErrors,
 } from "@/app/admin/components/launch-video/types";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 export default function VideoDetailPage() {
 	const params = useParams();
@@ -30,8 +31,12 @@ export default function VideoDetailPage() {
 			const response = await fetch(`/api/launch-video/${videoId}`);
 			if (!response.ok) throw new Error("Failed to fetch video");
 			const data = await response.json();
-			setVideo(data);
-			setEditedVideo(data);
+			const mapped = {
+				...data,
+				religiousCategories: resolveReligiousCategories(data),
+			};
+			setVideo(mapped);
+			setEditedVideo(mapped);
 		} catch {
 			toast.error("Failed to load video details");
 			router.push("/admin/launch-video");
@@ -194,6 +199,7 @@ export default function VideoDetailPage() {
 						errors={errors}
 						onFieldChange={handleFieldChange}
 						onSave={handleSave}
+						setEditedVideo={setEditedVideo}
 					/>
 				</div>
 			</div>

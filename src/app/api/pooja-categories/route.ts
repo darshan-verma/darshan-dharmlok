@@ -8,6 +8,10 @@ import {
 } from "@/lib/content-api";
 import { buildTranslationSearchOr } from "@/lib/translation-search";
 import { rawCountCollection, rawFindCollection } from "@/lib/content-api";
+import {
+	mergeMongoReligiousFilter,
+	normalizeReligiousCategories,
+} from "@/lib/religious-categories";
 
 // GET /api/pooja-categories?page=1&limit=12
 export async function GET(req: NextRequest) {
@@ -20,6 +24,7 @@ export async function GET(req: NextRequest) {
 		const minPriceParam = Number(searchParams.get("minPrice"));
 		const maxPriceParam = Number(searchParams.get("maxPrice"));
 		const filtersOnly = searchParams.get("filtersOnly") === "true";
+		const religiousCategory = searchParams.get("religiousCategory")?.trim();
 		const locale = parseLangParam(searchParams.get("lang")) ?? "en";
 
 		const parsedPage = Number(pageParam ?? "1");
@@ -54,8 +59,12 @@ export async function GET(req: NextRequest) {
 			andConditions.push({ price: { $lte: maxPriceParam } });
 		}
 
-		const mongoFilter =
+		const baseFilter =
 			andConditions.length > 0 ? { $and: andConditions } : {};
+		const mongoFilter = mergeMongoReligiousFilter(
+			baseFilter,
+			religiousCategory
+		);
 
 		if (filtersOnly) {
 			const statusRows = await rawFindCollection({
@@ -147,6 +156,10 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		const religiousCategories = normalizeReligiousCategories(
+			body.religiousCategories
+		);
+
 		const created = await prisma.poojaCategory.create({
 			data: {
 				translations: translations as Prisma.InputJsonValue,
@@ -156,6 +169,7 @@ export async function POST(req: NextRequest) {
 				images: images || [],
 				videos: videos || [],
 				status: status || "Inactive",
+				religiousCategories,
 			},
 		});
 

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import BlogTable, { Blog } from "../components/blogs/BlogTable";
 import BlogForm, { BlogFormData } from "../components/blogs/BlogForm";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 interface ApiErrorResponse {
 	details?: Record<string, unknown> | string[];
@@ -36,7 +37,12 @@ export default function BlogsPage() {
 				const response = await fetch(`/api/blogs`);
 				if (!response.ok) throw new Error(`API error: ${response.status}`);
 				const data = await response.json();
-				setBlogs(data.content || []);
+				setBlogs(
+					(data.content || []).map((item: Blog) => ({
+						...item,
+						religiousCategories: resolveReligiousCategories(item),
+					}))
+				);
 			} catch {
 				toast.error("Failed to load blogs");
 			} finally {
@@ -59,6 +65,7 @@ export default function BlogsPage() {
 			translations: (blog as Blog & { translations?: unknown }).translations as BlogFormData["translations"],
 			translationStatus: (blog as Blog & { translationStatus?: string }).translationStatus as BlogFormData["translationStatus"],
 			status: blog.status,
+			religiousCategories: blog.religiousCategories,
 			coverImageUrl: blog.coverImage || null,
 			bannerImageUrl: blog.bannerImage || null,
 		};
@@ -205,6 +212,7 @@ export default function BlogsPage() {
 			const dataToSave = {
 				translations: blogFormData.translations,
 				status: blogFormData.status,
+				religiousCategories: blogFormData.religiousCategories,
 				coverImage: finalCoverImageUrl,
 				bannerImage: finalBannerImageUrl,
 			};

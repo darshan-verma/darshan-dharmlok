@@ -16,6 +16,7 @@ export interface Event {
 	place?: string;
 	location?: string; // Google iframe URL
 	category: string;
+	religiousCategories?: string[];
 	type: string;
 	price?: number;
 	bannerImage?: string;
@@ -27,7 +28,7 @@ export interface Event {
 	updatedAt?: string;
 }
 
-export const eventCategories = ["Sanatan", "Buddhism", "Sikh", "Jain"];
+export { RELIGIOUS_CATEGORIES as eventCategories } from "@/lib/religious-categories";
 export const eventTypes = ["Free", "Subscription"];
 export const statusOptions = [
 	{ value: "Active", label: "Active" },

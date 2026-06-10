@@ -7,6 +7,10 @@ import {
 	BalVidhyaCategory,
 	BalVidhyaStatus,
 } from "@prisma/client";
+import {
+	mapWithReligiousCategories,
+	normalizeReligiousCategories,
+} from "@/lib/religious-categories";
 
 const getImpressions = (item: BalVidhya): number => {
 	if ("impressions" in item && typeof item.impressions === "number") {
@@ -17,8 +21,13 @@ const getImpressions = (item: BalVidhya): number => {
 
 // Helper to map Prisma BalVidhya to frontend expected structure
 const mapBalVidhyaForFrontend = (item: BalVidhya) => {
+	const withReligious = mapWithReligiousCategories({
+		category: item.category,
+		religiousCategories: item.religiousCategories,
+	});
 	return {
 		...item,
+		religiousCategories: withReligious.religiousCategories,
 		id: item.id,
 		trending:
 			item.trendingStatus === BalVidhyaTrendingStatus.Trending ||
@@ -97,6 +106,11 @@ export async function PUT(req: NextRequest) {
 				);
 			}
 			updateData.category = body.category;
+		}
+		if (body.religiousCategories !== undefined) {
+			updateData.religiousCategories = normalizeReligiousCategories(
+				body.religiousCategories
+			);
 		}
 		if (body.status !== undefined) {
 			if (!Object.values(BalVidhyaStatus).includes(body.status)) {

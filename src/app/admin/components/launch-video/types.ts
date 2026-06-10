@@ -1,3 +1,5 @@
+import type { ReligiousCategory } from "@/lib/religious-categories";
+
 export type VideoData = {
 	id: string;
 	title: string;
@@ -8,6 +10,7 @@ export type VideoData = {
 	status: string;
 	videoUrl: string;
 	thumbnailUrl?: string | null;
+	religiousCategories?: ReligiousCategory[];
 	createdAt?: string;
 	updatedAt?: string;
 };

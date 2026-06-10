@@ -12,6 +12,7 @@ import {
 import DharmguruTable, {
 	Dharmguru,
 } from "../components/dharmguru/DharmguruTable";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 import DharmguruForm from "../components/dharmguru/DharmguruForm";
 import Pagination from "../components/Pagination/Pagination";
 import { usePagination } from "../hooks/usePagination";
@@ -26,6 +27,7 @@ interface DharmguruApiResponse {
 	bannerImageUrl?: string;
 	bio?: string;
 	category?: string;
+	religiousCategories?: string[];
 	rank?: string;
 	status: string;
 	kycApproved?: number;
@@ -97,16 +99,20 @@ export default function DharmguruPage() {
 
 				// Transform the optimized API response to match Dharmguru structure
 				const mappedDharmgurus = (data.data || []).map(
-					(user: DharmguruApiResponse) => ({
-						id: user.id,
-						name: user.name || "",
-						category: user.category || "",
-						phone: user.phone || "",
-						email: user.email || "",
-						status: user.status || "Active",
-						rank: user.rank || "",
-						isApproved: user.kycApproved === 1,
-					})
+					(user: DharmguruApiResponse) => {
+						const religiousCategories = resolveReligiousCategories(user);
+						return {
+							id: user.id,
+							name: user.name || "",
+							category: user.category || religiousCategories[0] || "",
+							religiousCategories,
+							phone: user.phone || "",
+							email: user.email || "",
+							status: user.status || "Active",
+							rank: user.rank || "",
+							isApproved: user.kycApproved === 1,
+						};
+					}
 				);
 
 				setDharmgurus(mappedDharmgurus);
@@ -233,6 +239,7 @@ export default function DharmguruPage() {
 				email: dharmguruData.email,
 				phone: dharmguruData.phone,
 				category: dharmguruData.category,
+				religiousCategories: dharmguruData.religiousCategories,
 				status: dharmguruData.status || "Active",
 				rank: dharmguruData.rank || "",
 				kycApproved: dharmguruData.isApproved ? 1 : 0,
@@ -264,16 +271,20 @@ export default function DharmguruPage() {
 
 			// Transform the optimized API response
 			const mappedDharmgurus = (dharmguruList || []).map(
-				(user: DharmguruApiResponse) => ({
-					id: user.id,
-					name: user.name || "",
-					category: user.category || "",
-					phone: user.phone || "",
-					email: user.email || "",
-					status: user.status || "Active",
-					rank: user.rank || "",
-					isApproved: user.kycApproved === 1,
-				})
+				(user: DharmguruApiResponse) => {
+					const religiousCategories = resolveReligiousCategories(user);
+					return {
+						id: user.id,
+						name: user.name || "",
+						category: user.category || religiousCategories[0] || "",
+						religiousCategories,
+						phone: user.phone || "",
+						email: user.email || "",
+						status: user.status || "Active",
+						rank: user.rank || "",
+						isApproved: user.kycApproved === 1,
+					};
+				}
 			);
 
 			setDharmgurus(mappedDharmgurus);

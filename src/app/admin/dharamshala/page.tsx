@@ -12,6 +12,7 @@ import DharamshalaTable, {
 	Dharamshala,
 } from "../components/dharamshala/DharamShalaTable";
 import DharamshalaForm from "../components/dharamshala/DharamShalaForm";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 export default function DharamshalaPage() {
 	const [dharamshalas, setDharamshalas] = useState<Dharamshala[]>([]);
@@ -34,7 +35,12 @@ export default function DharamshalaPage() {
 				const response = await fetch("/api/dharamshala");
 				if (!response.ok) throw new Error("Failed to fetch dharamshalas");
 				const data = await response.json();
-				setDharamshalas(data);
+				setDharamshalas(
+					(Array.isArray(data) ? data : []).map((item: Dharamshala) => ({
+						...item,
+						religiousCategories: resolveReligiousCategories(item),
+					}))
+				);
 			} catch {
 				toast.error("Failed to load dharamshalas");
 			} finally {

@@ -12,6 +12,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import {
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 // These should match your EbookTable columns/types
 const ebookTypes = [
@@ -39,6 +44,7 @@ export interface EbookFormData {
 	description: string;
 	type: string;
 	category: string;
+	religiousCategories?: ReligiousCategory[];
 	detail: string;
 	status: string;
 }
@@ -66,12 +72,17 @@ export default function EbookForm({
 	isLoading = false,
 	errors = {},
 }: EbookFormProps) {
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+	});
+
 	const [ebookData, setEbookData] = useState<EbookFormData>({
 		title: initialData.title || "",
 		date: initialData.date || "",
 		description: initialData.description || "",
 		type: initialData.type || "",
 		category: initialData.category || "",
+		religiousCategories: initialReligious,
 		detail: initialData.detail || "",
 		status: initialData.status || "Active",
 	});
@@ -106,7 +117,10 @@ export default function EbookForm({
 		}
 	};
 
-	const handleInputChange = (field: keyof EbookFormData, value: string) => {
+	const handleInputChange = (
+		field: keyof EbookFormData,
+		value: string | ReligiousCategory[]
+	) => {
 		setEbookData({ ...ebookData, [field]: value });
 		if (formErrors[field]) setFormErrors({ ...formErrors, [field]: "" });
 	};
@@ -203,6 +217,10 @@ export default function EbookForm({
 					)}
 				</div>
 			</div>
+			<ReligiousCategoryPills
+				value={ebookData.religiousCategories || []}
+				onChange={(value) => handleInputChange("religiousCategories", value)}
+			/>
 			<div className="space-y-2">
 				<Label htmlFor="detail">Detail *</Label>
 				<Textarea

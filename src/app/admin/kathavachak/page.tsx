@@ -9,6 +9,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 import KathavachakTable, {
 	Kathavachak,
 } from "../components/kathavachak/KathavachakTable";
@@ -20,6 +21,7 @@ interface KathavachakApiResponse {
 	id: string;
 	name: string;
 	category?: string;
+	religiousCategories?: string[];
 	phone: string;
 	email: string;
 	status: string;
@@ -85,16 +87,21 @@ export default function KathavachakPage() {
 
 				// Transform the optimized API response to match Kathavachak structure
 				const mappedKathavachaks = data.data.map(
-					(user: KathavachakApiResponse) => ({
-						id: user.id,
-						name: user.name || "",
-						category: user.category || "",
-						phone: user.phone || "",
-						email: user.email || "",
-						status: user.status || "Inactive",
-						rank: user.rank || "",
-						isApproved: user.kycApproved === 1 || user.kycApproved === true,
-					})
+					(user: KathavachakApiResponse) => {
+						const religiousCategories = resolveReligiousCategories(user);
+						return {
+							id: user.id,
+							name: user.name || "",
+							category: user.category || religiousCategories[0] || "",
+							religiousCategories,
+							phone: user.phone || "",
+							email: user.email || "",
+							status: user.status || "Inactive",
+							rank: user.rank || "",
+							isApproved:
+								user.kycApproved === 1 || user.kycApproved === true,
+						};
+					}
 				);
 
 				setKathavachaks(mappedKathavachaks);
@@ -260,16 +267,20 @@ export default function KathavachakPage() {
 			const { data } = await fetchResponse.json();
 
 			// Transform the optimized API response
-			const mappedKathavachaks = data.map((user: KathavachakApiResponse) => ({
-				id: user.id,
-				name: user.name || "",
-				category: user.category || "",
-				phone: user.phone || "",
-				email: user.email || "",
-				status: user.status || "Inactive",
-				rank: user.rank || "",
-				isApproved: user.kycApproved === 1 || user.kycApproved === true,
-			}));
+			const mappedKathavachaks = data.map((user: KathavachakApiResponse) => {
+				const religiousCategories = resolveReligiousCategories(user);
+				return {
+					id: user.id,
+					name: user.name || "",
+					category: user.category || religiousCategories[0] || "",
+					religiousCategories,
+					phone: user.phone || "",
+					email: user.email || "",
+					status: user.status || "Inactive",
+					rank: user.rank || "",
+					isApproved: user.kycApproved === 1 || user.kycApproved === true,
+				};
+			});
 
 			setKathavachaks(mappedKathavachaks);
 

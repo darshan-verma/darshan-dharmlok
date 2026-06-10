@@ -13,6 +13,7 @@ import {
 	ADMIN_LOCALE_TAB_FIELDS,
 	finalizeTranslationsPayload,
 } from "@/lib/admin-locale-sync";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 export default function TempleDetailPage() {
 	const params = useParams();
@@ -78,8 +79,12 @@ export default function TempleDetailPage() {
 			const response = await fetch(`/api/temple/${templeId}`);
 			if (!response.ok) throw new Error("Failed to fetch temple");
 			const data = await response.json();
-			setTemple(data);
-			setEditedTemple(data);
+			const mapped = {
+				...data,
+				religiousCategories: resolveReligiousCategories(data),
+			};
+			setTemple(mapped);
+			setEditedTemple(mapped);
 			setAmenities(data.amenities || []);
 			setFaqs(data.templeFaq || []);
 			setImageFiles(

@@ -34,6 +34,13 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 // AudioLibrary interface
 export interface AudioLibrary {
@@ -42,6 +49,7 @@ export interface AudioLibrary {
 	date: string;
 	category: string;
 	status: string;
+	religiousCategories?: ReligiousCategory[];
 }
 
 interface AudioLibraryTableProps {
@@ -84,6 +92,7 @@ export default function AudioLibraryTable({
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 	const [currentPage, setCurrentPage] = useState(1);
 	const itemsPerPage = 10;
 
@@ -98,7 +107,12 @@ export default function AudioLibraryTable({
 		const matchesCategory =
 			categoryFilter === "all" || audioLibrary.category === categoryFilter;
 
-		return matchesSearch && matchesStatus && matchesCategory;
+		const matchesReligious = matchesReligiousFilter(
+			resolveReligiousCategories(audioLibrary),
+			religiousFilter === "all" ? null : religiousFilter
+		);
+
+		return matchesSearch && matchesStatus && matchesCategory && matchesReligious;
 	});
 
 	const totalItems = filteredAudioLibraries.length;
@@ -137,6 +151,15 @@ export default function AudioLibraryTable({
 				</div>
 				{/* Filters */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
+					<ReligiousCategoryFilter
+						value={religiousFilter}
+						onChange={(val) => {
+							setReligiousFilter(val);
+							setCurrentPage(1);
+						}}
+						page="admin-audio-library"
+						variant="select" hideLabel allLabel="All Traditions" className="w-44"
+					/>
 					{/* Category Filter */}
 					<div className="w-40">
 						<select
@@ -178,6 +201,7 @@ export default function AudioLibraryTable({
 							<TableHead>Playlist Name</TableHead>
 							<TableHead>Date</TableHead>
 							<TableHead>Category</TableHead>
+							<TableHead>Religion</TableHead>
 							<TableHead>Add Songs</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>Actions</TableHead>
@@ -192,6 +216,11 @@ export default function AudioLibraryTable({
 									</TableCell>
 									<TableCell>{formatDate(audioLibrary.date)}</TableCell>
 									<TableCell>{audioLibrary.category}</TableCell>
+									<TableCell>
+										<ReligiousCategoryBadges
+											religiousCategories={audioLibrary.religiousCategories}
+										/>
+									</TableCell>
 									<TableCell>
 										<Button
 											variant="ghost"
@@ -289,7 +318,7 @@ export default function AudioLibraryTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={6} className="text-center py-6">
+								<TableCell colSpan={7} className="text-center py-6">
 									No audio libraries found. Try a different search or add a new
 									audio library.
 								</TableCell>

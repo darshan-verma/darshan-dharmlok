@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import {
+	applyReligiousCategoryFilter,
+	mapWithReligiousCategories,
+	normalizeReligiousCategories,
+} from "@/lib/religious-categories";
 
 export interface YogaImage {
 	url: string;
@@ -19,6 +24,7 @@ export interface Yoga {
 	bannerImage?: string;
 	images?: YogaImage[];
 	videos?: string[];
+	religiousCategories?: string[];
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -29,11 +35,28 @@ export async function GET(req: NextRequest) {
 		const { searchParams } = new URL(req.url);
 		const page = parseInt(searchParams.get("page") || "1", 10);
 		const limit = parseInt(searchParams.get("limit") || "12", 10);
+		const religiousCategory = searchParams.get("religiousCategory");
+		const search = searchParams.get("search")?.trim();
 		const skip = (page - 1) * limit;
 
+		const where = applyReligiousCategoryFilter(
+			{
+				...(search
+					? {
+							OR: [
+								{ name: { contains: search, mode: "insensitive" as const } },
+								{ description: { contains: search, mode: "insensitive" as const } },
+							],
+						}
+					: {}),
+			},
+			religiousCategory
+		);
+
 		const [total, yogas] = await Promise.all([
-			prisma.yoga.count(),
+			prisma.yoga.count({ where }),
 			prisma.yoga.findMany({
+				where,
 				orderBy: { createdAt: "desc" },
 				skip,
 				take: limit,
@@ -46,6 +69,7 @@ export async function GET(req: NextRequest) {
 					coverImage: true,
 					images: true,
 					videos: true,
+					religiousCategories: true,
 					createdAt: true,
 					updatedAt: true,
 				},
@@ -61,6 +85,10 @@ export async function GET(req: NextRequest) {
 			coverImage: y.coverImage || undefined,
 			images: (y.images as unknown as YogaImage[]) || [],
 			videos: y.videos || [],
+			religiousCategories: mapWithReligiousCategories({
+				category: null,
+				religiousCategories: y.religiousCategories,
+			}).religiousCategories,
 			createdAt: y.createdAt.toISOString(),
 			updatedAt: y.updatedAt.toISOString(),
 		}));
@@ -104,6 +132,10 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		const religiousCategories = normalizeReligiousCategories(
+			body.religiousCategories
+		);
+
 		const newYoga = await prisma.yoga.create({
 			data: {
 				name,
@@ -113,6 +145,7 @@ export async function POST(req: NextRequest) {
 				coverImage: coverImage || null,
 				images: (images || []) as unknown as Prisma.InputJsonValue,
 				videos: videos || [],
+				religiousCategories,
 			},
 		});
 
@@ -128,6 +161,10 @@ export async function POST(req: NextRequest) {
 			coverImage: newYoga.coverImage || undefined,
 			images: (newYoga.images as unknown as YogaImage[]) || [],
 			videos: newYoga.videos || [],
+			religiousCategories: mapWithReligiousCategories({
+				category: null,
+				religiousCategories: newYoga.religiousCategories,
+			}).religiousCategories,
 			createdAt: newYoga.createdAt?.toISOString?.() ?? "",
 			updatedAt: newYoga.updatedAt?.toISOString?.() ?? "",
 		};

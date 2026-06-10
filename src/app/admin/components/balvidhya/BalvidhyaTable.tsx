@@ -44,32 +44,19 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import Image from "next/image";
-
-// These enums match your schema
-const balvidhyaTypes = [
-	{ value: "video", label: "Video" },
-	{ value: "book", label: "Book" },
-];
-
-const balvidhyaCategories = [
-	{ value: "Sanatan", label: "Sanatan" },
-	{ value: "Buddhism", label: "Buddhism" },
-	{ value: "Sikh", label: "Sikh" },
-	{ value: "Jain", label: "Jain" },
-	{ value: "BhagavadGita", label: "Bhagavad Gita" },
-	{ value: "Ramayana", label: "Ramayana" },
-	{ value: "Mahabharata", label: "Mahabharata" },
-	{ value: "Vedas", label: "Vedas" },
-	{ value: "Puranas", label: "Puranas" },
-	{ value: "Upanishads", label: "Upanishads" },
-	{ value: "BhaktiYoga", label: "Bhakti Yoga" },
-	{ value: "Other", label: "Other" },
-];
-
-const balvidhyaStatuses = [
-	{ value: "Active", label: "Active" },
-	{ value: "Inactive", label: "Inactive" },
-];
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
+import {
+	categoryOptions as balvidhyaCategories,
+	categoryLabel,
+	typeOptions as balvidhyaTypes,
+	statusOptions as balvidhyaStatuses,
+} from "./types";
 
 const getTypeColor = (type: string): string =>
 	type === "video"
@@ -80,14 +67,6 @@ const getTypeColor = (type: string): string =>
 
 const getCategoryColor = (category: string): string => {
 	switch (category) {
-		case "Sanatan":
-			return "bg-amber-100 text-amber-800";
-		case "Buddhism":
-			return "bg-yellow-100 text-yellow-800";
-		case "Sikh":
-			return "bg-indigo-100 text-indigo-800";
-		case "Jain":
-			return "bg-teal-100 text-teal-800";
 		case "BhagavadGita":
 			return "bg-orange-100 text-orange-800";
 		case "Ramayana":
@@ -102,8 +81,6 @@ const getCategoryColor = (category: string): string => {
 			return "bg-lime-100 text-lime-800";
 		case "BhaktiYoga":
 			return "bg-emerald-100 text-emerald-800";
-		case "Other":
-			return "bg-gray-100 text-gray-800";
 		default:
 			return "bg-gray-100 text-gray-800";
 	}
@@ -126,6 +103,7 @@ export type Balvidhya = {
 	dateAdded?: string | Date;
 	type: string;
 	category: string;
+	religiousCategories?: ReligiousCategory[];
 	status: string;
 	trending: boolean;
 	createdAt?: string | Date; // Optional, if needed for other purposes
@@ -156,6 +134,7 @@ export default function BalvidhyaTable(props: BalvidhyaTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [typeFilter, setTypeFilter] = useState<string>("all");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [trendingFilter, setTrendingFilter] = useState<string>("all");
 	const [currentPage, setCurrentPage] = useState(1);
@@ -181,6 +160,10 @@ export default function BalvidhyaTable(props: BalvidhyaTableProps) {
 		const matchesType = typeFilter === "all" || balvidhya.type === typeFilter;
 		const matchesCategory =
 			categoryFilter === "all" || balvidhya.category === categoryFilter;
+		const matchesReligious = matchesReligiousFilter(
+			resolveReligiousCategories(balvidhya),
+			religiousFilter === "all" ? null : religiousFilter
+		);
 		const matchesStatus =
 			statusFilter === "all" || balvidhya.status === statusFilter;
 		const matchesTrending =
@@ -191,6 +174,7 @@ export default function BalvidhyaTable(props: BalvidhyaTableProps) {
 			matchesSearch &&
 			matchesType &&
 			matchesCategory &&
+			matchesReligious &&
 			matchesStatus &&
 			matchesTrending
 		);
@@ -229,6 +213,15 @@ export default function BalvidhyaTable(props: BalvidhyaTableProps) {
 					)}
 				</div>
 				<div className="flex flex-wrap items-center gap-3 mb-4">
+					<ReligiousCategoryFilter
+						value={religiousFilter}
+						onChange={(val) => {
+							setReligiousFilter(val);
+							setCurrentPage(1);
+						}}
+						page="admin-balvidhya"
+						variant="select" hideLabel allLabel="All Traditions" className="w-44"
+					/>
 					<div className="w-32">
 						<Select
 							value={typeFilter}
@@ -325,6 +318,7 @@ export default function BalvidhyaTable(props: BalvidhyaTableProps) {
 							<TableHead>Description</TableHead>
 							<TableHead>Type</TableHead>
 							<TableHead>Category</TableHead>
+							<TableHead>Religion</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>Trending</TableHead>
 							<TableHead>Date Added</TableHead>
@@ -385,10 +379,13 @@ export default function BalvidhyaTable(props: BalvidhyaTableProps) {
 												balvidhya.category
 											)}`}
 										>
-											{balvidhyaCategories.find(
-												(c) => c.value === balvidhya.category
-											)?.label || balvidhya.category}
+											{categoryLabel(balvidhya.category)}
 										</span>
+									</TableCell>
+									<TableCell>
+										<ReligiousCategoryBadges
+											religiousCategories={balvidhya.religiousCategories}
+										/>
 									</TableCell>
 									<TableCell>
 										<span
@@ -521,7 +518,7 @@ export default function BalvidhyaTable(props: BalvidhyaTableProps) {
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={10} className="text-center py-6">
+								<TableCell colSpan={11} className="text-center py-6">
 									No videos or books found. Try a different search or add new
 									content.
 								</TableCell>

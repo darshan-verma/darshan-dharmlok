@@ -9,6 +9,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 import PanditjiTable, { Panditji } from "../components/panditji/PanditjiTable";
 import PanditjiForm from "../components/panditji/PanditjiForm";
 import Pagination from "../components/Pagination/Pagination";
@@ -18,6 +19,7 @@ interface PanditjiApiResponse {
 	id: string;
 	name: string;
 	category?: string;
+	religiousCategories?: string[];
 	phone: string;
 	email: string;
 	status: string;
@@ -83,16 +85,20 @@ export default function PanditjiPage() {
 				const data = await response.json();
 
 				// Transform the optimized API response to match Panditji structure
-				const mappedPanditjis = data.data.map((user: PanditjiApiResponse) => ({
-					id: user.id,
-					name: user.name || "",
-					category: user.category || "",
-					phone: user.phone || "",
-					email: user.email || "",
-					status: user.status || "Active",
-					rank: user.rank || "",
-					isApproved: user.kycApproved === 1 || user.kycApproved === true,
-				}));
+				const mappedPanditjis = data.data.map((user: PanditjiApiResponse) => {
+					const religiousCategories = resolveReligiousCategories(user);
+					return {
+						id: user.id,
+						name: user.name || "",
+						category: user.category || religiousCategories[0] || "",
+						religiousCategories,
+						phone: user.phone || "",
+						email: user.email || "",
+						status: user.status || "Active",
+						rank: user.rank || "",
+						isApproved: user.kycApproved === 1 || user.kycApproved === true,
+					};
+				});
 
 				setPanditjis(mappedPanditjis);
 
@@ -255,16 +261,20 @@ export default function PanditjiPage() {
 			const { data } = await fetchResponse.json();
 
 			// Transform the optimized API response
-			const mappedPanditjis = data.map((user: PanditjiApiResponse) => ({
-				id: user.id,
-				name: user.name || "",
-				category: user.category || "",
-				phone: user.phone || "",
-				email: user.email || "",
-				status: user.status || "Active",
-				rank: user.rank || "",
-				isApproved: user.kycApproved === 1 || user.kycApproved === true,
-			}));
+			const mappedPanditjis = data.map((user: PanditjiApiResponse) => {
+				const religiousCategories = resolveReligiousCategories(user);
+				return {
+					id: user.id,
+					name: user.name || "",
+					category: user.category || religiousCategories[0] || "",
+					religiousCategories,
+					phone: user.phone || "",
+					email: user.email || "",
+					status: user.status || "Active",
+					rank: user.rank || "",
+					isApproved: user.kycApproved === 1 || user.kycApproved === true,
+				};
+			});
 
 			setPanditjis(mappedPanditjis);
 

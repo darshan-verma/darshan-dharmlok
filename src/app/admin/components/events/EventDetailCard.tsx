@@ -7,6 +7,7 @@ import {
 	CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
 import { Event } from "./types";
 
 interface EventDetailCardProps {
@@ -45,8 +46,11 @@ export function EventDetailCard({
 			</CardHeader>
 			<CardContent className="space-y-3 p-4 pt-0">
 				<div className="flex items-center gap-2 text-sm">
-					<span className="font-medium">Category:</span>
-					<span>{event.category}</span>
+					<span className="font-medium">Religious:</span>
+					<ReligiousCategoryBadges
+						religiousCategories={event.religiousCategories}
+						category={event.category}
+					/>
 				</div>
 				<div className="flex items-center gap-2 text-sm">
 					<span className="font-medium">Type:</span>

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import EbookTable, { Ebook } from "../components/ebook/EbookTable";
 import EbookForm, { EbookFormData } from "../components/ebook/EbookForm";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 import Pagination from "../components/Pagination/Pagination";
 import { usePagination } from "../hooks/usePagination";
 
@@ -20,6 +21,7 @@ interface EbookApiData {
 	description?: string;
 	type?: string;
 	category?: string;
+	religiousCategories?: string[];
 	detail?: string;
 	status?: string;
 	bookFile?: string;
@@ -67,6 +69,7 @@ export default function EbookPage() {
 					description: item.description || "",
 					type: item.type || "",
 					category: item.category || "",
+					religiousCategories: resolveReligiousCategories(item),
 					detail: item.detail || "",
 					status: item.status || "Active",
 					bookFile: item.bookFile,

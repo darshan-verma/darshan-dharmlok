@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import {
+	mapWithReligiousCategories,
+	normalizeReligiousCategories,
+} from "@/lib/religious-categories";
 
 export interface Ebook {
 	id: string;
@@ -8,10 +12,11 @@ export interface Ebook {
 	description: string;
 	type: string;
 	category: string;
+	religiousCategories?: string[];
 	detail?: string;
 	status: string;
 	bookFile?: string;
-	bookCover?: string; // <-- add bookCover
+	bookCover?: string;
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -19,6 +24,43 @@ export interface Ebook {
 interface ErrorResponse {
 	error: string;
 	details?: unknown;
+}
+
+function mapEbook(e: {
+	id: string;
+	title: string;
+	date: Date;
+	description: string;
+	type: string;
+	category: string;
+	religiousCategories: string[];
+	detail: string | null;
+	status: string | null;
+	bookFile: string | null;
+	bookCover: string | null;
+	createdAt: Date;
+	updatedAt: Date;
+}): Ebook {
+	const withReligious = mapWithReligiousCategories({
+		category: e.category,
+		religiousCategories: e.religiousCategories,
+	});
+	return {
+		id: e.id,
+		title: e.title,
+		date:
+			e.date instanceof Date ? e.date.toISOString().slice(0, 10) : String(e.date),
+		description: e.description,
+		type: e.type,
+		category: e.category,
+		religiousCategories: withReligious.religiousCategories,
+		detail: e.detail ?? "",
+		status: e.status ?? "Active",
+		bookFile: e.bookFile ?? "",
+		bookCover: e.bookCover ?? "",
+		createdAt: e.createdAt?.toISOString?.() ?? "",
+		updatedAt: e.updatedAt?.toISOString?.() ?? "",
+	};
 }
 
 // GET /api/ebook/[id]
@@ -35,24 +77,7 @@ export async function GET(
 		if (!ebook) {
 			return NextResponse.json({ error: "Ebook not found" }, { status: 404 });
 		}
-		const result: Ebook = {
-			id: ebook.id,
-			title: ebook.title,
-			date:
-				ebook.date instanceof Date
-					? ebook.date.toISOString().slice(0, 10)
-					: ebook.date,
-			description: ebook.description,
-			type: ebook.type,
-			category: ebook.category,
-			detail: ebook.detail ?? "",
-			status: ebook.status ?? "Active",
-			bookFile: ebook.bookFile ?? "",
-			bookCover: ebook.bookCover ?? "", // <-- return bookCover
-			createdAt: ebook.createdAt?.toISOString?.() ?? "",
-			updatedAt: ebook.updatedAt?.toISOString?.() ?? "",
-		};
-		return NextResponse.json(result);
+		return NextResponse.json(mapEbook(ebook));
 	} catch (error) {
 		console.error("Error fetching ebook:", error);
 		return NextResponse.json(
@@ -74,32 +99,12 @@ export async function PUT(
 		}
 		const body = await req.json();
 
-		// Allow partial update for status only
 		if (body.status && Object.keys(body).length === 1) {
 			const ebook = await prisma.eBook.update({
 				where: { id },
-				data: {
-					status: body.status,
-				},
+				data: { status: body.status },
 			});
-			const result: Ebook = {
-				id: ebook.id,
-				title: ebook.title,
-				date:
-					ebook.date instanceof Date
-						? ebook.date.toISOString().slice(0, 10)
-						: ebook.date,
-				description: ebook.description,
-				type: ebook.type,
-				category: ebook.category,
-				detail: ebook.detail ?? "",
-				status: ebook.status ?? "Active",
-				bookFile: ebook.bookFile ?? "",
-				bookCover: ebook.bookCover ?? "", // <-- return bookCover
-				createdAt: ebook.createdAt?.toISOString?.() ?? "",
-				updatedAt: ebook.updatedAt?.toISOString?.() ?? "",
-			};
-			return NextResponse.json(result);
+			return NextResponse.json(mapEbook(ebook));
 		}
 
 		const {
@@ -111,8 +116,13 @@ export async function PUT(
 			detail,
 			status,
 			bookFile,
-			bookCover, // <-- accept bookCover
+			bookCover,
 		} = body;
+
+		const religiousCategories =
+			body.religiousCategories !== undefined
+				? normalizeReligiousCategories(body.religiousCategories)
+				: undefined;
 
 		const ebook = await prisma.eBook.update({
 			where: { id },
@@ -122,32 +132,15 @@ export async function PUT(
 				description,
 				type,
 				category,
+				...(religiousCategories !== undefined && { religiousCategories }),
 				detail: detail ?? "",
 				status,
 				bookFile: bookFile ?? "",
-				bookCover: bookCover ?? "", // <-- update bookCover
+				bookCover: bookCover ?? "",
 			},
 		});
 
-		const result: Ebook = {
-			id: ebook.id,
-			title: ebook.title,
-			date:
-				ebook.date instanceof Date
-					? ebook.date.toISOString().slice(0, 10)
-					: ebook.date,
-			description: ebook.description,
-			type: ebook.type,
-			category: ebook.category,
-			detail: ebook.detail ?? "",
-			status: ebook.status ?? "Active",
-			bookFile: ebook.bookFile ?? "",
-			bookCover: ebook.bookCover ?? "", // <-- return bookCover
-			createdAt: ebook.createdAt?.toISOString?.() ?? "",
-			updatedAt: ebook.updatedAt?.toISOString?.() ?? "",
-		};
-
-		return NextResponse.json(result);
+		return NextResponse.json(mapEbook(ebook));
 	} catch (error) {
 		console.error("Error updating ebook:", error);
 		return NextResponse.json(

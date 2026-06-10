@@ -10,6 +10,7 @@ import {
 	BalVidhyaViewer,
 	type BalVidhyaItem,
 } from "./components/BalVidhyaViewer";
+import { SimpleSearchFilterBar } from "@/components/shared/SimpleSearchFilterBar";
 
 const PAGE_SIZE = 24;
 
@@ -22,9 +23,41 @@ export default function BalVidhyaPage() {
 	const [viewerOpen, setViewerOpen] = useState(false);
 	const [page, setPage] = useState(0);
 	const [hasMore, setHasMore] = useState(true);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+	const [selectedReligiousCategory, setSelectedReligiousCategory] = useState("all");
 
 	const sentinelRef = useRef<HTMLDivElement | null>(null);
 	const isFetchingRef = useRef(false);
+
+	useEffect(() => {
+		const timer = window.setTimeout(() => {
+			setDebouncedSearchQuery(searchQuery.trim());
+		}, 300);
+		return () => window.clearTimeout(timer);
+	}, [searchQuery]);
+
+	const handleReligiousCategoryChange = (value: string) => {
+		setSelectedReligiousCategory(value);
+		setItems([]);
+		setPage(0);
+		setHasMore(true);
+	};
+
+	const handleSearchChange = (value: string) => {
+		setSearchQuery(value);
+		setItems([]);
+		setPage(0);
+		setHasMore(true);
+	};
+
+	const clearFilters = () => {
+		setSearchQuery("");
+		setSelectedReligiousCategory("all");
+		setItems([]);
+		setPage(0);
+		setHasMore(true);
+	};
 
 	const fetchPage = useCallback(async (nextPage: number) => {
 		// Prevent overlapping calls from observer + state updates.
@@ -40,7 +73,18 @@ export default function BalVidhyaPage() {
 			}
 			setError(null);
 
-			const res = await fetch(`/api/balvidhya?page=${nextPage}&limit=${PAGE_SIZE}`);
+			const params = new URLSearchParams({
+				page: String(nextPage),
+				limit: String(PAGE_SIZE),
+				status: "Active",
+			});
+			if (selectedReligiousCategory !== "all") {
+				params.set("religiousCategory", selectedReligiousCategory);
+			}
+			if (debouncedSearchQuery) {
+				params.set("search", debouncedSearchQuery);
+			}
+			const res = await fetch(`/api/balvidhya?${params.toString()}`);
 			if (!res.ok) throw new Error("Failed to fetch Bal Vidhya content");
 
 			const data = await res.json();
@@ -71,10 +115,13 @@ export default function BalVidhyaPage() {
 			}
 			isFetchingRef.current = false;
 		}
-	}, []);
+	}, [selectedReligiousCategory, debouncedSearchQuery]);
 
 	useEffect(() => {
-		fetchPage(1);
+		setItems([]);
+		setPage(0);
+		setHasMore(true);
+		void fetchPage(1);
 	}, [fetchPage]);
 
 	useEffect(() => {
@@ -141,6 +188,20 @@ export default function BalVidhyaPage() {
 			{/* Content cards */}
 			<section className="py-16 bg-[#f5f5f0]">
 				<div className="container mx-auto px-4 max-w-7xl">
+					<SimpleSearchFilterBar
+						page="bal-vidhya"
+						searchQuery={searchQuery}
+						onSearchChange={handleSearchChange}
+						searchPlaceholder="Search by name or description"
+						religiousValue={selectedReligiousCategory}
+						onReligiousChange={handleReligiousCategoryChange}
+						onClear={clearFilters}
+						resultText={
+							!loading && !error
+								? `${items.length} item${items.length !== 1 ? "s" : ""} loaded`
+								: undefined
+						}
+					/>
 					{loading ? (
 						<div className="flex flex-col items-center justify-center py-12">
 							<Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />

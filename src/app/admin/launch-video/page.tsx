@@ -12,6 +12,7 @@ import {
 import VideoTable, { Video } from "../components/launch-video/VideoTable";
 import VideoForm, { VideoFormData } from "../components/launch-video/VideoForm";
 import { Button } from "@/components/ui/button";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 export default function VideoPage() {
 	const [videos, setVideos] = useState<Video[]>([]);
@@ -33,7 +34,12 @@ export default function VideoPage() {
 				const response = await fetch(`/api/launch-video`);
 				if (!response.ok) throw new Error(`API error: ${response.status}`);
 				const data = await response.json();
-				setVideos(data.content || []);
+				setVideos(
+					(data.content || []).map((item: Video) => ({
+						...item,
+						religiousCategories: resolveReligiousCategories(item),
+					}))
+				);
 			} catch {
 				toast.error("Failed to load videos");
 			} finally {

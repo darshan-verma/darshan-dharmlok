@@ -1,3 +1,5 @@
+import type { ReligiousCategory } from "@/lib/religious-categories";
+
 export interface Ebook {
 	id: string;
 	title: string;
@@ -5,6 +7,7 @@ export interface Ebook {
 	description: string;
 	type: string;
 	category: string;
+	religiousCategories?: ReligiousCategory[];
 	detail?: string;
 	status: string;
 	bookFile?: string;

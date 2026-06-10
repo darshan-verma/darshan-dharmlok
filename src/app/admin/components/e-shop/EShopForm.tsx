@@ -21,6 +21,11 @@ import {
 	DialogTitle,
 	DialogDescription,
 } from "@/components/ui/dialog";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import {
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 interface EshopFormProps {
 	initialData?: Partial<Product>;
@@ -57,10 +62,15 @@ export default function EshopForm({
 	onCancel,
 	isLoading = false,
 }: EshopFormProps) {
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+	});
+
 	const [productData, setProductData] = useState<Omit<Product, "id">>({
 		name: initialData.name || "",
 		date: initialData.date || "",
 		category: Array.isArray(initialData.category) ? initialData.category : [],
+		religiousCategories: initialReligious,
 		pricePerUnit: initialData.pricePerUnit ?? 0,
 		availableQty: initialData.availableQty ?? 0,
 		detail: initialData.detail || "",
@@ -415,6 +425,12 @@ export default function EshopForm({
 					<p className="text-sm text-red-500">{formErrors.status}</p>
 				)}
 			</div>
+			<ReligiousCategoryPills
+				value={productData.religiousCategories || []}
+				onChange={(value: ReligiousCategory[]) =>
+					setProductData({ ...productData, religiousCategories: value })
+				}
+			/>
 			<div className="flex justify-end gap-2 mt-4">
 				<Button type="button" variant="outline" onClick={onCancel}>
 					Cancel

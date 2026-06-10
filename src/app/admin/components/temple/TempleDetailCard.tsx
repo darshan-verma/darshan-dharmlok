@@ -8,6 +8,9 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TempleData } from "./types";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import type { ReligiousCategory } from "@/lib/religious-categories";
 
 type Props = {
 	temple: TempleData | null;
@@ -22,7 +25,7 @@ export function TempleDetailCard({
 	isEditing,
 	errors,
 	onEdit,
-	setEditedTemple: _setEditedTemple,
+	setEditedTemple,
 }: Props) {
 	if (!temple) return null;
 
@@ -67,6 +70,23 @@ export function TempleDetailCard({
 				<div className="flex items-center gap-2 text-sm">
 					<span className="font-medium">Date:</span>
 					<span>{temple.date ? temple.date.split("T")[0] : "N/A"}</span>
+				</div>
+				<div className="space-y-2">
+					<span className="font-medium text-sm">Religious Category</span>
+					{isEditing && setEditedTemple ? (
+						<ReligiousCategoryPills
+							value={temple.religiousCategories || []}
+							onChange={(value: ReligiousCategory[]) =>
+								setEditedTemple((prev) =>
+									prev ? { ...prev, religiousCategories: value } : prev
+								)
+							}
+						/>
+					) : (
+						<ReligiousCategoryBadges
+							religiousCategories={temple.religiousCategories}
+						/>
+					)}
 				</div>
 				{isEditing && errors.name && (
 					<p className="text-sm text-red-500">{errors.name}</p>

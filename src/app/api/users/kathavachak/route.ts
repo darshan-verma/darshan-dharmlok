@@ -3,6 +3,14 @@ import prisma from "@/lib/prisma";
 import { uploadToS3 } from "@/lib/uploadToS3";
 import bcrypt from "bcrypt";
 import { UserWhereConditions } from "@/types/user";
+import {
+	applyUserReligiousFilter,
+	mapWithReligiousCategories,
+} from "@/lib/user-religious-api";
+import {
+	buildDualWriteReligiousFields,
+	hasReligiousCategoryInput,
+} from "@/lib/religious-categories";
 
 // GET - List all kathavachak users with optimized queries
 export async function GET(request: NextRequest) {
@@ -13,6 +21,7 @@ export async function GET(request: NextRequest) {
 		const search = searchParams.get("search") || "";
 		const state = searchParams.get("state") || "";
 		const status = searchParams.get("status") || "";
+		const religiousCategory = searchParams.get("religiousCategory");
 
 		const skip = (page - 1) * limit;
 
@@ -46,10 +55,11 @@ export async function GET(request: NextRequest) {
 			whereConditions.status = status;
 		}
 
-		// Get kathavachak users with selective fields and related data
+		const where = applyUserReligiousFilter(whereConditions, religiousCategory);
+
 		const [users, totalCount] = await Promise.all([
 			prisma.user.findMany({
-				where: whereConditions,
+				where,
 				select: {
 					id: true,
 					name: true,
@@ -61,6 +71,7 @@ export async function GET(request: NextRequest) {
 					description: true,
 					userType: true,
 					category: true,
+					religiousCategories: true,
 					status: true,
 					active: true,
 					kycApproved: true,
@@ -98,19 +109,16 @@ export async function GET(request: NextRequest) {
 				skip,
 				take: limit,
 			}),
-			prisma.user.count({
-				where: whereConditions,
-			}),
+			prisma.user.count({ where }),
 		]);
 
-		// Calculate pagination info
 		const totalPages = Math.ceil(totalCount / limit);
 		const hasNext = page < totalPages;
 		const hasPrev = page > 1;
 
 		return NextResponse.json({
 			success: true,
-			data: users,
+			data: users.map(mapWithReligiousCategories),
 			pagination: {
 				currentPage: page,
 				totalPages,
@@ -134,14 +142,30 @@ export async function POST(request: NextRequest) {
 	try {
 		const formData = await request.formData();
 
-		// Extract kathavachak-specific data
+		const religiousCategoriesRaw = formData.get("religiousCategories");
+		let religiousCategoriesInput: unknown;
+		if (religiousCategoriesRaw) {
+			try {
+				religiousCategoriesInput = JSON.parse(
+					religiousCategoriesRaw as string
+				);
+			} catch {
+				religiousCategoriesInput = religiousCategoriesRaw;
+			}
+		}
+		const { religiousCategories, category } = buildDualWriteReligiousFields({
+			religiousCategories: religiousCategoriesInput,
+			category: (formData.get("category") as string) || "",
+		});
+
 		const userData = {
 			name: formData.get("name") as string,
 			email: formData.get("email") as string,
 			phone: formData.get("phone") as string,
 			password: formData.get("password") as string,
 			userType: "kathavachak" as const,
-			category: (formData.get("category") as string) || "",
+			category: category ?? "",
+			religiousCategories,
 			bio: (formData.get("bio") as string) || "",
 			description: (formData.get("description") as string) || "",
 			status: (formData.get("status") as string) || "Active",
@@ -159,6 +183,13 @@ export async function POST(request: NextRequest) {
 		) {
 			return NextResponse.json(
 				{ error: "Name, email, phone, and password are required" },
+				{ status: 400 }
+			);
+		}
+
+		if (!hasReligiousCategoryInput(userData)) {
+			return NextResponse.json(
+				{ error: "Missing required fields: category or religiousCategories" },
 				{ status: 400 }
 			);
 		}

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import EshopTable, { Product } from "../components/e-shop/EShopTable";
 import EshopForm from "../components/e-shop/EShopForm";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 export default function EShopPage() {
 	const [products, setProducts] = useState<Product[]>([]);
@@ -33,7 +34,14 @@ export default function EShopPage() {
 				const response = await fetch("/api/e-shop");
 				if (!response.ok) throw new Error("Failed to fetch products");
 				const data = await response.json();
-				setProducts(data);
+				setProducts(
+					(Array.isArray(data) ? data : []).map((item: Product) => ({
+						...item,
+						religiousCategories: resolveReligiousCategories({
+							religiousCategories: item.religiousCategories,
+						}),
+					}))
+				);
 			} catch {
 				toast.error("Failed to load products");
 			} finally {

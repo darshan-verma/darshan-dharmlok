@@ -12,6 +12,7 @@ import AudioLibraryTable, {
 	AudioLibrary,
 } from "../components/audio-library/AudioLibraryTable";
 import AudioLibraryForm from "../components/audio-library/AudioLibraryForm";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 export default function AudioLibraryPage() {
 	const [audioLibraries, setAudioLibraries] = useState<AudioLibrary[]>([]);
@@ -34,7 +35,12 @@ export default function AudioLibraryPage() {
 				const response = await fetch("/api/audio-library");
 				if (!response.ok) throw new Error("Failed to fetch audio libraries");
 				const data = await response.json();
-				setAudioLibraries(data);
+				setAudioLibraries(
+					(Array.isArray(data) ? data : []).map((item: AudioLibrary) => ({
+						...item,
+						religiousCategories: resolveReligiousCategories(item),
+					}))
+				);
 			} catch {
 				toast.error("Failed to load audio libraries");
 			} finally {

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import {
+	matchesReligiousFilter,
+	normalizeReligiousCategories,
+} from "@/lib/religious-categories";
 
 export interface Video {
 	id: string;
@@ -7,6 +11,7 @@ export interface Video {
 	date: string;
 	description: string;
 	category: string;
+	religiousCategories?: string[];
 	type: string;
 	status: string;
 	videoFile?: string | null;
@@ -65,6 +70,10 @@ function toVideoApi(video: Record<string, unknown>): Video {
 		),
 		description: String(video.description ?? legacy.description ?? ""),
 		category: String(video.category ?? legacy.category ?? "Other"),
+		religiousCategories: normalizeReligiousCategories(
+			(video.religiousCategories as string[] | undefined) ??
+				(legacy.religiousCategories as string[] | undefined)
+		),
 		type: String(video.type ?? legacy.type ?? "MP4"),
 		status: String(video.status ?? legacy.status ?? "Draft"),
 		videoFile: String(
@@ -82,6 +91,7 @@ export async function GET(req: NextRequest) {
 		const { searchParams } = new URL(req.url);
 		const pageParam = searchParams.get("page");
 		const limitParam = searchParams.get("limit");
+		const religiousCategory = searchParams.get("religiousCategory");
 		const hasPaginationParams = pageParam !== null || limitParam !== null;
 
 		const page = parseInt(pageParam || "1", 10);
@@ -123,7 +133,11 @@ export async function GET(req: NextRequest) {
 			Array.isArray(rawResult) ? rawResult : []
 		) as unknown as Record<string, unknown>[];
 
-		const normalizedVideos = rawVideos.map(toVideoApi);
+		const normalizedVideos = rawVideos
+			.map(toVideoApi)
+			.filter((video) =>
+				matchesReligiousFilter(video.religiousCategories, religiousCategory)
+			);
 		const total = normalizedVideos.length;
 		const content = hasPaginationParams
 			? normalizedVideos.slice(skip, skip + safeLimit)
@@ -201,12 +215,17 @@ export async function POST(req: NextRequest) {
 			source: body.source, // Use source from body
 		});
 
+		const religiousCategories = normalizeReligiousCategories(
+			body.religiousCategories
+		);
+
 		const newVideo = await prisma.video.create({
 			data: {
 				title,
 				date: new Date(date),
 				description,
 				category,
+				religiousCategories,
 				type,
 				status,
 				videoFile,

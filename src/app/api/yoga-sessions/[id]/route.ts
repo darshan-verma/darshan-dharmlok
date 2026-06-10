@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import {
+	mapWithReligiousCategories,
+	normalizeReligiousCategories,
+} from "@/lib/religious-categories";
 
 export interface YogaSession {
 	id: string;
@@ -17,6 +21,7 @@ export interface YogaSession {
 	price?: number;
 	duration?: number;
 	capacity?: number;
+	religiousCategories?: string[];
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -68,6 +73,10 @@ export async function GET(req: NextRequest) {
 			price: session.price || undefined,
 			duration: session.duration || undefined,
 			capacity: session.capacity || undefined,
+			religiousCategories: mapWithReligiousCategories({
+				category: null,
+				religiousCategories: session.religiousCategories,
+			}).religiousCategories,
 			createdAt: session.createdAt?.toISOString?.() ?? "",
 			updatedAt: session.updatedAt?.toISOString?.() ?? "",
 		};
@@ -138,6 +147,7 @@ export async function PUT(req: NextRequest) {
 			price?: number;
 			duration?: number;
 			capacity?: number;
+			religiousCategories?: string[];
 		} = {};
 		if (trainerId !== undefined) updateData.trainerId = trainerId;
 		if (name !== undefined) updateData.name = name;
@@ -152,6 +162,11 @@ export async function PUT(req: NextRequest) {
 		if (price !== undefined) updateData.price = price;
 		if (duration !== undefined) updateData.duration = duration;
 		if (capacity !== undefined) updateData.capacity = capacity;
+		if (body.religiousCategories !== undefined) {
+			updateData.religiousCategories = normalizeReligiousCategories(
+				body.religiousCategories
+			);
+		}
 
 		const updatedSession = await prisma.yogaSession.update({
 			where: { id },
@@ -184,6 +199,10 @@ export async function PUT(req: NextRequest) {
 			price: updatedSession.price || undefined,
 			duration: updatedSession.duration || undefined,
 			capacity: updatedSession.capacity || undefined,
+			religiousCategories: mapWithReligiousCategories({
+				category: null,
+				religiousCategories: updatedSession.religiousCategories,
+			}).religiousCategories,
 			createdAt: updatedSession.createdAt?.toISOString?.() ?? "",
 			updatedAt: updatedSession.updatedAt?.toISOString?.() ?? "",
 		};

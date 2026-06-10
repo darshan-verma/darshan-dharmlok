@@ -6,6 +6,7 @@ import {
 	CardContent,
 } from "@/components/ui/card";
 import Image from "next/image";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
 import { Ebook } from "./types";
 
 interface EbookInfoCardProps {
@@ -39,6 +40,14 @@ export default function EbookInfoCard({ ebook }: EbookInfoCardProps) {
 						<span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium">
 							{ebook.category}
 						</span>
+					</div>
+					<div className="space-y-2">
+						<h3 className="text-sm font-medium text-muted-foreground">
+							Religious Category
+						</h3>
+						<ReligiousCategoryBadges
+							religiousCategories={ebook.religiousCategories}
+						/>
 					</div>
 					<div className="space-y-2">
 						<h3 className="text-sm font-medium text-muted-foreground">

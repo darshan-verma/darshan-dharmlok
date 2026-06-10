@@ -1,9 +1,12 @@
+import type { ReligiousCategory } from "@/lib/religious-categories";
+
 export type BalvidhyaData = {
 	_id: string;
 	name: string;
 	description: string;
 	type: string;
 	category: string;
+	religiousCategories?: ReligiousCategory[];
 	status: string;
 	trending: boolean;
 	thumbnailUrl?: string;

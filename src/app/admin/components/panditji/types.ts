@@ -42,6 +42,7 @@ export interface Panditji {
 	bio?: string;
 	coverImageUrl?: string;
 	category?: string;
+	religiousCategories?: string[];
 	addresses?: Address[];
 	social?: number;
 	active?: number;

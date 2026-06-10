@@ -13,6 +13,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { YogaSession } from "./BookYogaTable";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import {
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 interface Trainer {
 	id: string;
@@ -59,6 +64,10 @@ export default function BookYogaForm({
 	onCancel,
 	isLoading = false,
 }: BookYogaFormProps) {
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+	});
+
 	const [sessionData, setSessionData] = useState<
 		Omit<YogaSession, "id" | "createdAt" | "updatedAt" | "trainerName">
 	>({
@@ -67,6 +76,7 @@ export default function BookYogaForm({
 		date: initialData.date || new Date(),
 		serviceType: initialData.serviceType || "",
 		description: initialData.description || "",
+		religiousCategories: initialReligious,
 		status: initialData.status || "Active",
 		bannerImage: initialData.bannerImage || "",
 		coverImage: initialData.coverImage || "",
@@ -178,7 +188,7 @@ export default function BookYogaForm({
 
 	const handleInputChange = (
 		field: keyof typeof sessionData,
-		value: string | Date | number
+		value: string | Date | number | ReligiousCategory[]
 	) => {
 		setSessionData({ ...sessionData, [field]: value });
 
@@ -364,6 +374,11 @@ export default function BookYogaForm({
 					</SelectContent>
 				</Select>
 			</div>
+
+			<ReligiousCategoryPills
+				value={sessionData.religiousCategories || []}
+				onChange={(value) => handleInputChange("religiousCategories", value)}
+			/>
 
 			<div className="flex justify-end gap-2 mt-4">
 				<Button type="button" variant="outline" onClick={onCancel}>

@@ -13,6 +13,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { PlayCircle, Trash2 } from "lucide-react";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import {
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 export interface VideoFormData {
 	title: string;
@@ -22,6 +27,7 @@ export interface VideoFormData {
 	type: string;
 	status: string;
 	videoFile?: string | null;
+	religiousCategories?: ReligiousCategory[];
 }
 
 interface VideoFormProps {
@@ -57,6 +63,10 @@ export default function VideoForm({
 	isLoading = false,
 	mode = "add",
 }: VideoFormProps) {
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+	});
+
 	const [videoData, setVideoData] = useState<VideoFormData>({
 		title: initialData.title || "",
 		date: initialData.date || "",
@@ -65,6 +75,7 @@ export default function VideoForm({
 		type: initialData.type || "",
 		status: initialData.status || "Draft",
 		videoFile: null,
+		religiousCategories: initialReligious,
 	});
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 	const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -90,6 +101,9 @@ export default function VideoForm({
 			type: initialData.type || "",
 			status: initialData.status || "Draft",
 			videoFile: null,
+			religiousCategories: resolveReligiousCategories({
+				religiousCategories: initialData.religiousCategories,
+			}),
 		});
 		setVideoPreviewUrl(null);
 		setVideoFileName(null);
@@ -100,6 +114,7 @@ export default function VideoForm({
 		initialData.category,
 		initialData.type,
 		initialData.status,
+		initialData.religiousCategories,
 	]);
 
 	const validateForm = (data: VideoFormData) => {
@@ -402,6 +417,12 @@ export default function VideoForm({
 					<p className="text-sm text-red-500">{formErrors.status}</p>
 				)}
 			</div>
+			<ReligiousCategoryPills
+				value={videoData.religiousCategories || []}
+				onChange={(value) =>
+					setVideoData({ ...videoData, religiousCategories: value })
+				}
+			/>
 			<div className="flex justify-end gap-2 mt-4">
 				<Button type="button" variant="outline" onClick={onCancel}>
 					Cancel

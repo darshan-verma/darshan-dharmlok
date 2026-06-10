@@ -3,6 +3,10 @@ import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import s3Client from "@/lib/s3Client";
+import {
+	mapWithReligiousCategories,
+	resolveUserReligiousUpdate,
+} from "@/lib/user-religious-api";
 
 // Helper to delete S3 objects
 async function deleteS3Media(mediaUrls: string[]) {
@@ -57,6 +61,7 @@ export async function GET(
 				phone: true,
 				userType: true,
 				category: true,
+				religiousCategories: true,
 				rank: true,
 				bio: true,
 				profileImageUrl: true,
@@ -130,7 +135,7 @@ export async function GET(
 			);
 		}
 
-		return NextResponse.json(dharmguru);
+		return NextResponse.json(mapWithReligiousCategories(dharmguru));
 	} catch (error) {
 		console.error("Error fetching dharmguru:", error);
 		return NextResponse.json(
@@ -178,7 +183,7 @@ export async function PUT(
 			...(data.name !== undefined && { name: data.name }),
 			...(data.email !== undefined && { email: data.email }),
 			...(data.phone !== undefined && { phone: data.phone }),
-			...(data.category !== undefined && { category: data.category }),
+			...(resolveUserReligiousUpdate(data) ?? {}),
 			...(data.rank !== undefined && { rank: data.rank }),
 			...(data.bio !== undefined && { bio: data.bio }),
 			...(data.profileImageUrl !== undefined && {
@@ -260,6 +265,7 @@ export async function PUT(
 				phone: true,
 				userType: true,
 				category: true,
+				religiousCategories: true,
 				rank: true,
 				bio: true,
 				profileImageUrl: true,
@@ -284,7 +290,7 @@ export async function PUT(
 			},
 		});
 
-		return NextResponse.json(updatedDharmguru);
+		return NextResponse.json(mapWithReligiousCategories(updatedDharmguru));
 	} catch (error) {
 		console.error("Error updating dharmguru:", error);
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { normalizeReligiousCategories } from "@/lib/religious-categories";
 
 export interface YogaImage {
 	url: string;
@@ -122,6 +123,7 @@ export async function PUT(req: NextRequest) {
 			images?: Prisma.InputJsonValue;
 			videos?: string[];
 			coverImage?: string;
+			religiousCategories?: string[];
 		} = {};
 		if (name !== undefined) updateData.name = name;
 		if (date !== undefined) updateData.date = new Date(date);
@@ -131,6 +133,11 @@ export async function PUT(req: NextRequest) {
 			updateData.images = images as unknown as Prisma.InputJsonValue;
 		if (videos !== undefined) updateData.videos = videos;
 		if (coverImage !== undefined) updateData.coverImage = coverImage;
+		if (body.religiousCategories !== undefined) {
+			updateData.religiousCategories = normalizeReligiousCategories(
+				body.religiousCategories
+			);
+		}
 
 		const updatedYoga = await prisma.yoga.update({
 			where: { id },

@@ -1,3 +1,5 @@
+import type { ReligiousCategory } from "@/lib/religious-categories";
+
 export type Faq = {
 	id?: string;
 	question: string;
@@ -10,6 +12,7 @@ export type TempleData = {
 	translationStatus?: "none" | "partial" | "complete";
 	name: string;
 	date: string;
+	religiousCategories?: ReligiousCategory[];
 	state: string;
 	city: string;
 	status: string;

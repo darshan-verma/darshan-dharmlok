@@ -7,6 +7,7 @@ import {
 	prepareTranslationsForSave,
 } from "@/lib/content-api";
 import { getTranslation } from "@/lib/content-lang";
+import { normalizeReligiousCategories } from "@/lib/religious-categories";
 
 export async function GET(req: NextRequest) {
 	try {
@@ -14,9 +15,16 @@ export async function GET(req: NextRequest) {
 		const locale = parseLangParam(searchParams.get("lang")) ?? "en";
 		const page = parseInt(searchParams.get("page") || "1", 10);
 		const limit = parseInt(searchParams.get("limit") || "50", 10);
+		const religiousCategory = searchParams.get("religiousCategory");
+		const search = searchParams.get("search")?.trim();
 		const skip = (page - 1) * limit;
 
-		const { rows: blogs, total } = await findBlogs({ skip, limit });
+		const { rows: blogs, total } = await findBlogs({
+			skip,
+			limit,
+			religiousCategory: religiousCategory ?? undefined,
+			search: search || undefined,
+		});
 
 		const content = blogs.map((b) => formatBlogResponse(b, locale));
 
@@ -64,6 +72,10 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		const religiousCategories = normalizeReligiousCategories(
+			body.religiousCategories
+		);
+
 		const newBlog = await prisma.blog.create({
 			data: {
 				translations: translations as object,
@@ -71,6 +83,7 @@ export async function POST(req: NextRequest) {
 				coverImage: body.coverImage || null,
 				bannerImage: body.bannerImage || null,
 				status: body.status,
+				religiousCategories,
 			},
 		});
 

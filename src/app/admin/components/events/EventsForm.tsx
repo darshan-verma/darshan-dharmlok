@@ -11,12 +11,19 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import {
+	buildDualWriteReligiousFields,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 export interface Event {
 	id: string;
 	title: string;
 	date: string;
 	category: string;
+	religiousCategories?: ReligiousCategory[];
 	fromDate: string;
 	toDate: string;
 	type: string;
@@ -32,8 +39,6 @@ interface EventsFormProps {
 	onCancel: () => void;
 	isLoading?: boolean;
 }
-
-const eventCategories = ["Sanatan", "Buddhism", "Sikh", "Jain"];
 
 const eventTypes = ["Free", "Subscription"];
 
@@ -56,10 +61,16 @@ export default function EventsForm({
 	onCancel,
 	isLoading = false,
 }: EventsFormProps) {
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+		category: initialData.category,
+	});
+
 	const [eventData, setEventData] = useState<Omit<Event, "id">>({
 		title: initialData.title || "",
 		date: initialData.date || "",
-		category: initialData.category || "",
+		category: initialData.category || initialReligious[0] || "",
+		religiousCategories: initialReligious,
 		fromDate: initialData.fromDate || "",
 		toDate: initialData.toDate || "",
 		type: initialData.type || "",
@@ -72,7 +83,9 @@ export default function EventsForm({
 		const errors: Record<string, string> = {};
 		if (!data.title?.trim()) errors.title = "Title is required";
 		if (!data.date?.trim()) errors.date = "Date is required";
-		if (!data.category) errors.category = "Category is required";
+		if (!data.religiousCategories || data.religiousCategories.length === 0) {
+			errors.religiousCategories = "Select at least one religious category";
+		}
 		if (!data.fromDate?.trim()) errors.fromDate = "From date is required";
 		if (!data.toDate?.trim()) errors.toDate = "To date is required";
 		if (!data.type) errors.type = "Type is required";
@@ -85,7 +98,14 @@ export default function EventsForm({
 		setFormErrors(errors);
 		if (Object.keys(errors).length > 0) return;
 		try {
-			await onSubmit(eventData);
+			const { religiousCategories, category } = buildDualWriteReligiousFields({
+				religiousCategories: eventData.religiousCategories,
+			});
+			await onSubmit({
+				...eventData,
+				religiousCategories,
+				category: category || "",
+			});
 		} catch (error) {
 			console.error("Error in form submission:", error);
 		}
@@ -94,6 +114,20 @@ export default function EventsForm({
 	const handleInputChange = (field: keyof typeof eventData, value: string) => {
 		setEventData({ ...eventData, [field]: value });
 		if (formErrors[field]) setFormErrors({ ...formErrors, [field]: "" });
+	};
+
+	const handleReligiousChange = (value: ReligiousCategory[]) => {
+		const { religiousCategories, category } = buildDualWriteReligiousFields({
+			religiousCategories: value,
+		});
+		setEventData({
+			...eventData,
+			religiousCategories,
+			category: category || "",
+		});
+		if (formErrors.religiousCategories) {
+			setFormErrors({ ...formErrors, religiousCategories: "" });
+		}
 	};
 
 	return (
@@ -124,30 +158,14 @@ export default function EventsForm({
 					<p className="text-sm text-red-500">{formErrors.date}</p>
 				)}
 			</div>
-			<div className="space-y-2">
-				<Label htmlFor="category">Category *</Label>
-				<Select
-					value={eventData.category}
-					onValueChange={(value) => handleInputChange("category", value)}
-				>
-					<SelectTrigger
-						id="category"
-						className={formErrors.category ? "border-red-500" : ""}
-					>
-						<SelectValue placeholder="Select category" />
-					</SelectTrigger>
-					<SelectContent>
-						{eventCategories.map((category) => (
-							<SelectItem key={category} value={category}>
-								{category}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				{formErrors.category && (
-					<p className="text-sm text-red-500">{formErrors.category}</p>
-				)}
-			</div>
+			<ReligiousCategoryPills
+				value={eventData.religiousCategories || []}
+				onChange={handleReligiousChange}
+				allowEmpty={false}
+			/>
+			{formErrors.religiousCategories && (
+				<p className="text-sm text-red-500">{formErrors.religiousCategories}</p>
+			)}
 			<div className="space-y-2">
 				<Label htmlFor="fromDate">From Date *</Label>
 				<Input

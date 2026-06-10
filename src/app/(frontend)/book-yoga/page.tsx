@@ -8,6 +8,7 @@ import Footer from "@/components/landing/Footer";
 import { ProfileCard } from "@/components/ui/profile-card";
 import { PageBanner } from "@/components/shared/PageBanner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { SimpleSearchFilterBar } from "@/components/shared/SimpleSearchFilterBar";
 
 interface FreeYoga {
 	id: string;
@@ -43,6 +44,21 @@ export default function BookYogaPage() {
 	const [errorFree, setErrorFree] = useState<string | null>(null);
 	const [errorPaid, setErrorPaid] = useState<string | null>(null);
 	const [bookingId, setBookingId] = useState<string | null>(null);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+	const [selectedReligiousCategory, setSelectedReligiousCategory] = useState("all");
+
+	useEffect(() => {
+		const timer = window.setTimeout(() => {
+			setDebouncedSearchQuery(searchQuery.trim());
+		}, 300);
+		return () => window.clearTimeout(timer);
+	}, [searchQuery]);
+
+	const clearFilters = () => {
+		setSearchQuery("");
+		setSelectedReligiousCategory("all");
+	};
 
 	// Fetch free yoga sessions
 	useEffect(() => {
@@ -51,13 +67,23 @@ export default function BookYogaPage() {
 				setLoadingFree(true);
 				setErrorFree(null);
 
-				// Fetch all pages to get all free yoga sessions
 				let allSessions: FreeYogaApiItem[] = [];
 				let page = 1;
 				let hasMore = true;
 
 				while (hasMore) {
-					const response = await fetch(`/api/yoga?page=${page}&limit=100`);
+					const params = new URLSearchParams({
+						page: String(page),
+						limit: "100",
+						status: "Active",
+					});
+					if (selectedReligiousCategory !== "all") {
+						params.set("religiousCategory", selectedReligiousCategory);
+					}
+					if (debouncedSearchQuery) {
+						params.set("search", debouncedSearchQuery);
+					}
+					const response = await fetch(`/api/yoga?${params.toString()}`);
 					if (!response.ok) {
 						throw new Error("Failed to fetch free yoga sessions");
 					}
@@ -98,7 +124,7 @@ export default function BookYogaPage() {
 		};
 
 		fetchFreeSessions();
-	}, []);
+	}, [selectedReligiousCategory, debouncedSearchQuery]);
 
 	// Fetch paid yoga sessions
 	useEffect(() => {
@@ -107,7 +133,18 @@ export default function BookYogaPage() {
 				setLoadingPaid(true);
 				setErrorPaid(null);
 
-				const response = await fetch("/api/yoga-sessions?page=1&limit=1000");
+				const params = new URLSearchParams({
+					page: "1",
+					limit: "1000",
+					status: "Active",
+				});
+				if (selectedReligiousCategory !== "all") {
+					params.set("religiousCategory", selectedReligiousCategory);
+				}
+				if (debouncedSearchQuery) {
+					params.set("search", debouncedSearchQuery);
+				}
+				const response = await fetch(`/api/yoga-sessions?${params.toString()}`);
 				if (!response.ok) {
 					throw new Error("Failed to fetch paid yoga sessions");
 				}
@@ -143,7 +180,7 @@ export default function BookYogaPage() {
 		};
 
 		fetchPaidSessions();
-	}, []);
+	}, [selectedReligiousCategory, debouncedSearchQuery]);
 
 	return (
 		<div className="min-h-screen bg-white">
@@ -160,6 +197,15 @@ export default function BookYogaPage() {
 			{/* Yoga Sessions Cards Section with Tabs */}
 			<section className="py-16 bg-[#f5f5f0]">
 				<div className="container mx-auto px-4 max-w-7xl">
+					<SimpleSearchFilterBar
+						page="book-yoga"
+						searchQuery={searchQuery}
+						onSearchChange={setSearchQuery}
+						searchPlaceholder="Search yoga sessions by name"
+						religiousValue={selectedReligiousCategory}
+						onReligiousChange={setSelectedReligiousCategory}
+						onClear={clearFilters}
+					/>
 					<Tabs
 						value={activeTab}
 						onValueChange={(value) => setActiveTab(value as "free" | "paid")}

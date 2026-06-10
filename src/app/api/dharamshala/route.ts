@@ -8,6 +8,7 @@ import {
 	prepareTranslationsForSave,
 } from "@/lib/content-api";
 import { flattenDharamshalaWithFaqs } from "@/lib/localize-document";
+import { normalizeReligiousCategories } from "@/lib/religious-categories";
 
 export async function GET(req: NextRequest) {
 	try {
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
 		const stateParam = searchParams.get("state")?.trim();
 		const cityParam = searchParams.get("city")?.trim();
 		const statusParam = searchParams.get("status")?.trim();
+		const religiousCategoryParam = searchParams.get("religiousCategory")?.trim();
 		const filtersOnly = searchParams.get("filtersOnly") === "true";
 
 		const parsedPage = Number(pageParam ?? "1");
@@ -35,6 +37,7 @@ export async function GET(req: NextRequest) {
 				status: statusParam,
 				state: stateParam,
 				city: cityParam,
+				religiousCategory: religiousCategoryParam,
 			});
 
 			const normalizedLocations = rows
@@ -72,6 +75,7 @@ export async function GET(req: NextRequest) {
 			state: stateParam,
 			city: cityParam,
 			status: statusParam,
+			religiousCategory: religiousCategoryParam,
 			skip,
 			limit: take,
 		});
@@ -133,6 +137,10 @@ export async function POST(req: NextRequest) {
 			| { question: string; answer: string; translations?: unknown }[]
 			| undefined;
 
+		const religiousCategories = normalizeReligiousCategories(
+			body.religiousCategories
+		);
+
 		const dharamshala = await prisma.dharamshala.create({
 			data: {
 				translations: translations as object,
@@ -141,6 +149,7 @@ export async function POST(req: NextRequest) {
 				state,
 				city,
 				status,
+				religiousCategories,
 				imageFile: normalizeArrayInput(body.imageFile),
 				videoFile: normalizeArrayInput(body.videoFile),
 				bannerImage: body.bannerImage,

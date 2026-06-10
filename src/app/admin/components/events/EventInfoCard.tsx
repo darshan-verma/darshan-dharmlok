@@ -19,9 +19,14 @@ import {
 } from "@/components/ui/select";
 import { Save, Trash2 } from "lucide-react";
 import { toast } from "@/lib/toast";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import {
+	buildDualWriteReligiousFields,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 import {
 	Event,
-	eventCategories,
 	eventTypes,
 	statusOptions,
 	extractGoogleMapsSrc,
@@ -350,33 +355,29 @@ export function EventInfoCard({
 						</div>
 
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div className="space-y-2">
-								<Label htmlFor="category">Category *</Label>
-								<Select
-									value={editedEvent.category}
-									onValueChange={(value) =>
+							<div className="space-y-2 md:col-span-2">
+								<ReligiousCategoryPills
+									value={resolveReligiousCategories({
+										religiousCategories: editedEvent.religiousCategories,
+										category: editedEvent.category,
+									})}
+									onChange={(value: ReligiousCategory[]) => {
+										const { religiousCategories, category } =
+											buildDualWriteReligiousFields({
+												religiousCategories: value,
+											});
 										setEditedEvent({
 											...editedEvent,
-											category: value,
-										})
-									}
-								>
-									<SelectTrigger
-										id="category"
-										className={errors.category ? "border-red-500" : ""}
-									>
-										<SelectValue placeholder="Select category" />
-									</SelectTrigger>
-									<SelectContent>
-										{eventCategories.map((cat) => (
-											<SelectItem key={cat} value={cat}>
-												{cat}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-								{errors.category && (
-									<p className="text-sm text-red-500">{errors.category}</p>
+											religiousCategories,
+											category: category || "",
+										});
+									}}
+									allowEmpty={false}
+								/>
+								{errors.religiousCategories && (
+									<p className="text-sm text-red-500">
+										{errors.religiousCategories}
+									</p>
 								)}
 							</div>
 

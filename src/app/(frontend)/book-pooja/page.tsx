@@ -16,6 +16,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
 
 const PAGE_SIZE = 24;
 
@@ -46,6 +47,7 @@ export default function BookPoojaPage() {
 	const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 	const [selectedStatus, setSelectedStatus] = useState("Active");
 	const [selectedPriceRange, setSelectedPriceRange] = useState("all");
+	const [selectedReligiousCategory, setSelectedReligiousCategory] = useState("all");
 	const [statusOptions, setStatusOptions] = useState<string[]>([]);
 
 	const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -53,8 +55,9 @@ export default function BookPoojaPage() {
 	const activeFilterKeyRef = useRef("");
 
 	const activeFilterKey = useMemo(
-		() => `${debouncedSearchQuery}|${selectedStatus}|${selectedPriceRange}`,
-		[debouncedSearchQuery, selectedStatus, selectedPriceRange]
+		() =>
+			`${debouncedSearchQuery}|${selectedStatus}|${selectedPriceRange}|${selectedReligiousCategory}`,
+		[debouncedSearchQuery, selectedStatus, selectedPriceRange, selectedReligiousCategory]
 	);
 	const availableStatusOptions = useMemo(() => {
 		return Array.from(new Set(["Active", ...statusOptions])).sort((a, b) =>
@@ -78,6 +81,7 @@ export default function BookPoojaPage() {
 		setSearchQuery("");
 		setSelectedStatus("Active");
 		setSelectedPriceRange("all");
+		setSelectedReligiousCategory("all");
 	}, []);
 
 	const fetchFilterOptions = useCallback(async () => {
@@ -121,6 +125,9 @@ export default function BookPoojaPage() {
 				}
 				if (selectedStatus !== "all") {
 					params.set("status", selectedStatus);
+				}
+				if (selectedReligiousCategory !== "all") {
+					params.set("religiousCategory", selectedReligiousCategory);
 				}
 
 				switch (selectedPriceRange) {
@@ -201,7 +208,13 @@ export default function BookPoojaPage() {
 				isFetchingRef.current = false;
 			}
 		},
-		[activeFilterKey, debouncedSearchQuery, selectedPriceRange, selectedStatus]
+		[
+			activeFilterKey,
+			debouncedSearchQuery,
+			selectedPriceRange,
+			selectedStatus,
+			selectedReligiousCategory,
+		]
 	);
 
 	useEffect(() => {
@@ -293,6 +306,17 @@ export default function BookPoojaPage() {
 									<SelectItem value="above-5000">Above Rs. 5000</SelectItem>
 								</SelectContent>
 							</Select>
+							<ReligiousCategoryFilter
+								variant="select"
+								hideLabel
+								allLabel="All traditions"
+								value={selectedReligiousCategory}
+								onChange={setSelectedReligiousCategory}
+								page="book-pooja"
+								className="w-full sm:w-[200px]"
+								selectClassName="h-11 w-full rounded-xl border-white/60 bg-white/55 text-[#243142] data-[placeholder]:text-[#738295]"
+							/>
+
 							<Button
 								type="button"
 								variant="outline"

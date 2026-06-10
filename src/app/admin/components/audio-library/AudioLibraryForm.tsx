@@ -12,6 +12,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { AudioLibrary } from "./AudioLibraryTable";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
+import {
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 interface AudioLibraryFormProps {
 	initialData?: Partial<AudioLibrary>;
@@ -45,6 +50,10 @@ export default function AudioLibraryForm({
 	onCancel,
 	isLoading = false,
 }: AudioLibraryFormProps) {
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+	});
+
 	const [audioLibraryData, setAudioLibraryData] = useState<
 		Omit<AudioLibrary, "id">
 	>({
@@ -52,6 +61,7 @@ export default function AudioLibraryForm({
 		date: initialData.date || "",
 		category: initialData.category || "",
 		status: initialData.status || "Active",
+		religiousCategories: initialReligious,
 	});
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -77,7 +87,7 @@ export default function AudioLibraryForm({
 
 	const handleInputChange = (
 		field: keyof typeof audioLibraryData,
-		value: string
+		value: string | ReligiousCategory[]
 	) => {
 		setAudioLibraryData({ ...audioLibraryData, [field]: value });
 		if (formErrors[field]) setFormErrors({ ...formErrors, [field]: "" });
@@ -156,6 +166,10 @@ export default function AudioLibraryForm({
 					<p className="text-sm text-red-500">{formErrors.status}</p>
 				)}
 			</div>
+			<ReligiousCategoryPills
+				value={audioLibraryData.religiousCategories || []}
+				onChange={(value) => handleInputChange("religiousCategories", value)}
+			/>
 			<div className="flex justify-end gap-2 mt-4">
 				<Button type="button" variant="outline" onClick={onCancel}>
 					Cancel

@@ -6,6 +6,7 @@ import {
 	prepareTranslationsForSave,
 	rawFindById,
 } from "@/lib/content-api";
+import { normalizeReligiousCategories } from "@/lib/religious-categories";
 
 function getBlogIdFromRequest(req: NextRequest): string | null {
 	const url = new URL(req.url);
@@ -94,6 +95,13 @@ export async function PUT(req: NextRequest) {
 						}
 					: {}),
 				...(body.status !== undefined ? { status: body.status } : {}),
+				...(body.religiousCategories !== undefined
+					? {
+							religiousCategories: normalizeReligiousCategories(
+								body.religiousCategories
+							),
+						}
+					: {}),
 			},
 		});
 

@@ -15,6 +15,7 @@ import BookYogaTable, {
 import BookYogaForm from "../components/book-yoga/BookYogaForm";
 import Pagination from "../components/Pagination/Pagination";
 import { usePagination } from "../hooks/usePagination";
+import { resolveReligiousCategories } from "@/lib/religious-categories";
 
 interface YogaSessionApiResponse {
 	id: string;
@@ -25,6 +26,7 @@ interface YogaSessionApiResponse {
 	serviceType: string;
 	description: string;
 	status: string;
+	religiousCategories?: string[];
 	bannerImage?: string;
 	coverImage?: string;
 	images: string[];
@@ -103,6 +105,7 @@ export default function BookYogaPage() {
 						serviceType: session.serviceType || "",
 						description: session.description || "",
 						status: session.status || "Active",
+						religiousCategories: resolveReligiousCategories(session),
 						bannerImage: session.bannerImage,
 						coverImage: session.coverImage,
 						images: session.images || [],
@@ -221,6 +224,7 @@ export default function BookYogaPage() {
 				serviceType: session.serviceType || "",
 				description: session.description || "",
 				status: session.status || "Active",
+				religiousCategories: resolveReligiousCategories(session),
 				bannerImage: session.bannerImage,
 				coverImage: session.coverImage,
 				images: session.images || [],

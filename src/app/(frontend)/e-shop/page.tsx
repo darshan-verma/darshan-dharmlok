@@ -16,6 +16,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
 
 const PAGE_SIZE = 24;
 
@@ -43,6 +44,7 @@ export default function EShopPage() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 	const [selectedCategory, setSelectedCategory] = useState("all");
+	const [selectedReligiousCategory, setSelectedReligiousCategory] = useState("all");
 	const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
 
 	const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -50,8 +52,8 @@ export default function EShopPage() {
 	const activeFilterKeyRef = useRef("");
 
 	const activeFilterKey = useMemo(
-		() => `${debouncedSearchQuery}|${selectedCategory}`,
-		[debouncedSearchQuery, selectedCategory]
+		() => `${debouncedSearchQuery}|${selectedCategory}|${selectedReligiousCategory}`,
+		[debouncedSearchQuery, selectedCategory, selectedReligiousCategory]
 	);
 
 	useEffect(() => {
@@ -69,6 +71,7 @@ export default function EShopPage() {
 	const clearFilters = useCallback(() => {
 		setSearchQuery("");
 		setSelectedCategory("all");
+		setSelectedReligiousCategory("all");
 	}, []);
 
 	const fetchFilterOptions = useCallback(async () => {
@@ -115,6 +118,9 @@ export default function EShopPage() {
 				if (selectedCategory !== "all") {
 					params.set("category", selectedCategory);
 				}
+				if (selectedReligiousCategory !== "all") {
+					params.set("religiousCategory", selectedReligiousCategory);
+				}
 
 				const response = await fetch(`/api/e-shop?${params.toString()}`);
 				if (!response.ok) throw new Error("Failed to fetch products");
@@ -153,7 +159,7 @@ export default function EShopPage() {
 				isFetchingRef.current = false;
 			}
 		},
-		[activeFilterKey, debouncedSearchQuery, selectedCategory]
+		[activeFilterKey, debouncedSearchQuery, selectedCategory, selectedReligiousCategory]
 	);
 
 	useEffect(() => {
@@ -230,6 +236,17 @@ export default function EShopPage() {
 									))}
 								</SelectContent>
 							</Select>
+
+							<ReligiousCategoryFilter
+								variant="select"
+								hideLabel
+								allLabel="All traditions"
+								value={selectedReligiousCategory}
+								onChange={setSelectedReligiousCategory}
+								page="e-shop"
+								className="w-full sm:w-[200px]"
+								selectClassName="h-11 w-full rounded-xl border-white/60 bg-white/55 text-[#243142] data-[placeholder]:text-[#738295]"
+							/>
 
 							<Button
 								type="button"

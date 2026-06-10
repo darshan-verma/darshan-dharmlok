@@ -11,11 +11,13 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { ReligiousCategoryPills } from "@/components/admin/ReligiousCategoryPills";
 import {
-	Dharmguru,
-	DharmguruCategories,
-	DharmguruRanks,
-} from "./DharmguruTable";
+	buildDualWriteReligiousFields,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
+import { Dharmguru, DharmguruRanks } from "./DharmguruTable";
 
 interface DharmguruFormProps {
 	initialData?: Partial<Dharmguru>;
@@ -38,9 +40,15 @@ export default function DharmguruForm({
 	onCancel,
 	isLoading = false,
 }: DharmguruFormProps) {
+	const initialReligious = resolveReligiousCategories({
+		religiousCategories: initialData.religiousCategories,
+		category: initialData.category,
+	});
+
 	const [dharmguruData, setDharmguruData] = useState<Omit<Dharmguru, "id">>({
 		name: initialData.name || "",
-		category: initialData.category || "",
+		category: initialData.category || initialReligious[0] || "",
+		religiousCategories: initialReligious,
 		phone: initialData.phone || "",
 		email: initialData.email || "",
 		status: initialData.status || "Active",
@@ -55,33 +63,28 @@ export default function DharmguruForm({
 	const validateForm = (data: typeof dharmguruData) => {
 		const errors: Record<string, string> = {};
 
-		// Name validation
 		if (!data.name?.trim()) {
 			errors.name = "Name is required";
 		} else if (data.name.length < 2) {
 			errors.name = "Name must be at least 2 characters";
 		}
 
-		// Category validation
-		if (!data.category) {
-			errors.category = "Category is required";
+		if (!data.religiousCategories || data.religiousCategories.length === 0) {
+			errors.religiousCategories = "Select at least one religious category";
 		}
 
-		// Email validation
 		if (!data.email) {
 			errors.email = "Email is required";
 		} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
 			errors.email = "Please enter a valid email address";
 		}
 
-		// Phone validation (Indian format)
 		if (!data.phone) {
 			errors.phone = "Phone number is required";
 		} else if (!/^[6-9]\d{9}$/.test(data.phone.replace(/\D/g, ""))) {
 			errors.phone = "Please enter a valid 10-digit Indian phone number";
 		}
 
-		// Rank validation
 		if (!data.rank) {
 			errors.rank = "Rank is required";
 		}
@@ -92,19 +95,23 @@ export default function DharmguruForm({
 	const handleSubmit = async () => {
 		if (buttonLoading) return;
 		setButtonLoading(true);
-		console.log("Form submit triggered with data:", dharmguruData);
 		const errors = validateForm(dharmguruData);
 		setFormErrors(errors);
 
-		// If there are errors, don't proceed
 		if (Object.keys(errors).length > 0) {
-			console.log("Form validation errors:", errors);
 			setButtonLoading(false);
 			return;
 		}
 
 		try {
-			await onSubmit(dharmguruData);
+			const { religiousCategories, category } = buildDualWriteReligiousFields({
+				religiousCategories: dharmguruData.religiousCategories,
+			});
+			await onSubmit({
+				...dharmguruData,
+				religiousCategories,
+				category: category || "",
+			});
 		} catch (error) {
 			console.error("Error in form submission:", error);
 		} finally {
@@ -114,14 +121,25 @@ export default function DharmguruForm({
 
 	const handleInputChange = (
 		field: keyof typeof dharmguruData,
-		value: string | boolean
+		value: string | boolean | ReligiousCategory[]
 	) => {
-		console.log(`Field ${field} changed to:`, value);
 		setDharmguruData({ ...dharmguruData, [field]: value });
-
-		// Clear error for this field if it exists
 		if (formErrors[field]) {
 			setFormErrors({ ...formErrors, [field]: "" });
+		}
+	};
+
+	const handleReligiousChange = (value: ReligiousCategory[]) => {
+		const { religiousCategories, category } = buildDualWriteReligiousFields({
+			religiousCategories: value,
+		});
+		setDharmguruData({
+			...dharmguruData,
+			religiousCategories,
+			category: category || "",
+		});
+		if (formErrors.religiousCategories) {
+			setFormErrors({ ...formErrors, religiousCategories: "" });
 		}
 	};
 
@@ -171,30 +189,14 @@ export default function DharmguruForm({
 				)}
 			</div>
 
-			<div className="space-y-2">
-				<Label htmlFor="category">Category *</Label>
-				<Select
-					value={dharmguruData.category}
-					onValueChange={(value) => handleInputChange("category", value)}
-				>
-					<SelectTrigger
-						id="category"
-						className={formErrors.category ? "border-red-500" : ""}
-					>
-						<SelectValue placeholder="Select category" />
-					</SelectTrigger>
-					<SelectContent>
-						{DharmguruCategories.map((category) => (
-							<SelectItem key={category} value={category}>
-								{category}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				{formErrors.category && (
-					<p className="text-sm text-red-500">{formErrors.category}</p>
-				)}
-			</div>
+			<ReligiousCategoryPills
+				value={dharmguruData.religiousCategories || []}
+				onChange={handleReligiousChange}
+				allowEmpty={false}
+			/>
+			{formErrors.religiousCategories && (
+				<p className="text-sm text-red-500">{formErrors.religiousCategories}</p>
+			)}
 
 			<div className="space-y-2">
 				<Label htmlFor="rank">Rank *</Label>

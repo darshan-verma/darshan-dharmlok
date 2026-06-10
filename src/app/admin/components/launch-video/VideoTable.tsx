@@ -33,6 +33,13 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 // Video interface
 export interface Video {
@@ -43,6 +50,7 @@ export interface Video {
 	category: string;
 	type: string;
 	status: string;
+	religiousCategories?: ReligiousCategory[];
 }
 
 interface VideoTableProps {
@@ -84,6 +92,7 @@ export default function VideoTable({
 	const [statusFilter, setStatusFilter] = useState<string>("all");
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
 	const [typeFilter, setTypeFilter] = useState<string>("all");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 	const [currentPage, setCurrentPage] = useState(1);
 	const itemsPerPage = 10;
 
@@ -102,7 +111,18 @@ export default function VideoTable({
 
 		const matchesType = typeFilter === "all" || video.type === typeFilter;
 
-		return matchesSearch && matchesStatus && matchesCategory && matchesType;
+		const matchesReligious = matchesReligiousFilter(
+			resolveReligiousCategories(video),
+			religiousFilter === "all" ? null : religiousFilter
+		);
+
+		return (
+			matchesSearch &&
+			matchesStatus &&
+			matchesCategory &&
+			matchesType &&
+			matchesReligious
+		);
 	});
 
 	// Pagination logic
@@ -149,6 +169,15 @@ export default function VideoTable({
 				</div>
 				{/* Filters */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
+					<ReligiousCategoryFilter
+						value={religiousFilter}
+						onChange={(val) => {
+							setReligiousFilter(val);
+							setCurrentPage(1);
+						}}
+						page="admin-launch-video"
+						variant="select" hideLabel allLabel="All Traditions" className="w-44"
+					/>
 					{/* Category Filter */}
 					<div className="w-40">
 						<select
@@ -215,6 +244,7 @@ export default function VideoTable({
 							<TableHead>Date</TableHead>
 							<TableHead>Description</TableHead>
 							<TableHead>Category</TableHead>
+							<TableHead>Religion</TableHead>
 							<TableHead>Type</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>Details</TableHead>
@@ -229,6 +259,11 @@ export default function VideoTable({
 									<TableCell>{formatDate(video.date)}</TableCell>
 									<TableCell>{video.description}</TableCell>
 									<TableCell>{video.category}</TableCell>
+									<TableCell>
+										<ReligiousCategoryBadges
+											religiousCategories={video.religiousCategories}
+										/>
+									</TableCell>
 									<TableCell>{video.type}</TableCell>
 									<TableCell>
 										<span
@@ -310,7 +345,7 @@ export default function VideoTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={9} className="text-center py-6">
+								<TableCell colSpan={10} className="text-center py-6">
 									No videos found. Try a different search or add a new video.
 								</TableCell>
 							</TableRow>

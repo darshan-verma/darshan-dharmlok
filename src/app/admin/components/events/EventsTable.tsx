@@ -35,12 +35,20 @@ import {
 import { useRouter } from "next/navigation";
 import Pagination from "../Pagination/Pagination";
 import { formatAdminDate } from "@/lib/utils";
+import { ReligiousCategoryBadges } from "@/components/admin/ReligiousCategoryBadges";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
+import {
+	matchesReligiousFilter,
+	resolveReligiousCategories,
+	type ReligiousCategory,
+} from "@/lib/religious-categories";
 
 export interface Event {
 	id: string;
 	title: string;
 	date: string;
 	category: string;
+	religiousCategories?: ReligiousCategory[];
 	fromDate: string;
 	toDate: string;
 	type: string;
@@ -75,7 +83,7 @@ export default function EventsTable({
 }: EventsTableProps) {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [statusFilter, setStatusFilter] = useState<string>("all");
-	const [categoryFilter, setCategoryFilter] = useState<string>("all");
+	const [religiousFilter, setReligiousFilter] = useState<string>("all");
 	const [typeFilter, setTypeFilter] = useState<string>("all");
 	const [currentPage, setCurrentPage] = useState(1);
 	const itemsPerPage = 10;
@@ -84,14 +92,19 @@ export default function EventsTable({
 	const filteredEvents = events.filter((event) => {
 		const matchesSearch =
 			event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			event.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+			resolveReligiousCategories(event)
+				.join(" ")
+				.toLowerCase()
+				.includes(searchTerm.toLowerCase()) ||
 			(event.detail || "").toLowerCase().includes(searchTerm.toLowerCase());
 
 		const matchesStatus =
 			statusFilter === "all" || event.status === statusFilter;
 
-		const matchesCategory =
-			categoryFilter === "all" || event.category === categoryFilter;
+		const matchesCategory = matchesReligiousFilter(
+			resolveReligiousCategories(event),
+			religiousFilter === "all" ? null : religiousFilter
+		);
 
 		const matchesType = typeFilter === "all" || event.type === typeFilter;
 
@@ -105,7 +118,6 @@ export default function EventsTable({
 		currentPage * itemsPerPage
 	);
 
-	const uniqueCategories = Array.from(new Set(events.map((e) => e.category)));
 	const uniqueTypes = Array.from(new Set(events.map((e) => e.type)));
 
 	return (
@@ -133,21 +145,12 @@ export default function EventsTable({
 				</div>
 				{/* Filters */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
-					{/* Category Filter */}
-					<div className="w-40">
-						<select
-							className="h-8 border rounded px-2 w-full"
-							value={categoryFilter}
-							onChange={(e) => setCategoryFilter(e.target.value)}
-						>
-							<option value="all">All Categories</option>
-							{uniqueCategories.map((cat) => (
-								<option key={cat} value={cat}>
-									{cat}
-								</option>
-							))}
-						</select>
-					</div>
+					<ReligiousCategoryFilter
+						value={religiousFilter}
+						onChange={setReligiousFilter}
+						page="admin-events"
+						variant="select" hideLabel allLabel="All Traditions" className="w-44"
+					/>
 					{/* Type Filter */}
 					<div className="w-40">
 						<select
@@ -203,7 +206,12 @@ export default function EventsTable({
 								<TableRow key={event.id}>
 									<TableCell className="font-medium">{event.title}</TableCell>
 									<TableCell>{formatAdminDate(event.createdAt)}</TableCell>
-									<TableCell>{event.category}</TableCell>
+									<TableCell>
+										<ReligiousCategoryBadges
+											religiousCategories={event.religiousCategories}
+											category={event.category}
+										/>
+									</TableCell>
 									<TableCell>{formatAdminDate(event.fromDate)}</TableCell>
 									<TableCell>{formatAdminDate(event.toDate)}</TableCell>
 									<TableCell>{event.type}</TableCell>

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import { ReligiousCategoryFilter } from "@/components/shared/ReligiousCategoryFilter";
 
 const PAGE_SIZE = 24;
 
@@ -53,6 +54,7 @@ export default function TemplePage() {
 	const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 	const [selectedState, setSelectedState] = useState("all");
 	const [selectedCity, setSelectedCity] = useState("all");
+	const [selectedReligiousCategory, setSelectedReligiousCategory] = useState("all");
 	const [filterLocations, setFilterLocations] = useState<FilterLocation[]>([]);
 
 	const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -60,8 +62,9 @@ export default function TemplePage() {
 	const activeFilterKeyRef = useRef("");
 
 	const activeFilterKey = useMemo(
-		() => `${locale}|${debouncedSearchQuery}|${selectedState}|${selectedCity}`,
-		[locale, debouncedSearchQuery, selectedState, selectedCity]
+		() =>
+			`${locale}|${debouncedSearchQuery}|${selectedState}|${selectedCity}|${selectedReligiousCategory}`,
+		[locale, debouncedSearchQuery, selectedState, selectedCity, selectedReligiousCategory]
 	);
 
 	useEffect(() => {
@@ -107,6 +110,7 @@ export default function TemplePage() {
 		setSearchQuery("");
 		setSelectedState("all");
 		setSelectedCity("all");
+		setSelectedReligiousCategory("all");
 	}, []);
 
 	const fetchFilterOptions = useCallback(async () => {
@@ -162,6 +166,9 @@ export default function TemplePage() {
 			if (selectedCity !== "all") {
 				params.set("city", selectedCity);
 			}
+			if (selectedReligiousCategory !== "all") {
+				params.set("religiousCategory", selectedReligiousCategory);
+			}
 
 			const res = await fetch(`/api/temple?${params.toString()}`);
 			if (!res.ok) throw new Error("Failed to fetch temples");
@@ -197,7 +204,14 @@ export default function TemplePage() {
 			}
 			isFetchingRef.current = false;
 			}
-	}, [activeFilterKey, debouncedSearchQuery, locale, selectedCity, selectedState]);
+	}, [
+		activeFilterKey,
+		debouncedSearchQuery,
+		locale,
+		selectedCity,
+		selectedState,
+		selectedReligiousCategory,
+	]);
 
 	useEffect(() => {
 		void fetchFilterOptions();
@@ -294,6 +308,17 @@ export default function TemplePage() {
 									))}
 								</SelectContent>
 							</Select>
+
+							<ReligiousCategoryFilter
+								variant="select"
+								hideLabel
+								allLabel="All traditions"
+								value={selectedReligiousCategory}
+								onChange={setSelectedReligiousCategory}
+								page="temple"
+								className="w-full sm:w-[200px]"
+								selectClassName="h-11 w-full rounded-xl border-white/60 bg-white/55 text-[#243142] data-[placeholder]:text-[#738295]"
+							/>
 
 							<Button
 								type="button"

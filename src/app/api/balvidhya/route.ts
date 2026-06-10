@@ -7,6 +7,11 @@ import {
 	BalVidhyaCategory,
 	BalVidhyaStatus,
 } from "@prisma/client";
+import {
+	applyReligiousCategoryFilter,
+	mapWithReligiousCategories,
+	normalizeReligiousCategories,
+} from "@/lib/religious-categories";
 
 const getImpressions = (item: BalVidhya): number => {
 	if ("impressions" in item && typeof item.impressions === "number") {
@@ -17,8 +22,13 @@ const getImpressions = (item: BalVidhya): number => {
 
 // Helper to map Prisma BalVidhya to frontend expected structure
 const mapBalVidhyaForFrontend = (item: BalVidhya) => {
+	const withReligious = mapWithReligiousCategories({
+		category: item.category,
+		religiousCategories: item.religiousCategories,
+	});
 	return {
 		...item,
+		religiousCategories: withReligious.religiousCategories,
 		id: item.id,
 		trending:
 			item.trendingStatus === BalVidhyaTrendingStatus.Trending ||
@@ -43,17 +53,33 @@ export async function GET(req: NextRequest) {
 	const { searchParams } = new URL(req.url);
 	const page = parseInt(searchParams.get("page") || "1");
 	const limit = parseInt(searchParams.get("limit") || "12");
+	const religiousCategory = searchParams.get("religiousCategory");
+	const search = searchParams.get("search")?.trim();
 	const skip = (page - 1) * limit;
 
 	try {
+		const where = applyReligiousCategoryFilter(
+			{
+				...(search
+					? {
+							OR: [
+								{ name: { contains: search, mode: "insensitive" as const } },
+								{ description: { contains: search, mode: "insensitive" as const } },
+							],
+						}
+					: {}),
+			},
+			religiousCategory
+		);
 		const items = await prisma.balVidhya.findMany({
+			where,
 			skip,
 			take: limit,
 			orderBy: {
-				createdAt: "desc", // Default sort order
+				createdAt: "desc",
 			},
 		});
-		const totalItems = await prisma.balVidhya.count();
+		const totalItems = await prisma.balVidhya.count({ where });
 		const totalPages = Math.ceil(totalItems / limit);
 
 		const mappedItems = items.map(mapBalVidhyaForFrontend);
@@ -98,11 +124,16 @@ export async function POST(req: NextRequest) {
 				: BalVidhyaTrendingStatus.NotTrending;
 		}
 
+		const religiousCategories = normalizeReligiousCategories(
+			body.religiousCategories
+		);
+
 		const newItemData = {
 			name: body.name as string,
 			description: body.description as string | undefined,
 			type: body.type as BalVidhyaType,
 			category: body.category as BalVidhyaCategory | undefined,
+			religiousCategories,
 			status: body.status as BalVidhyaStatus,
 			trendingStatus: trendingStatus,
 			thumbnailUrl: body.thumbnailUrl as string | undefined,

@@ -8,6 +8,14 @@ import {
 	formatPanditjiResponse,
 	prepareTranslationsForSave,
 } from "@/lib/content-api";
+import {
+	applyUserReligiousFilter,
+	mapWithReligiousCategories,
+} from "@/lib/user-religious-api";
+import {
+	buildDualWriteReligiousFields,
+	hasReligiousCategoryInput,
+} from "@/lib/religious-categories";
 
 // GET - List all panditji users with optimized queries
 export async function GET(request: NextRequest) {
@@ -20,6 +28,7 @@ export async function GET(request: NextRequest) {
 		const status = searchParams.get("status") || "";
 		const kycApproved = searchParams.get("kycApproved");
 		const availability = searchParams.get("availability");
+		const religiousCategory = searchParams.get("religiousCategory");
 
 		const locale = parseLangParam(searchParams.get("lang")) ?? "en";
 		const skip = (page - 1) * limit;
@@ -62,10 +71,11 @@ export async function GET(request: NextRequest) {
 			whereConditions.availability = parseInt(availability as string);
 		}
 
-		// Get panditji users with selective fields and service offerings
+		const where = applyUserReligiousFilter(whereConditions, religiousCategory);
+
 		const [users, totalCount] = await Promise.all([
 			prisma.user.findMany({
-				where: whereConditions,
+				where,
 				select: {
 					id: true,
 					name: true,
@@ -76,6 +86,7 @@ export async function GET(request: NextRequest) {
 					bio: true,
 					description: true,
 					category: true,
+					religiousCategories: true,
 					translations: true,
 					translationStatus: true,
 					userType: true,
@@ -124,9 +135,7 @@ export async function GET(request: NextRequest) {
 				skip,
 				take: limit,
 			}),
-			prisma.user.count({
-				where: whereConditions,
-			}),
+			prisma.user.count({ where }),
 		]);
 
 		// Calculate pagination info
@@ -151,7 +160,10 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json({
 			success: true,
 			data: users.map((u) =>
-				formatPanditjiResponse(u as unknown as Record<string, unknown>, locale)
+				formatPanditjiResponse(
+					mapWithReligiousCategories(u) as unknown as Record<string, unknown>,
+					locale
+				)
 			),
 			pagination: {
 				currentPage: page,
@@ -179,7 +191,22 @@ export async function POST(request: NextRequest) {
 	try {
 		const formData = await request.formData();
 
-		// Extract panditji-specific data
+		const religiousCategoriesRaw = formData.get("religiousCategories");
+		let religiousCategoriesInput: unknown;
+		if (religiousCategoriesRaw) {
+			try {
+				religiousCategoriesInput = JSON.parse(
+					religiousCategoriesRaw as string
+				);
+			} catch {
+				religiousCategoriesInput = religiousCategoriesRaw;
+			}
+		}
+		const { religiousCategories, category } = buildDualWriteReligiousFields({
+			religiousCategories: religiousCategoriesInput,
+			category: (formData.get("category") as string) || "",
+		});
+
 		const userData = {
 			name: formData.get("name") as string,
 			email: formData.get("email") as string,
@@ -188,7 +215,8 @@ export async function POST(request: NextRequest) {
 			userType: "panditji" as const,
 			bio: (formData.get("bio") as string) || "",
 			description: (formData.get("description") as string) || "",
-			category: (formData.get("category") as string) || "",
+			category: category ?? "",
+			religiousCategories,
 			status: (formData.get("status") as string) || "Active",
 			active: parseInt(formData.get("active") as string) || 1,
 			availability: parseInt(formData.get("availability") as string) || 0,
@@ -206,6 +234,13 @@ export async function POST(request: NextRequest) {
 		) {
 			return NextResponse.json(
 				{ error: "Name, email, phone, and password are required" },
+				{ status: 400 }
+			);
+		}
+
+		if (!hasReligiousCategoryInput(userData)) {
+			return NextResponse.json(
+				{ error: "Missing required fields: category or religiousCategories" },
 				{ status: 400 }
 			);
 		}
