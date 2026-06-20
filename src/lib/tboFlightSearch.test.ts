@@ -3,10 +3,13 @@ import {
 	fareQuoteResultIndexes,
 	normalizeTboCabinClass,
 	pairTboSpecialReturnFlights,
+	resolveTboSpecialReturnResultIndex,
+	resolveTboSpecialReturnTicketResultIndex,
 	tboSeparateReturnResultIndex,
 	TBO_CABIN_CLASS,
 	validateTboPassengerCounts,
 } from "./tboFlightSearch";
+import type { FareQuoteResponse } from "@/types/tbo";
 import type { FlightResult } from "@/types/tbo";
 
 describe("tboFlightSearch", () => {
@@ -45,5 +48,55 @@ describe("tboFlightSearch", () => {
 	it("omits separate ReturnResultIndex for paired special return", () => {
 		expect(tboSeparateReturnResultIndex("OB1,IB1", "IB1", "5")).toBeUndefined();
 		expect(tboSeparateReturnResultIndex("OB1", "IB1", "2")).toBe("IB1");
+	});
+
+	it("preserves combined LCC special return index after FareQuote OB-only response", () => {
+		const combined = "OB2[TBO]outbound,IB2[TBO]inbound";
+		const fareQuoteResponse = {
+			Response: {
+				Results: { ResultIndex: "OB2[TBO]outbound" },
+			},
+		} as FareQuoteResponse;
+
+		expect(
+			resolveTboSpecialReturnResultIndex(combined, fareQuoteResponse, {
+				journeyType: "5",
+				isLCC: true,
+				fareQuoteRequestIndex: combined,
+			}),
+		).toBe(combined);
+	});
+
+	it("reconstructs combined index from FareQuote OB and paired IB", () => {
+		const fareQuoteResponse = {
+			Response: {
+				Results: { ResultIndex: "OB2[TBO]outbound" },
+			},
+		} as FareQuoteResponse;
+
+		expect(
+			resolveTboSpecialReturnResultIndex("OB2[TBO]outbound", fareQuoteResponse, {
+				journeyType: "5",
+				isLCC: true,
+				outboundResultIndex: "OB2[TBO]outbound",
+				inboundResultIndex: "IB2[TBO]inbound",
+			}),
+		).toBe("OB2[TBO]outbound,IB2[TBO]inbound");
+	});
+
+	it("uses FareQuote OB index for LCC special return ticket after combined quote", () => {
+		const combined = "OB2[TBO]outbound,IB2[TBO]inbound";
+		const fareQuoteResponse = {
+			Response: {
+				Results: { ResultIndex: "OB2[TBO]quoted" },
+			},
+		} as FareQuoteResponse;
+
+		expect(
+			resolveTboSpecialReturnTicketResultIndex(combined, fareQuoteResponse, {
+				journeyType: "5",
+				isLCC: true,
+			}),
+		).toBe("OB2[TBO]quoted");
 	});
 });

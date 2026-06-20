@@ -475,7 +475,8 @@ export async function findTemplesWithOptionalSearch(params: {
 			filter,
 			skip: params.skip,
 			limit: params.limit,
-			sort: { createdAt: -1 },
+			// Tie-break on _id: bulk imports often share identical createdAt timestamps.
+			sort: { createdAt: -1, _id: -1 },
 		}),
 		rawCountCollection("Temple", filter),
 	]);
@@ -515,7 +516,8 @@ export async function findDharamshalasWithOptionalSearch(params: {
 			filter,
 			skip: params.skip,
 			limit: params.limit,
-			sort: { createdAt: -1 },
+			// Tie-break on _id: bulk imports often share identical createdAt timestamps.
+			sort: { createdAt: -1, _id: -1 },
 		}),
 		rawCountCollection("Dharamshala", filter),
 	]);

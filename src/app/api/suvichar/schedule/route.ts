@@ -4,10 +4,13 @@ import prisma from "@/lib/prisma";
 import { requireAdmin } from "@/lib/suvichar/admin-auth";
 import { getIstDateString } from "@/lib/suvichar/dates";
 import { serializeDaily } from "@/lib/suvichar/serialize";
-import { parseTextStyleOverrides } from "@/lib/suvichar/textStyle";
+import { parseTextStyleOverrides, serializeTextStyleForDb } from "@/lib/suvichar/textStyle";
 import {
 	estimateTextOverflowWarning,
-	validateSafeArea,
+	validateScheduledDate,
+	validateSuvicharFrame,
+	validateSuvicharText,
+	validateTextStyleOverrides,
 } from "@/lib/suvichar/validation";
 
 const includeRelations = {
@@ -73,6 +76,11 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		const dateValidation = validateScheduledDate(scheduledDate);
+		if (!dateValidation.valid) {
+			return NextResponse.json({ error: dateValidation.errors[0] }, { status: 400 });
+		}
+
 		const [text, frame] = await Promise.all([
 			prisma.suvicharText.findUnique({ where: { id: suvicharTextId } }),
 			prisma.suvicharFrame.findUnique({ where: { id: frameId } }),
@@ -85,12 +93,34 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: "Frame not found or inactive" }, { status: 400 });
 		}
 
-		const safeCheck = validateSafeArea({
-			safeAreaWidth: frame.safeAreaWidth,
-			safeAreaHeight: frame.safeAreaHeight,
+		const textValidation = validateSuvicharText({
+			plainText: text.plainText,
+			blocknoteJson: text.blocknoteJson,
 		});
-		if (!safeCheck.ok) {
-			return NextResponse.json({ error: safeCheck.message }, { status: 400 });
+		if (!textValidation.valid) {
+			return NextResponse.json({ error: textValidation.errors[0] }, { status: 400 });
+		}
+
+		const frameValidation = validateSuvicharFrame(frame);
+		if (!frameValidation.valid) {
+			return NextResponse.json({ error: frameValidation.errors[0] }, { status: 400 });
+		}
+
+		const frameDefaults = {
+			defaultTextColor: frame.defaultTextColor,
+			defaultTextAlign: frame.defaultTextAlign,
+		};
+
+		const parsedOverrides =
+			rawTextStyle != null
+				? parseTextStyleOverrides(rawTextStyle, frameDefaults)
+				: null;
+
+		if (parsedOverrides) {
+			const overrideValidation = validateTextStyleOverrides(parsedOverrides);
+			if (!overrideValidation.valid) {
+				return NextResponse.json({ error: overrideValidation.errors[0] }, { status: 400 });
+			}
 		}
 
 		const overflowWarning = estimateTextOverflowWarning(
@@ -133,12 +163,14 @@ export async function POST(req: NextRequest) {
 		};
 
 		if (rawTextStyle !== undefined) {
+			const storedOverrides =
+				parsedOverrides != null
+					? serializeTextStyleForDb(parsedOverrides, frameDefaults)
+					: null;
+
 			data.textStyleOverrides =
-				rawTextStyle != null
-					? (parseTextStyleOverrides(rawTextStyle, {
-							defaultTextColor: frame.defaultTextColor,
-							defaultTextAlign: frame.defaultTextAlign,
-						}) as unknown as Prisma.InputJsonValue)
+				storedOverrides != null
+					? (storedOverrides as Prisma.InputJsonValue)
 					: null;
 		}
 

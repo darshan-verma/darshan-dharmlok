@@ -135,7 +135,11 @@ export function mergeProviderResponses(
 	const preCounts = countFlightsBySource(preMergeFlat);
 
 	if (mergedResults?.Response?.Results?.length) {
-		if (journeyType === TBO_JOURNEY.SPECIAL_RETURN) {
+		if (journeyType === TBO_JOURNEY.ADVANCE_SEARCH) {
+			mergedResults.Response.Results = capMergedResultsByLeg(
+				mergedResults.Response.Results as FlightResult[][],
+			);
+		} else if (journeyType === TBO_JOURNEY.SPECIAL_RETURN) {
 			const flat: FlightResult[] = [];
 			for (const leg of mergedResults.Response.Results) {
 				if (Array.isArray(leg)) flat.push(...(leg as FlightResult[]));

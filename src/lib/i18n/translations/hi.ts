@@ -37,6 +37,7 @@ export const hi: typeof en = {
 		scheduled: "निर्धारित",
 		viewAllLiveStreams: "सभी लाइव स्ट्रीम देखें",
 		dashboard: "डैशबोर्ड",
+		myAccount: "मेरा खाता",
 		settings: "सेटिंग्स",
 		logOut: "लॉग आउट",
 		user: "उपयोगकर्ता",

@@ -1,3 +1,5 @@
+import { mergeTextStyleOverrides } from "./merge-overrides";
+
 export type SuvicharTextAlign = "left" | "center" | "right";
 export type SuvicharVerticalAlign = "top" | "middle" | "bottom";
 export type SuvicharFontWeight =
@@ -86,6 +88,63 @@ function parseFontWeight(
 	return fallback;
 }
 
+function parsePartialTextStyleOverrides(
+	raw: Record<string, unknown>,
+	frame?: FrameTextDefaults,
+): Partial<TextStyleOverrides> {
+	const frameAlign = parseAlign(frame?.defaultTextAlign, "center");
+	const partial: Partial<TextStyleOverrides> = {};
+
+	if (oHas(raw, "fontScale")) {
+		partial.fontScale = clamp(Number(raw.fontScale), 0.5, 1.5);
+	}
+	if (oHas(raw, "paddingTop")) {
+		partial.paddingTop = clamp(Number(raw.paddingTop), 0, 100);
+	}
+	if (oHas(raw, "paddingRight")) {
+		partial.paddingRight = clamp(Number(raw.paddingRight), 0, 100);
+	}
+	if (oHas(raw, "paddingBottom")) {
+		partial.paddingBottom = clamp(Number(raw.paddingBottom), 0, 100);
+	}
+	if (oHas(raw, "paddingLeft")) {
+		partial.paddingLeft = clamp(Number(raw.paddingLeft), 0, 100);
+	}
+	if (oHas(raw, "textAlign")) {
+		partial.textAlign = parseAlign(raw.textAlign, frameAlign);
+	}
+	if (oHas(raw, "verticalAlign")) {
+		partial.verticalAlign = parseVerticalAlign(raw.verticalAlign, "middle");
+	}
+	if (oHas(raw, "lineHeight")) {
+		partial.lineHeight = clamp(Number(raw.lineHeight), 0.8, 2);
+	}
+	if (oHas(raw, "letterSpacing")) {
+		partial.letterSpacing = clamp(Number(raw.letterSpacing), -2, 10);
+	}
+	if (oHas(raw, "fontWeight")) {
+		partial.fontWeight = parseFontWeight(raw.fontWeight, "normal");
+	}
+	if (oHas(raw, "textColor")) {
+		partial.textColor =
+			typeof raw.textColor === "string" && raw.textColor.trim()
+				? raw.textColor.trim()
+				: null;
+	}
+	if (oHas(raw, "widthScale")) {
+		partial.widthScale = clamp(Number(raw.widthScale), 0.6, 1);
+	}
+	if (oHas(raw, "heightScale")) {
+		partial.heightScale = clamp(Number(raw.heightScale), 0.6, 1);
+	}
+
+	return partial;
+}
+
+function oHas(o: Record<string, unknown>, key: string): boolean {
+	return Object.prototype.hasOwnProperty.call(o, key);
+}
+
 export function parseTextStyleOverrides(
 	raw: unknown,
 	frame?: FrameTextDefaults,
@@ -93,52 +152,22 @@ export function parseTextStyleOverrides(
 	if (raw == null) return null;
 	if (typeof raw !== "object") return null;
 
-	const o = raw as Record<string, unknown>;
-	const frameAlign = parseAlign(frame?.defaultTextAlign, "center");
+	const defaults = frame
+		? getFrameDefaultTextStyle(frame)
+		: { ...DEFAULT_TEXT_STYLE_OVERRIDES };
 
-	return {
-		fontScale: clamp(Number(o.fontScale ?? 1), 0.5, 1.5),
-		paddingTop: clamp(Number(o.paddingTop ?? 0), 0, 200),
-		paddingRight: clamp(Number(o.paddingRight ?? 0), 0, 200),
-		paddingBottom: clamp(Number(o.paddingBottom ?? 0), 0, 200),
-		paddingLeft: clamp(Number(o.paddingLeft ?? 0), 0, 200),
-		textAlign: parseAlign(o.textAlign, frameAlign),
-		verticalAlign: parseVerticalAlign(o.verticalAlign, "middle"),
-		lineHeight: clamp(Number(o.lineHeight ?? 1.2), 0.8, 2),
-		letterSpacing: clamp(Number(o.letterSpacing ?? 0), -2, 10),
-		fontWeight: parseFontWeight(o.fontWeight, "normal"),
-		textColor:
-			typeof o.textColor === "string" && o.textColor.trim()
-				? o.textColor.trim()
-				: null,
-		widthScale: clamp(Number(o.widthScale ?? 1), 0.6, 1),
-		heightScale: clamp(Number(o.heightScale ?? 1), 0.6, 1),
-	};
+	const partial = parsePartialTextStyleOverrides(
+		raw as Record<string, unknown>,
+		frame,
+	);
+
+	return mergeTextStyleOverrides(frame ?? {
+		defaultTextColor: defaults.textColor ?? "#1a1a1a",
+		defaultTextAlign: defaults.textAlign,
+	}, partial);
 }
 
-export function mergeTextStyleOverrides(
-	frame: FrameTextDefaults,
-	overrides?: Partial<TextStyleOverrides> | TextStyleOverrides | null,
-): TextStyleOverrides {
-	const frameAlign = parseAlign(frame.defaultTextAlign, "center");
-	const base: TextStyleOverrides = {
-		...DEFAULT_TEXT_STYLE_OVERRIDES,
-		textAlign: frameAlign,
-		textColor: frame.defaultTextColor,
-	};
-
-	if (!overrides) return base;
-
-	return {
-		...base,
-		...overrides,
-		textColor:
-			overrides.textColor != null && overrides.textColor !== ""
-				? overrides.textColor
-				: frame.defaultTextColor,
-		textAlign: overrides.textAlign ?? frameAlign,
-	};
-}
+export { mergeTextStyleOverrides };
 
 export function getFrameDefaultTextStyle(
 	frame: FrameTextDefaults,
@@ -154,13 +183,24 @@ export function isDefaultTextStyle(
 	return JSON.stringify(resolved) === JSON.stringify(defaults);
 }
 
-/** Stored in DB — omit frame-default color when unchanged */
+/** Stored in DB — only keys that differ from frame defaults (delta, not full object). */
 export function serializeTextStyleForDb(
-	overrides: TextStyleOverrides,
-	frame: FrameTextDefaults,
-): TextStyleOverrides | null {
-	if (isDefaultTextStyle(overrides, frame)) return null;
-	return overrides;
+	resolvedStyle: TextStyleOverrides,
+	frameDefaults: FrameTextDefaults,
+): Record<string, unknown> | null {
+	const stored: Record<string, unknown> = {};
+	const defaults = getFrameDefaultTextStyle(frameDefaults);
+
+	let hasOverrides = false;
+	for (const [key, value] of Object.entries(resolvedStyle)) {
+		const defaultValue = defaults[key as keyof TextStyleOverrides];
+		if (JSON.stringify(value) !== JSON.stringify(defaultValue)) {
+			stored[key] = value;
+			hasOverrides = true;
+		}
+	}
+
+	return hasOverrides ? stored : null;
 }
 
 export function computeTextBoxLayout(

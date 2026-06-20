@@ -33,7 +33,10 @@ interface BookingClientProps {
 	childCount: number;
 	infantCount: number;
 	traceId: string;
+	/** LCC Ticket / default Book+Ticket index */
 	resultIndex: string;
+	/** GDS special return: combined OB,IB for Book; Ticket still uses resultIndex */
+	bookResultIndex?: string;
 	flightResult: FlightResult;
 	upsellOptions?: FlightResult[];
 	isUpsellAllowed?: boolean;
@@ -141,6 +144,7 @@ export default function BookingClient({
 	infantCount,
 	traceId,
 	resultIndex,
+	bookResultIndex,
 	flightResult,
 	upsellOptions = [],
 	isUpsellAllowed = false,
@@ -526,7 +530,7 @@ export default function BookingClient({
 				body: JSON.stringify({
 					EndUserIp: "192.168.1.1",
 					TraceId: traceId,
-					ResultIndex: resultIndex,
+					ResultIndex: bookResultIndex || resultIndex,
 					Passengers: tboPassengers,
 				}),
 			});

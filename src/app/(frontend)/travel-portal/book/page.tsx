@@ -10,7 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import BookingClient from "./BookingClient";
 import TripjackBookingClient from "./TripjackBookingClient";
-import { fareQuoteResultIndexes } from "@/lib/tboFlightSearch";
+import {
+	fareQuoteResultIndexes,
+	isAdvanceSearchJourneyType,
+	isSpecialReturnJourneyType,
+	resolveTboSpecialReturnResultIndex,
+	resolveTboSpecialReturnTicketResultIndex,
+} from "@/lib/tboFlightSearch";
+import {
+	isPricedTboResultIndex,
+} from "@/lib/tboAdvanceSearch";
 
 interface PageProps {
 	searchParams: Promise<{
@@ -90,9 +99,42 @@ export default async function BookingPage({ searchParams }: PageProps) {
 
 	const fareIndexes = fareQuoteResultIndexes(
 		resultIndex,
-		returnResultIndex,
+		isAdvanceSearchJourneyType(journeyType) ? undefined : returnResultIndex,
 		journeyType,
 	);
+
+	const pricedResultIndex = fareIndexes.primary;
+
+	// JT=4: PriceRBD must run before FareQuote when the index is not yet priced (+P+).
+	if (
+		isAdvanceSearchJourneyType(journeyType) &&
+		!isPricedTboResultIndex(fareIndexes.primary)
+	) {
+		return (
+			<div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+				<Card className="max-w-md w-full">
+					<CardHeader>
+						<CardTitle className="text-center text-red-600 flex items-center justify-center gap-2">
+							<XCircle className="h-6 w-6" />
+							Advance return not priced
+						</CardTitle>
+					</CardHeader>
+					<CardContent className="text-center space-y-4">
+						<p className="text-gray-600">
+							Select outbound and inbound flights with fare classes, then continue
+							from search so PriceRBD can run before booking.
+						</p>
+						<Button asChild className="w-full">
+							<Link href="/travel-portal">
+								<Search className="mr-2 h-4 w-4" />
+								Back to search
+							</Link>
+						</Button>
+					</CardContent>
+				</Card>
+			</div>
+		);
+	}
 
 	// Continue with TBO booking flow (fare rules via API route for consistency)
 	const baseUrl =
@@ -141,11 +183,11 @@ export default async function BookingPage({ searchParams }: PageProps) {
 	try {
 		fareQuoteResponse = await getFareQuote({
 			TraceId: traceId,
-			ResultIndex: fareIndexes.primary,
+			ResultIndex: pricedResultIndex,
 			EndUserIp: "192.168.1.1",
 		});
 
-		if (fareIndexes.secondary) {
+		if (fareIndexes.secondary && !isAdvanceSearchJourneyType(journeyType)) {
 			returnFareQuoteResponse = await getFareQuote({
 				TraceId: traceId,
 				ResultIndex: fareIndexes.secondary,
@@ -276,10 +318,49 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		);
 	}
 
-	let flightResult: FlightResult = fareQuoteResponse.Response.Results;
+	let flightResult: FlightResult = Array.isArray(fareQuoteResponse.Response.Results)
+		? fareQuoteResponse.Response.Results[0]
+		: fareQuoteResponse.Response.Results;
 
-	// Merge return fares if present
-	if (returnFareQuoteResponse?.Response?.Results) {
+	const specialReturnOpts = isSpecialReturnJourneyType(journeyType)
+		? {
+				journeyType,
+				isLCC: flightResult?.IsLCC === true,
+				fareQuoteRequestIndex: fareIndexes.primary,
+				outboundResultIndex: resultIndex.includes(",")
+					? resultIndex.split(",")[0]
+					: resultIndex,
+				inboundResultIndex:
+					returnResultIndex ||
+					(resultIndex.includes(",")
+						? resultIndex.split(",").slice(1).join(",")
+						: undefined),
+			}
+		: undefined;
+
+	const bookingResultIndex = specialReturnOpts
+		? resolveTboSpecialReturnResultIndex(
+				fareIndexes.primary,
+				fareQuoteResponse,
+				specialReturnOpts,
+			)
+		: isAdvanceSearchJourneyType(journeyType)
+			? pricedResultIndex
+			: fareIndexes.primary;
+
+	const ticketResultIndex = specialReturnOpts
+		? resolveTboSpecialReturnTicketResultIndex(
+				bookingResultIndex,
+				fareQuoteResponse,
+				specialReturnOpts,
+			)
+		: bookingResultIndex;
+
+	// Merge return fares if present (JT=2 only — not advance search)
+	if (
+		returnFareQuoteResponse?.Response?.Results &&
+		!isAdvanceSearchJourneyType(journeyType)
+	) {
 		const returnFlight = returnFareQuoteResponse.Response.Results;
 		const f1 = flightResult.Fare;
 		const f2 = returnFlight.Fare;
@@ -477,7 +558,8 @@ export default async function BookingPage({ searchParams }: PageProps) {
 				childCount={parseInt(childCount)}
 				infantCount={parseInt(infantCount)}
 				traceId={traceId}
-				resultIndex={fareIndexes.primary}
+				resultIndex={ticketResultIndex}
+				bookResultIndex={bookingResultIndex}
 				flightResult={flightResult}
 				upsellOptions={upsellOptions}
 				isUpsellAllowed={isUpsellAllowed}

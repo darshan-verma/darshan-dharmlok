@@ -142,15 +142,43 @@ export default function Footer() {
 						<ul className="space-y-4">
 							<li className="flex items-start gap-3">
 								<MapPin className="w-5 h-5 text-orange-500 mt-1 flex-shrink-0" />
-								<span className="text-gray-600">
-									Gotham Hall, 1356 Brodway squore, NY 10018, California, USA
-								</span>
+								<div className="text-gray-600">
+									<div className="font-medium text-gray-800 mb-1">
+										Register Office
+									</div>
+									<div>
+										12/9, GF, MALVIYA NAGAR, Jaipur, Jaipur, Rajasthan, 302017
+									</div>
+								</div>
+							</li>
+							<li className="flex items-start gap-3">
+								<MapPin className="w-5 h-5 text-orange-500 mt-1 flex-shrink-0" />
+								<div className="text-gray-600">
+									<div className="font-medium text-gray-800 mb-1">
+										Corporate Office
+									</div>
+									<div>
+										Plot no 1, Swastik CHS, Divya Dhristhi Buliding, Gulmohar
+										Road, Opps Mithibai college gate no 1, N S road no 1, Ville
+										Parle west, Mumbai 400056
+									</div>
+								</div>
 							</li>
 							<li className="flex items-start gap-3">
 								<Mail className="w-5 h-5 text-orange-500 mt-1 flex-shrink-0" />
 								<div className="text-gray-600">
-									<div>info@dharmlok.com</div>
-									<div>support@dharmlok.com</div>
+									<a
+										href="mailto:Info@dharmlok.com"
+										className="hover:text-orange-500 transition-colors block"
+									>
+										Info@dharmlok.com
+									</a>
+									<a
+										href="mailto:support@dharmlok.com"
+										className="hover:text-orange-500 transition-colors block"
+									>
+										support@dharmlok.com
+									</a>
 								</div>
 							</li>
 							<li className="flex items-start gap-3">
@@ -189,13 +217,6 @@ export default function Footer() {
 				<div className="border-t border-gray-300 pt-8 text-center text-gray-600">
 					<p>{t("footer.copyright")}</p>
 				</div>
-			</div>
-
-			{/* Chat Widget */}
-			<div className="fixed bottom-8 right-8 z-50">
-				<button className="w-16 h-16 bg-orange-500 hover:bg-orange-600 text-white rounded-full flex items-center justify-center shadow-2xl transition-all transform hover:scale-110">
-					<span className="text-xl font-bold">{t("footer.chat")}</span>
-				</button>
 			</div>
 		</footer>
 	);

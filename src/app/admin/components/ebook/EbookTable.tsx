@@ -197,7 +197,7 @@ export default function EbookTable({
 					{filteredEbooks.length !== 1 ? "s" : ""} found
 				</div>
 			</div>
-			<div className="rounded-md border">
+			<div className="rounded-md border overflow-hidden">
 				<Table>
 					<TableHeader>
 						<TableRow>
@@ -217,17 +217,36 @@ export default function EbookTable({
 						{filteredEbooks.length > 0 ? (
 							filteredEbooks.map((ebook) => (
 								<TableRow key={ebook.id}>
-									<TableCell className="font-medium">{ebook.title}</TableCell>
+									<TableCell className="font-medium max-w-48">
+										<div className="truncate" title={ebook.title}>
+											{ebook.title}
+										</div>
+									</TableCell>
 									<TableCell>{ebook.date}</TableCell>
-									<TableCell>{ebook.description}</TableCell>
+									<TableCell className="max-w-60">
+										<div
+											className="truncate text-sm text-gray-600"
+											title={ebook.description}
+										>
+											{ebook.description}
+										</div>
+									</TableCell>
 									<TableCell>{ebook.type}</TableCell>
-									<TableCell>{ebook.category}</TableCell>
+									<TableCell className="max-w-36">
+										<div className="truncate" title={ebook.category}>
+											{ebook.category}
+										</div>
+									</TableCell>
 									<TableCell>
 										<ReligiousCategoryBadges
 											religiousCategories={ebook.religiousCategories}
 										/>
 									</TableCell>
-									<TableCell>{ebook.detail}</TableCell>
+									<TableCell className="max-w-48">
+										<div className="truncate" title={ebook.detail}>
+											{ebook.detail}
+										</div>
+									</TableCell>
 									<TableCell>
 										<span
 											className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(

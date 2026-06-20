@@ -15,6 +15,9 @@ type Props = {
 	onActiveLegChange: (index: number) => void;
 	onContinue: () => void;
 	continuing?: boolean;
+	hint?: string;
+	continueLabel?: string;
+	continuingLabel?: string;
 };
 
 export default function TripjackMulticityLegBar({
@@ -24,15 +27,15 @@ export default function TripjackMulticityLegBar({
 	onActiveLegChange,
 	onContinue,
 	continuing,
+	hint = "Select one flight per leg (TripJack domestic multicity). Prices are revalidated together at booking.",
+	continueLabel = "Continue to booking",
+	continuingLabel = "Opening booking…",
 }: Props) {
 	const ready = allDomesticMulticityLegsSelected(selections, legs.length);
 
 	return (
 		<div className="mb-4 space-y-3 rounded-lg border border-amber-200 bg-amber-50/80 p-4">
-			<p className="text-sm font-medium text-amber-950">
-				Select one flight per leg (TripJack domestic multicity). Prices are
-				revalidated together at booking.
-			</p>
+			<p className="text-sm font-medium text-amber-950">{hint}</p>
 			<div className="flex flex-wrap gap-2">
 				{legs.map((legFlights, index) => {
 					const selected = selections[index];
@@ -76,10 +79,10 @@ export default function TripjackMulticityLegBar({
 					{continuing ? (
 						<>
 							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-							Opening booking…
+							{continuingLabel}
 						</>
 					) : (
-						"Continue to booking"
+						continueLabel
 					)}
 				</Button>
 			) : (

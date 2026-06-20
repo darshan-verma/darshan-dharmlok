@@ -8,7 +8,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { SuvicharCard } from "./SuvicharCard";
+import { DISPLAY_SIZES, SuvicharCard } from "./SuvicharCard";
 import type {
 	TextStyleOverrides,
 	TodaySuvicharFrame,
@@ -29,7 +29,7 @@ function computeFullscreenSize(): number {
 	return Math.min(
 		window.innerWidth - pad,
 		window.innerHeight - pad,
-		920,
+		DISPLAY_SIZES.fullscreen,
 	);
 }
 
@@ -37,7 +37,7 @@ export function SuvicharPreviewFullscreen({
 	text,
 	frame,
 	textStyleOverrides,
-	inlineSize = 260,
+	inlineSize = DISPLAY_SIZES.scheduler,
 }: SuvicharPreviewFullscreenProps) {
 	const [open, setOpen] = useState(false);
 	const [fullscreenSize, setFullscreenSize] = useState(480);

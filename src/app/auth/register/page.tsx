@@ -5,6 +5,21 @@ import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import Image from "next/image";
 import { HindiQuoteLoadingFrame } from "@/components/ui/sign-up";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+
+const USER_TYPE_OPTIONS = [
+	{ value: "kathavachak", label: "Kathavachak" },
+	{ value: "dharmguru", label: "Dharmguru" },
+	{ value: "hoteldharamshala", label: "Hotel/Dharamshala Vendor" },
+	{ value: "panditji", label: "Pandit Ji" },
+	{ value: "seller", label: "Seller" },
+] as const;
 
 export default function RegisterPage() {
 	const router = useRouter();
@@ -17,7 +32,7 @@ export default function RegisterPage() {
 		phone: "",
 		password: "",
 		confirmPassword: "",
-		userType: "admin", // default to admin, lowercase
+		userType: "kathavachak",
 	});
 	const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -366,29 +381,38 @@ export default function RegisterPage() {
 
 				<div>
 					<label
-						htmlFor="role"
+						htmlFor="userType"
 						className="block text-sm font-medium text-gray-700"
 					>
 						Register as
 					</label>
-					<select
-						id="userType"
-						name="userType"
+					<Select
 						value={formData.userType}
-						onChange={handleChange}
-						className={`mt-1 block w-full rounded-md border ${
-							errors.userType ? "border-red-500" : "border-gray-300"
-						} px-3 py-2 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm`}
+						onValueChange={(value) => {
+							setFormData((prev) => ({ ...prev, userType: value }));
+							if (errors.userType) {
+								setErrors((prev) => ({ ...prev, userType: "" }));
+							}
+						}}
 					>
-						<option value="admin">Admin</option>
-						<option value="kathavachak">Kathavachak</option>
-						<option value="dharmguru">Dharmguru</option>
-						<option value="hoteldharamshala">Hotel/Dharamshala Vendor</option>
-						<option value="panditji">Pandit Ji</option>
-						<option value="seller">Seller</option>
-					</select>
-					{errors.role && (
-						<p className="mt-1 text-sm text-red-600">{errors.role}</p>
+						<SelectTrigger
+							id="userType"
+							className={`mt-1 w-full ${
+								errors.userType ? "border-red-500" : ""
+							}`}
+						>
+							<SelectValue placeholder="Select role" />
+						</SelectTrigger>
+						<SelectContent>
+							{USER_TYPE_OPTIONS.map((option) => (
+								<SelectItem key={option.value} value={option.value}>
+									{option.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					{errors.userType && (
+						<p className="mt-1 text-sm text-red-600">{errors.userType}</p>
 					)}
 				</div>
 

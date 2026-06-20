@@ -4,28 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-
-// Map userType to dashboard route
-const dashboardRoute = (role: string) => {
-	switch (role) {
-		case "admin":
-			return "/admin";
-		case "kathavachak":
-			return "/dashboard/kathavachak";
-		case "dharmguru":
-			return "/dashboard/dharmguru";
-		case "hoteldharamshala":
-			return "/dashboard/hotel_dharamshala_vendor";
-		case "panditji":
-			return "/dashboard/panditji";
-		case "seller":
-			return "/dashboard/seller";
-		case "user":
-			return "/dashboard";
-		default:
-			return "/";
-	}
-};
+import { getDashboardRoute } from "@/app/dashboard/components/user-role";
 
 export default function UnauthorizedPage() {
 	const router = useRouter();
@@ -40,8 +19,8 @@ export default function UnauthorizedPage() {
 			setAdminReturnUrl(savedUrl);
 		}
 		if (status === "authenticated") {
-			const role = session?.user?.role?.toLowerCase() || "";
-			setDashboard(dashboardRoute(role));
+			const role = session?.user?.role;
+			setDashboard(getDashboardRoute(role) ?? "/dashboard");
 		}
 	}, [session, status]);
 

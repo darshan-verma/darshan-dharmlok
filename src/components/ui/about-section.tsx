@@ -18,6 +18,38 @@ import Link from "next/link";
 export default function AboutSection() {
   const heroRef = useRef<HTMLDivElement>(null);
 
+  const heroRevealVariants = {
+    visible: (i: number) => ({
+      y: 0,
+      opacity: 1,
+      filter: "blur(0px)",
+      transition: {
+        delay: i * 0.08,
+        duration: 0.35,
+      },
+    }),
+    hidden: {
+      filter: "blur(10px)",
+      y: -16,
+      opacity: 0,
+    },
+  };
+
+  const heroScaleVariants = {
+    visible: (i: number) => ({
+      opacity: 1,
+      filter: "blur(0px)",
+      transition: {
+        delay: i * 0.08,
+        duration: 0.35,
+      },
+    }),
+    hidden: {
+      filter: "blur(10px)",
+      opacity: 0,
+    },
+  };
+
   const revealVariants = {
     visible: (i: number) => ({
       y: 0,
@@ -35,21 +67,6 @@ export default function AboutSection() {
     },
   };
 
-  const scaleVariants = {
-    visible: (i: number) => ({
-      opacity: 1,
-      filter: "blur(0px)",
-      transition: {
-        delay: i * 0.4,
-        duration: 0.5,
-      },
-    }),
-    hidden: {
-      filter: "blur(10px)",
-      opacity: 0,
-    },
-  };
-
   return (
     <section
       className="py-8 px-4 bg-gradient-to-b from-orange-50 to-amber-50"
@@ -60,27 +77,27 @@ export default function AboutSection() {
         <div className="mb-10 md:mb-12 text-center md:text-left">
           <TimelineContent
             as="p"
-            animationNum={16}
+            animationNum={0}
             timelineRef={heroRef}
-            customVariants={revealVariants}
+            customVariants={heroRevealVariants}
             className="text-orange-600 font-medium text-sm tracking-wide uppercase mb-2"
           >
             India&apos;s spiritual platform
           </TimelineContent>
           <TimelineContent
             as="h2"
-            animationNum={17}
+            animationNum={1}
             timelineRef={heroRef}
-            customVariants={revealVariants}
+            customVariants={heroRevealVariants}
             className="text-3xl md:text-4xl font-serif font-bold text-gray-900 mb-4"
           >
             Dharmlok — faith, community, and sacred travel in one place
           </TimelineContent>
           <TimelineContent
             as="p"
-            animationNum={18}
+            animationNum={2}
             timelineRef={heroRef}
-            customVariants={revealVariants}
+            customVariants={heroRevealVariants}
             className="text-gray-600 max-w-3xl mx-auto md:mx-0 leading-relaxed mb-4"
           >
             Dharmlok helps devotees discover authentic spiritual experiences: book
@@ -91,9 +108,9 @@ export default function AboutSection() {
           </TimelineContent>
           <TimelineContent
             as="p"
-            animationNum={19}
+            animationNum={3}
             timelineRef={heroRef}
-            customVariants={revealVariants}
+            customVariants={heroRevealVariants}
             className="text-gray-600 max-w-3xl mx-auto md:mx-0 leading-relaxed text-sm md:text-base"
           >
             We verify listings where it matters, surface clear information for
@@ -109,9 +126,9 @@ export default function AboutSection() {
               <span className="text-orange-500 animate-spin">✱</span>
               <TimelineContent
                 as="span"
-                animationNum={0}
+                animationNum={4}
                 timelineRef={heroRef}
-                customVariants={revealVariants}
+                customVariants={heroRevealVariants}
                 className="text-sm font-medium text-gray-600"
               >
                 WHO WE ARE
@@ -120,9 +137,9 @@ export default function AboutSection() {
             <div className="flex gap-4">
               <TimelineContent
                 as="a"
-                animationNum={0}
+                animationNum={5}
                 timelineRef={heroRef}
-                customVariants={revealVariants}
+                customVariants={heroRevealVariants}
                 href="https://www.facebook.com/"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -137,9 +154,9 @@ export default function AboutSection() {
               </TimelineContent>
               <TimelineContent
                 as="a"
-                animationNum={1}
+                animationNum={6}
                 timelineRef={heroRef}
-                customVariants={revealVariants}
+                customVariants={heroRevealVariants}
                 href="https://www.instagram.com/"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -154,9 +171,9 @@ export default function AboutSection() {
               </TimelineContent>
               <TimelineContent
                 as="a"
-                animationNum={2}
+                animationNum={7}
                 timelineRef={heroRef}
-                customVariants={revealVariants}
+                customVariants={heroRevealVariants}
                 href="https://www.youtube.com/"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -174,9 +191,9 @@ export default function AboutSection() {
 
           <TimelineContent
             as="figure"
-            animationNum={4}
+            animationNum={8}
             timelineRef={heroRef}
-            customVariants={scaleVariants}
+            customVariants={heroScaleVariants}
             className="relative group"
           >
             <svg
@@ -211,9 +228,9 @@ export default function AboutSection() {
           <div className="flex flex-wrap lg:justify-start justify-between items-center py-3 text-sm">
             <TimelineContent
               as="div"
-              animationNum={5}
+              animationNum={9}
               timelineRef={heroRef}
-              customVariants={revealVariants}
+              customVariants={heroRevealVariants}
               className="flex gap-4"
             >
               <div className="flex items-center gap-2 mb-2 sm:text-base text-xs">
@@ -229,9 +246,9 @@ export default function AboutSection() {
             <div className="lg:absolute right-0 bottom-16 flex lg:flex-col flex-row-reverse lg:gap-0 gap-4">
               <TimelineContent
                 as="div"
-                animationNum={6}
+                animationNum={10}
                 timelineRef={heroRef}
-                customVariants={revealVariants}
+                customVariants={heroRevealVariants}
                 className="flex lg:text-4xl sm:text-3xl text-2xl items-center gap-2 mb-2"
               >
                 <span className="text-orange-500 font-semibold">5000+</span>
@@ -239,9 +256,9 @@ export default function AboutSection() {
               </TimelineContent>
               <TimelineContent
                 as="div"
-                animationNum={7}
+                animationNum={11}
                 timelineRef={heroRef}
-                customVariants={revealVariants}
+                customVariants={heroRevealVariants}
                 className="flex items-center gap-2 mb-2 sm:text-base text-xs"
               >
                 <span className="text-orange-500 font-bold">24/7</span>
@@ -256,18 +273,18 @@ export default function AboutSection() {
         <div className="mt-10 md:mt-12 mb-10 md:mb-14">
           <TimelineContent
             as="h3"
-            animationNum={20}
+            animationNum={12}
             timelineRef={heroRef}
-            customVariants={revealVariants}
+            customVariants={heroRevealVariants}
             className="text-xl md:text-2xl font-semibold text-gray-900 mb-2 text-center md:text-left"
           >
             What you can do on Dharmlok
           </TimelineContent>
           <TimelineContent
             as="p"
-            animationNum={21}
+            animationNum={13}
             timelineRef={heroRef}
-            customVariants={revealVariants}
+            customVariants={heroRevealVariants}
             className="text-gray-600 text-sm md:text-base mb-6 max-w-2xl text-center md:text-left mx-auto md:mx-0"
           >
             Browse services, read and listen to spiritual media, plan trips, and
@@ -310,9 +327,9 @@ export default function AboutSection() {
               <TimelineContent
                 key={item.title}
                 as="div"
-                animationNum={22 + idx}
+                animationNum={14 + idx}
                 timelineRef={heroRef}
-                customVariants={revealVariants}
+                customVariants={heroRevealVariants}
                 className="rounded-xl border border-orange-100 bg-white/80 p-5 shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="flex items-start gap-3">

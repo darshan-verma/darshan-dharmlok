@@ -14,6 +14,7 @@ export default function TripTypeSelector({
 	const options = [
 		{ value: "one-way", label: "One Way" },
 		{ value: "round-trip", label: "Round Trip" },
+		{ value: "advance-return", label: "Advance Return" },
 		{ value: "special-return", label: "Special Return" },
 		{ value: "multi-city", label: "Multi City" },
 	];

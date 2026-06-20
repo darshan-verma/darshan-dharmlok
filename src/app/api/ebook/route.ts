@@ -112,7 +112,9 @@ export async function GET(req: NextRequest) {
 				where,
 				skip,
 				take: limit,
-				orderBy: { createdAt: "desc" },
+				// Tie-break on id: many ebooks share identical createdAt from bulk import;
+				// without a stable secondary sort, paginated pages overlap.
+				orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 			}),
 			prisma.eBook.count({ where }),
 		]);

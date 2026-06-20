@@ -1,4 +1,4 @@
-import type { FlightResult, FlightSegment } from "@/types/tbo";
+import type { FareQuoteResponse, FlightResult, FlightSegment } from "@/types/tbo";
 
 /** TBO FlightCabinClass: 1=All, 2=Economy, 3=PremiumEconomy, 4=Business, 5=PremiumBusiness, 6=First */
 export const TBO_CABIN_CLASS = {
@@ -50,7 +50,15 @@ export function normalizeTboCabinClass(value: string | undefined): string {
 }
 
 export function isReturnJourneyType(journeyType: string): boolean {
-	return journeyType === TBO_JOURNEY.RETURN || journeyType === TBO_JOURNEY.SPECIAL_RETURN;
+	return (
+		journeyType === TBO_JOURNEY.RETURN ||
+		journeyType === TBO_JOURNEY.SPECIAL_RETURN ||
+		journeyType === TBO_JOURNEY.ADVANCE_SEARCH
+	);
+}
+
+export function isAdvanceSearchJourneyType(journeyType: string): boolean {
+	return journeyType === TBO_JOURNEY.ADVANCE_SEARCH;
 }
 
 export function isSpecialReturnJourneyType(journeyType: string): boolean {
@@ -66,6 +74,7 @@ export function tboSourcesForSearch(
 	},
 ): string[] | null {
 	if (options?.sources?.length) return options.sources;
+	if (journeyType === TBO_JOURNEY.ADVANCE_SEARCH) return [""];
 	if (!isSpecialReturnJourneyType(journeyType)) return null;
 	return options?.specialReturnChannel === "GDS"
 		? ["GDS"]
@@ -125,6 +134,21 @@ function airlineCode(flight: FlightResult): string {
  * Domestic Special Return (JourneyType 5): pair OB (TripIndicator 1) + IB (TripIndicator 2)
  * on same airline; FareQuote/Book use comma-separated ResultIndex per TBO doc.
  */
+function pickSpecialReturnInbound(ob: FlightResult, inbound: FlightResult[]): FlightResult | undefined {
+	if (!ob?.ResultIndex || !inbound.length) return undefined;
+	const comboId = (ob as FlightResult & { FareCombinationId?: string }).FareCombinationId;
+	if (comboId) {
+		const byCombo = inbound.find(
+			(f) =>
+				(f as FlightResult & { FareCombinationId?: string }).FareCombinationId ===
+				comboId,
+		);
+		if (byCombo) return byCombo;
+	}
+	const air = airlineCode(ob);
+	return inbound.find((f) => airlineCode(f) === air) || inbound[0];
+}
+
 export function pairTboSpecialReturnFlights(
 	flights: FlightResult[],
 ): FlightResult[] {
@@ -139,8 +163,7 @@ export function pairTboSpecialReturnFlights(
 
 	if (outbound.length && inbound.length) {
 		for (const ob of outbound) {
-			const air = airlineCode(ob);
-			const ib = inbound.find((f) => airlineCode(f) === air);
+			const ib = pickSpecialReturnInbound(ob, inbound);
 			if (!ib) continue;
 			paired.push({
 				...ob,
@@ -180,6 +203,107 @@ export function fareQuoteResultIndexes(
 		return { primary: resultIndex, secondary: returnResultIndex };
 	}
 	return { primary: resultIndex };
+}
+
+export function extractFareQuoteResultIndex(
+	fareQuoteResponse?: FareQuoteResponse,
+): string | undefined {
+	const results = fareQuoteResponse?.Response?.Results;
+	const row = Array.isArray(results) ? results[0] : results;
+	return row?.ResultIndex;
+}
+
+export type ResolveTboSpecialReturnResultIndexOptions = {
+	journeyType?: string;
+	isInternational?: boolean;
+	isLCC?: boolean;
+	outboundResultIndex?: string;
+	inboundResultIndex?: string;
+	fareQuoteRequestIndex?: string;
+};
+
+/**
+ * Domestic LCC Special Return (JT=5): FareQuote/SSR/Book/Ticket must keep the
+ * combined OB…,IB… index from search or the successful FareQuote request.
+ * Do not replace it with FareQuoteResponse.Results.ResultIndex when that value
+ * is OB-only after a combined FareQuote succeeded.
+ */
+export function resolveTboSpecialReturnResultIndex(
+	originalIndex: string,
+	fareQuoteResponse?: FareQuoteResponse,
+	options?: ResolveTboSpecialReturnResultIndexOptions,
+): string {
+	if (
+		options?.isInternational ||
+		!isSpecialReturnJourneyType(options?.journeyType || "")
+	) {
+		return originalIndex;
+	}
+
+	const needsCombined = options?.isLCC === true;
+	if (!needsCombined) {
+		return (
+			options?.fareQuoteRequestIndex ||
+			originalIndex ||
+			extractFareQuoteResultIndex(fareQuoteResponse) ||
+			""
+		);
+	}
+
+	if (options?.outboundResultIndex && options?.inboundResultIndex) {
+		return `${options.outboundResultIndex},${options.inboundResultIndex}`;
+	}
+
+	const fromFareQuoteRequest = options?.fareQuoteRequestIndex;
+	if (fromFareQuoteRequest?.includes(",")) {
+		return fromFareQuoteRequest;
+	}
+
+	if (isCombinedSpecialReturnResultIndex(originalIndex)) {
+		return originalIndex;
+	}
+
+	const fareQuoteOb = extractFareQuoteResultIndex(fareQuoteResponse);
+	const inbound =
+		options?.inboundResultIndex ||
+		(isCombinedSpecialReturnResultIndex(originalIndex)
+			? originalIndex.split(",").slice(1).join(",")
+			: undefined);
+	if (fareQuoteOb && inbound && !fareQuoteOb.includes(",")) {
+		return `${fareQuoteOb},${inbound}`;
+	}
+
+	return originalIndex || fromFareQuoteRequest || "";
+}
+
+/**
+ * LCC Special Return Ticket: after a successful combined FareQuote, TBO keys the
+ * booking session on FareQuoteResponse.Results.ResultIndex (OB-only). SSR/FareQuote
+ * still use the combined index; Ticket uses the quoted OB index when present.
+ */
+export function resolveTboSpecialReturnTicketResultIndex(
+	combinedIndex: string,
+	fareQuoteResponse?: FareQuoteResponse,
+	options?: ResolveTboSpecialReturnResultIndexOptions,
+): string {
+	if (
+		options?.isInternational ||
+		!isSpecialReturnJourneyType(options?.journeyType || "") ||
+		options?.isLCC !== true
+	) {
+		return combinedIndex;
+	}
+
+	const fareQuoteOb = extractFareQuoteResultIndex(fareQuoteResponse);
+	if (fareQuoteOb && !fareQuoteOb.includes(",")) {
+		return fareQuoteOb;
+	}
+
+	return resolveTboSpecialReturnResultIndex(
+		combinedIndex,
+		fareQuoteResponse,
+		options,
+	);
 }
 
 /** TBO FareUpsell/FareRules/SSR: omit separate ReturnResultIndex when index is already paired */

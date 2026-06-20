@@ -94,6 +94,7 @@ export interface FlightSegmentDetail {
 	CabinClass?: number;
 	SupplierFareClass?: string | null;
 	FareClassification?: { Type: string };
+	Availability?: Array<{ Class: string; Seats: string }>;
 }
 
 export interface Fare {
@@ -1181,32 +1182,22 @@ export interface PriceRBDRequest {
 	AdultCount: string;
 	ChildCount: string;
 	InfantCount: string;
-	AirSearchResult: Array<{
-		ResultIndex: string;
-		Source: number;
-		IsLCC: boolean;
-		IsRefundable: boolean;
-		AirlineRemark: string;
-		Segments: Array<
-			Array<{
-				TripIndicator: number;
-				SegmentIndicator: number;
-				Airline: {
-					AirlineCode: string;
-					AirlineName: string;
-					FlightNumber: string;
-					FareClass: string;
-					OperatingCarrier: string;
-				};
-			}>
-		>;
-	}>;
+	AirSearchResult: FlightResult[];
 }
 
 export interface PriceRBDResponse {
 	Response: {
 		TraceId: string;
-		Results: FlightResult[][] | FlightResult; // Can be array of arrays or single result
+		ResponseStatus?: number;
+		IsPriceChange?: boolean;
+		IsPriced?: boolean;
+		Origin?: string;
+		Destination?: string;
+		Error?: {
+			ErrorCode: number;
+			ErrorMessage: string;
+		};
+		Results: FlightResult[][] | FlightResult;
 	};
 	Error?: {
 		ErrorCode: number;

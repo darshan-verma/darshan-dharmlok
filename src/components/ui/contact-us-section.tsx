@@ -3,7 +3,6 @@
 import type React from "react";
 
 import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
 import {
 	Mail,
 	Phone,
@@ -104,9 +103,18 @@ export default function ContactUsSection() {
 			secondaryIcon: (
 				<Sparkles className="w-4 h-4 absolute -top-1 -right-1 text-orange-400" />
 			),
-			title: "Visit Us",
-			description: "123 Spiritual Lane, Mumbai, Maharashtra 400001, India",
-			action: "Get Directions",
+			title: "Register Office",
+			description:
+				"12/9, GF, MALVIYA NAGAR, Jaipur, Jaipur, Rajasthan, 302017",
+		},
+		{
+			icon: <MapPin className="w-6 h-6" />,
+			secondaryIcon: (
+				<Sparkles className="w-4 h-4 absolute -top-1 -right-1 text-orange-400" />
+			),
+			title: "Corporate Office",
+			description:
+				"Plot no 1, Swastik CHS, Divya Dhristhi Buliding, Gulmohar Road, Opps Mithibai college gate no 1, N S road no 1, Ville Parle west, Mumbai 400056",
 		},
 		{
 			icon: <Phone className="w-6 h-6" />,
@@ -123,7 +131,7 @@ export default function ContactUsSection() {
 				<Star className="w-4 h-4 absolute -top-1 -right-1 text-orange-400" />
 			),
 			title: "Email Us",
-			description: "contact@dharmlok.com",
+			description: "Info@dharmlok.com\nsupport@dharmlok.com",
 			action: "Send Email",
 		},
 		{
@@ -239,10 +247,10 @@ export default function ContactUsSection() {
 					want to share feedback, our team is ready to assist you.
 				</motion.p>
 
-				<div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+				<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
 					{/* Contact Form */}
 					<motion.div
-						className="bg-white rounded-2xl shadow-xl p-8"
+						className="bg-white rounded-2xl shadow-xl p-6 lg:p-7 self-start w-full"
 						variants={itemVariants}
 						whileHover={{ y: -5, transition: { duration: 0.2 } }}
 					>
@@ -262,8 +270,8 @@ export default function ContactUsSection() {
 							</motion.div>
 						)}
 
-						<form onSubmit={handleSubmit} className="space-y-5">
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+						<form onSubmit={handleSubmit} className="space-y-4">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								<motion.div
 									className="space-y-2"
 									initial={{ opacity: 0, x: -20 }}
@@ -305,7 +313,7 @@ export default function ContactUsSection() {
 								</motion.div>
 							</div>
 
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								<motion.div
 									className="space-y-2"
 									initial={{ opacity: 0, x: -20 }}
@@ -365,7 +373,7 @@ export default function ContactUsSection() {
 									value={formData.message}
 									onChange={handleInputChange}
 									required
-									rows={5}
+									rows={4}
 									className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all outline-none resize-none"
 									placeholder="How can we help you?"
 								/>
@@ -374,7 +382,7 @@ export default function ContactUsSection() {
 							<motion.button
 								type="submit"
 								disabled={isSubmitting}
-								className="w-full bg-orange-500 hover:bg-orange-600 text-white py-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+								className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
 								whileHover={{ scale: 1.02 }}
 								whileTap={{ scale: 0.98 }}
 							>
@@ -414,30 +422,6 @@ export default function ContactUsSection() {
 								delay={index * 0.15}
 							/>
 						))}
-
-						{/* Map Placeholder */}
-						<motion.div
-							className="rounded-2xl overflow-hidden shadow-lg h-48 relative group"
-							variants={itemVariants}
-							whileHover={{ y: -5, transition: { duration: 0.2 } }}
-						>
-							<Image
-								src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=2074&auto=format&fit=crop"
-								alt="Map Location"
-								fill
-								className="object-cover group-hover:scale-110 transition-transform duration-500"
-							/>
-							<div className="absolute inset-0 bg-gradient-to-t from-gray-900/70 to-transparent flex items-end justify-center p-4">
-								<motion.button
-									className="bg-white text-gray-800 px-6 py-2 rounded-full flex items-center gap-2 text-sm font-medium"
-									whileHover={{ scale: 1.05 }}
-									whileTap={{ scale: 0.95 }}
-								>
-									<MapPin className="w-4 h-4 text-orange-500" />
-									View on Map
-								</motion.button>
-							</div>
-						</motion.div>
 					</div>
 				</div>
 
@@ -460,28 +444,6 @@ export default function ContactUsSection() {
 						/>
 					))}
 				</motion.div>
-
-				{/* FAQ CTA Section */}
-				<motion.div
-					className="mt-20 bg-gradient-to-r from-orange-500 to-amber-500 text-white p-8 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6"
-					initial={{ opacity: 0, y: 30 }}
-					animate={isStatsInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-					transition={{ duration: 0.8, delay: 0.5 }}
-				>
-					<div className="flex-1">
-						<h3 className="text-2xl font-medium mb-2">Have more questions?</h3>
-						<p className="text-white/90">
-							Check out our FAQ section for quick answers to common queries.
-						</p>
-					</div>
-					<motion.button
-						className="bg-white text-orange-600 hover:bg-orange-50 px-6 py-3 rounded-lg flex items-center gap-2 font-medium transition-colors"
-						whileHover={{ scale: 1.05 }}
-						whileTap={{ scale: 0.95 }}
-					>
-						View FAQs <ArrowRight className="w-4 h-4" />
-					</motion.button>
-				</motion.div>
 			</motion.div>
 		</section>
 	);
@@ -492,7 +454,7 @@ interface ContactInfoCardProps {
 	secondaryIcon?: React.ReactNode;
 	title: string;
 	description: string;
-	action: string;
+	action?: string;
 	variants: {
 		hidden: { opacity: number; y?: number };
 		visible: {
@@ -534,13 +496,17 @@ function ContactInfoCard({
 				<h4 className="text-lg font-semibold text-gray-800 mb-1 group-hover:text-orange-600 transition-colors">
 					{title}
 				</h4>
-				<p className="text-gray-600 text-sm mb-2">{description}</p>
-				<motion.span
-					className="text-orange-500 text-sm font-medium flex items-center gap-1 cursor-pointer"
-					whileHover={{ x: 5 }}
-				>
-					{action} <ArrowRight className="w-4 h-4" />
-				</motion.span>
+				<p className="text-gray-600 text-sm whitespace-pre-line">
+					{description}
+				</p>
+				{action ? (
+					<motion.span
+						className="text-orange-500 text-sm font-medium flex items-center gap-1 cursor-pointer mt-2"
+						whileHover={{ x: 5 }}
+					>
+						{action} <ArrowRight className="w-4 h-4" />
+					</motion.span>
+				) : null}
 			</div>
 		</motion.div>
 	);

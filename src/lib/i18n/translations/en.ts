@@ -35,6 +35,7 @@ export const en = {
 		scheduled: "Scheduled",
 		viewAllLiveStreams: "View all live streams",
 		dashboard: "Dashboard",
+		myAccount: "My Account",
 		settings: "Settings",
 		logOut: "Log out",
 		user: "User",

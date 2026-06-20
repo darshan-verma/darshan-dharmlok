@@ -20,6 +20,16 @@ import { LanguageSelector } from "@/components/shared/LanguageSelector";
 import { useTranslation } from "@/components/providers/LanguageProvider";
 import { HoroscopeNavTooltip } from "./HoroscopeNavTooltip";
 import { DailySuvicharIcon } from "@/components/suvichar/DailySuvicharIcon";
+import {
+	getDashboardRoute,
+	getProfileSettingsRoute,
+	isRegularUser,
+} from "@/app/dashboard/components/user-role";
+
+interface UserProfileSummary {
+	phone?: string;
+	userType?: string;
+}
 
 export default function Header() {
 	const { t } = useTranslation();
@@ -40,7 +50,41 @@ export default function Header() {
 	const seenIdsRef = useRef<Set<string>>(new Set());
 	const [seenIdsLoaded, setSeenIdsLoaded] = useState(false);
 	const [unseenNotifications, setUnseenNotifications] = useState<typeof _liveNotifications>([]);
+	const [userProfile, setUserProfile] = useState<UserProfileSummary | null>(null);
 	const isAuthenticated = status === "authenticated";
+
+	const userRole = session?.user?.role;
+	const dashboardRoute = getDashboardRoute(userRole);
+	const settingsRoute = getProfileSettingsRoute(userRole);
+	const isRegular = isRegularUser(userRole);
+
+	useEffect(() => {
+		if (!isAuthenticated || !session?.user?.id || !isRegular) {
+			setUserProfile(null);
+			return;
+		}
+
+		let cancelled = false;
+		(async () => {
+			try {
+				const res = await fetch(`/api/users/${session.user.id}`);
+				if (!res.ok || cancelled) return;
+				const data = await res.json();
+				if (!cancelled) {
+					setUserProfile({
+						phone: data.phone || "",
+						userType: data.userType || "user",
+					});
+				}
+			} catch {
+				// Keep session-only info in dropdown
+			}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [isAuthenticated, session?.user?.id, isRegular]);
 
 	const SEEN_STORAGE_KEY = "dharmlok_seen_notification_ids";
 
@@ -337,20 +381,36 @@ export default function Header() {
 												<p className="text-xs leading-none text-muted-foreground">
 													{session?.user?.email}
 												</p>
+												{isRegular && userProfile?.phone ? (
+													<p className="text-xs leading-none text-muted-foreground">
+														{userProfile.phone}
+													</p>
+												) : null}
+												{!isRegular && userRole ? (
+													<p className="text-xs leading-none text-orange-600 capitalize mt-0.5">
+														{userRole.replace(/[_-]/g, " ")}
+													</p>
+												) : null}
 											</div>
 										</DropdownMenuLabel>
 										<DropdownMenuSeparator />
+										{dashboardRoute ? (
+											<DropdownMenuItem asChild>
+												<Link href={dashboardRoute} className="cursor-pointer">
+													<User className="mr-2 h-4 w-4" />
+													<span>{t("header.dashboard")}</span>
+												</Link>
+											</DropdownMenuItem>
+										) : (
+											<DropdownMenuItem asChild>
+												<Link href="/dashboard" className="cursor-pointer">
+													<User className="mr-2 h-4 w-4" />
+													<span>{t("header.myAccount")}</span>
+												</Link>
+											</DropdownMenuItem>
+										)}
 										<DropdownMenuItem asChild>
-											<Link href="/dashboard" className="cursor-pointer">
-												<User className="mr-2 h-4 w-4" />
-												<span>{t("header.dashboard")}</span>
-											</Link>
-										</DropdownMenuItem>
-										<DropdownMenuItem asChild>
-											<Link
-												href="/dashboard/profile"
-												className="cursor-pointer"
-											>
+											<Link href={settingsRoute} className="cursor-pointer">
 												<Settings className="mr-2 h-4 w-4" />
 												<span>{t("header.settings")}</span>
 											</Link>

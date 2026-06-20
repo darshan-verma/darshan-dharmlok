@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAdmin } from "@/lib/suvichar/admin-auth";
 import { serializeFrame } from "@/lib/suvichar/serialize";
-import { validateSafeArea } from "@/lib/suvichar/validation";
+import { validateSuvicharFrame } from "@/lib/suvichar/validation";
 
 export async function GET() {
 	const { error } = await requireAdmin();
@@ -48,12 +48,20 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const safeCheck = validateSafeArea({
+		const frameInput = {
+			safeAreaX: Number(safeAreaX),
+			safeAreaY: Number(safeAreaY),
 			safeAreaWidth: Number(safeAreaWidth),
 			safeAreaHeight: Number(safeAreaHeight),
-		});
-		if (!safeCheck.ok) {
-			return NextResponse.json({ error: safeCheck.message }, { status: 400 });
+			defaultTextColor: String(defaultTextColor),
+			defaultFontSize: Number(defaultFontSize),
+			width: Number(width),
+			height: Number(height),
+		};
+
+		const validation = validateSuvicharFrame(frameInput);
+		if (!validation.valid) {
+			return NextResponse.json({ error: validation.errors.join(" ") }, { status: 400 });
 		}
 
 		const created = await prisma.suvicharFrame.create({
@@ -61,14 +69,14 @@ export async function POST(req: NextRequest) {
 				name: String(name),
 				imageUrl: String(imageUrl),
 				thumbnailUrl: thumbnailUrl ? String(thumbnailUrl) : null,
-				width: Number(width),
-				height: Number(height),
-				safeAreaX: Number(safeAreaX),
-				safeAreaY: Number(safeAreaY),
-				safeAreaWidth: Number(safeAreaWidth),
-				safeAreaHeight: Number(safeAreaHeight),
-				defaultTextColor: String(defaultTextColor),
-				defaultFontSize: Number(defaultFontSize),
+				width: frameInput.width,
+				height: frameInput.height,
+				safeAreaX: frameInput.safeAreaX,
+				safeAreaY: frameInput.safeAreaY,
+				safeAreaWidth: frameInput.safeAreaWidth,
+				safeAreaHeight: frameInput.safeAreaHeight,
+				defaultTextColor: frameInput.defaultTextColor,
+				defaultFontSize: frameInput.defaultFontSize,
 				defaultTextAlign: String(defaultTextAlign),
 				status: String(status),
 			},

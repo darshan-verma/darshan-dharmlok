@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,6 @@ import type {
 import { getIstDateString } from "@/lib/suvichar/dates";
 import {
 	getFrameDefaultTextStyle,
-	mergeTextStyleOverrides,
 	serializeTextStyleForDb,
 } from "@/lib/suvichar/textStyle";
 
@@ -39,9 +38,50 @@ export default function SuvicharSchedulePage() {
 	const [textStyle, setTextStyle] = useState<TextStyleOverrides | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
+	const styleSeedRef = useRef("");
 
-	const loadAll = useCallback(async () => {
-		setLoading(true);
+	const buildStyleSeedKey = useCallback(
+		(
+			date: string,
+			frameId: string | null,
+			row?: Pick<DailySuvicharDto, "id" | "textStyleOverrides"> | null,
+		) =>
+			`${date}|${frameId ?? ""}|${row?.id ?? "none"}|${JSON.stringify(row?.textStyleOverrides ?? null)}`,
+		[],
+	);
+
+	const applyTextStyleForSelection = useCallback(
+		(frameId: string | null, row?: DailySuvicharDto) => {
+			if (!frameId) {
+				setTextStyle(null);
+				return;
+			}
+			const frame = frames.find((f) => f.id === frameId);
+			if (!frame) return;
+			const defaults = frameDefaultsFromDto(frame);
+			setTextStyle(
+				row?.textStyleOverrides ?? getFrameDefaultTextStyle(defaults),
+			);
+		},
+		[frames],
+	);
+
+	const upsertScheduleRow = useCallback((row: DailySuvicharDto) => {
+		setSchedule((prev) => {
+			const idx = prev.findIndex((s) => s.scheduledDate === row.scheduledDate);
+			if (idx >= 0) {
+				const next = [...prev];
+				next[idx] = row;
+				return next;
+			}
+			return [...prev, row].sort((a, b) =>
+				a.scheduledDate.localeCompare(b.scheduledDate),
+			);
+		});
+	}, []);
+
+	const loadAll = useCallback(async (options?: { silent?: boolean }) => {
+		if (!options?.silent) setLoading(true);
 		try {
 			const [textRes, frameRes, schedRes] = await Promise.all([
 				fetch("/api/suvichar/texts"),
@@ -56,14 +96,32 @@ export default function SuvicharSchedulePage() {
 			setTexts(activeTexts);
 			setFrames(activeFrames);
 			setSchedule(schedJson.content);
-			setSelectedTextId((prev) => prev ?? activeTexts[0]?.id ?? null);
-			setSelectedFrameId((prev) => prev ?? activeFrames[0]?.id ?? null);
+			if (!options?.silent) {
+				setSelectedTextId((prev) => prev ?? activeTexts[0]?.id ?? null);
+				setSelectedFrameId((prev) => prev ?? activeFrames[0]?.id ?? null);
+			}
 		} catch {
 			toast.error("Failed to load scheduler data");
 		} finally {
-			setLoading(false);
+			if (!options?.silent) setLoading(false);
 		}
 	}, []);
+
+	const preserveEditorStateAfterSave = useCallback(
+		(savedRow: DailySuvicharDto, localStyle: TextStyleOverrides) => {
+			const rowForState: DailySuvicharDto = {
+				...savedRow,
+				textStyleOverrides: localStyle,
+			};
+			styleSeedRef.current = buildStyleSeedKey(
+				rowForState.scheduledDate,
+				rowForState.frameId,
+				rowForState,
+			);
+			upsertScheduleRow(rowForState);
+		},
+		[buildStyleSeedKey, upsertScheduleRow],
+	);
 
 	useEffect(() => {
 		void loadAll();
@@ -88,26 +146,33 @@ export default function SuvicharSchedulePage() {
 	);
 
 	useEffect(() => {
+		if (loading) return;
+
 		const row = schedule.find((s) => s.scheduledDate === scheduledDate);
+		const seedKey = buildStyleSeedKey(
+			scheduledDate,
+			row?.frameId ?? selectedFrameId,
+			row,
+		);
+		if (styleSeedRef.current === seedKey) return;
+		styleSeedRef.current = seedKey;
+
 		if (row) {
 			setSelectedTextId(row.suvicharTextId);
 			setSelectedFrameId(row.frameId);
-			const frame = frames.find((f) => f.id === row.frameId);
-			if (frame) {
-				const defaults = frameDefaultsFromDto(frame);
-				setTextStyle(
-					row.textStyleOverrides
-						? mergeTextStyleOverrides(defaults, row.textStyleOverrides)
-						: getFrameDefaultTextStyle(defaults),
-				);
-			}
+			applyTextStyleForSelection(row.frameId, row);
 			return;
 		}
-		const frame = frames.find((f) => f.id === selectedFrameId);
-		if (frame) {
-			setTextStyle(getFrameDefaultTextStyle(frameDefaultsFromDto(frame)));
-		}
-	}, [scheduledDate, schedule, frames, selectedFrameId]);
+
+		applyTextStyleForSelection(selectedFrameId);
+	}, [
+		loading,
+		scheduledDate,
+		schedule,
+		selectedFrameId,
+		buildStyleSeedKey,
+		applyTextStyleForSelection,
+	]);
 
 	const previewPayload = useMemo(() => {
 		if (!selectedText || !selectedFrame) return null;
@@ -161,7 +226,11 @@ export default function SuvicharSchedulePage() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(buildScheduleBody(publishNow, replace)),
 			});
-			const json = await res.json();
+			const json = (await res.json()) as DailySuvicharDto & {
+				error?: string;
+				requiresReplace?: boolean;
+				warning?: string;
+			};
 			if (res.status === 409 && json.requiresReplace) {
 				setSaving(false);
 				if (
@@ -174,20 +243,23 @@ export default function SuvicharSchedulePage() {
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify(buildScheduleBody(publishNow, true)),
 					});
-					const replaceJson = await replaceRes.json();
+					const replaceJson = (await replaceRes.json()) as DailySuvicharDto & {
+						error?: string;
+						warning?: string;
+					};
 					if (!replaceRes.ok) {
 						throw new Error(replaceJson.error || "Failed to replace");
 					}
 					if (replaceJson.warning) toast.warning(replaceJson.warning);
+					preserveEditorStateAfterSave(replaceJson, resolvedTextStyle);
 					toast.success(publishNow ? "Published for today" : "Schedule updated");
-					await loadAll();
 				}
 				return;
 			}
 			if (!res.ok) throw new Error(json.error || "Failed to schedule");
 			if (json.warning) toast.warning(json.warning);
+			preserveEditorStateAfterSave(json, resolvedTextStyle);
 			toast.success(publishNow ? "Published for today" : "Added to queue");
-			await loadAll();
 		} catch (e) {
 			toast.error(e instanceof Error ? e.message : "Schedule failed");
 		} finally {
@@ -203,8 +275,16 @@ export default function SuvicharSchedulePage() {
 				body: JSON.stringify({ publishNow: true }),
 			});
 			if (!res.ok) throw new Error("Publish failed");
+			const json = (await res.json()) as DailySuvicharDto;
+			const currentRow = schedule.find((s) => s.scheduledDate === scheduledDate);
+			if (currentRow?.id === id) {
+				preserveEditorStateAfterSave(json, resolvedTextStyle);
+			} else {
+				setSchedule((prev) =>
+					prev.map((row) => (row.id === id ? { ...row, ...json } : row)),
+				);
+			}
 			toast.success("Published");
-			await loadAll();
 		} catch {
 			toast.error("Publish failed");
 		}
@@ -217,26 +297,38 @@ export default function SuvicharSchedulePage() {
 				method: "DELETE",
 			});
 			if (!res.ok) throw new Error("Delete failed");
+			const removed = schedule.find((row) => row.id === id);
+			setSchedule((prev) => prev.filter((row) => row.id !== id));
+			if (removed?.scheduledDate === scheduledDate) {
+				styleSeedRef.current = "";
+				applyTextStyleForSelection(selectedFrameId);
+			}
 			toast.success("Removed");
-			await loadAll();
 		} catch {
 			toast.error("Delete failed");
 		}
 	};
 
+	const copyShareLink = async (id: string) => {
+		const url = `${window.location.origin}/suvichar/${id}`;
+		try {
+			await navigator.clipboard.writeText(url);
+			toast.success("Share link copied");
+		} catch {
+			toast.error("Could not copy link");
+		}
+	};
+
 	const loadQueueEntry = (row: DailySuvicharDto) => {
+		styleSeedRef.current = buildStyleSeedKey(
+			row.scheduledDate,
+			row.frameId,
+			row,
+		);
 		setScheduledDate(row.scheduledDate);
 		setSelectedTextId(row.suvicharTextId);
 		setSelectedFrameId(row.frameId);
-		const frame = frames.find((f) => f.id === row.frameId);
-		if (frame) {
-			const defaults = frameDefaultsFromDto(frame);
-			setTextStyle(
-				row.textStyleOverrides
-					? mergeTextStyleOverrides(defaults, row.textStyleOverrides)
-					: getFrameDefaultTextStyle(defaults),
-			);
-		}
+		applyTextStyleForSelection(row.frameId, row);
 	};
 
 	if (loading) {
@@ -273,7 +365,10 @@ export default function SuvicharSchedulePage() {
 							<button
 								key={f.id}
 								type="button"
-								onClick={() => setSelectedFrameId(f.id)}
+								onClick={() => {
+									styleSeedRef.current = "";
+									setSelectedFrameId(f.id);
+								}}
 								className={`w-full rounded-lg px-2 py-2 text-left text-sm ${
 									selectedFrameId === f.id
 										? "bg-orange-100 text-orange-800"
@@ -336,7 +431,10 @@ export default function SuvicharSchedulePage() {
 						id="schedule-date"
 						type="date"
 						value={scheduledDate}
-						onChange={(e) => setScheduledDate(e.target.value)}
+						onChange={(e) => {
+							styleSeedRef.current = "";
+							setScheduledDate(e.target.value);
+						}}
 					/>
 				</div>
 				<Button
@@ -381,6 +479,16 @@ export default function SuvicharSchedulePage() {
 									</span>
 								</button>
 								<div className="flex gap-2">
+									{row.status === "published" && (
+										<Button
+											type="button"
+											size="sm"
+											variant="outline"
+											onClick={() => void copyShareLink(row.id)}
+										>
+											🔗 Copy Link
+										</Button>
+									)}
 									{row.status !== "published" && (
 										<Button
 											type="button"

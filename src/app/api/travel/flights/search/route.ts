@@ -501,7 +501,7 @@ export async function POST(request: NextRequest) {
 				String(body.ReturnPreferredDepartureTime).trim() === "")
 		) {
 			return NextResponse.json(
-				{ error: "Return date is required for return and special return journeys" },
+				{ error: "Return date is required for return, advance search return, and special return journeys" },
 				{ status: 400 },
 			);
 		}

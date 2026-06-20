@@ -1,3 +1,4 @@
+import { isAdvanceSearchJourneyType } from "@/lib/tboFlightSearch";
 import type { FlightResult } from "@/types/tbo";
 
 export type TripjackMulticitySearchView = {
@@ -31,6 +32,13 @@ export function resolveMulticitySearchView(
 	journeyType: string,
 ): TripjackMulticitySearchView {
 	const legs = nonEmptyResultLegs(results);
+
+	if (isAdvanceSearchJourneyType(journeyType) && legs.length >= 2) {
+		return {
+			displayFlights: legs[0] || [],
+			domesticLegs: [legs[0], legs[1]],
+		};
+	}
 
 	if (journeyType !== "3" || legs.length === 0) {
 		return {

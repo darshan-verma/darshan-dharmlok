@@ -24,11 +24,7 @@ import {
 	Sunset,
 	Moon,
 	Loader2,
-	IndianRupee,
 	RefreshCw,
-	TrendingUp,
-	MapPin,
-	ShoppingBag,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import type {
@@ -44,21 +40,23 @@ import FromToSelector, {
 	type City,
 } from "../../components/travel-portal/FromToSelector";
 import { airlineLabelFromFields } from "@/lib/reference-data-client";
-import { AirportCodeLabel } from "@/components/travel-portal/ReferenceCodeLabel";
 import TripTypeSelector from "../../components/travel-portal/TripTypeSelector";
 import SearchButton from "../../components/travel-portal/SearchButton";
 import MultiCitySelector from "../../components/travel-portal/MultiCitySelector";
 import TripjackMulticityLegBar from "./TripjackMulticityLegBar";
 import UpsellModal from "./UpsellModal";
+import GroupedFlightCard from "./GroupedFlightCard";
+import { groupFlightsBySchedule } from "@/lib/flightScheduleGrouping";
 import {
 	allDomesticMulticityLegsSelected,
 	buildTripjackMulticityBookSearchParams,
 	resolveMulticitySearchView,
 } from "@/lib/tripjackMulticityUi";
-import { Separator } from "@/components/ui/separator";
-import { getFareBreakdown } from "@/lib/tboFareCalculations";
+import {
+	extractPriceRbdResultIndex,
+	resolveSelectedAdvanceSearchFlight,
+} from "@/lib/tboAdvanceSearch";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
-import AirlineLogo from "@/components/travel-portal/AirlineLogo";
 import {
 	flightCache,
 	lastSearch,
@@ -90,7 +88,7 @@ interface FlightSearchForm {
 	children: number;
 	infants: number;
 	cabinClass: string;
-	journeyType: "1" | "2" | "3" | "5"; // 1: OW, 2: Return, 3: MC, 5: Special Return
+	journeyType: "1" | "2" | "3" | "4" | "5"; // 1: OW, 2: Return, 3: MC, 4: Advance Return, 5: Special Return
 	directFlight: boolean;
 	oneStopFlight: boolean;
 	/** TripJack searchModifiers.pft — Regular omits pft on API */
@@ -110,7 +108,7 @@ interface FlightSearchParams {
 	ChildCount: string;
 	InfantCount: string;
 	FlightCabinClass: string;
-	JourneyType: "1" | "2" | "3" | "5";
+	JourneyType: "1" | "2" | "3" | "4" | "5";
 	DirectFlight: string;
 	OneStopFlight: string;
 	Segments?: ApiFlightSegment[];
@@ -141,6 +139,7 @@ const reverseCabinClassMapping = TBO_API_CABIN_TO_UI;
 const tripTypeMapping: { [key: string]: string } = {
 	"one-way": "1",
 	"round-trip": "2",
+	"advance-return": "4",
 	"multi-city": "3",
 	"special-return": "5",
 };
@@ -149,6 +148,7 @@ const reverseTripTypeMapping: { [key: string]: string } = {
 	"1": "one-way",
 	"2": "round-trip",
 	"3": "multi-city",
+	"4": "advance-return",
 	"5": "special-return",
 };
 
@@ -205,6 +205,12 @@ export default function FlightSearch() {
 		(FlightResult | null)[]
 	>([]);
 	const [multicityActiveLeg, setMulticityActiveLeg] = useState(0);
+	const [selectedFareByGroup, setSelectedFareByGroup] = useState<
+		Record<string, string>
+	>({});
+	const [advanceSearchRbdByIndex, setAdvanceSearchRbdByIndex] = useState<
+		Record<string, string>
+	>({});
 
 	// Multi-city state
 	const [multiCityLegs, setMultiCityLegs] = useState<CityLeg[]>([
@@ -382,7 +388,7 @@ export default function FlightSearch() {
 				if (lastSearchParams.journeyType) {
 					form.setValue(
 						"journeyType",
-						lastSearchParams.journeyType as "1" | "2" | "3" | "5",
+						lastSearchParams.journeyType as "1" | "2" | "3" | "4" | "5",
 					);
 					setTripType(
 						reverseTripTypeMapping[lastSearchParams.journeyType] || "one-way",
@@ -524,7 +530,7 @@ export default function FlightSearch() {
 			if (journeyType) {
 				form.setValue(
 					"journeyType",
-					journeyType as "1" | "2" | "3" | "5",
+					journeyType as "1" | "2" | "3" | "4" | "5",
 				);
 				setTripType(reverseTripTypeMapping[journeyType] || "one-way");
 			}
@@ -543,7 +549,7 @@ export default function FlightSearch() {
 				children: childCount,
 				infants: infantCount,
 				cabinClass: cabinClass || TBO_CABIN_CLASS.ECONOMY,
-				journeyType: (journeyType as "1" | "2" | "3" | "5") || "1",
+				journeyType: (journeyType as "1" | "2" | "3" | "4" | "5") || "1",
 				directFlight: true,
 				oneStopFlight: false,
 				fareProfile: "REGULAR",
@@ -597,7 +603,7 @@ export default function FlightSearch() {
 
 	const handleTripTypeChange = (type: string) => {
 		setTripType(type);
-		form.setValue("journeyType", tripTypeMapping[type] as "1" | "2" | "3" | "5");
+		form.setValue("journeyType", tripTypeMapping[type] as "1" | "2" | "3" | "4" | "5");
 
 		if (type === "multi-city" && departureDate) {
 			setMultiCityLegs((prev) => {
@@ -623,9 +629,11 @@ export default function FlightSearch() {
 	// Filter flights based on selected criteria
 	useEffect(() => {
 		const filtered = flights.filter((flight) => {
-			if (!flight.Fare) return false;
-			const price = flight.Fare!.OfferedFare;
-			if (price < priceRange[0] || price > priceRange[1]) return false;
+			if (!flight.Fare && tripType !== "advance-return") return false;
+			if (flight.Fare) {
+				const price = flight.Fare!.OfferedFare;
+				if (price < priceRange[0] || price > priceRange[1]) return false;
+			}
 
 			if (
 				selectedAirlines.length > 0 &&
@@ -655,7 +663,9 @@ export default function FlightSearch() {
 
 			// Departure time (for round trip)
 			if (
-				(tripType === "round-trip" || tripType === "special-return") &&
+				(tripType === "round-trip" ||
+					tripType === "advance-return" ||
+					tripType === "special-return") &&
 				selectedDepartureTimes.length > 0
 			) {
 				const timeString =
@@ -689,15 +699,20 @@ export default function FlightSearch() {
 		tripType,
 	]);
 
+	const groupedFlights = useMemo(
+		() => groupFlightsBySchedule(filteredFlights),
+		[filteredFlights],
+	);
+
 	useEffect(() => {
 		setVisibleFlightCount(
-			Math.min(FLIGHT_LIST_INITIAL, filteredFlights.length || 0),
+			Math.min(FLIGHT_LIST_INITIAL, groupedFlights.length || 0),
 		);
-	}, [filteredFlights]);
+	}, [groupedFlights]);
 
-	const visibleFlights = useMemo(
-		() => filteredFlights.slice(0, visibleFlightCount),
-		[filteredFlights, visibleFlightCount],
+	const visibleGroups = useMemo(
+		() => groupedFlights.slice(0, visibleFlightCount),
+		[groupedFlights, visibleFlightCount],
 	);
 
 	useEffect(() => {
@@ -762,7 +777,7 @@ export default function FlightSearch() {
 				}
 
 				setVisibleFlightCount((prev) =>
-					Math.min(prev + FLIGHT_LIST_STEP, filteredFlights.length),
+					Math.min(prev + FLIGHT_LIST_STEP, groupedFlights.length),
 				);
 			},
 			{ rootMargin: "120px" },
@@ -771,6 +786,7 @@ export default function FlightSearch() {
 		observer.observe(el);
 		return () => observer.disconnect();
 	}, [
+		groupedFlights.length,
 		filteredFlights.length,
 		visibleFlightCount,
 		flightSearchSessionId,
@@ -1025,6 +1041,7 @@ export default function FlightSearch() {
 		if (
 			searchData.journeyType === "1" ||
 			searchData.journeyType === "2" ||
+			searchData.journeyType === "4" ||
 			searchData.journeyType === "5"
 		) {
 			// One-way and Round-trip validation
@@ -1055,6 +1072,7 @@ export default function FlightSearch() {
 			}
 			if (
 				searchData.journeyType === "2" ||
+				searchData.journeyType === "4" ||
 				searchData.journeyType === "5"
 			) {
 				if (!searchData.returnDate) {
@@ -1085,7 +1103,9 @@ export default function FlightSearch() {
 		}
 
 		if (
-			(searchData.journeyType === "2" || searchData.journeyType === "5") &&
+			(searchData.journeyType === "2" ||
+				searchData.journeyType === "4" ||
+				searchData.journeyType === "5") &&
 			!searchData.returnDate
 		) {
 			toast.error("Please select a return date");
@@ -1161,6 +1181,7 @@ export default function FlightSearch() {
 		setMulticityDomesticLegs(null);
 		setMulticitySelections([]);
 		setMulticityActiveLeg(0);
+		setAdvanceSearchRbdByIndex({});
 
 		try {
 			// Helper function to format date for API (YYYY-MM-DDT00:00:00)
@@ -1199,6 +1220,7 @@ export default function FlightSearch() {
 					: "";
 				if (
 					searchData.journeyType === "2" ||
+					searchData.journeyType === "4" ||
 					searchData.journeyType === "5"
 				) {
 					searchParams.ReturnPreferredDepartureTime = searchData.returnDate
@@ -1256,6 +1278,7 @@ export default function FlightSearch() {
 					: "";
 				if (
 					searchData.journeyType === "2" ||
+					searchData.journeyType === "4" ||
 					searchData.journeyType === "5"
 				) {
 					cacheKeyParams.ReturnPreferredDepartureTime = searchData.returnDate
@@ -1586,7 +1609,11 @@ export default function FlightSearch() {
 			cacheKeyParams.PreferredDepartureTime = data.departureDate
 				? normalizeDate(new Date(data.departureDate))
 				: "";
-			if (data.journeyType === "2" || data.journeyType === "5") {
+			if (
+				data.journeyType === "2" ||
+				data.journeyType === "4" ||
+				data.journeyType === "5"
+			) {
 				cacheKeyParams.ReturnPreferredDepartureTime = data.returnDate
 					? normalizeDate(new Date(data.returnDate))
 					: "";
@@ -1600,91 +1627,193 @@ export default function FlightSearch() {
 		await handleAutoSearch(data, { forceRefresh: true });
 	};
 
-	const formatDuration = (minutes: number) => {
-		const hours = Math.floor(minutes / 60);
-		const mins = minutes % 60;
-		return `${hours}h ${mins}m`;
-	};
-
-	const formatTime = (dateString: string | undefined) => {
-		if (!dateString) return "--:--";
+	const handleFlightBook = async (flight: FlightResult) => {
+		const values = form.getValues();
 
 		try {
-			// Handle various date formats that TBO might return
-			let date: Date | null;
-
-			// If it's already a valid date string, parse it
-			date = new Date(dateString);
-			if (!isNaN(date.getTime())) {
-				return date.toLocaleTimeString("en-IN", {
-					hour: "2-digit",
-					minute: "2-digit",
-				});
+			const firstSegment = flight.Segments?.[0]?.[0];
+			const origin = firstSegment?.Origin;
+			const destination = firstSegment?.Destination;
+			const originCode =
+				origin?.Airport?.AirportCode ||
+				(origin as { AirportCode?: string })?.AirportCode;
+			const destCode =
+				destination?.Airport?.AirportCode ||
+				(destination as { AirportCode?: string })?.AirportCode;
+			const departureTime =
+				origin?.DepTime ||
+				(firstSegment as { DepartureTime?: string })?.DepartureTime;
+			const arrivalTime =
+				destination?.ArrTime ||
+				(firstSegment as { ArrivalTime?: string })?.ArrivalTime;
+			const cabinClass =
+				(firstSegment as { CabinClass?: string })?.CabinClass ||
+				(flight.Fare as { CabinClass?: string })?.CabinClass;
+			let refundType = "non-refundable";
+			if ("Refundable" in (flight.Fare ?? {})) {
+				const refundable = (flight.Fare as { Refundable?: boolean })
+					?.Refundable;
+				refundType = refundable ? "refundable" : "non-refundable";
 			}
 
-			// Try removing milliseconds if present (TBO sometimes includes them)
-			const withoutMs = dateString.replace(/\.\d+/, "");
-			date = new Date(withoutMs);
-			if (!isNaN(date.getTime())) {
-				return date.toLocaleTimeString("en-IN", {
-					hour: "2-digit",
-					minute: "2-digit",
-				});
-			}
-
-			// Try replacing space with T for ISO format
-			const isoString = dateString.replace(" ", "T");
-			date = new Date(isoString);
-			if (!isNaN(date.getTime())) {
-				return date.toLocaleTimeString("en-IN", {
-					hour: "2-digit",
-					minute: "2-digit",
-				});
-			}
-
-			// Try parsing as UTC if it ends with Z
-			if (dateString.endsWith("Z")) {
-				date = new Date(dateString + (dateString.includes("Z") ? "" : "Z"));
-				if (!isNaN(date.getTime())) {
-					return date.toLocaleTimeString("en-IN", {
-						hour: "2-digit",
-						minute: "2-digit",
-					});
-				}
-			}
-
-			// Try manual parsing for common formats
-			const manualParse = (str: string) => {
-				// Match formats like: 2024-12-04T10:30:00 or 2024-12-04 10:30:00
-				const match = str.match(
-					/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2}):(\d{2})/,
-				);
-				if (match) {
-					const [, year, month, day, hour, minute, second] = match;
-					return new Date(
-						parseInt(year),
-						parseInt(month) - 1,
-						parseInt(day),
-						parseInt(hour),
-						parseInt(minute),
-						parseInt(second),
-					);
-				}
-				return null;
-			};
-
-			date = manualParse(dateString);
-			if (date && !isNaN(date.getTime())) {
-				return date.toLocaleTimeString("en-IN", {
-					hour: "2-digit",
-					minute: "2-digit",
-				});
-			}
-
-			return "Invalid Date";
+			await captureAndSendSnapshot(
+				{
+					origin: originCode,
+					destination: destCode,
+					airline: flight.AirlineCode,
+					flightNumber: (firstSegment as { FlightNumber?: string })
+						?.FlightNumber,
+					departureTime,
+					arrivalTime,
+					fare: flight.Fare?.OfferedFare,
+					cabinClass,
+					refundType,
+					passengers: {
+						adults: values.adults,
+						children: values.children,
+						infants: values.infants,
+					},
+					flightDetails: flight,
+				},
+				{
+					page: "flight_results",
+					user: {
+						ip: undefined,
+						userAgent: undefined,
+					},
+					booking: {
+						type: "flight",
+						traceId: traceId,
+						resultIndex: flight.ResultIndex,
+					},
+				},
+			);
 		} catch (_error) {
-			return "Invalid Date";
+			// Silently fail - don't block user flow
 		}
+
+		try {
+			const firstSegment = flight.Segments?.[0]?.[0];
+			const origin = firstSegment?.Origin;
+			const destination = firstSegment?.Destination;
+			await fetch("/api/travel/log-selection", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					logType: "flight",
+					action: "selection",
+					provider: flight.ApiSource || "TBO",
+					flightData: {
+						origin:
+							origin?.Airport?.AirportCode ||
+							(origin as { AirportCode?: string })?.AirportCode,
+						destination:
+							destination?.Airport?.AirportCode ||
+							(destination as { AirportCode?: string })?.AirportCode,
+						airline: flight.AirlineCode,
+						flightNumber: (firstSegment as { FlightNumber?: string })
+							?.FlightNumber,
+						cabinClass:
+							(firstSegment as { CabinClass?: string })?.CabinClass ||
+							(flight.Fare as { CabinClass?: string })?.CabinClass,
+						departureDate:
+							origin?.DepTime ||
+							(firstSegment as { DepartureTime?: string })?.DepartureTime,
+						adultCount: values.adults,
+						childCount: values.children,
+						infantCount: values.infants,
+						totalFare: flight.Fare?.OfferedFare,
+						totalTax: flight.Fare?.Tax,
+					},
+					traceId: traceId,
+					resultIndex: flight.ResultIndex,
+				}),
+			}).catch(() => {});
+		} catch (_error) {
+			// Silently fail - don't block user flow
+		}
+
+		if (
+			tripType === "advance-return" &&
+			multicityDomesticLegs &&
+			multicityDomesticLegs.length >= 2
+		) {
+			try {
+				const selectedRbd = advanceSearchRbdByIndex[flight.ResultIndex];
+				const pricedFlight = resolveSelectedAdvanceSearchFlight(
+					flight,
+					selectedRbd,
+				);
+				const nextSelections = [...multicitySelections];
+				nextSelections[multicityActiveLeg] = pricedFlight;
+				setMulticitySelections(nextSelections);
+				if (multicityActiveLeg < multicityDomesticLegs.length - 1) {
+					const nextLeg = multicityActiveLeg + 1;
+					setMulticityActiveLeg(nextLeg);
+					setFlights(multicityDomesticLegs[nextLeg] || []);
+					toast.success(
+						multicityActiveLeg === 0
+							? "Outbound selected. Choose inbound flight."
+							: `Leg ${multicityActiveLeg + 1} selected. Choose leg ${nextLeg + 1}.`,
+					);
+				} else {
+					toast.success("Both flights selected. Tap Price & continue.");
+				}
+			} catch (error) {
+				toast.error(
+					error instanceof Error
+						? error.message
+						: "Select a fare class first",
+				);
+			}
+			return;
+		}
+
+		if (
+			tripType === "multi-city" &&
+			multicityDomesticLegs &&
+			multicityDomesticLegs.length >= 2 &&
+			flight.ApiSource === "TRIPJACK"
+		) {
+			const nextSelections = [...multicitySelections];
+			nextSelections[multicityActiveLeg] = flight;
+			setMulticitySelections(nextSelections);
+			if (multicityActiveLeg < multicityDomesticLegs.length - 1) {
+				const nextLeg = multicityActiveLeg + 1;
+				setMulticityActiveLeg(nextLeg);
+				setFlights(multicityDomesticLegs[nextLeg] || []);
+				toast.success(
+					`Leg ${multicityActiveLeg + 1} selected. Choose leg ${nextLeg + 1}.`,
+				);
+			} else {
+				toast.success("All legs selected. Tap Continue to booking.");
+			}
+			return;
+		}
+
+		if (tripType === "multi-city" || flight.IsUpsellAllowed !== true) {
+			setSelectingFlight(flight.ResultIndex);
+			const params = new URLSearchParams({
+				traceId: traceId,
+				resultIndex: flight.ResultIndex,
+				adultCount: String(values.adults),
+				childCount: String(values.children),
+				infantCount: String(values.infants),
+				apiSource: flight.ApiSource || "TBO",
+				journeyType: values.journeyType,
+			});
+			if (flight.IsUpsellAllowed === true) {
+				params.append("isUpsellAllowed", "true");
+			}
+			if (flight.ReturnResultIndex && values.journeyType !== "5") {
+				params.append("returnResultIndex", flight.ReturnResultIndex);
+			}
+			router.push(`/travel-portal/book?${params.toString()}`);
+			return;
+		}
+
+		setUpsellFlight(flight);
+		setIsUpsellOpen(true);
 	};
 
 	return (
@@ -1749,6 +1878,14 @@ export default function FlightSearch() {
 					</CardHeader>
 					<CardContent>
 						<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+							{tripType === "advance-return" && (
+								<div className="flex flex-wrap items-center gap-4 text-sm rounded-md border border-sky-200 bg-sky-50/80 px-3 py-2">
+									<span className="text-sky-900 font-medium">
+										Advance return (TBO): pick outbound and inbound flights, choose
+										fare class (RBD), then price before booking.
+									</span>
+								</div>
+							)}
 							{tripType === "special-return" && (
 								<div className="flex flex-wrap items-center gap-4 text-sm rounded-md border border-amber-200 bg-amber-50/80 px-3 py-2">
 									<span className="text-amber-900 font-medium">
@@ -1815,6 +1952,7 @@ export default function FlightSearch() {
 											}}
 											isRoundTrip={
 												tripType === "round-trip" ||
+												tripType === "advance-return" ||
 												tripType === "special-return"
 											}
 										/>
@@ -2253,8 +2391,11 @@ export default function FlightSearch() {
 										<div className="flex flex-col gap-2">
 											<CardTitle>
 												Flight Results (
-												{Math.min(visibleFlightCount, filteredFlights.length)}{" "}
-												of {filteredFlights.length}
+												{Math.min(visibleFlightCount, groupedFlights.length)} of{" "}
+												{groupedFlights.length}
+												{groupedFlights.length !== filteredFlights.length
+													? ` • ${filteredFlights.length} fares`
+													: ""}
 												{filteredFlights.length !== flights.length
 													? ` • ${flights.length} total`
 													: ""}
@@ -2296,11 +2437,26 @@ export default function FlightSearch() {
 											legs={multicityDomesticLegs}
 											selections={multicitySelections}
 											activeLeg={multicityActiveLeg}
+											hint={
+												tripType === "advance-return"
+													? "Select outbound and inbound flights, choose a fare class (RBD) for each, then continue to price the combination."
+													: undefined
+											}
+											continueLabel={
+												tripType === "advance-return"
+													? "Price & continue"
+													: undefined
+											}
+											continuingLabel={
+												tripType === "advance-return"
+													? "Pricing…"
+													: undefined
+											}
 											onActiveLegChange={(index) => {
 												setMulticityActiveLeg(index);
 												setFlights(multicityDomesticLegs[index] || []);
 											}}
-											onContinue={() => {
+											onContinue={async () => {
 												if (
 													!traceId ||
 													!allDomesticMulticityLegsSelected(
@@ -2313,8 +2469,69 @@ export default function FlightSearch() {
 												const picks = multicitySelections.filter(
 													(f): f is FlightResult => f != null,
 												);
-												setSelectingFlight(picks[0]?.ResultIndex ?? null);
 												const values = form.getValues();
+
+												if (tripType === "advance-return") {
+													setSelectingFlight("price-rbd");
+													try {
+														const outbound = picks[0]!;
+														const inbound = picks[1]!;
+														const res = await fetch(
+															"/api/travel/tbo/price-rbd",
+															{
+																method: "POST",
+																headers: {
+																	"Content-Type": "application/json",
+																},
+																body: JSON.stringify({
+																	TraceId: traceId,
+																	EndUserIp: "192.168.1.1",
+																	AdultCount: String(values.adults),
+																	ChildCount: String(values.children),
+																	InfantCount: String(values.infants),
+																	AirSearchResult: [outbound, inbound],
+																}),
+															},
+														);
+														const data = await res.json();
+														if (!res.ok) {
+															throw new Error(
+																data.error || "PriceRBD failed",
+															);
+														}
+														const pricedIndex =
+															extractPriceRbdResultIndex(data);
+														if (!pricedIndex) {
+															throw new Error(
+																"PriceRBD did not return a priced result index",
+															);
+														}
+														const params = new URLSearchParams({
+															traceId,
+															resultIndex: pricedIndex,
+															adultCount: String(values.adults),
+															childCount: String(values.children),
+															infantCount: String(values.infants),
+															apiSource: "TBO",
+															journeyType: "4",
+														});
+														router.push(
+															`/travel-portal/book?${params.toString()}`,
+														);
+													} catch (error) {
+														console.error("PriceRBD error:", error);
+														toast.error(
+															error instanceof Error
+																? error.message
+																: "Failed to price selected flights",
+														);
+													} finally {
+														setSelectingFlight(null);
+													}
+													return;
+												}
+
+												setSelectingFlight(picks[0]?.ResultIndex ?? null);
 												const params = buildTripjackMulticityBookSearchParams({
 													traceId,
 													selections: picks,
@@ -2336,610 +2553,40 @@ export default function FlightSearch() {
 										</div>
 									) : (
 										<div className="space-y-4">
-											{visibleFlights.map((flight, index) => (
-												<Card
-													key={flight.ResultIndex || index}
-													className="shadow-sm hover:shadow-md transition-all duration-200"
-												>
-													<CardContent className="p-0">
-														<div className="flex flex-col lg:flex-row items-stretch">
-															{/* Left Section: Flight Details */}
-															<div className="flex-1 p-4 lg:p-6 flex flex-col justify-center gap-6">
-																{flight.Segments.map(
-																	(legSegments, legIndex) => {
-																		const firstSegment = legSegments[0];
-																		const lastSegment =
-																			legSegments[legSegments.length - 1];
-
-																		// Safely get airline info with fallback
-																		const airlineCode =
-																			firstSegment?.Airline?.AirlineCode ||
-																			flight.AirlineCode ||
-																			"XX";
-																		const airlineName =
-																			airlineLabelFromFields(
-																				airlineCode,
-																				firstSegment?.Airline?.AirlineName,
-																			);
-
-																		// Calculate total duration for this leg
-																		const totalDuration = legSegments.reduce(
-																			(acc, seg) => acc + (seg?.Duration || 0),
-																			0,
-																		);
-
-																		return (
-																			<div
-																				key={legIndex}
-																				className="flex items-center gap-4"
-																			>
-																				{/* Airline Logo/Info */}
-																				<div className="w-16 flex-shrink-0">
-																					<div className="h-10 w-10 rounded-full bg-gray-50 flex items-center justify-center mb-1 overflow-hidden">
-																						<AirlineLogo
-																							airlineCode={airlineCode}
-																							airlineName={airlineName}
-																							size="md"
-																						/>
-																					</div>
-																					<div className="text-[10px] text-gray-500 font-medium truncate">
-																						{airlineName}
-																					</div>
-																				</div>
-
-																				{/* Departure */}
-																				<div className="text-right min-w-[80px]">
-																					<div className="text-2xl font-bold text-gray-900 leading-none">
-																						{formatTime(
-																							firstSegment?.Origin?.DepTime ||
-																								firstSegment?.DepartureTime,
-																						)}
-																					</div>
-																					<div className="text-sm font-medium text-gray-600 mt-1">
-																						<AirportCodeLabel
-																							code={
-																								firstSegment?.Origin?.Airport
-																									?.AirportCode ||
-																								firstSegment?.Origin?.Airport
-																									?.CityCode ||
-																								"N/A"
-																							}
-																							city={
-																								firstSegment?.Origin?.Airport
-																									?.CityName
-																							}
-																						/>
-																					</div>
-																				</div>
-
-																				{/* Duration & Stops */}
-																				<div className="flex-1 flex flex-col items-center px-2">
-																					<div className="text-xs text-gray-500 mb-1">
-																						{formatDuration(totalDuration)}
-																					</div>
-																					<div className="w-full flex items-center gap-1 relative">
-																						<div className="h-[1px] flex-1 bg-gray-300"></div>
-																						<Plane className="h-3 w-3 text-gray-400 rotate-90" />
-																						<div className="h-[1px] flex-1 bg-gray-300"></div>
-																					</div>
-																					<div className="text-[10px] text-blue-600 font-medium mt-1">
-																						{legSegments.length > 1
-																							? `${legSegments.length - 1} Stop(s)`
-																							: "Direct"}
-																					</div>
-																				</div>
-
-																				{/* Arrival */}
-																				<div className="text-left min-w-[80px]">
-																					<div className="text-2xl font-bold text-gray-900 leading-none">
-																						{formatTime(
-																							lastSegment?.Destination
-																								?.ArrTime ||
-																								lastSegment?.ArrivalTime,
-																						)}
-																					</div>
-																					<div className="text-sm font-medium text-gray-600 mt-1">
-																						<AirportCodeLabel
-																							code={
-																								lastSegment?.Destination?.Airport
-																									?.AirportCode ||
-																								lastSegment?.Destination?.Airport
-																									?.CityCode ||
-																								"N/A"
-																							}
-																							city={
-																								lastSegment?.Destination?.Airport
-																									?.CityName
-																							}
-																						/>
-																					</div>
-																					{/* Show +1 day if needed - simplified check */}
-																					{firstSegment?.Origin?.DepTime &&
-																						lastSegment?.Destination?.ArrTime &&
-																						new Date(
-																							lastSegment.Destination.ArrTime,
-																						).getDate() !==
-																							new Date(
-																								firstSegment.Origin.DepTime,
-																							).getDate() && (
-																							<span className="text-[10px] text-red-500 absolute ml-1">
-																								+1
-																							</span>
-																						)}
-																				</div>
-																			</div>
-																		);
-																	},
-																)}
-
-																{/* Features Available: Seat Map & SSR */}
-																{(() => {
-																	// Get SSR info from the first segment
-																	const firstSegment =
-																		flight.Segments?.[0]?.[0];
-																	const hasBaggage = firstSegment?.Baggage;
-																	const hasCabinBaggage =
-																		firstSegment?.CabinBaggage;
-
-																	// Check seat map availability for AIRiQ flights
-																	const hasSeatMap =
-																		(
-																			flight as FlightResult & {
-																				_airiqSeatMapAvailable?: boolean;
-																			}
-																		)?._airiqSeatMapAvailable === true;
-
-																	// Check if any features are available
-																	if (
-																		hasSeatMap ||
-																		hasBaggage ||
-																		hasCabinBaggage
-																	) {
-																		return (
-																			<div className="mt-3 pt-3 border-t border-gray-200">
-																				<div className="flex flex-wrap gap-2 items-center">
-																					<span className="text-xs text-gray-500 font-medium">
-																						Available:
-																					</span>
-
-																					{/* Seat Map Indicator */}
-																					{hasSeatMap && (
-																						<div
-																							className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs border border-purple-200"
-																							title="Seat map available"
-																						>
-																							<MapPin className="h-3 w-3" />
-																							<span>Seat Map</span>
-																						</div>
-																					)}
-
-																					{/* SSR Indicators */}
-																					{hasBaggage && (
-																						<div
-																							className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs border border-blue-200"
-																							title="Baggage options available"
-																						>
-																							<ShoppingBag className="h-3 w-3" />
-																							<span>SSR</span>
-																						</div>
-																					)}
-
-																					{hasCabinBaggage && !hasBaggage && (
-																						<div
-																							className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md text-xs border border-green-200"
-																							title="Cabin baggage info available"
-																						>
-																							<ShoppingBag className="h-3 w-3" />
-																							<span>Baggage Info</span>
-																						</div>
-																					)}
-																				</div>
-																			</div>
-																		);
-																	}
-																	return null;
-																})()}
-															</div>
-
-															{/* Vertical Separator */}
-															<div className="hidden lg:block w-px bg-gray-200 my-4"></div>
-															<div className="block lg:hidden h-px bg-gray-200 mx-4"></div>
-
-															{/* Right Section: Price, Attributes & Action */}
-															<div className="w-full lg:w-64 p-4 lg:p-6 flex flex-col justify-center items-center gap-4 bg-gray-50/50">
-																<div className="text-center">
-																	<div className="text-xs text-gray-500 mb-1">
-																		3 deals from
-																	</div>
-																	{flight.Fare ? (
-																		<>
-																			<div className="text-3xl font-bold text-gray-900">
-																				₹
-																				{(() => {
-																					const breakdown = getFareBreakdown(
-																						flight.Fare,
-																						0,
-																					);
-																					return formatTravelPriceInr(
-																					breakdown.publishedFare,
-																				);
-																				})()}
-																			</div>
-																			{/* Fare Class (RBD) */}
-																			<div className="text-xs text-gray-500 mt-1">
-																				Class:{" "}
-																				{
-																					flight.Segments[0][0].Airline
-																						.FareClass
-																				}
-																			</div>
-																			{/* Upsell Availability Indicator */}
-																			{flight.IsUpsellAllowed && (
-																				<div className="flex items-center justify-center gap-1 mt-1 mb-1">
-																					<TrendingUp className="h-3 w-3 text-purple-600" />
-																					<span className="text-xs text-purple-700 font-medium">
-																						Upsell Available
-																					</span>
-																				</div>
-																			)}
-																			<Button
-																				variant="link"
-																				size="sm"
-																				className="h-auto p-0 text-xs text-blue-600 mt-1"
-																				onClick={() =>
-																					setExpandedFareBreakdown(
-																						expandedFareBreakdown ===
-																							flight.ResultIndex
-																							? null
-																							: flight.ResultIndex,
-																					)
-																				}
-																			>
-																				{expandedFareBreakdown ===
-																				flight.ResultIndex
-																					? "Hide"
-																					: "View"}{" "}
-																				Fare Rules
-																			</Button>
-																		</>
-																	) : (
-																		<div className="text-sm text-muted-foreground">
-																			Price not available
-																		</div>
-																	)}
-																</div>
-
-																<Button
-																	className="w-full max-w-[160px] bg-[#0f172a] hover:bg-[#1e293b] text-white font-semibold py-2 rounded-lg shadow-md transition-all flex items-center justify-center gap-2"
-																	disabled={
-																		selectingFlight === flight.ResultIndex
-																	}
-																	onClick={async () => {
-																		const values = form.getValues();
-
-																		// Capture snapshot of flight selection (non-blocking)
-																		try {
-																			const firstSegment =
-																				flight.Segments?.[0]?.[0];
-																			const origin = firstSegment?.Origin;
-																			const destination =
-																				firstSegment?.Destination;
-																			const originCode =
-																				origin?.Airport?.AirportCode ||
-																				(origin as { AirportCode?: string })
-																					?.AirportCode;
-																			const destCode =
-																				destination?.Airport?.AirportCode ||
-																				(
-																					destination as {
-																						AirportCode?: string;
-																					}
-																				)?.AirportCode;
-																			const departureTime =
-																				origin?.DepTime ||
-																				(
-																					firstSegment as {
-																						DepartureTime?: string;
-																					}
-																				)?.DepartureTime;
-																			const arrivalTime =
-																				destination?.ArrTime ||
-																				(
-																					firstSegment as {
-																						ArrivalTime?: string;
-																					}
-																				)?.ArrivalTime;
-																			const cabinClass =
-																				(
-																					firstSegment as {
-																						CabinClass?: string;
-																					}
-																				)?.CabinClass ||
-																				(flight.Fare as { CabinClass?: string })
-																					?.CabinClass;
-																			// Fix: Property 'Refundable' does not exist on type 'Fare'.
-																			// Some APIs may expose 'Refundable', so we fallback gracefully, otherwise use 'non-refundable' if undefined
-																			let refundType = "non-refundable";
-																			if ("Refundable" in (flight.Fare ?? {})) {
-																				const refundable = (
-																					flight.Fare as {
-																						Refundable?: boolean;
-																					}
-																				)?.Refundable;
-																				refundType = refundable
-																					? "refundable"
-																					: "non-refundable";
-																			}
-
-																			await captureAndSendSnapshot(
-																				{
-																					origin: originCode,
-																					destination: destCode,
-																					airline: flight.AirlineCode,
-																					flightNumber: (
-																						firstSegment as {
-																							FlightNumber?: string;
-																						}
-																					)?.FlightNumber,
-																					departureTime,
-																					arrivalTime,
-																					fare: flight.Fare?.OfferedFare,
-																					cabinClass,
-																					refundType,
-																					passengers: {
-																						adults: values.adults,
-																						children: values.children,
-																						infants: values.infants,
-																					},
-																					flightDetails: flight,
-																				},
-																				{
-																					page: "flight_results",
-																					user: {
-																						ip: undefined, // Will be captured server-side
-																						userAgent: undefined, // Will be captured server-side
-																					},
-																					booking: {
-																						type: "flight",
-																						traceId: traceId,
-																						resultIndex: flight.ResultIndex,
-																					},
-																				},
-																			);
-																		} catch (_error) {
-																			// Silently fail - don't block user flow
-																		}
-
-																		// Log flight selection (non-blocking)
-																		try {
-																			const firstSegment =
-																				flight.Segments?.[0]?.[0];
-																			const origin = firstSegment?.Origin;
-																			const destination =
-																				firstSegment?.Destination;
-																			await fetch("/api/travel/log-selection", {
-																				method: "POST",
-																				headers: {
-																					"Content-Type": "application/json",
-																				},
-																				body: JSON.stringify({
-																					logType: "flight",
-																					action: "selection",
-																					provider: flight.ApiSource || "TBO",
-																					flightData: {
-																						origin:
-																							origin?.Airport?.AirportCode ||
-																							(
-																								origin as {
-																									AirportCode?: string;
-																								}
-																							)?.AirportCode,
-																						destination:
-																							destination?.Airport
-																								?.AirportCode ||
-																							(
-																								destination as {
-																									AirportCode?: string;
-																								}
-																							)?.AirportCode,
-																						airline: flight.AirlineCode,
-																						flightNumber: (
-																							firstSegment as {
-																								FlightNumber?: string;
-																							}
-																						)?.FlightNumber,
-																						cabinClass:
-																							(
-																								firstSegment as {
-																									CabinClass?: string;
-																								}
-																							)?.CabinClass ||
-																							(
-																								flight.Fare as {
-																									CabinClass?: string;
-																								}
-																							)?.CabinClass,
-																						departureDate:
-																							origin?.DepTime ||
-																							(
-																								firstSegment as {
-																									DepartureTime?: string;
-																								}
-																							)?.DepartureTime,
-																						adultCount: values.adults,
-																						childCount: values.children,
-																						infantCount: values.infants,
-																						totalFare: flight.Fare?.OfferedFare,
-																						totalTax: flight.Fare?.Tax,
-																					},
-																					traceId: traceId,
-																					resultIndex: flight.ResultIndex,
-																				}),
-																			}).catch(() => {}); // Silently fail
-																		} catch (_error) {
-																			// Silently fail - don't block user flow
-																		}
-
-																		// TripJack domestic multicity: pick one fare per leg, then continue
-																		if (
-																			tripType === "multi-city" &&
-																			multicityDomesticLegs &&
-																			multicityDomesticLegs.length >= 2 &&
-																			flight.ApiSource === "TRIPJACK"
-																		) {
-																			const nextSelections = [
-																				...multicitySelections,
-																			];
-																			nextSelections[multicityActiveLeg] =
-																				flight;
-																			setMulticitySelections(nextSelections);
-																			if (
-																				multicityActiveLeg <
-																				multicityDomesticLegs.length - 1
-																			) {
-																				const nextLeg =
-																					multicityActiveLeg + 1;
-																				setMulticityActiveLeg(nextLeg);
-																				setFlights(
-																					multicityDomesticLegs[nextLeg] ||
-																						[],
-																				);
-																				toast.success(
-																					`Leg ${multicityActiveLeg + 1} selected. Choose leg ${nextLeg + 1}.`,
-																				);
-																			} else {
-																				toast.success(
-																					"All legs selected. Tap Continue to booking.",
-																				);
-																			}
-																			return;
-																		}
-
-																		// If multicity (COMBO/intl) or no upsell - go straight to booking
-																		if (
-																			tripType === "multi-city" ||
-																			flight.IsUpsellAllowed !== true
-																		) {
-																			setSelectingFlight(flight.ResultIndex);
-																			const params = new URLSearchParams({
-																				traceId: traceId,
-																				resultIndex: flight.ResultIndex,
-																				adultCount: String(values.adults),
-																				childCount: String(values.children),
-																				infantCount: String(values.infants),
-																				apiSource: flight.ApiSource || "TBO",
-																				journeyType: values.journeyType,
-																			});
-																			if (flight.IsUpsellAllowed === true) {
-																				params.append(
-																					"isUpsellAllowed",
-																					"true",
-																				);
-																			}
-																			if (
-																				flight.ReturnResultIndex &&
-																				values.journeyType !== "5"
-																			) {
-																				params.append(
-																					"returnResultIndex",
-																					flight.ReturnResultIndex,
-																				);
-																			}
-																			router.push(
-																				`/travel-portal/book?${params.toString()}`,
-																			);
-																			return;
-																		}
-
-																		// Else show upsell modal so user can pick an upsell option first
-																		setUpsellFlight(flight);
-																		setIsUpsellOpen(true);
-																	}}
-																>
-																	{selectingFlight === flight.ResultIndex ? (
-																		<>
-																			<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-																			Processing
-																		</>
-																	) : (
-																		<>
-																			Select
-																			<svg
-																				xmlns="http://www.w3.org/2000/svg"
-																				width="16"
-																				height="16"
-																				viewBox="0 0 24 24"
-																				fill="none"
-																				stroke="currentColor"
-																				strokeWidth="2"
-																				strokeLinecap="round"
-																				strokeLinejoin="round"
-																				className="lucide lucide-arrow-right"
-																			>
-																				<path d="M5 12h14" />
-																				<path d="m12 5 7 7-7 7" />
-																			</svg>
-																		</>
-																	)}
-																</Button>
-															</div>
-														</div>
-													</CardContent>
-													{/* Fare Breakdown (inline summary swapped in) */}
-													{expandedFareBreakdown === flight.ResultIndex &&
-														flight.Fare && (
-															<div className="px-4 pb-4">
-																<div>
-																	<h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-																		<IndianRupee className="h-4 w-4 text-gray-500" />
-																		Fare Breakdown
-																	</h3>
-																	{(() => {
-																		const breakdown = getFareBreakdown(
-																			flight.Fare,
-																			0,
-																		);
-																		return (
-																			<div className="bg-gray-50 p-4 rounded-lg text-sm space-y-2 border border-gray-100">
-																				<div className="flex justify-between text-gray-600">
-																					<span>Base Fare</span>
-																					<span className="font-medium text-gray-900">
-																						{flight.Fare.Currency}{" "}
-																						{formatTravelPriceInr(
-																							breakdown.baseFare,
-																						)}
-																					</span>
-																				</div>
-																				<div className="flex justify-between text-gray-600">
-																					<span>Tax & Charges</span>
-																					<span className="font-medium text-gray-900">
-																						{flight.Fare.Currency}{" "}
-																						{formatTravelPriceInr(
-																							breakdown.tax +
-																								breakdown.gst.total +
-																								breakdown.otherCharges,
-																						)}
-																					</span>
-																				</div>
-																				<Separator className="my-2" />
-																				<div className="flex justify-between font-bold text-lg text-primary">
-																					<span>Total Amount</span>
-																					<span className="flex items-center">
-																						<IndianRupee className="h-4 w-4 mr-1" />
-																						{formatTravelPriceInr(
-																							breakdown.publishedFare,
-																						)}
-																					</span>
-																				</div>
-																			</div>
-																		);
-																	})()}
-																</div>
-															</div>
-														)}
-												</Card>
-											))}
-											{(visibleFlightCount < filteredFlights.length ||
+											{visibleGroups.map((group) => {
+												const selectedResultIndex =
+													selectedFareByGroup[group.key] ??
+													group.representative.ResultIndex;
+												return (
+													<GroupedFlightCard
+														key={group.key}
+														group={group}
+														selectedResultIndex={selectedResultIndex}
+														onSelectFare={(resultIndex) =>
+															setSelectedFareByGroup((prev) => ({
+																...prev,
+																[group.key]: resultIndex,
+															}))
+														}
+														onBook={handleFlightBook}
+														selectingFlight={selectingFlight}
+														tripType={tripType}
+														expandedFareBreakdown={expandedFareBreakdown}
+														onToggleFareBreakdown={setExpandedFareBreakdown}
+														advanceSearchRbdByIndex={advanceSearchRbdByIndex}
+														onAdvanceSearchRbdChange={(
+															resultIndex,
+															fareClass,
+														) =>
+															setAdvanceSearchRbdByIndex((prev) => ({
+																...prev,
+																[resultIndex]: fareClass,
+															}))
+														}
+													/>
+												);
+											})}
+											{(visibleFlightCount < groupedFlights.length ||
 												(flightSearchSessionId != null &&
 													serverFlightTotal != null &&
 													flights.length < serverFlightTotal)) && (

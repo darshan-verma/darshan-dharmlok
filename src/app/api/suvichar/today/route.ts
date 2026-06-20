@@ -14,7 +14,7 @@ export async function GET() {
 	try {
 		const today = getIstDateString();
 
-		let row = await prisma.dailySuvichar.findFirst({
+		const row = await prisma.dailySuvichar.findFirst({
 			where: {
 				scheduledDate: today,
 				status: { in: ["published", "scheduled"] },
@@ -25,20 +25,8 @@ export async function GET() {
 		});
 
 		if (!row) {
-			row = await prisma.dailySuvichar.findFirst({
-				where: {
-					status: "published",
-					suvicharText: { status: "active" },
-					frame: { status: "active" },
-				},
-				orderBy: { scheduledDate: "desc" },
-				include: includeRelations,
-			});
-		}
-
-		if (!row) {
 			return NextResponse.json(
-				{ error: "No suvichar available" },
+				{ data: null, error: `No suvichar scheduled for today (${today})` },
 				{ status: 404 },
 			);
 		}

@@ -3,7 +3,12 @@ import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireAdmin } from "@/lib/suvichar/admin-auth";
 import { serializeDaily } from "@/lib/suvichar/serialize";
-import { parseTextStyleOverrides } from "@/lib/suvichar/textStyle";
+import { parseTextStyleOverrides, serializeTextStyleForDb } from "@/lib/suvichar/textStyle";
+import {
+	validateScheduledDate,
+	validateSuvicharText,
+	validateTextStyleOverrides,
+} from "@/lib/suvichar/validation";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -38,16 +43,43 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 
 		const existing = await prisma.dailySuvichar.findUnique({
 			where: { id },
-			include: { frame: true },
+			include: { frame: true, suvicharText: true },
 		});
 		if (!existing) {
 			return NextResponse.json({ error: "Schedule entry not found" }, { status: 404 });
+		}
+
+		if (scheduledDate) {
+			const dateValidation = validateScheduledDate(scheduledDate);
+			if (!dateValidation.valid) {
+				return NextResponse.json({ error: dateValidation.errors[0] }, { status: 400 });
+			}
+		}
+
+		if (suvicharTextId && suvicharTextId !== existing.suvicharTextId) {
+			const text = await prisma.suvicharText.findUnique({
+				where: { id: suvicharTextId },
+			});
+			if (!text || text.status !== "active") {
+				return NextResponse.json({ error: "Quote not found or inactive" }, { status: 400 });
+			}
+			const textValidation = validateSuvicharText({
+				plainText: text.plainText,
+				blocknoteJson: text.blocknoteJson,
+			});
+			if (!textValidation.valid) {
+				return NextResponse.json({ error: textValidation.errors[0] }, { status: 400 });
+			}
 		}
 
 		const frame =
 			frameId && frameId !== existing.frameId
 				? await prisma.suvicharFrame.findUnique({ where: { id: frameId } })
 				: existing.frame;
+
+		if (frameId && (!frame || frame.status !== "active")) {
+			return NextResponse.json({ error: "Frame not found or inactive" }, { status: 400 });
+		}
 
 		const data: Prisma.DailySuvicharUncheckedUpdateInput = {};
 
@@ -56,12 +88,33 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 		if (scheduledDate) data.scheduledDate = scheduledDate;
 
 		if (rawTextStyle !== undefined) {
+			const frameDefaults = frame
+				? {
+						defaultTextColor: frame.defaultTextColor,
+						defaultTextAlign: frame.defaultTextAlign,
+					}
+				: undefined;
+
+			const parsedOverrides =
+				rawTextStyle != null && frameDefaults
+					? parseTextStyleOverrides(rawTextStyle, frameDefaults)
+					: null;
+
+			if (parsedOverrides) {
+				const overrideValidation = validateTextStyleOverrides(parsedOverrides);
+				if (!overrideValidation.valid) {
+					return NextResponse.json({ error: overrideValidation.errors[0] }, { status: 400 });
+				}
+			}
+
+			const storedOverrides =
+				parsedOverrides != null && frameDefaults
+					? serializeTextStyleForDb(parsedOverrides, frameDefaults)
+					: null;
+
 			data.textStyleOverrides =
-				rawTextStyle != null && frame
-					? (parseTextStyleOverrides(rawTextStyle, {
-							defaultTextColor: frame.defaultTextColor,
-							defaultTextAlign: frame.defaultTextAlign,
-						}) as unknown as Prisma.InputJsonValue)
+				storedOverrides != null
+					? (storedOverrides as Prisma.InputJsonValue)
 					: null;
 		}
 
