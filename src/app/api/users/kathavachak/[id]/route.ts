@@ -9,6 +9,7 @@ import {
 	mapWithReligiousCategories,
 	parseReligiousCategoriesFromFormData,
 } from "@/lib/user-religious-api";
+import { deleteUserWithRelations } from "@/lib/deleteUserWithRelations";
 
 // Helper function to delete S3 media
 async function deleteS3Media(mediaUrls: string[]) {
@@ -504,10 +505,7 @@ export async function DELETE(
 			});
 		});
 
-		// Delete user and related data (Prisma handles cascade deletes)
-		await prisma.user.delete({
-			where: { id: userId },
-		});
+		await deleteUserWithRelations(userId);
 
 		// Delete associated S3 media (async, don't wait)
 		if (mediaUrls.length > 0) {

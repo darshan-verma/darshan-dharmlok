@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { deleteUserWithRelations } from "@/lib/deleteUserWithRelations";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import s3Client from "@/lib/s3Client";
 import bcrypt from "bcrypt";
@@ -60,26 +61,7 @@ export async function DELETE(request: Request) {
 		const videoUrls = [...videoFileUrls, ...videoThumbUrls];
 		const hasMedia = imageUrls.length > 0 || videoUrls.length > 0;
 
-		// Delete related records before user (no cascade on Comment → User)
-		await prisma.$transaction([
-			prisma.comment.deleteMany({
-				where: {
-					OR: [
-						{ userId: id },
-						{ post: { userId: id } },
-						{ video: { userId: id } },
-					],
-				},
-			}),
-			prisma.media.deleteMany({ where: { post: { userId: id } } }),
-			prisma.post.deleteMany({ where: { userId: id } }),
-			prisma.serviceOffering.deleteMany({ where: { providerId: id } }),
-			prisma.product.deleteMany({ where: { sellerId: id } }),
-			prisma.image.deleteMany({ where: { userId: id } }),
-			prisma.video.deleteMany({ where: { userId: id } }),
-			prisma.address.deleteMany({ where: { userId: id } }),
-			prisma.user.delete({ where: { id } }),
-		]);
+		await deleteUserWithRelations(id);
 
 		// Async S3 deletion (fire and forget)
 		setTimeout(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,8 +43,13 @@ export default function DharamshalaForm({
 	isLoading = false,
 }: DharamshalaFormProps) {
 	const [contentLocale, setContentLocale] = useState<ContentLang>("en");
-	const [enName, setEnName] = useState(initialData.name || "");
-	const [hiName, setHiName] = useState("");
+	const initialTranslations = initialData.translations as
+		| { en?: { name?: string }; hi?: { name?: string } | null }
+		| undefined;
+	const [enName, setEnName] = useState(
+		initialTranslations?.en?.name ?? initialData.name ?? ""
+	);
+	const [hiName, setHiName] = useState(initialTranslations?.hi?.name ?? "");
 	const initialReligious = resolveReligiousCategories({
 		religiousCategories: initialData.religiousCategories,
 	});
@@ -58,6 +63,34 @@ export default function DharamshalaForm({
 	});
 
 	const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+	useEffect(() => {
+		const tr = initialData.translations as
+			| { en?: { name?: string }; hi?: { name?: string } | null }
+			| undefined;
+		setEnName(tr?.en?.name ?? initialData.name ?? "");
+		setHiName(tr?.hi?.name ?? "");
+		setShared({
+			date: initialData.date || "",
+			state: initialData.state || "",
+			city: initialData.city || "",
+			status: initialData.status || "Active",
+			religiousCategories: resolveReligiousCategories({
+				religiousCategories: initialData.religiousCategories,
+			}),
+		});
+		setFormErrors({});
+		setContentLocale("en");
+	}, [
+		initialData.id,
+		initialData.name,
+		initialData.translations,
+		initialData.date,
+		initialData.state,
+		initialData.city,
+		initialData.status,
+		initialData.religiousCategories,
+	]);
 
 	const validateForm = () => {
 		const errors: Record<string, string> = {};

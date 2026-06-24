@@ -7,6 +7,7 @@ import {
 	mapWithReligiousCategories,
 	resolveUserReligiousUpdate,
 } from "@/lib/user-religious-api";
+import { deleteUserWithRelations } from "@/lib/deleteUserWithRelations";
 
 // Helper to delete S3 objects
 async function deleteS3Media(mediaUrls: string[]) {
@@ -359,23 +360,7 @@ export async function DELETE(
 			if (vid.thumbnailUrl) mediaUrls.push(vid.thumbnailUrl);
 		});
 
-		// Delete all related data in transaction
-		await prisma.$transaction([
-			// Delete comments first (foreign key constraints)
-			prisma.comment.deleteMany({ where: { userId: id } }),
-			// Delete posts and their media
-			prisma.media.deleteMany({
-				where: { post: { userId: id } },
-			}),
-			prisma.post.deleteMany({ where: { userId: id } }),
-			// Delete images and videos
-			prisma.image.deleteMany({ where: { userId: id } }),
-			prisma.video.deleteMany({ where: { userId: id } }),
-			// Delete addresses
-			prisma.address.deleteMany({ where: { userId: id } }),
-			// Finally delete the dharmguru
-			prisma.user.delete({ where: { id } }),
-		]);
+		await deleteUserWithRelations(id);
 
 		// Async S3 cleanup (fire and forget)
 		if (mediaUrls.length > 0) {

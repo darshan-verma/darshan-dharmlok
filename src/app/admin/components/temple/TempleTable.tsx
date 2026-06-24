@@ -41,6 +41,7 @@ import {
 	resolveReligiousCategories,
 	type ReligiousCategory,
 } from "@/lib/religious-categories";
+import { matchesLocalizedNameSearch } from "@/lib/translation-search";
 
 // Temple interface
 export interface Temple {
@@ -52,6 +53,7 @@ export interface Temple {
 	city: string;
 	status: string;
 	religiousCategories?: ReligiousCategory[];
+	translations?: unknown;
 }
 
 interface TempleTableProps {
@@ -87,10 +89,7 @@ export default function TempleTable({
 	const itemsPerPage = 10;
 
 	const filteredTemples = temples.filter((temple) => {
-		const matchesSearch =
-			temple.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			temple.state.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			temple.city.toLowerCase().includes(searchTerm.toLowerCase());
+		const matchesSearch = matchesLocalizedNameSearch(temple, searchTerm);
 
 		const matchesStatus =
 			statusFilter === "all" || temple.status === statusFilter;

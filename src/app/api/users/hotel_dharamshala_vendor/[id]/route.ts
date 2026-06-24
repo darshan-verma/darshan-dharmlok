@@ -6,6 +6,7 @@ import { uploadToS3 } from "@/lib/uploadToS3";
 import bcrypt from "bcrypt";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import s3Client from "@/lib/s3Client";
+import { deleteUserWithRelations } from "@/lib/deleteUserWithRelations";
 import { Dharamshala, UserUpdateData, RoomTypeCount } from "@/types/user";
 
 // Helper function to delete S3 media
@@ -614,10 +615,7 @@ export async function DELETE(
 			});
 		});
 
-		// Delete user and related data (Prisma handles cascade deletes)
-		await prisma.user.delete({
-			where: { id: userId },
-		});
+		await deleteUserWithRelations(userId);
 
 		// Delete associated S3 media (async, don't wait)
 		if (mediaUrls.length > 0) {

@@ -106,6 +106,18 @@ export function switchContentLocale<T extends Record<string, unknown>>(
 	} as unknown as T;
 }
 
+function isLocaleObjectEmpty(
+	slice: Record<string, unknown> | null | undefined
+): boolean {
+	if (!slice || typeof slice !== "object") return true;
+	return Object.values(slice).every((v) => {
+		if (v == null) return true;
+		if (typeof v === "string") return v.trim() === "";
+		if (Array.isArray(v)) return v.length === 0;
+		return false;
+	});
+}
+
 export function finalizeTranslationsPayload(
 	record: Record<string, unknown>,
 	model: LocalizableModel,
@@ -114,25 +126,17 @@ export function finalizeTranslationsPayload(
 ): LocaleTranslations {
 	const translations = parseTranslations(record.translations);
 	const slice = pickTranslatableSlice(record, model, fields);
-	const fieldList = resolveTabFields(model, fields);
 	if (activeLocale === "hi") {
 		translations.hi = { ...(translations.hi ?? {}), ...slice };
 	} else {
 		translations.en = { ...(translations.en ?? {}), ...slice };
 	}
 	const hi = translations.hi;
-	const hiEmpty =
-		!hi ||
-		typeof hi !== "object" ||
-		fieldList.every((f) => {
-			const v = (hi as Record<string, unknown>)[f];
-			if (v == null) return true;
-			if (typeof v === "string") return v.trim() === "";
-			if (Array.isArray(v)) return v.length === 0;
-			return false;
-		});
 	return {
 		en: translations.en ?? {},
-		hi: hiEmpty ? null : translations.hi,
+		hi:
+			!hi || typeof hi !== "object" || isLocaleObjectEmpty(hi)
+				? null
+				: translations.hi,
 	};
 }

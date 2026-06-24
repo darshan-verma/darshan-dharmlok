@@ -62,3 +62,30 @@ export function mergeSearchIntoFilter(
 	}
 	return { $and: [baseFilter, { $or: searchOr }] };
 }
+
+/** Client-side admin table search across English/Hindi names and location fields. */
+export function matchesLocalizedNameSearch(
+	record: {
+		name?: string;
+		state?: string;
+		city?: string;
+		translations?: unknown;
+	},
+	term: string
+): boolean {
+	const q = term.trim().toLowerCase();
+	if (!q) return true;
+
+	const haystack: string[] = [];
+	if (record.name) haystack.push(record.name);
+	if (record.state) haystack.push(record.state);
+	if (record.city) haystack.push(record.city);
+
+	const translations = record.translations as
+		| { en?: { name?: string }; hi?: { name?: string } | null }
+		| undefined;
+	if (translations?.en?.name) haystack.push(translations.en.name);
+	if (translations?.hi?.name) haystack.push(translations.hi.name);
+
+	return haystack.some((value) => value.toLowerCase().includes(q));
+}

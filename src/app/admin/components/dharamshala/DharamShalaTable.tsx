@@ -41,6 +41,7 @@ import {
 	resolveReligiousCategories,
 	type ReligiousCategory,
 } from "@/lib/religious-categories";
+import { matchesLocalizedNameSearch } from "@/lib/translation-search";
 
 // Dharamshala interface
 export interface Dharamshala {
@@ -54,6 +55,7 @@ export interface Dharamshala {
 	religiousCategories?: ReligiousCategory[];
 	bannerImage?: string; // NEW
 	coverImage?: string; // NEW
+	translations?: unknown;
 }
 
 interface DharamshalaTableProps {
@@ -89,10 +91,7 @@ export default function DharamshalaTable({
 	const itemsPerPage = 10;
 
 	const filteredDharamshalas = dharamshalas.filter((dharamshala) => {
-		const matchesSearch =
-			dharamshala.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			dharamshala.state.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			dharamshala.city.toLowerCase().includes(searchTerm.toLowerCase());
+		const matchesSearch = matchesLocalizedNameSearch(dharamshala, searchTerm);
 
 		const matchesStatus =
 			statusFilter === "all" || dharamshala.status === statusFilter;

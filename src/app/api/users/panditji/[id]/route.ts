@@ -9,6 +9,7 @@ import {
 } from "@/lib/content-api";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import s3Client from "@/lib/s3Client";
+import { deleteUserWithRelations } from "@/lib/deleteUserWithRelations";
 import { PoojaCategory, UserUpdateData } from "@/types/user";
 import { parseReligiousCategoriesFromFormData } from "@/lib/user-religious-api";
 
@@ -587,10 +588,7 @@ export async function DELETE(
 			});
 		});
 
-		// Delete user and related data (Prisma handles cascade deletes)
-		await prisma.user.delete({
-			where: { id: userId },
-		});
+		await deleteUserWithRelations(userId);
 
 		// Delete associated S3 media (async, don't wait)
 		if (mediaUrls.length > 0) {

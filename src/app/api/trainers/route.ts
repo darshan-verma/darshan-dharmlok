@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { deleteUserWithRelations } from "@/lib/deleteUserWithRelations";
 
 // Helper function to validate trainer data
 const validateTrainerData = (
@@ -274,10 +275,7 @@ export async function DELETE(request: Request) {
 			return NextResponse.json({ error: "Trainer not found" }, { status: 404 });
 		}
 
-		// Delete trainer
-		await prisma.user.delete({
-			where: { id },
-		});
+		await deleteUserWithRelations(id);
 
 		return NextResponse.json({
 			message: "Trainer deleted successfully",

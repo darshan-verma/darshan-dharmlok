@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { deleteUserWithRelations } from "@/lib/deleteUserWithRelations";
 import { parseLangParam } from "@/lib/content-lang";
 import {
 	formatPanditjiResponse,
@@ -717,25 +718,7 @@ export async function DELETE(
 			return NextResponse.json({ error: "User not found" }, { status: 404 });
 		}
 
-		await prisma.$transaction([
-			prisma.comment.deleteMany({
-				where: {
-					OR: [
-						{ userId: id },
-						{ post: { userId: id } },
-						{ video: { userId: id } },
-					],
-				},
-			}),
-			prisma.media.deleteMany({ where: { post: { userId: id } } }),
-			prisma.post.deleteMany({ where: { userId: id } }),
-			prisma.serviceOffering.deleteMany({ where: { providerId: id } }),
-			prisma.product.deleteMany({ where: { sellerId: id } }),
-			prisma.image.deleteMany({ where: { userId: id } }),
-			prisma.video.deleteMany({ where: { userId: id } }),
-			prisma.address.deleteMany({ where: { userId: id } }),
-			prisma.user.delete({ where: { id } }),
-		]);
+		await deleteUserWithRelations(id);
 
 		return NextResponse.json(
 			{ message: "User deleted successfully" },
