@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { rescheduleAvail } from "@/lib/airiqClient";
@@ -11,12 +12,12 @@ export async function POST(req: NextRequest) {
 	try {
 		const session = await getServerSession(authOptions);
 		if (!session?.user) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+			return brandedFlightJson({ error: "Unauthorized" }, { status: 401 });
 		}
 
 		const body = await req.json().catch(() => null);
 		if (!body || typeof body !== "object") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Invalid JSON body" },
 				{ status: 400 }
 			);
@@ -39,14 +40,14 @@ export async function POST(req: NextRequest) {
 		};
 
 		if (!tripType || typeof tripType !== "string" || !tripType.trim()) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "tripType is required" },
 				{ status: 400 }
 			);
 		}
 
 		if (!Array.isArray(availInfo) || availInfo.length === 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "availInfo must be a non-empty array with departureStation, arrivalStation, flightDate (YYYYMMDD)" },
 				{ status: 400 }
 			);
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
 		for (let i = 0; i < availInfo.length; i++) {
 			const a = availInfo[i];
 			if (!a?.departureStation?.trim() || !a?.arrivalStation?.trim() || !a?.flightDate?.trim()) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: `availInfo[${i}] must include departureStation, arrivalStation, and flightDate (YYYYMMDD)` },
 					{ status: 400 }
 				);
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		if (!airIqPNR || typeof airIqPNR !== "string" || !airIqPNR.trim()) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "airIqPNR is required" },
 				{ status: 400 }
 			);
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
 		const agentId = process.env.AIRIQ_AGENT_ID;
 		const userName = process.env.AIRIQ_USERNAME;
 		if (!agentId || !userName) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ credentials" },
 				{ status: 500 }
 			);
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
 		const resultCode = response.Status?.ResultCode ?? "";
 
 		if (resultCode === "1") {
-			return NextResponse.json({
+			return brandedFlightJson({
 				trackId: response.Trackid,
 				itineraryFlightList: response.ItineraryFlightList,
 				status: response.Status,
@@ -115,7 +116,7 @@ export async function POST(req: NextRequest) {
 			response.Status?.Error ?? "Unable to get reschedule availability.";
 
 		if (resultCode === "0") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: errorMessage,
 					resultCode: response.Status?.ResultCode,
@@ -126,7 +127,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		if (resultCode === "-1") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: errorMessage,
 					resultCode: response.Status?.ResultCode,
@@ -137,7 +138,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		// resultCode "-2" = pending
-		return NextResponse.json(
+		return brandedFlightJson(
 			{
 				message: errorMessage,
 				resultCode: response.Status?.ResultCode,
@@ -154,6 +155,6 @@ export async function POST(req: NextRequest) {
 				? err.message
 				: "Reschedule availability request failed. Please try again.";
 		console.error("AIRiQ RescheduleAvail API Error:", err);
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }

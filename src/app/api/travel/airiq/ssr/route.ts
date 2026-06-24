@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getPostBookingSSR } from "@/lib/airiqClient";
 
 /**
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
 		const { airiqPNR, airlinePNR } = body;
 
 		if (!airiqPNR || !airlinePNR) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required parameters: airiqPNR and airlinePNR" },
 				{ status: 400 }
 			);
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
 		const userName = process.env.AIRIQ_USERNAME;
 
 		if (!agentId || !userName) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ credentials" },
 				{ status: 500 }
 			);
@@ -56,11 +57,11 @@ export async function POST(req: NextRequest) {
 			throw new Error(ssrResponse.Status?.Error || "SSR request failed");
 		}
 
-		return NextResponse.json(ssrResponse);
+		return brandedFlightJson(ssrResponse);
 	} catch (error) {
 		console.error("AIRiQ Post-Booking SSR API Error:", error);
 		const errorMessage =
 			error instanceof Error ? error.message : "Unknown error occurred";
-		return NextResponse.json({ error: errorMessage }, { status: 500 });
+		return brandedFlightJson({ error: errorMessage }, { status: 500 });
 	}
 }

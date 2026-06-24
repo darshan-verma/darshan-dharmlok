@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getFlightAmendmentDetails, TripjackApiError } from "@/lib/tripjackClient";
 import { isTripjackConfigured } from "@/lib/tripjackFlightSearch";
 
 export async function POST(request: NextRequest) {
 	try {
 		if (!isTripjackConfigured()) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "TripJack flight API is not configured" },
 				{ status: 503 },
 			);
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
 			typeof body?.amendmentId === "string" ? body.amendmentId.trim() : "";
 
 		if (!amendmentId) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "amendmentId is required" },
 				{ status: 400 },
 			);
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
 		const data = await getFlightAmendmentDetails({ amendmentId });
 
 		if (data?.status?.success === false) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error:
 						data.errors?.[0]?.message ||
@@ -36,10 +37,10 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		return NextResponse.json({ success: true, data });
+		return brandedFlightJson({ success: true, data });
 	} catch (error) {
 		if (error instanceof TripjackApiError) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: error.message,
 					status: error.status,
@@ -50,6 +51,6 @@ export async function POST(request: NextRequest) {
 		}
 		const message =
 			error instanceof Error ? error.message : "TripJack amendment-details failed";
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }

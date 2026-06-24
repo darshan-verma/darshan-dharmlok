@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { bookFlight, issueTicket } from "@/lib/airiqClient";
 import {
 	logTravelActivity,
@@ -39,6 +40,7 @@ interface IncomingPassenger {
 	PassportNo?: string;
 	PassportExpiry?: string;
 	PassportIssuedDate?: string;
+	PassportIssueDate?: string;
 	PassportCountryCode?: string;
 	PassportIssueCountryCode?: string;
 	Nationality?: string;
@@ -279,7 +281,7 @@ export async function POST(req: NextRequest) {
 			preferBlockPNR ?? blockPNRLegacy ?? false;
 
 		if (!pricingData || !passengers || passengers.length === 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required parameters: pricingData and passengers" },
 				{ status: 400 }
 			);
@@ -289,7 +291,7 @@ export async function POST(req: NextRequest) {
 		const airiqUserName = process.env.AIRIQ_USERNAME;
 
 		if (!agentId || !airiqUserName) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ credentials" },
 				{ status: 500 }
 			);
@@ -303,7 +305,7 @@ export async function POST(req: NextRequest) {
 				: [];
 
 		if (priceItenaryInfo.length === 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Invalid pricing data: no PriceItenaryInfo found" },
 				{ status: 400 }
 			);
@@ -311,7 +313,7 @@ export async function POST(req: NextRequest) {
 
 		const trackId = priceItenaryInfo[0].Trackid;
 		if (!trackId) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Invalid pricing data: missing TrackId from pricing response" },
 				{ status: 400 }
 			);
@@ -388,7 +390,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		if (itineraryFlightsInfo.length === 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Could not build itinerary from pricing data" },
 				{ status: 400 }
 			);
@@ -484,7 +486,7 @@ export async function POST(req: NextRequest) {
 			return !amt || amt <= 0;
 		});
 		if (invalidPayment) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error:
 						"Could not determine booking amount from pricing. Please go back and refresh fare details.",
@@ -505,7 +507,9 @@ export async function POST(req: NextRequest) {
 				PaxType: convertPaxType(p.PaxType),
 				PassportNo: p.PassportNo || "",
 				PassportExpiry: p.PassportExpiry ? formatDateToDDMMYYYY(p.PassportExpiry) : "",
-				PassportIssuedDate: p.PassportIssuedDate ? formatDateToDDMMYYYY(p.PassportIssuedDate) : "",
+				PassportIssuedDate: (p.PassportIssuedDate || p.PassportIssueDate)
+					? formatDateToDDMMYYYY(p.PassportIssuedDate || p.PassportIssueDate || "")
+					: "",
 				PassportCountryCode: resolvePassportCountryCode(p),
 				InfantRef: "",
 			})
@@ -612,7 +616,7 @@ export async function POST(req: NextRequest) {
 
 		if (resultCode === "-1") {
 			console.error("AIRiQ Booking Exception:", statusError);
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: statusError || "Booking exception occurred", bookingResponse },
 				{ status: 500 }
 			);
@@ -620,7 +624,7 @@ export async function POST(req: NextRequest) {
 
 		if (resultCode === "0") {
 			console.error("AIRiQ Booking Failed:", statusError);
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: statusError || "Booking failed", bookingResponse },
 				{ status: 400 }
 			);
@@ -776,7 +780,7 @@ export async function POST(req: NextRequest) {
 			userAgent: getUserAgent(req),
 		});
 
-		return NextResponse.json({
+		return brandedFlightJson({
 			...bookingResponse,
 			...(ticketingResponse && { ticketingResponse }),
 			_meta: {
@@ -797,6 +801,6 @@ export async function POST(req: NextRequest) {
 		console.error("AIRiQ Booking API Error:", error);
 		const errorMessage =
 			error instanceof Error ? error.message : "Unknown error occurred";
-		return NextResponse.json({ error: errorMessage }, { status: 500 });
+		return brandedFlightJson({ error: errorMessage }, { status: 500 });
 	}
 }

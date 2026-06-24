@@ -20,6 +20,10 @@ import {
 import {
 	isPricedTboResultIndex,
 } from "@/lib/tboAdvanceSearch";
+import {
+	resolveFlightApiSource,
+	restoreVendorRoutingString,
+} from "@/lib/dharmlokFlightBranding";
 
 interface PageProps {
 	searchParams: Promise<{
@@ -48,9 +52,15 @@ export default async function BookingPage({ searchParams }: PageProps) {
 		childCount = "0",
 		infantCount = "0",
 		isUpsellAllowed: isUpsellAllowedParam,
-		apiSource = "TBO",
+		apiSource: apiSourceParam = "TBO",
 		journeyType = "1",
 	} = params;
+
+	const apiSource = resolveFlightApiSource(apiSourceParam, resultIndex);
+	const tboResultIndex = restoreVendorRoutingString(resultIndex);
+	const tboReturnResultIndex = returnResultIndex
+		? restoreVendorRoutingString(returnResultIndex)
+		: undefined;
 
 	const priceIdsFromQuery = priceIdsParam
 		? priceIdsParam.split(",").map((id) => id.trim()).filter(Boolean)
@@ -98,8 +108,8 @@ export default async function BookingPage({ searchParams }: PageProps) {
 	}
 
 	const fareIndexes = fareQuoteResultIndexes(
-		resultIndex,
-		isAdvanceSearchJourneyType(journeyType) ? undefined : returnResultIndex,
+		tboResultIndex,
+		isAdvanceSearchJourneyType(journeyType) ? undefined : tboReturnResultIndex,
 		journeyType,
 	);
 

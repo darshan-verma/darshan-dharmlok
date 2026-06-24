@@ -138,7 +138,7 @@ export default function ManageBookingPage() {
 	const handleRequest = async (flag: "PENALTY" | "CANCEL") => {
 		const trimmedPNR = airIqPNR.trim();
 		if (!trimmedPNR) {
-			toast.error("Please enter your AIRiQ PNR.");
+			toast.error("Please enter your booking PNR.");
 			return;
 		}
 
@@ -217,7 +217,7 @@ export default function ManageBookingPage() {
 		const trimmedAirIq = airIqPNR.trim();
 		const trimmedAirline = airlinePNR.trim();
 		if (!trimmedAirIq) {
-			toast.error("Please enter your AIRiQ PNR.");
+			toast.error("Please enter your booking PNR.");
 			return;
 		}
 		if (!trimmedAirline) {
@@ -285,7 +285,7 @@ export default function ManageBookingPage() {
 	const handleRescheduleAvail = async () => {
 		const trimmedPNR = airIqPNR.trim();
 		if (!trimmedPNR) {
-			toast.error("Please enter your AIRiQ PNR.");
+			toast.error("Please enter your booking PNR.");
 			return;
 		}
 		if (!rescheduleDeparture.trim() || !rescheduleArrival.trim()) {
@@ -358,7 +358,7 @@ export default function ManageBookingPage() {
 	const handleRescheduleConfirm = async () => {
 		const trimmedPNR = airIqPNR.trim();
 		if (!trimmedPNR) {
-			toast.error("Please enter your AIRiQ PNR.");
+			toast.error("Please enter your booking PNR.");
 			return;
 		}
 		if (!rescheduleAvailResult?.trackId) {
@@ -607,7 +607,7 @@ export default function ManageBookingPage() {
 				<div className="mb-8">
 					<h1 className="text-3xl font-bold mb-2">Manage Booking</h1>
 					<p className="text-muted-foreground">
-						Check cancellation charges or cancel your flight booking. Choose your booking provider below.
+						Check cancellation charges or cancel your flight booking.
 					</p>
 					<div className="flex gap-2 mt-4">
 						<Button
@@ -615,14 +615,14 @@ export default function ManageBookingPage() {
 							size="sm"
 							onClick={() => setProvider("AIRiQ")}
 						>
-							AIRiQ
+							By PNR
 						</Button>
 						<Button
 							variant={provider === "TBO" ? "default" : "outline"}
 							size="sm"
 							onClick={() => setProvider("TBO")}
 						>
-							TBO
+							By booking ID
 						</Button>
 					</div>
 				</div>
@@ -635,10 +635,10 @@ export default function ManageBookingPage() {
 					</CardHeader>
 					<CardContent className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="airiq-pnr">AIRiQ PNR</Label>
+							<Label htmlFor="airiq-pnr">Booking PNR</Label>
 							<Input
 								id="airiq-pnr"
-								placeholder="Enter your AIRiQ PNR"
+								placeholder="Enter your booking PNR"
 								value={airIqPNR}
 								onChange={(e) => setAirIqPNR(e.target.value)}
 							/>
@@ -684,7 +684,7 @@ export default function ManageBookingPage() {
 					<CardHeader>
 						<CardTitle>Cancel hold (Hold Cancel)</CardTitle>
 						<p className="text-sm text-muted-foreground">
-							Cancel a held PNR using your AIRiQ PNR and Airline PNR (from your booking confirmation).
+							Cancel a held PNR using your booking PNR and airline PNR (from your booking confirmation).
 						</p>
 					</CardHeader>
 					<CardContent className="space-y-4">
@@ -698,7 +698,7 @@ export default function ManageBookingPage() {
 							/>
 						</div>
 						<p className="text-xs text-muted-foreground">
-							Uses the AIRiQ PNR from the Booking Details section above.
+							Uses the booking PNR from the Booking Details section above.
 						</p>
 						<Button
 							variant="outline"
@@ -1042,7 +1042,7 @@ export default function ManageBookingPage() {
 				<>
 				<Card className="mb-6">
 					<CardHeader>
-						<CardTitle>TBO Booking Details</CardTitle>
+						<CardTitle>Booking details</CardTitle>
 						<p className="text-sm text-muted-foreground">
 							Check cancellation charges or cancel a ticketed booking. For hold-only (no ticket), use Release hold below.
 						</p>
@@ -1052,7 +1052,7 @@ export default function ManageBookingPage() {
 							<Label htmlFor="tbo-booking-id">Booking ID</Label>
 							<Input
 								id="tbo-booking-id"
-								placeholder="Enter TBO Booking ID"
+								placeholder="Enter booking ID"
 								value={tboBookingId}
 								onChange={(e) => setTboBookingId(e.target.value)}
 								type="number"
@@ -1106,7 +1106,7 @@ export default function ManageBookingPage() {
 
 				<Card className="mb-6">
 					<CardHeader>
-						<CardTitle>TBO Release hold</CardTitle>
+						<CardTitle>Release hold</CardTitle>
 						<p className="text-sm text-muted-foreground">
 							Release a held PNR (no ticket issued). Uses Booking ID and Source from above.
 						</p>
@@ -1127,7 +1127,7 @@ export default function ManageBookingPage() {
 
 				<Card className="mb-6">
 					<CardHeader>
-						<CardTitle>TBO Cancellation Status</CardTitle>
+						<CardTitle>Cancellation status</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-4">
 						{!tboResult && (

@@ -1,6 +1,87 @@
 import { NextRequest, NextResponse } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { bookFlight, getBookingDetails } from "@/lib/tboClient";
+import {
+	fingerprintDuplicateCriteria,
+	formatTboDuplicateBookingError,
+	isDuplicateGuardPayload,
+	isTboDuplicateBookingError,
+	parseDuplicateBookingPnrFromError,
+} from "@/lib/tboDuplicateBooking";
+import {
+	findRecentTboDuplicateBooking,
+	recordTboNonLccDuplicateBooking,
+} from "@/lib/tboDuplicateBookingStore";
 import type { BookingRequest, TboBookPassenger } from "@/types/tbo";
+
+function duplicateBookingResponse(
+	errorMessage: string,
+	existingPnr: string,
+	existingBookingId: number | null,
+) {
+	return brandedFlightJson(
+		{
+			error: errorMessage,
+			duplicateBooking: true,
+			existingPnr,
+			existingBookingId,
+		},
+		{ status: 409 },
+	);
+}
+
+function extractTboErrorMessage(result: unknown): string {
+	const r = result as {
+		Error?: { ErrorMessage?: string };
+		Response?: { Error?: { ErrorMessage?: string } };
+	};
+	return (
+		r?.Response?.Error?.ErrorMessage ||
+		r?.Error?.ErrorMessage ||
+		""
+	);
+}
+
+async function guardAgainstDuplicateBooking(
+	duplicateGuard: unknown,
+): Promise<NextResponse | null> {
+	if (!isDuplicateGuardPayload(duplicateGuard)) {
+		return brandedFlightJson(
+			{
+				error:
+					"Missing or invalid duplicateGuard (sector, journey dates, airline, flight number, passengers required for Non-LCC booking)",
+			},
+			{ status: 400 },
+		);
+	}
+
+	const fingerprint = fingerprintDuplicateCriteria(duplicateGuard);
+	const existing = await findRecentTboDuplicateBooking(fingerprint);
+	if (!existing) return null;
+
+	return duplicateBookingResponse(
+		formatTboDuplicateBookingError(existing.pnr),
+		existing.pnr,
+		existing.bookingId,
+	);
+}
+
+async function recordSuccessfulNonLccBook(
+	duplicateGuard: unknown,
+	pnr: string,
+	bookingId: number | null,
+) {
+	if (!isDuplicateGuardPayload(duplicateGuard)) return;
+	try {
+		await recordTboNonLccDuplicateBooking({
+			criteria: duplicateGuard,
+			pnr,
+			bookingId,
+		});
+	} catch (err) {
+		console.error("Failed to record TBO duplicate booking guard:", err);
+	}
+}
 
 /**
  * POST /api/travel/tbo/book
@@ -12,29 +93,38 @@ import type { BookingRequest, TboBookPassenger } from "@/types/tbo";
 export async function POST(request: NextRequest) {
 	try {
 		const body = await request.json();
-		const { EndUserIp, TraceId, ResultIndex, Passengers } = body as Partial<BookingRequest>;
+		const {
+			EndUserIp,
+			TraceId,
+			ResultIndex,
+			Passengers,
+			duplicateGuard,
+		} = body as Partial<BookingRequest> & { duplicateGuard?: unknown };
 
 		if (!EndUserIp || !TraceId || !ResultIndex) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required fields: EndUserIp, TraceId, ResultIndex" },
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 
 		if (!Array.isArray(Passengers) || Passengers.length === 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Passengers must be a non-empty array" },
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
+
+		const duplicateBlock = await guardAgainstDuplicateBooking(duplicateGuard);
+		if (duplicateBlock) return duplicateBlock;
 
 		// Validate each passenger has required fields and Fare
 		for (let i = 0; i < Passengers.length; i++) {
 			const p = Passengers[i] as TboBookPassenger;
 			if (!p.Title || !p.FirstName || !p.LastName || p.PaxType == null || p.Gender == null) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: `Passenger ${i + 1}: Title, FirstName, LastName, PaxType, Gender are required` },
-					{ status: 400 }
+					{ status: 400 },
 				);
 			}
 			if (
@@ -44,15 +134,15 @@ export async function POST(request: NextRequest) {
 				p.GSTNumber == null ||
 				p.GSTCompanyEmail == null
 			) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: `Passenger ${i + 1}: GST fields (GSTCompanyAddress, GSTCompanyContactNumber, GSTCompanyName, GSTNumber, GSTCompanyEmail) are required (use empty string if not applicable)` },
-					{ status: 400 }
+					{ status: 400 },
 				);
 			}
 			if (!p.Fare || typeof p.Fare !== "object") {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: `Passenger ${i + 1}: Fare object is required` },
-					{ status: 400 }
+					{ status: 400 },
 				);
 			}
 			const f = p.Fare;
@@ -66,27 +156,27 @@ export async function POST(request: NextRequest) {
 				f.AdditionalTxnFeePub == null ||
 				f.AirTransFee == null
 			) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: `Passenger ${i + 1}: Fare must include Currency, BaseFare, Tax, TransactionFee, YQTax, AdditionalTxnFeeOfrd, AdditionalTxnFeePub, AirTransFee` },
-					{ status: 400 }
+					{ status: 400 },
 				);
 			}
 			if (!p.AddressLine1 || !p.City || !p.CountryCode || !p.CountryName || !p.ContactNo || !p.Email) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: `Passenger ${i + 1}: AddressLine1, City, CountryCode, CountryName, ContactNo, Email are required` },
-					{ status: 400 }
+					{ status: 400 },
 				);
 			}
 			if (p.Nationality == null || p.Nationality === "") {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: `Passenger ${i + 1}: Nationality is required` },
-					{ status: 400 }
+					{ status: 400 },
 				);
 			}
 			if (typeof p.IsLeadPax !== "boolean") {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: `Passenger ${i + 1}: IsLeadPax must be boolean` },
-					{ status: 400 }
+					{ status: 400 },
 				);
 			}
 		}
@@ -111,15 +201,23 @@ export async function POST(request: NextRequest) {
 						EndUserIp,
 						TraceId,
 					});
-					return NextResponse.json({
+					const itinerary = (bookingDetailsResult as { Response?: { FlightItinerary?: { PNR?: string; BookingId?: number } } })?.Response?.FlightItinerary;
+					if (itinerary?.PNR) {
+						await recordSuccessfulNonLccBook(
+							duplicateGuard,
+							itinerary.PNR,
+							itinerary.BookingId ?? null,
+						);
+					}
+					return brandedFlightJson({
 						...bookingDetailsResult,
 						_timeoutRecovered: true,
 					});
 				} catch (pollError) {
 					console.error("GetBookingDetails after timeout also failed:", pollError);
-					return NextResponse.json(
+					return brandedFlightJson(
 						{ error: "Booking timed out. Please check booking status manually.", _timeout: true },
-						{ status: 504 }
+						{ status: 504 },
 					);
 				}
 			}
@@ -128,37 +226,81 @@ export async function POST(request: NextRequest) {
 
 		const response = result?.Response;
 		const topError = result?.Error;
+		const errorMessage = extractTboErrorMessage(result);
+
+		if (isTboDuplicateBookingError(errorMessage)) {
+			const existingPnr =
+				parseDuplicateBookingPnrFromError(errorMessage) || "UNKNOWN";
+			if (isDuplicateGuardPayload(duplicateGuard)) {
+				await recordTboNonLccDuplicateBooking({
+					criteria: duplicateGuard,
+					pnr: existingPnr,
+				});
+			}
+			return duplicateBookingResponse(
+				errorMessage || formatTboDuplicateBookingError(existingPnr),
+				existingPnr,
+				null,
+			);
+		}
 
 		if (topError && topError.ErrorCode !== 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: topError.ErrorMessage || "TBO Book failed",
 					errorCode: topError.ErrorCode,
 					data: result,
 				},
-				{ status: 400 }
+				{ status: 400 },
 			);
+		}
+
+		if (response?.Error && response.Error.ErrorCode !== 0) {
+			const innerMessage = response.Error.ErrorMessage || "";
+			if (isTboDuplicateBookingError(innerMessage)) {
+				const existingPnr =
+					parseDuplicateBookingPnrFromError(innerMessage) || "UNKNOWN";
+				if (isDuplicateGuardPayload(duplicateGuard)) {
+					await recordTboNonLccDuplicateBooking({
+						criteria: duplicateGuard,
+						pnr: existingPnr,
+					});
+				}
+				return duplicateBookingResponse(
+					innerMessage || formatTboDuplicateBookingError(existingPnr),
+					existingPnr,
+					null,
+				);
+			}
 		}
 
 		// Status: 1=Successful, 2=Failed, 3=OtherFare, 4=OtherClass, 5=BookedOther, 6=NotConfirmed
 		if (response?.Status === 2 || response?.Status === 6) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: response.Status === 2 ? "Booking failed" : "Booking not confirmed",
 					status: response.Status,
 					data: result,
 				},
-				{ status: 400 }
+				{ status: 400 },
 			);
 		}
 
-		return NextResponse.json(result);
+		if (response?.PNR) {
+			await recordSuccessfulNonLccBook(
+				duplicateGuard,
+				response.PNR,
+				response.BookingId ?? null,
+			);
+		}
+
+		return brandedFlightJson(result);
 	} catch (error) {
 		console.error("TBO Book API error:", error);
 		const message = error instanceof Error ? error.message : "Failed to process booking";
-		return NextResponse.json(
+		return brandedFlightJson(
 			{ error: message },
-			{ status: 500 }
+			{ status: 500 },
 		);
 	}
 }

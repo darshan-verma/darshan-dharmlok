@@ -25,9 +25,21 @@ type EntryPending = {
 
 type Entry = EntryReady | EntryPending;
 
-const sessions = new Map<string, Entry>();
+/** Shared across route bundles in Next.js dev (each route can load its own module copy). */
+const SESSIONS_KEY = "__dharmlokFlightSearchSessions" as const;
+
+function getSessionsMap(): Map<string, Entry> {
+	const g = globalThis as typeof globalThis & {
+		[SESSIONS_KEY]?: Map<string, Entry>;
+	};
+	if (!g[SESSIONS_KEY]) {
+		g[SESSIONS_KEY] = new Map<string, Entry>();
+	}
+	return g[SESSIONS_KEY];
+}
 
 function prune(): void {
+	const sessions = getSessionsMap();
 	const now = Date.now();
 	for (const [id, e] of sessions) {
 		if (now - e.createdAt > TTL_MS) sessions.delete(id);
@@ -50,6 +62,7 @@ export function createFlightSearchSession(
 	payload: FlightSearchSessionPayload,
 ): string {
 	prune();
+	const sessions = getSessionsMap();
 	const id = randomUUID();
 	sessions.set(id, { ...payload, status: "ready", createdAt: Date.now() });
 	return id;
@@ -61,6 +74,7 @@ export function createPendingFlightSearchSession(meta: {
 	journeyType: string;
 }): string {
 	prune();
+	const sessions = getSessionsMap();
 	const id = randomUUID();
 	sessions.set(id, {
 		...meta,
@@ -76,6 +90,7 @@ export function finalizeFlightSearchSession(
 	payload: FlightSearchSessionPayload,
 ): boolean {
 	prune();
+	const sessions = getSessionsMap();
 	const e = sessions.get(sessionId);
 	if (!e) return false;
 	sessions.set(sessionId, {
@@ -93,6 +108,7 @@ export function getFlightSearchMergeStatus(sessionId: string): {
 	journeyType?: string;
 } | null {
 	prune();
+	const sessions = getSessionsMap();
 	const entry = sessions.get(sessionId);
 	if (!entry || Date.now() - entry.createdAt > TTL_MS) {
 		if (entry) sessions.delete(sessionId);
@@ -119,6 +135,7 @@ export function getFlightSearchSessionSlice(
 	limit: number,
 ): { flights: FlightResult[]; total: number; traceId: string } | null {
 	prune();
+	const sessions = getSessionsMap();
 	const entry = sessions.get(sessionId);
 	if (!entry || Date.now() - entry.createdAt > TTL_MS) {
 		if (entry) sessions.delete(sessionId);
@@ -139,6 +156,7 @@ export function getFlightSearchSessionSlice(
 
 export function isFlightSearchSessionPending(sessionId: string): boolean {
 	prune();
+	const sessions = getSessionsMap();
 	const entry = sessions.get(sessionId);
 	if (!entry || Date.now() - entry.createdAt > TTL_MS) return false;
 	return entry.status === "pending";

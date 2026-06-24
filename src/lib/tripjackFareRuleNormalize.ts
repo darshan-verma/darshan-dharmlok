@@ -58,7 +58,7 @@ function policyDetails(policy: TripjackFareRulePolicy): string {
 	if (typeof policy.amount === "number")
 		parts.push(`Airline fee: ${policy.amount}`);
 	if (typeof policy.additionalFee === "number")
-		parts.push(`TripJack fee: ${policy.additionalFee}`);
+		parts.push(`Dharmlok fee: ${policy.additionalFee}`);
 	const fcsLine = formatFcs(policy.fcs);
 	if (fcsLine) parts.push(fcsLine);
 	return parts.join(". ") || "—";

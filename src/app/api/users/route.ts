@@ -60,15 +60,26 @@ export async function DELETE(request: Request) {
 		const videoUrls = [...videoFileUrls, ...videoThumbUrls];
 		const hasMedia = imageUrls.length > 0 || videoUrls.length > 0;
 
-		// Delete media records from DB
-		await prisma.image.deleteMany({ where: { userId: id } });
-		await prisma.video.deleteMany({ where: { userId: id } });
-
-		// Delete all addresses related to the user
-		await prisma.address.deleteMany({ where: { userId: id } });
-
-		// Delete user
-		await prisma.user.delete({ where: { id } });
+		// Delete related records before user (no cascade on Comment → User)
+		await prisma.$transaction([
+			prisma.comment.deleteMany({
+				where: {
+					OR: [
+						{ userId: id },
+						{ post: { userId: id } },
+						{ video: { userId: id } },
+					],
+				},
+			}),
+			prisma.media.deleteMany({ where: { post: { userId: id } } }),
+			prisma.post.deleteMany({ where: { userId: id } }),
+			prisma.serviceOffering.deleteMany({ where: { providerId: id } }),
+			prisma.product.deleteMany({ where: { sellerId: id } }),
+			prisma.image.deleteMany({ where: { userId: id } }),
+			prisma.video.deleteMany({ where: { userId: id } }),
+			prisma.address.deleteMany({ where: { userId: id } }),
+			prisma.user.delete({ where: { id } }),
+		]);
 
 		// Async S3 deletion (fire and forget)
 		setTimeout(() => {

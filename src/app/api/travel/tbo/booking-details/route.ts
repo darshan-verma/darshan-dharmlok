@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getBookingDetails } from "@/lib/tboClient";
 import type { GetBookingDetailsRequest, GetBookingDetailsResponse } from "@/types/tbo";
 
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
 	try {
 		const body = await request.json();
 		if (!body || typeof body !== "object") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Request body must be a JSON object" },
 				{ status: 400 }
 			);
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
 
 		const validated = validateGetBookingDetailsBody(body as Record<string, unknown>);
 		if (!validated.valid) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: validated.error },
 				{ status: 400 }
 			);
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
 		const responseError = result?.Response?.Error;
 
 		if (topError && topError.ErrorCode !== 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: topError.ErrorMessage || "GetBookingDetails failed",
 					errorCode: topError.ErrorCode,
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		if (responseError && responseError.ErrorCode !== 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: responseError.ErrorMessage || "GetBookingDetails failed",
 					errorCode: responseError.ErrorCode,
@@ -111,11 +112,11 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		return NextResponse.json(result);
+		return brandedFlightJson(result);
 	} catch (error) {
 		console.error("TBO GetBookingDetails API error:", error);
 		const message = error instanceof Error ? error.message : "Failed to fetch booking details";
-		return NextResponse.json(
+		return brandedFlightJson(
 			{ error: message },
 			{ status: 500 }
 		);

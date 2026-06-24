@@ -172,6 +172,11 @@ export interface AiriqFlightSearchResponse {
 	Trackid: string;
 	ItineraryFlightList: Array<{
 		Items: Array<{
+			IsPassportRequiredAtBook?: boolean | string;
+			IsPassportRequiredAtTicket?: boolean | string;
+			MandatoryBookingDetails?: {
+				PassportRequired?: boolean | string;
+			};
 			FlightDetails: Array<{
 				FlightID: string;
 				AirlineDescription: string;
@@ -213,6 +218,8 @@ export interface AiriqFlightSearchResponse {
 				CabinBaggage: string;
 			}>;
 			Fares: Array<{
+				IsPassportRequiredAtBook?: boolean | string;
+				IsPassportRequiredAtTicket?: boolean | string;
 				Currency: string;
 				FareType: string;
 				Faredescription: Array<{

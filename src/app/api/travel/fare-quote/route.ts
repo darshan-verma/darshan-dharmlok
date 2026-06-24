@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getFareQuote } from "@/lib/tboClient";
 import type { FareQuoteResponse } from "@/types/tbo";
 
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
 		const { TraceId, ResultIndex, EndUserIp } = body;
 
 		if (!TraceId || !ResultIndex) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required parameters: TraceId and ResultIndex" },
 				{ status: 400 }
 			);
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
 				TraceId,
 				ResultIndex,
 			});
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: errorMessage,
 					errorCode: responseError.ErrorCode,
@@ -57,17 +58,17 @@ export async function POST(request: NextRequest) {
 				5: "Invalid credentials.",
 			};
 			const errorMessage = statusMessages[responseStatus] ?? "Fare quote unavailable";
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: errorMessage, errorCode: responseStatus, data: result },
 				{ status: 400 }
 			);
 		}
 
-		return NextResponse.json(result);
+		return brandedFlightJson(result);
 	} catch (error) {
 		console.error("Fare quote API error:", error);
 		const errorMessage =
 			error instanceof Error ? error.message : "Failed to fetch fare quote";
-		return NextResponse.json({ error: errorMessage }, { status: 500 });
+		return brandedFlightJson({ error: errorMessage }, { status: 500 });
 	}
 }

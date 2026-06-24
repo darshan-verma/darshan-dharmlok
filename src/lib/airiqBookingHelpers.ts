@@ -1,3 +1,4 @@
+import type { FlightResult } from "@/types/tbo";
 import type {
 	AiriqGetMultiClassFareResponse,
 	AiriqPricingResponse,
@@ -347,4 +348,64 @@ export function mergeMulticlassFareWithPricing(
 		],
 		ResponseStatus: multiclass.Status ?? pricingData?.ResponseStatus,
 	};
+}
+
+function firstPriceItenaryInfo(
+	pricing: AiriqPricingResponse | null | undefined,
+): PriceItenaryInfoItem | undefined {
+	const info = pricing?.PriceItenaryInfo;
+	if (!info) return undefined;
+	return Array.isArray(info) ? info[0] : info;
+}
+
+/** Passport required at book from search FareQuote flags or pricing MandatoryBookingDetails. */
+export function deriveAiriqPassportFlags(
+	flight: FlightResult | null | undefined,
+	pricing: AiriqPricingResponse | null | undefined,
+): { requirePassport: boolean } {
+	const fromFlight = flight?.IsPassportRequiredAtBook === true;
+	const fromPricing =
+		firstPriceItenaryInfo(pricing)?.MandatoryBookingDetails?.PassportRequired === true;
+	return { requirePassport: fromFlight || fromPricing };
+}
+
+/** Passport flags from AIRiQ availability/search item (before pricing). */
+export function extractAiriqSearchPassportFlags(item: unknown): {
+	isPassportRequiredAtBook: boolean;
+	isPassportRequiredAtTicket: boolean;
+} {
+	let isPassportRequiredAtBook = false;
+	let isPassportRequiredAtTicket = false;
+
+	const visit = (record: unknown) => {
+		if (!record || typeof record !== "object") return;
+		const r = record as Record<string, unknown>;
+		if ("IsPassportRequiredAtBook" in r) {
+			isPassportRequiredAtBook =
+				isPassportRequiredAtBook || parseAiriqBoolean(r.IsPassportRequiredAtBook);
+		}
+		if ("IsPassportRequiredAtTicket" in r) {
+			isPassportRequiredAtTicket =
+				isPassportRequiredAtTicket || parseAiriqBoolean(r.IsPassportRequiredAtTicket);
+		}
+		const mbd = r.MandatoryBookingDetails;
+		if (mbd && typeof mbd === "object") {
+			const passportRequired = (mbd as Record<string, unknown>).PassportRequired;
+			if (passportRequired !== undefined) {
+				isPassportRequiredAtBook =
+					isPassportRequiredAtBook || parseAiriqBoolean(passportRequired);
+			}
+		}
+	};
+
+	visit(item);
+	if (item && typeof item === "object") {
+		const root = item as Record<string, unknown>;
+		const fares = root.Fares;
+		if (Array.isArray(fares)) fares.forEach(visit);
+		const flightDetails = root.FlightDetails;
+		if (Array.isArray(flightDetails)) flightDetails.forEach(visit);
+	}
+
+	return { isPassportRequiredAtBook, isPassportRequiredAtTicket };
 }

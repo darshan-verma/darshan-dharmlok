@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import PassengerDetails from "../components/PassengerDetails";
 import FareBreakdown from "@/components/travel-portal/FareBreakdown";
 import FlightDetails from "./components/FlightDetails";
@@ -23,6 +23,7 @@ import {
 	getAiriqAvailabilityTrackid,
 	isAiriqMultiClassEnabled,
 	mergeMulticlassFareWithPricing,
+	deriveAiriqPassportFlags,
 } from "@/lib/airiqBookingHelpers";
 import { flightLegDates, flightRouteSummary } from "@/lib/flightTripMeta";
 
@@ -137,6 +138,19 @@ AiriqBookingClientProps) {
 	const [addAncillaryLoading, setAddAncillaryLoading] = useState(false);
 	const [selectedMulticlassFare, setSelectedMulticlassFare] = useState<AiriqGetMultiClassFareResponse | null>(null);
 	const [returnFlightResult, setReturnFlightResult] = useState<FlightResult | null>(null);
+
+	const effectivePricingData = useMemo(
+		() =>
+			selectedMulticlassFare
+				? mergeMulticlassFareWithPricing(selectedMulticlassFare, pricingData)
+				: pricingData,
+		[selectedMulticlassFare, pricingData],
+	);
+
+	const airiqPassportFlags = useMemo(
+		() => deriveAiriqPassportFlags(flightResult, effectivePricingData),
+		[flightResult, effectivePricingData],
+	);
 
 	// Load flight data from sessionStorage cache
 	useEffect(() => {
@@ -389,11 +403,19 @@ AiriqBookingClientProps) {
 					toast.error(`Passenger ${i + 1}: Gender is required`);
 					return;
 				}
+				if (airiqPassportFlags.requirePassport) {
+					if (!passenger.PassportNo?.trim()) {
+						toast.error(`Passenger ${i + 1}: Passport number is required for this flight`);
+						return;
+					}
+					if (!passenger.PassportExpiry?.trim()) {
+						toast.error(`Passenger ${i + 1}: Passport expiry is required for this flight`);
+						return;
+					}
+				}
 			}
-			const effectivePricingData = selectedMulticlassFare
-				? mergeMulticlassFareWithPricing(selectedMulticlassFare, pricingData)
-				: pricingData;
-			if (!effectivePricingData) {
+			const effectivePricingDataForBook = effectivePricingData;
+			if (!effectivePricingDataForBook) {
 				toast.error("Pricing data is not available. Please refresh and try again.");
 				return;
 			}
@@ -432,7 +454,7 @@ AiriqBookingClientProps) {
 			};
 			const tripType = flightResult?.ReturnResultIndex ? "R" : "O";
 			const bookingRequest = {
-				pricingData: effectivePricingData,
+				pricingData: effectivePricingDataForBook,
 				passengers: passengerData,
 				adultCount,
 				childCount,
@@ -606,6 +628,9 @@ AiriqBookingClientProps) {
 							onPassengersChange={setPassengers}
 							flightResult={flightResult}
 							isSubmitting={createBookingLoading}
+							requirePassport={airiqPassportFlags.requirePassport}
+							requireGST={false}
+							gstOptional={false}
 							ssrCharges={{
 								baggage: Object.fromEntries(
 									Object.entries(selectedSSRs.baggage).map(([key, value]) => [

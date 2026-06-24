@@ -215,7 +215,7 @@ export interface TripjackReviewConditions {
 	isa?: boolean;
 	/** Frequent flier airlines */
 	ffas?: string[];
-	/** GST conditions */
+	/** GST conditions: `igm` = mandatory, `gstappl` = optional collection allowed */
 	gst?: { igm?: boolean; gstappl?: boolean } | boolean;
 	/** Date-of-birth conditions */
 	dob?: { adobr?: boolean; cdobr?: boolean; idobr?: boolean } | boolean;

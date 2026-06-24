@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getCancellationCharges } from "@/lib/tboClient";
 
 /**
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest) {
 	try {
 		const body = await request.json();
 		if (!body || typeof body !== "object") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Request body must be a JSON object" },
 				{ status: 400 }
 			);
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
 		const EndUserIp =
 			typeof body.EndUserIp === "string" ? body.EndUserIp.trim() : "";
 		if (!EndUserIp) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required field: EndUserIp" },
 				{ status: 400 }
 			);
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
 				? body.BookingId
 				: parseInt(String(body.BookingId ?? ""), 10);
 		if (Number.isNaN(BookingId) || BookingId <= 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing or invalid BookingId" },
 				{ status: 400 }
 			);
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
 			const msg =
 				result.Error?.ErrorMessage ||
 				"Get cancellation charges failed";
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: msg,
 					responseStatus: result.ResponseStatus,
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		return NextResponse.json({
+		return brandedFlightJson({
 			responseStatus: result.ResponseStatus ?? 1,
 			refundAmount: result.RefundAmount,
 			cancellationCharge: result.CancellationCharge,
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
 			error instanceof Error
 				? error.message
 				: "Get cancellation charges failed";
-		return NextResponse.json(
+		return brandedFlightJson(
 			{ error: message },
 			{ status: 500 }
 		);

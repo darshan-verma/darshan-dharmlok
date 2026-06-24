@@ -34,6 +34,20 @@ export function airportToCity(a: AirportSearchResult): City {
 	};
 }
 
+/** Top Indian metro airports shown before the user types a search query. */
+const TOP_INDIAN_METRO_CITIES: AirportSearchResult[] = [
+	{ code: "DEL", name: "Indira Gandhi International Airport", city: "Delhi", country: "India", countryCode: "IN" },
+	{ code: "BOM", name: "Chhatrapati Shivaji Maharaj International Airport", city: "Mumbai", country: "India", countryCode: "IN" },
+	{ code: "BLR", name: "Kempegowda International Airport", city: "Bengaluru", country: "India", countryCode: "IN" },
+	{ code: "HYD", name: "Rajiv Gandhi International Airport", city: "Hyderabad", country: "India", countryCode: "IN" },
+	{ code: "MAA", name: "Chennai International Airport", city: "Chennai", country: "India", countryCode: "IN" },
+	{ code: "CCU", name: "Netaji Subhas Chandra Bose International Airport", city: "Kolkata", country: "India", countryCode: "IN" },
+	{ code: "AMD", name: "Sardar Vallabhbhai Patel International Airport", city: "Ahmedabad", country: "India", countryCode: "IN" },
+	{ code: "PNQ", name: "Pune Airport", city: "Pune", country: "India", countryCode: "IN" },
+	{ code: "JAI", name: "Jaipur International Airport", city: "Jaipur", country: "India", countryCode: "IN" },
+	{ code: "COK", name: "Cochin International Airport", city: "Kochi", country: "India", countryCode: "IN" },
+];
+
 /** Resolve display fields for a stored IATA code via /api/airports (client-safe). */
 export async function fetchCityFromCode(code: string): Promise<City> {
 	const upper = code.trim().toUpperCase();
@@ -75,20 +89,22 @@ function CitySelector({
 	const [highlightIndex, setHighlightIndex] = useState(0);
 	const listRef = useRef<HTMLDivElement>(null);
 	const { results, loading } = useAirportSearch(search, open);
+	const isSearching = search.trim().length >= 2;
+	const displayedItems = isSearching ? results : TOP_INDIAN_METRO_CITIES;
 
 	useEffect(() => {
 		setHighlightIndex(0);
-	}, [results, search]);
+	}, [displayedItems, search]);
 
 	const selectAt = useCallback(
 		(index: number) => {
-			const item = results[index];
+			const item = displayedItems[index];
 			if (!item) return;
 			onSelect(airportToCity(item));
 			setOpen(false);
 			setSearch("");
 		},
-		[results, onSelect],
+		[displayedItems, onSelect],
 	);
 
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -96,10 +112,10 @@ function CitySelector({
 			setOpen(false);
 			return;
 		}
-		if (results.length === 0) return;
+		if (displayedItems.length === 0) return;
 		if (e.key === "ArrowDown") {
 			e.preventDefault();
-			setHighlightIndex((i) => Math.min(i + 1, results.length - 1));
+			setHighlightIndex((i) => Math.min(i + 1, displayedItems.length - 1));
 		} else if (e.key === "ArrowUp") {
 			e.preventDefault();
 			setHighlightIndex((i) => Math.max(i - 1, 0));
@@ -186,16 +202,17 @@ function CitySelector({
 					</div>
 				</div>
 				<div ref={listRef} className="max-h-64 overflow-y-auto">
-					{search.trim().length < 2 ? (
-						<div className="px-4 py-6 text-center text-sm text-gray-500">
-							Type at least 2 characters
+					{!isSearching && (
+						<div className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide border-b border-gray-100">
+							Popular cities
 						</div>
-					) : loading && results.length === 0 ? (
+					)}
+					{isSearching && loading && results.length === 0 ? (
 						<div className="px-4 py-6 text-center text-sm text-gray-500">
 							Searching…
 						</div>
-					) : results.length > 0 ? (
-						results.map((airport, index) => (
+					) : displayedItems.length > 0 ? (
+						displayedItems.map((airport, index) => (
 							<button
 								key={airport.code}
 								type="button"

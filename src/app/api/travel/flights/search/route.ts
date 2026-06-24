@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { after } from "next/server";
-import { NextRequest, NextResponse } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
+import { NextRequest } from "next/server";
 import { searchFlights } from "@/lib/tboClient";
 import { searchTripjackFlights } from "@/lib/tripjackClient";
 import {
@@ -412,7 +413,7 @@ export async function POST(request: NextRequest) {
 		if (body.PreferredDepartureTime) {
 			const departureDate = new Date(body.PreferredDepartureTime);
 			if (departureDate < today) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: "Departure date cannot be in the past" },
 					{ status: 400 },
 				);
@@ -422,7 +423,7 @@ export async function POST(request: NextRequest) {
 		if (body.ReturnPreferredDepartureTime) {
 			const returnDate = new Date(body.ReturnPreferredDepartureTime);
 			if (returnDate < today) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: "Return date cannot be in the past" },
 					{ status: 400 },
 				);
@@ -432,7 +433,7 @@ export async function POST(request: NextRequest) {
 		// Validate multi-city segment dates and ordering per TBO docs
 		if (body.JourneyType === "3" && body.Segments) {
 			if (body.Segments.length > 6) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: "Multi-city supports at most 6 legs" },
 					{ status: 400 },
 				);
@@ -442,7 +443,7 @@ export async function POST(request: NextRequest) {
 				const segment = body.Segments[i];
 				// Validate origin/destination not null
 				if (!segment.Origin || !segment.Destination) {
-					return NextResponse.json(
+					return brandedFlightJson(
 						{ error: `Segment ${i + 1}: Origin and Destination are required` },
 						{ status: 400 },
 					);
@@ -452,7 +453,7 @@ export async function POST(request: NextRequest) {
 						segment.PreferredDepartureTime || segment.DepartureDateTime,
 					);
 					if (departureDate < today) {
-						return NextResponse.json(
+						return brandedFlightJson(
 							{
 								error: `Segment ${i + 1} departure date cannot be in the past`,
 							},
@@ -461,7 +462,7 @@ export async function POST(request: NextRequest) {
 					}
 					// Per TBO docs: 2nd segment date must be >= 1st segment arrival date
 					if (prevDepartureDate && departureDate < prevDepartureDate) {
-						return NextResponse.json(
+						return brandedFlightJson(
 							{
 								error: `Segment ${i + 1} departure date must be on or after previous segment departure`,
 							},
@@ -482,13 +483,13 @@ export async function POST(request: NextRequest) {
 			parseInt(body.InfantCount || "0", 10),
 		);
 		if (paxError) {
-			return NextResponse.json({ error: paxError }, { status: 400 });
+			return brandedFlightJson({ error: paxError }, { status: 400 });
 		}
 
 		// Validate origin/destination for non-multi-city
 		if (journeyType !== "3") {
 			if (!body.Origin || !body.Destination) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: "Origin and Destination are required" },
 					{ status: 400 },
 				);
@@ -500,7 +501,7 @@ export async function POST(request: NextRequest) {
 			(!body.ReturnPreferredDepartureTime ||
 				String(body.ReturnPreferredDepartureTime).trim() === "")
 		) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Return date is required for return, advance search return, and special return journeys" },
 				{ status: 400 },
 			);
@@ -508,7 +509,7 @@ export async function POST(request: NextRequest) {
 
 		// Validate SpecialReturn constraints: cannot use with MultiCity
 		if (journeyType === "3" && body.Sources?.includes("6E_SPECIAL_RETURN")) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "SpecialReturn (6E) is only available for Return journeys, not MultiCity" },
 				{ status: 400 },
 			);
@@ -841,7 +842,7 @@ export async function POST(request: NextRequest) {
 				// logging must not break search
 			}
 
-			return NextResponse.json({
+			return brandedFlightJson({
 				success: true,
 				phase: "partial",
 				mergePending: true,
@@ -910,7 +911,7 @@ export async function POST(request: NextRequest) {
 			phase: "complete",
 		});
 
-		return NextResponse.json({
+		return brandedFlightJson({
 			success: true,
 			phase: "complete",
 			mergePending: false,
@@ -936,7 +937,7 @@ export async function POST(request: NextRequest) {
 		});
 	} catch (error) {
 		console.error("Flight search error:", error);
-		return NextResponse.json(
+		return brandedFlightJson(
 			{
 				success: false,
 				error: error instanceof Error ? error.message : "Flight search failed",

@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { bookTripjackFlight, TripjackApiError } from "@/lib/tripjackClient";
 import { resolveTripjackBookError } from "@/lib/tripjackFlightBooking";
 import type { TripjackBookRequest } from "@/types/tripjackFlight";
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
 			: [];
 
 		if (!bookingId || !travellerInfo.length) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "bookingId and travellerInfo[] are required" },
 				{ status: 400 },
 			);
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
 		const data = await bookTripjackFlight(payload);
 		const friendlyError = resolveTripjackBookError(data);
 		if (friendlyError) {
-			return NextResponse.json({ error: friendlyError, data }, { status: 400 });
+			return brandedFlightJson({ error: friendlyError, data }, { status: 400 });
 		}
 
 		try {
@@ -58,10 +59,10 @@ export async function POST(request: NextRequest) {
 			// logging is non-blocking
 		}
 
-		return NextResponse.json({ success: true, data });
+		return brandedFlightJson({ success: true, data });
 	} catch (error) {
 		if (error instanceof TripjackApiError) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: error.message,
 					status: error.status,
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 		const message = error instanceof Error ? error.message : "TripJack booking failed";
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }
 

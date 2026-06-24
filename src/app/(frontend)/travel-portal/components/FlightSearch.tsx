@@ -267,9 +267,6 @@ export default function FlightSearch() {
 	const [loadingMoreFlights, setLoadingMoreFlights] = useState(false);
 	const loadingMoreFlightsRef = useRef(false);
 	const flightCacheKeyRef = useRef<string | null>(null);
-	const [expandedFareBreakdown, setExpandedFareBreakdown] = useState<
-		string | null
-	>(null);
 	const hasPendingProviders = loading || mergePollSessionId !== null;
 
 	const form = useForm<FlightSearchForm>({
@@ -810,11 +807,18 @@ export default function FlightSearch() {
 				const statusJson = (await statusRes.json()) as {
 					success?: boolean;
 					ready?: boolean;
+					error?: string;
 					searchSessionId?: string;
 					total?: number;
 					traceId?: string;
 				};
-				if (cancelled || !statusJson.success || !statusJson.ready) return;
+				if (cancelled) return;
+				if (!statusRes.ok || statusJson.success === false) {
+					// Session lost (dev HMR, server restart) — keep partial first-provider results
+					setMergePollSessionId(null);
+					return;
+				}
+				if (!statusJson.ready) return;
 
 				let moreJson: {
 					success?: boolean;
@@ -1881,8 +1885,8 @@ export default function FlightSearch() {
 							{tripType === "advance-return" && (
 								<div className="flex flex-wrap items-center gap-4 text-sm rounded-md border border-sky-200 bg-sky-50/80 px-3 py-2">
 									<span className="text-sky-900 font-medium">
-										Advance return (TBO): pick outbound and inbound flights, choose
-										fare class (RBD), then price before booking.
+										Advance return: pick outbound and inbound flights, choose fare
+										class (RBD), then price before booking.
 									</span>
 								</div>
 							)}
@@ -1992,7 +1996,7 @@ export default function FlightSearch() {
 							<div className="flex flex-wrap gap-4 items-end pt-2 border-t border-slate-100">
 								<div className="space-y-1.5 min-w-[200px]">
 									<Label className="text-xs text-muted-foreground">
-										Fare type (TripJack)
+										Fare type
 									</Label>
 									<Select
 										value={form.watch("fareProfile")}
@@ -2571,8 +2575,6 @@ export default function FlightSearch() {
 														onBook={handleFlightBook}
 														selectingFlight={selectingFlight}
 														tripType={tripType}
-														expandedFareBreakdown={expandedFareBreakdown}
-														onToggleFareBreakdown={setExpandedFareBreakdown}
 														advanceSearchRbdByIndex={advanceSearchRbdByIndex}
 														onAdvanceSearchRbdChange={(
 															resultIndex,

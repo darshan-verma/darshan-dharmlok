@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getSeatMap } from "@/lib/airiqClient";
 import type { FlightResult } from "@/types/tbo";
 import type { PassengerDetail } from "@/types/tbo";
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
 				flight: !!flight,
 				passengers: !!passengers,
 			});
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required parameters" },
 				{ status: 400 }
 			);
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
 		const userName = process.env.AIRIQ_USERNAME;
 
 		if (!agentId || !userName) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ credentials" },
 				{ status: 500 }
 			);
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
 
 		if (!originalData || !originalData.FlightDetails) {
 			console.error("❌ Seat Map API: Missing original AIRiQ flight data");
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing original AIRiQ flight data" },
 				{ status: 400 }
 			);
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
 				isArray: Array.isArray(pricingData?.PriceItenaryInfo),
 				priceItenaryInfoLength: Array.isArray(pricingData?.PriceItenaryInfo) ? pricingData.PriceItenaryInfo.length : 0,
 			});
-			return NextResponse.json({
+			return brandedFlightJson({
 				FlightSeat: null,
 				ResponseStatus: {
 					ResultCode: "0",
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
 		if (!airiqTrackid) {
 			console.error("❌ Seat Map API: TrackId not found in Pricing response");
 			console.error("   PriceItenaryInfo[0]:", JSON.stringify(priceInfo, null, 2));
-			return NextResponse.json({
+			return brandedFlightJson({
 				FlightSeat: null,
 				ResponseStatus: {
 					ResultCode: "0",
@@ -187,7 +188,7 @@ export async function POST(req: NextRequest) {
 		if (flightDetailsArray.length === 0) {
 			console.error("❌ Seat Map API: FlightDetails not found in Pricing response");
 			console.error("   PriceItenaryInfo[0] structure:", JSON.stringify(priceInfo, null, 2));
-			return NextResponse.json({
+			return brandedFlightJson({
 				FlightSeat: null,
 				ResponseStatus: {
 					ResultCode: "0",
@@ -241,7 +242,7 @@ export async function POST(req: NextRequest) {
 		// Validate that passengers are provided
 		if (!passengers || passengers.length === 0) {
 			console.error("❌ Seat Map API: No passengers provided");
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "No passengers provided" },
 				{ status: 400 }
 			);
@@ -339,7 +340,7 @@ export async function POST(req: NextRequest) {
 				errorMsg.includes("IP address")
 			) {
 				// Return graceful response for IP validation or unavailable seat map
-				return NextResponse.json({
+				return brandedFlightJson({
 					FlightSeat: null,
 					ResponseStatus: seatMapResponse.ResponseStatus,
 					message: errorMsg.includes("IP address")
@@ -352,11 +353,11 @@ export async function POST(req: NextRequest) {
 			throw new Error(errorMsg);
 		}
 
-		return NextResponse.json(seatMapResponse);
+		return brandedFlightJson(seatMapResponse);
 	} catch (error) {
 		console.error("AIRiQ Seat Map API Error:", error);
 		const errorMessage =
 			error instanceof Error ? error.message : "Unknown error occurred";
-		return NextResponse.json({ error: errorMessage }, { status: 500 });
+		return brandedFlightJson({ error: errorMessage }, { status: 500 });
 	}
 }

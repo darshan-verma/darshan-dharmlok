@@ -717,27 +717,25 @@ export async function DELETE(
 			return NextResponse.json({ error: "User not found" }, { status: 404 });
 		}
 
-		// Delete all images and videos related to the user to avoid relation errors
-		await prisma.image.deleteMany({ where: { userId: id } });
-		await prisma.video.deleteMany({ where: { userId: id } });
-
-		// Delete all service offerings related to the user (Panditji)
-		await prisma.serviceOffering.deleteMany({ where: { providerId: id } });
-
-		// Delete all posts related to the user
-		await prisma.post.deleteMany({ where: { userId: id } });
-
-		// Delete all comments related to the user
-		await prisma.comment.deleteMany({ where: { userId: id } });
-
-		// Delete all products related to the user
-		await prisma.product.deleteMany({ where: { sellerId: id } });
-
-		// Delete user's addresses first to avoid foreign key constraints
-		await prisma.address.deleteMany({ where: { userId: id } });
-
-		// Delete the user record
-		await prisma.user.delete({ where: { id: id } });
+		await prisma.$transaction([
+			prisma.comment.deleteMany({
+				where: {
+					OR: [
+						{ userId: id },
+						{ post: { userId: id } },
+						{ video: { userId: id } },
+					],
+				},
+			}),
+			prisma.media.deleteMany({ where: { post: { userId: id } } }),
+			prisma.post.deleteMany({ where: { userId: id } }),
+			prisma.serviceOffering.deleteMany({ where: { providerId: id } }),
+			prisma.product.deleteMany({ where: { sellerId: id } }),
+			prisma.image.deleteMany({ where: { userId: id } }),
+			prisma.video.deleteMany({ where: { userId: id } }),
+			prisma.address.deleteMany({ where: { userId: id } }),
+			prisma.user.delete({ where: { id } }),
+		]);
 
 		return NextResponse.json(
 			{ message: "User deleted successfully" },

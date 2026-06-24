@@ -39,6 +39,7 @@ function deriveConditionFlags(cond: TripjackReviewConditions | undefined) {
 	if (!cond) {
 		return {
 			requirePassport: false,
+			requirePassportExpiry: false,
 			requirePassportFull: false,
 			requireDob: false,
 			requireGst: false,
@@ -50,10 +51,10 @@ function deriveConditionFlags(cond: TripjackReviewConditions | undefined) {
 		};
 	}
 	const pcsObj = typeof cond.pcs === "object" && cond.pcs !== null ? cond.pcs : null;
-	const requirePassport =
-		cond.pcs === true || pcsObj?.pped === true || pcsObj?.pm === true || false;
-	const requirePassportFull =
-		cond.pcs === true || pcsObj?.pped === true || pcsObj?.pid === true || false;
+	// TripJack pcs flags are independent: pm = passport mandatory, pped = expiry, pid = issue date.
+	const requirePassport = pcsObj?.pm === true;
+	const requirePassportExpiry = pcsObj?.pped === true;
+	const requirePassportFull = pcsObj?.pid === true;
 	const dobObj = typeof cond.dob === "object" && cond.dob !== null ? cond.dob : null;
 	const requireDob =
 		cond.dob === true ||
@@ -62,8 +63,9 @@ function deriveConditionFlags(cond: TripjackReviewConditions | undefined) {
 		dobObj?.idobr === true ||
 		false;
 	const gstObj = typeof cond.gst === "object" && cond.gst !== null ? cond.gst : null;
-	const gstApplicable = cond.gst === true || gstObj?.gstappl === true;
-	const requireGst = gstApplicable || gstObj?.igm === true;
+	// TripJack: igm = GST mandatory; gstappl = GST may be passed but not required.
+	const requireGst = gstObj?.igm === true || cond.gst === true;
+	const gstApplicable = gstObj?.gstappl === true;
 	const requireEmergencyContact = cond.iecr === true;
 	const dcObj = typeof cond.dc === "object" && cond.dc !== null ? cond.dc : null;
 	const documentIdApplicable = cond.dc === true || dcObj?.idm === true;
@@ -71,6 +73,7 @@ function deriveConditionFlags(cond: TripjackReviewConditions | undefined) {
 	const requirePan = cond.ipa === true;
 	return {
 		requirePassport,
+		requirePassportExpiry,
 		requirePassportFull,
 		requireDob,
 		requireGst,
@@ -80,6 +83,16 @@ function deriveConditionFlags(cond: TripjackReviewConditions | undefined) {
 		documentIdApplicable,
 		requirePan,
 	};
+}
+
+function isTripjackMandatoryGstComplete(lead: PassengerDetail): boolean {
+	return Boolean(
+		lead.GSTNumber?.trim() &&
+			lead.GSTCompanyName?.trim() &&
+			lead.GSTCompanyAddress?.trim() &&
+			lead.GSTCompanyContactNumber?.trim() &&
+			lead.GSTCompanyEmail?.trim(),
+	);
 }
 
 function buildTripjackGstInfo(lead: PassengerDetail): TripjackGstInfo | undefined {
@@ -444,7 +457,7 @@ export default function TripjackBookingClient({
 			);
 		}
 
-		if (conditionFlags.requireGst && !buildTripjackGstInfo(lead)) {
+		if (conditionFlags.requireGst && !isTripjackMandatoryGstComplete(lead)) {
 			const msg = "GST details are required for this booking.";
 			setError(msg);
 			toast.error(msg);
@@ -710,9 +723,13 @@ export default function TripjackBookingClient({
 							flightResult={reviewFlight}
 							isSubmitting={isSubmitting}
 							requirePassport={conditionFlags.requirePassport}
+							requirePassportExpiry={conditionFlags.requirePassportExpiry}
 							requirePassportFull={conditionFlags.requirePassportFull}
 							requireDob={conditionFlags.requireDob}
 							requireGST={conditionFlags.requireGst}
+							gstOptional={
+								conditionFlags.gstApplicable && !conditionFlags.requireGst
+							}
 							requirePAN={conditionFlags.requirePan}
 							requireDocumentId={conditionFlags.requireDocumentId}
 							requireEmergencyContact={conditionFlags.requireEmergencyContact}

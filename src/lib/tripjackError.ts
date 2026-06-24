@@ -1,3 +1,4 @@
+import { sanitizeVendorDisplayText } from "@/lib/dharmlokFlightBranding";
 import { TripjackApiError } from "@/lib/tripjackClient";
 
 export interface TripjackResolvedError {
@@ -18,7 +19,9 @@ export function extractTripjackProviderMessage(
 	httpStatus: number,
 ): string {
 	if (!payload || typeof payload !== "object") {
-		return `TripJack API request failed with status ${httpStatus}`;
+		return sanitizeVendorDisplayText(
+			`Booking request failed with status ${httpStatus}`,
+		);
 	}
 
 	const p = payload as Record<string, unknown>;
@@ -37,20 +40,25 @@ export function extractTripjackProviderMessage(
 				return HOTEL_BOOK_ERROR_MESSAGES[errCode];
 			}
 			const msg = row.message;
-			if (typeof msg === "string" && msg.trim()) return msg.trim();
+			if (typeof msg === "string" && msg.trim())
+				return sanitizeVendorDisplayText(msg.trim());
 		}
 	}
 
-	if (typeof p.message === "string" && p.message.trim()) return p.message.trim();
-	if (typeof p.error === "string" && p.error.trim()) return p.error.trim();
+	if (typeof p.message === "string" && p.message.trim())
+		return sanitizeVendorDisplayText(p.message.trim());
+	if (typeof p.error === "string" && p.error.trim())
+		return sanitizeVendorDisplayText(p.error.trim());
 	if (p.error && typeof p.error === "object") {
 		const nested = p.error as Record<string, unknown>;
 		if (typeof nested.message === "string" && nested.message.trim()) {
-			return nested.message.trim();
+			return sanitizeVendorDisplayText(nested.message.trim());
 		}
 	}
 
-	return `TripJack API request failed with status ${httpStatus}`;
+	return sanitizeVendorDisplayText(
+		`Booking request failed with status ${httpStatus}`,
+	);
 }
 
 export function resolveTripjackError(
@@ -60,12 +68,14 @@ export function resolveTripjackError(
 	if (error instanceof TripjackApiError) {
 		return {
 			status: error.status,
-			message: error.message,
+			message: sanitizeVendorDisplayText(error.message),
 			providerError: error.providerPayload,
 		};
 	}
 
-	const message = error instanceof Error ? error.message : fallbackMessage;
+	const message = sanitizeVendorDisplayText(
+		error instanceof Error ? error.message : fallbackMessage,
+	);
 	const lowered = message.toLowerCase();
 
 	const status =

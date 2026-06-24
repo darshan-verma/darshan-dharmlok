@@ -75,14 +75,18 @@ interface PassengerDetailsProps {
 	onPassengersChange?: (passengers: PassengerDetail[]) => void;
 	flightResult: FlightResult;
 	isSubmitting?: boolean;
-	/** When true, passport number and expiry are required (from FareQuote IsPassportRequiredAtBook). */
+	/** When true, passport number is required (TBO IsPassportRequiredAtBook / TripJack pcs.pm). */
 	requirePassport?: boolean;
-	/** When true, passport issue date & country are also required (from FareQuote IsPassportFullDetailRequiredAtBook). */
+	/** When true, passport expiry is required (TripJack pcs.pped). */
+	requirePassportExpiry?: boolean;
+	/** When true, passport issue date & country are also required (TBO IsPassportFullDetailRequiredAtBook / TripJack pcs.pid). */
 	requirePassportFull?: boolean;
 	/** When true, PAN is required (IsPanRequiredAtBook). For child/infant, guardian PAN is needed. */
 	requirePAN?: boolean;
-	/** When true, GST details must be collected (IsGSTMandatory). */
+	/** When true, GST details must be collected (TBO IsGSTMandatory / TripJack igm). */
 	requireGST?: boolean;
+	/** When true, GST may be collected but is not required (TBO GSTAllowed / TripJack gstappl). */
+	gstOptional?: boolean;
 	/** When true, date of birth is required per review conditions. */
 	requireDob?: boolean;
 	/** Student / senior citizen document id (`di`). */
@@ -106,14 +110,24 @@ export default function PassengerDetails({
 	flightResult,
 	isSubmitting = false,
 	requirePassport = false,
+	requirePassportExpiry = false,
 	requirePassportFull = false,
 	requirePAN = false,
 	requireGST = false,
+	gstOptional = false,
 	requireDob = false,
 	requireDocumentId = false,
 	requireEmergencyContact = false,
 	ssrCharges,
 }: PassengerDetailsProps) {
+	const passportNoRequired = requirePassport || requirePassportFull;
+	const passportExpiryRequired =
+		requirePassportExpiry || requirePassport || requirePassportFull;
+
+	// AIRiQ does not use GST collection in our booking flow.
+	const showGst =
+		flightResult.ApiSource !== "AIRiQ" && (requireGST || gstOptional);
+
 	const {
 		register,
 		control,
@@ -245,7 +259,7 @@ export default function PassengerDetails({
 						PAN: p.guardianPAN || "",
 					};
 				}
-				if (index === 0 && requireGST) {
+				if (index === 0 && showGst) {
 					detail.GSTNumber = p.gstNumber || "";
 					detail.GSTCompanyName = p.gstCompanyName || "";
 					detail.GSTCompanyAddress = p.gstCompanyAddress || "";
@@ -267,7 +281,7 @@ export default function PassengerDetails({
 	}, [
 		watchedPassengers,
 		onPassengersChange,
-		requireGST,
+		showGst,
 		requireDocumentId,
 		requireEmergencyContact,
 	]);
@@ -391,7 +405,7 @@ export default function PassengerDetails({
 					};
 				}
 
-				if (index === 0 && requireGST) {
+				if (index === 0 && showGst) {
 					basePassenger.GSTNumber = p.gstNumber || "";
 					basePassenger.GSTCompanyName = p.gstCompanyName || "";
 					basePassenger.GSTCompanyAddress = p.gstCompanyAddress || "";
@@ -552,17 +566,17 @@ export default function PassengerDetails({
 
 											{/* Passport fields - shown for all pax types when required */}
 											<div className="space-y-2">
-												<Label>Passport No {requirePassport || requirePassportFull ? "(Required)" : "(Optional)"}</Label>
+												<Label>Passport No {passportNoRequired ? "(Required)" : "(Optional)"}</Label>
 												<Input
-													{...register(`passengers.${index}.passportNo`, { required: requirePassport || requirePassportFull })}
+													{...register(`passengers.${index}.passportNo`, { required: passportNoRequired })}
 													placeholder="Passport Number"
 												/>
 											</div>
 											<div className="space-y-2">
-												<Label>Passport Expiry {requirePassport || requirePassportFull ? "(Required)" : "(Optional)"}</Label>
+												<Label>Passport Expiry {passportExpiryRequired ? "(Required)" : "(Optional)"}</Label>
 												<Input
 													type="date"
-													{...register(`passengers.${index}.passportExpiry`, { required: requirePassport || requirePassportFull })}
+													{...register(`passengers.${index}.passportExpiry`, { required: passportExpiryRequired })}
 												/>
 											</div>
 											{requirePassportFull && (
@@ -740,37 +754,49 @@ export default function PassengerDetails({
 											</div>
 										)}
 
-										{/* GST Details - only for lead passenger when mandatory */}
-										{index === 0 && requireGST && (
+										{/* GST Details — mandatory (igm) or optional (gstappl) for lead passenger */}
+										{index === 0 && showGst && (
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
 												<div className="md:col-span-2">
-													<p className="text-sm font-medium text-gray-700 mb-2">GST Details (Mandatory for this booking)</p>
+													<p className="text-sm font-medium text-gray-700 mb-2">
+														{requireGST
+															? "GST Details (Mandatory for this booking)"
+															: "GST Details (Optional)"}
+													</p>
 												</div>
 												<div className="space-y-2">
 													<Label>GST Number</Label>
 													<Input
-														{...register(`passengers.${index}.gstNumber`, { required: true })}
+														{...register(`passengers.${index}.gstNumber`, {
+															required: requireGST,
+														})}
 														placeholder="GST Number"
 													/>
 												</div>
 												<div className="space-y-2">
 													<Label>Company Name</Label>
 													<Input
-														{...register(`passengers.${index}.gstCompanyName`, { required: true })}
+														{...register(`passengers.${index}.gstCompanyName`, {
+															required: requireGST,
+														})}
 														placeholder="Company Name"
 													/>
 												</div>
 												<div className="space-y-2">
 													<Label>Company Address</Label>
 													<Input
-														{...register(`passengers.${index}.gstCompanyAddress`, { required: true })}
+														{...register(`passengers.${index}.gstCompanyAddress`, {
+															required: requireGST,
+														})}
 														placeholder="Company Address"
 													/>
 												</div>
 												<div className="space-y-2">
 													<Label>Company Contact</Label>
 													<Input
-														{...register(`passengers.${index}.gstCompanyContactNumber`, { required: true })}
+														{...register(`passengers.${index}.gstCompanyContactNumber`, {
+															required: requireGST,
+														})}
 														placeholder="Company Phone"
 													/>
 												</div>
@@ -778,7 +804,9 @@ export default function PassengerDetails({
 													<Label>Company Email</Label>
 													<Input
 														type="email"
-														{...register(`passengers.${index}.gstCompanyEmail`, { required: true })}
+														{...register(`passengers.${index}.gstCompanyEmail`, {
+															required: requireGST,
+														})}
 														placeholder="Company Email"
 													/>
 												</div>

@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { submitFlightAmendment, TripjackApiError } from "@/lib/tripjackClient";
 import { isTripjackConfigured } from "@/lib/tripjackFlightSearch";
 import {
@@ -12,7 +13,7 @@ const VALID_TYPES: TripjackAmendmentType[] = ["CANCELLATION", "DATECHANGE", "SEC
 export async function POST(request: NextRequest) {
 	try {
 		if (!isTripjackConfigured()) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "TripJack flight API is not configured" },
 				{ status: 503 },
 			);
@@ -25,19 +26,19 @@ export async function POST(request: NextRequest) {
 			typeof body?.remarks === "string" ? body.remarks.trim() : "";
 
 		if (!bookingId) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "bookingId is required" },
 				{ status: 400 },
 			);
 		}
 		if (!remarks) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "remarks is required (TripJack amendment API)" },
 				{ status: 400 },
 			);
 		}
 		if (!VALID_TYPES.includes(type as TripjackAmendmentType)) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: `type must be one of: ${VALID_TYPES.join(", ")}` },
 				{ status: 400 },
 			);
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
 		});
 
 		if (data?.status?.success === false) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error:
 						data.errors?.[0]?.message ||
@@ -67,10 +68,10 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		return NextResponse.json({ success: true, data });
+		return brandedFlightJson({ success: true, data });
 	} catch (error) {
 		if (error instanceof TripjackApiError) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: error.message,
 					status: error.status,
@@ -81,6 +82,6 @@ export async function POST(request: NextRequest) {
 		}
 		const message =
 			error instanceof Error ? error.message : "TripJack submit-amendment failed";
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }

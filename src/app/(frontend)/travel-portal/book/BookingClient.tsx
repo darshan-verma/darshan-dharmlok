@@ -14,6 +14,7 @@ import FareUpsellList from "../components/FareUpsellList";
 import FlightDetails from "./components/FlightDetails";
 import FareRulesView from "./components/FareRulesView";
 import { toast } from "@/lib/toast";
+import { buildDuplicateCriteriaFromFlight } from "@/lib/tboDuplicateBooking";
 import type {
 	FlightResult,
 	PassengerDetail,
@@ -27,6 +28,23 @@ import type {
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 // import { Button } from "@/components/ui/button"; // Assuming available if needed later, but PassengerDetails has the button
+
+/** TBO FareQuote: `IsGSTMandatory` = required; `GSTAllowed` without mandatory = optional. */
+function deriveTboGstFlags(flight: FlightResult) {
+	const gstMandatory = flight.IsGSTMandatory === true;
+	const gstOptional = flight.GSTAllowed === true && !gstMandatory;
+	return { gstMandatory, gstOptional };
+}
+
+function isTboMandatoryGstComplete(lead: PassengerDetail): boolean {
+	return Boolean(
+		lead.GSTNumber?.trim() &&
+			lead.GSTCompanyName?.trim() &&
+			lead.GSTCompanyAddress?.trim() &&
+			lead.GSTCompanyContactNumber?.trim() &&
+			lead.GSTCompanyEmail?.trim(),
+	);
+}
 
 interface BookingClientProps {
 	adultCount: number;
@@ -155,6 +173,7 @@ export default function BookingClient({
 	freeMealOptions = [],
 	freeSeatOptions = [],
 }: BookingClientProps) {
+	const tboGst = deriveTboGstFlags(flightResult);
 	const [passengers, setPassengers] = useState<PassengerDetail[]>([]);
 	const [bookingSuccess, setBookingSuccess] = useState<{ pnr: string; bookingId: number } | null>(null);
 	const [bookingDetails, setBookingDetails] = useState<TboGetBookingDetailsFlightItinerary | null>(null);
@@ -288,7 +307,7 @@ export default function BookingClient({
 			const requirePassport = flightResult.IsPassportRequiredAtBook === true;
 			const requirePassportFull = flightResult.IsPassportFullDetailRequiredAtBook === true;
 			const requirePan = flightResult.IsPanRequiredAtBook === true;
-			const isGSTMandatory = flightResult.IsGSTMandatory === true;
+			const { gstMandatory } = deriveTboGstFlags(flightResult);
 			const airlineCode = flightResult.AirlineCode || flightResult.ValidatingAirlineCode;
 
 			// International passport rules per TBO docs
@@ -375,10 +394,10 @@ export default function BookingClient({
 				}
 			}
 
-			// GST validation
-			if (isGSTMandatory) {
+			// GST validation (mandatory only when FareQuote IsGSTMandatory)
+			if (gstMandatory) {
 				const leadPax = passengerData[0];
-				if (!(leadPax as PassengerDetail & { GSTNumber?: string }).GSTNumber?.trim()) {
+				if (!isTboMandatoryGstComplete(leadPax)) {
 					toast.error("GST details are mandatory for this booking. Please provide GST information.");
 					return;
 				}
@@ -524,6 +543,10 @@ export default function BookingClient({
 			}
 
 			// Non-LCC: Book first then Ticket
+			const duplicateGuard = buildDuplicateCriteriaFromFlight(
+				flightResult,
+				tboPassengers,
+			);
 			const response = await fetch("/api/travel/tbo/book", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -532,12 +555,21 @@ export default function BookingClient({
 					TraceId: traceId,
 					ResultIndex: bookResultIndex || resultIndex,
 					Passengers: tboPassengers,
+					duplicateGuard,
 				}),
 			});
 
 			const result = await response.json().catch(() => ({}));
 
 			if (!response.ok) {
+				if (response.status === 409 && result?.duplicateBooking) {
+					const existingPnr = result.existingPnr || "unknown";
+					toast.error(
+						result.error ||
+							`Booking is already done for the same criteria for PNR ${existingPnr}`,
+					);
+					return;
+				}
 				const errMsg = result?.error || "Booking failed";
 				throw new Error(errMsg);
 			}
@@ -822,7 +854,8 @@ export default function BookingClient({
 							requirePassport={flightResult.IsPassportRequiredAtBook === true}
 							requirePassportFull={flightResult.IsPassportFullDetailRequiredAtBook === true}
 							requirePAN={flightResult.IsPanRequiredAtBook === true}
-							requireGST={flightResult.IsGSTMandatory === true}
+							requireGST={tboGst.gstMandatory}
+							gstOptional={tboGst.gstOptional}
 							ssrCharges={{
 								baggage: selectedSSRs.baggage,
 								meals: selectedSSRs.meals,

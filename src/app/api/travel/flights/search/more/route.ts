@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import {
 	getFlightSearchSessionSlice,
 	isFlightSearchSessionPending,
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
 	const limit = Math.min(Math.max(0, rawLimit), MAX_MORE_LIMIT);
 
 	if (!sessionId?.trim()) {
-		return NextResponse.json(
+		return brandedFlightJson(
 			{ success: false, error: "searchSessionId is required" },
 			{ status: 400 },
 		);
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
 
 	const sid = sessionId.trim();
 	if (isFlightSearchSessionPending(sid)) {
-		return NextResponse.json(
+		return brandedFlightJson(
 			{
 				success: true,
 				pending: true,
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
 
 	const slice = getFlightSearchSessionSlice(sid, offset, limit);
 	if (!slice) {
-		return NextResponse.json(
+		return brandedFlightJson(
 			{
 				success: false,
 				error: "Search session expired or invalid. Run a new search.",
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
 	const loadedThrough = offset + slice.flights.length;
 	const hasMore = loadedThrough < slice.total;
 
-	return NextResponse.json({
+	return brandedFlightJson({
 		success: true,
 		data: {
 			Response: {

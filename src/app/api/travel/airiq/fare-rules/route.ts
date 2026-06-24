@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getFareRules } from "@/lib/airiqClient";
 
 export async function POST(req: NextRequest) {
@@ -7,7 +8,7 @@ export async function POST(req: NextRequest) {
 		const { traceId, resultIndex, flight } = body;
 
 		if (!traceId || !resultIndex || !flight) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required parameters" },
 				{ status: 400 }
 			);
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
 		const userName = process.env.AIRIQ_USERNAME;
 
 		if (!agentId || !userName) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ credentials" },
 				{ status: 500 }
 			);
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
 
 		if (!originalData || !originalData.FlightDetails) {
 			console.error("❌ Missing original AIRiQ data in flight object");
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing original AIRiQ flight data. Please search again." },
 				{ status: 400 }
 			);
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
 		// If no FlightIDs found, log error
 		if (flightsInfo.length === 0) {
 			console.error("❌ No FlightIDs found in original AirIQ data");
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Unable to extract FlightIDs from flight data" },
 				{ status: 400 }
 			);
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
 			if (errorMsg.includes("IP address is Invalid") || errorMsg.includes("IP address")) {
 				console.warn("⚠️ AIRiQ Fare Rules: IP validation error - returning empty fare rules");
 				// Return empty fare rules instead of throwing error
-				return NextResponse.json({
+				return brandedFlightJson({
 					Response: {
 						Error: {
 							ErrorCode: 0,
@@ -129,7 +130,7 @@ export async function POST(req: NextRequest) {
 			if (errorMsg.includes("IP address is Invalid") || errorMsg.includes("IP address")) {
 				console.warn("⚠️ AIRiQ Fare Rules: IP validation error - returning empty fare rules");
 				// Return empty fare rules instead of throwing error
-				return NextResponse.json({
+				return brandedFlightJson({
 					Response: {
 						Error: {
 							ErrorCode: 0,
@@ -200,11 +201,11 @@ export async function POST(req: NextRequest) {
 		console.log("✅ Converted AirIQ fare rules to TBO format");
 		console.log("📋 Fare rule text length:", fareRuleText.length);
 
-		return NextResponse.json(convertedResponse);
+		return brandedFlightJson(convertedResponse);
 	} catch (error) {
 		console.error("AIRiQ Fare Rules API Error:", error);
 		const errorMessage =
 			error instanceof Error ? error.message : "Unknown error occurred";
-		return NextResponse.json({ error: errorMessage }, { status: 500 });
+		return brandedFlightJson({ error: errorMessage }, { status: 500 });
 	}
 }

@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getMultiClass } from "@/lib/airiqClient";
 import {
 	getAiriqAvailabilityTrackid,
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
 		} = body;
 
 		if (!traceId || !resultIndex || !flight) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required parameters: traceId, resultIndex, flight" },
 				{ status: 400 }
 			);
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
 		const agentId = process.env.AIRIQ_AGENT_ID;
 		const userName = process.env.AIRIQ_USERNAME;
 		if (!agentId || !userName) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ credentials" },
 				{ status: 500 }
 			);
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
 		const flightWithOriginal = flight as { _airiqOriginal?: AiriqOriginalData };
 
 		if (!isAiriqMultiClassEnabled(flightWithOriginal)) {
-			return NextResponse.json({
+			return brandedFlightJson({
 				AvailDetails: [],
 				Status: {
 					Error: "",
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
 
 		const originalData = flightWithOriginal._airiqOriginal;
 		if (!originalData?.FlightDetails?.length) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing original AIRiQ flight data. Please search again." },
 				{ status: 400 }
 			);
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
 		// Doc §17.1: TrackId + FlightID must come from Availability (search), not Pricing.
 		const airiqTrackid = getAiriqAvailabilityTrackid(flightWithOriginal, traceId);
 		if (!airiqTrackid) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ Availability Trackid. Please search again." },
 				{ status: 400 }
 			);
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
 		);
 
 		if (flightsInfo.length === 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Unable to extract FlightIDs from flight data" },
 				{ status: 400 }
 			);
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest) {
 		if (response.Status?.ResultCode !== "1") {
 			const hasRealError = response.Status?.Error && response.Status.Error.trim().length > 0;
 			if (hasRealError) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{
 						error: response.Status?.Error,
 						resultCode: response.Status?.ResultCode,
@@ -149,13 +150,13 @@ export async function POST(req: NextRequest) {
 					{ status: 400 }
 				);
 			}
-			return NextResponse.json({
+			return brandedFlightJson({
 				AvailDetails: [],
 				Status: response.Status,
 			});
 		}
 
-		return NextResponse.json({
+		return brandedFlightJson({
 			AvailDetails: response.AvailDetails ?? null,
 			Status: response.Status,
 		});
@@ -165,6 +166,6 @@ export async function POST(req: NextRequest) {
 			console.error("GetMultiClass request payload (for verification):", requestPayloadForLog);
 		}
 		const message = error instanceof Error ? error.message : "GetMultiClass failed";
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }

@@ -4,6 +4,7 @@
  */
 
 import { getAiriqToken, clearTokenCache } from "@/services/airiqAuth";
+import { extractAiriqSearchPassportFlags } from "@/lib/airiqBookingHelpers";
 import type {
 	AiriqFlightSearchRequest,
 	AiriqFlightSearchResponse,
@@ -792,10 +793,12 @@ function convertAiriqItemToTboFlight(
 	const baseFare = parseFloat(fareDesc?.BaseAmount || "0");
 	const tax = parseFloat(fareDesc?.TotalTaxAmount || "0");
 	const publishedFare = parseFloat(fareDesc?.GrossAmount || "0");
+	const passportFlags = extractAiriqSearchPassportFlags(item);
 
 	return {
 		ResultIndex: firstSegment.ReferenceToken,
 		Source: 2, // AIRiQ source identifier
+		ApiSource: "AIRiQ",
 		IsLCC: firstSegment.AirlineCategory === "LCC",
 		IsRefundable:
 			firstSegment.Refundable === "Y" || firstSegment.Refundable === "Yes",
@@ -803,6 +806,12 @@ function convertAiriqItemToTboFlight(
 		AirlineCode: firstSegment.AirlineDescription,
 		ValidatingAirlineCode: firstSegment.PlatingCarrier,
 		AirlineRemark: "",
+		...(passportFlags.isPassportRequiredAtBook && {
+			IsPassportRequiredAtBook: true,
+		}),
+		...(passportFlags.isPassportRequiredAtTicket && {
+			IsPassportRequiredAtTicket: true,
+		}),
 		Segments: [tboSegments],
 		// Store original AIRiQ data for Pricing API
 		_airiqOriginal: {

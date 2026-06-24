@@ -1047,6 +1047,20 @@ model TravelLog {
   @@index([logType, createdAt])
 }
 
+// TBO Non-LCC duplicate booking guard (24h window per TBO certification rules)
+model TboNonLccDuplicateBooking {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  fingerprint String   @unique
+  pnr         String
+  bookingId   Int?
+  bookedAt    DateTime @default(now())
+  expiresAt   DateTime
+  criteria    Json
+
+  @@index([bookedAt])
+  @@index([expiresAt])
+}
+
 // Booking Audit Snapshot Model - DOM snapshot audit trail for legal defense
 model BookingAuditSnapshot {
   id            String   @id @default(auto()) @map("_id") @db.ObjectId

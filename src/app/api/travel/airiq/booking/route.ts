@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getBookingDetails } from "@/lib/airiqClient";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
 	try {
 		const session = await getServerSession(authOptions);
 		if (!session?.user) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+			return brandedFlightJson({ error: "Unauthorized" }, { status: 401 });
 		}
 
 		const { searchParams } = new URL(req.url);
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
 		const crsPNR = searchParams.get("crsPNR") ?? undefined;
 
 		if (!airIqPNR && !airlinePNR && !crsPNR) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing identifier: provide airIqPNR, airlinePNR, or crsPNR" },
 				{ status: 400 }
 			);
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
 		const agentId = process.env.AIRIQ_AGENT_ID;
 		const userName = process.env.AIRIQ_USERNAME;
 		if (!agentId || !userName) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ credentials" },
 				{ status: 500 }
 			);
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
 
 		const resultCode = response.Status?.ResultCode ?? "";
 		if (resultCode === "1") {
-			return NextResponse.json({
+			return brandedFlightJson({
 				retrieveresponse: response.Retrieveresponse,
 				status: response.Status,
 			});
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
 
 		const errorMessage = response.Status?.Error ?? "Retrieve booking failed";
 		const status = resultCode === "0" ? 400 : resultCode === "-1" ? 422 : 400;
-		return NextResponse.json(
+		return brandedFlightJson(
 			{
 				error: errorMessage,
 				resultCode: response.Status?.ResultCode,
@@ -72,6 +73,6 @@ export async function GET(req: NextRequest) {
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "Get booking failed";
 		console.error("Get booking error:", err);
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }

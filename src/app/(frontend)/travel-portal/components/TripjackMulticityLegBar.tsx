@@ -27,7 +27,7 @@ export default function TripjackMulticityLegBar({
 	onActiveLegChange,
 	onContinue,
 	continuing,
-	hint = "Select one flight per leg (TripJack domestic multicity). Prices are revalidated together at booking.",
+	hint = "Select one flight per leg (domestic multicity). Prices are revalidated together at booking.",
 	continueLabel = "Continue to booking",
 	continuingLabel = "Opening booking…",
 }: Props) {

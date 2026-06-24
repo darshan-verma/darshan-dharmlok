@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getSSR } from "@/lib/tboClient";
 
 export async function POST(request: NextRequest) {
@@ -7,7 +8,7 @@ export async function POST(request: NextRequest) {
 		const { TraceId, ResultIndex, EndUserIp } = body;
 
 		if (!TraceId || !ResultIndex) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required parameters" },
 				{ status: 400 }
 			);
@@ -19,10 +20,10 @@ export async function POST(request: NextRequest) {
 			EndUserIp: EndUserIp || "192.168.1.1",
 		});
 
-		return NextResponse.json(ssrResponse);
+		return brandedFlightJson(ssrResponse);
 	} catch (error) {
 		console.error("SSR API Error:", error);
-		return NextResponse.json(
+		return brandedFlightJson(
 			{ error: "Failed to fetch SSR data" },
 			{ status: 500 }
 		);

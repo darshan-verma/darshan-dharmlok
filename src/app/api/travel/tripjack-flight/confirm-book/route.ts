@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { confirmBookTripjackFlight } from "@/lib/tripjackClient";
 
 export async function POST(request: NextRequest) {
@@ -8,17 +9,17 @@ export async function POST(request: NextRequest) {
 			typeof body?.bookingId === "string" ? body.bookingId.trim() : "";
 		const paymentInfos = Array.isArray(body?.paymentInfos) ? body.paymentInfos : [];
 		if (!bookingId || !paymentInfos.length) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "bookingId and paymentInfos[] are required" },
 				{ status: 400 },
 			);
 		}
 		const data = await confirmBookTripjackFlight({ bookingId, paymentInfos });
-		return NextResponse.json({ success: true, data });
+		return brandedFlightJson({ success: true, data });
 	} catch (error) {
 		const message =
 			error instanceof Error ? error.message : "TripJack confirm-book failed";
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }
 

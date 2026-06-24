@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { holdCancel } from "@/lib/airiqClient";
@@ -11,12 +12,12 @@ export async function POST(req: NextRequest) {
 	try {
 		const session = await getServerSession(authOptions);
 		if (!session?.user) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+			return brandedFlightJson({ error: "Unauthorized" }, { status: 401 });
 		}
 
 		const body = await req.json().catch(() => null);
 		if (!body || typeof body !== "object") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Invalid JSON body" },
 				{ status: 400 }
 			);
@@ -33,13 +34,13 @@ export async function POST(req: NextRequest) {
 			typeof airlinePNR === "string" ? airlinePNR.trim() : "";
 
 		if (!trimmedAirIqPNR) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "airIqPNR is required" },
 				{ status: 400 }
 			);
 		}
 		if (!trimmedAirlinePNR) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "airlinePNR is required" },
 				{ status: 400 }
 			);
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
 		const agentId = process.env.AIRIQ_AGENT_ID;
 		const userName = process.env.AIRIQ_USERNAME;
 		if (!agentId || !userName) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ credentials" },
 				{ status: 500 }
 			);
@@ -80,16 +81,16 @@ export async function POST(req: NextRequest) {
 
 		// Success: CancelStatus SUCCESS or ResultCode "1"
 		if (cancelStatus === "SUCCESS" || resultCode === "1") {
-			return NextResponse.json(payload, { status: 200 });
+			return brandedFlightJson(payload, { status: 200 });
 		}
 
 		// Pending / failure: CancelStatus PENDING or ResultCode "0" – return 202 so UI can show message
 		if (cancelStatus === "PENDING" || resultCode === "0") {
-			return NextResponse.json(payload, { status: 202 });
+			return brandedFlightJson(payload, { status: 202 });
 		}
 
 		// Other/error
-		return NextResponse.json(
+		return brandedFlightJson(
 			{
 				error:
 					response.Status?.Error ||
@@ -105,6 +106,6 @@ export async function POST(req: NextRequest) {
 				? err.message
 				: "Hold cancel request failed. Please try again.";
 		console.error("AIRiQ Hold Cancel API Error:", err);
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }

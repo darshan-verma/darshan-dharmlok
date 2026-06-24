@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getPriceRBD } from "@/lib/tboClient";
 import type { FlightResult, PriceRBDRequest } from "@/types/tbo";
 
@@ -20,14 +21,14 @@ export async function POST(request: NextRequest) {
 		} = body as Partial<PriceRBDRequest>;
 
 		if (!EndUserIp || !TraceId) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required fields: EndUserIp, TraceId" },
 				{ status: 400 },
 			);
 		}
 
 		if (!Array.isArray(AirSearchResult) || AirSearchResult.length < 2) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error:
 						"AirSearchResult must include selected outbound and inbound flights",
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
 			const flight = AirSearchResult[i] as FlightResult;
 			const fareClass = flight?.Segments?.[0]?.[0]?.Airline?.FareClass?.trim();
 			if (!flight?.ResultIndex || !fareClass) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{
 						error: `Flight ${i === 0 ? "outbound" : "inbound"}: ResultIndex and FareClass are required`,
 					},
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
 				: null;
 
 		if (error && error.ErrorCode !== 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: error.ErrorMessage || "TBO PriceRBD failed",
 					errorCode: error.ErrorCode,
@@ -78,17 +79,17 @@ export async function POST(request: NextRequest) {
 		}
 
 		if (result?.Response?.ResponseStatus === 2) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "PriceRBD failed", data: result },
 				{ status: 400 },
 			);
 		}
 
-		return NextResponse.json(result);
+		return brandedFlightJson(result);
 	} catch (error) {
 		console.error("TBO PriceRBD API error:", error);
 		const message =
 			error instanceof Error ? error.message : "Failed to price selected flights";
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }

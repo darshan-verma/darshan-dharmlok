@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getMultiClassFare } from "@/lib/airiqClient";
 import {
 	getAiriqAvailabilityTrackid,
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
 		} = body;
 
 		if (!traceId || !resultIndex || !flight) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required parameters: traceId, resultIndex, flight" },
 				{ status: 400 }
 			);
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
 					c && typeof c.AirlineClass === "string" && typeof c.SeatAvailFlag === "string"
 			)
 		) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing or invalid classFare: [{ AirlineClass, SeatAvailFlag }]" },
 				{ status: 400 }
 			);
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
 		const agentId = process.env.AIRIQ_AGENT_ID;
 		const userName = process.env.AIRIQ_USERNAME;
 		if (!agentId || !userName) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ credentials" },
 				{ status: 500 }
 			);
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
 		const flightWithOriginal = flight as { _airiqOriginal?: AiriqOriginalData };
 
 		if (!isAiriqMultiClassEnabled(flightWithOriginal)) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Multi-class fares are not available for this flight." },
 				{ status: 400 }
 			);
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
 
 		const originalData = flightWithOriginal._airiqOriginal;
 		if (!originalData?.FlightDetails?.length) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing original AIRiQ flight data. Please search again." },
 				{ status: 400 }
 			);
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
 
 		const airiqTrackid = getAiriqAvailabilityTrackid(flightWithOriginal, traceId);
 		if (!airiqTrackid) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ Availability Trackid. Please search again." },
 				{ status: 400 }
 			);
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
 		);
 
 		if (flightsInfo.length === 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Unable to extract FlightIDs from flight data" },
 				{ status: 400 }
 			);
@@ -131,7 +132,7 @@ export async function POST(req: NextRequest) {
 		});
 
 		if (response.Status?.ResultCode !== "1") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: response.Status?.Error || "GetMultiClassFare failed",
 					resultCode: response.Status?.ResultCode,
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		return NextResponse.json({
+		return brandedFlightJson({
 			Trackid: response.Trackid ?? null,
 			FlightDetails: response.FlightDetails ?? null,
 			Fares: response.Fares ?? null,
@@ -150,6 +151,6 @@ export async function POST(req: NextRequest) {
 	} catch (error) {
 		console.error("GetMultiClassFare API error:", error);
 		const message = error instanceof Error ? error.message : "GetMultiClassFare failed";
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }

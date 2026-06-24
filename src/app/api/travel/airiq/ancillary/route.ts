@@ -5,7 +5,8 @@
  * Requires PNRs from a completed Book (block PNR) step.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getPostBookingSSR, addPostBookingSSR } from "@/lib/airiqClient";
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
 	try {
 		const session = await getServerSession(authOptions);
 		if (!session?.user) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+			return brandedFlightJson({ error: "Unauthorized" }, { status: 401 });
 		}
 
 		const { searchParams } = new URL(req.url);
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
 		const airlinePNR = searchParams.get("airlinePNR");
 
 		if (!airIqPNR || !airlinePNR) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required query parameters: airIqPNR and airlinePNR" },
 				{ status: 400 }
 			);
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
 
 		const agent = agentInfo();
 		if (!agent) {
-			return NextResponse.json({ error: "Missing AIRiQ credentials" }, { status: 500 });
+			return brandedFlightJson({ error: "Missing AIRiQ credentials" }, { status: 500 });
 		}
 
 		const ssrResponse = await getPostBookingSSR({
@@ -52,20 +53,20 @@ export async function GET(req: NextRequest) {
 		});
 
 		if (ssrResponse.Status?.ResultCode !== "1") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: ssrResponse.Status?.Error || "Failed to fetch ancillaries" },
 				{ status: 400 }
 			);
 		}
 
-		return NextResponse.json({
+		return brandedFlightJson({
 			trackId: ssrResponse.TrackId,
 			ssrDetails: ssrResponse.SsrDetails ?? {},
 		});
 	} catch (error) {
 		console.error("AIRiQ Ancillary GET Error:", error);
 		const message = error instanceof Error ? error.message : "Unknown error";
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }
 
@@ -78,12 +79,12 @@ export async function POST(req: NextRequest) {
 	try {
 		const session = await getServerSession(authOptions);
 		if (!session?.user) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+			return brandedFlightJson({ error: "Unauthorized" }, { status: 401 });
 		}
 
 		const agent = agentInfo();
 		if (!agent) {
-			return NextResponse.json({ error: "Missing AIRiQ credentials" }, { status: 500 });
+			return brandedFlightJson({ error: "Missing AIRiQ credentials" }, { status: 500 });
 		}
 
 		const body = await req.json();
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
 		};
 
 		if (!airIqPNR || !airlinePNR || !ancillaryTrackId) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required fields: airIqPNR, airlinePNR, ancillaryTrackId" },
 				{ status: 400 }
 			);
@@ -148,19 +149,19 @@ export async function POST(req: NextRequest) {
 		const addResponse = await addPostBookingSSR(addRequest);
 
 		if (addResponse.Status?.ResultCode !== "1") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: addResponse.Status?.Error || "Add SSR failed" },
 				{ status: 400 }
 			);
 		}
 
-		return NextResponse.json({
+		return brandedFlightJson({
 			success: true,
 			retrieveresponse: addResponse.Retrieveresponse,
 		});
 	} catch (error) {
 		console.error("AIRiQ Ancillary POST Error:", error);
 		const message = error instanceof Error ? error.message : "Unknown error";
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }

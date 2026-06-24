@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getFareUpsell } from "@/lib/tboClient";
 
 /**
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
 		const body = await request.json();
 
 		if (!body || !body.TraceId || !body.ResultIndex) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ success: false, error: "Missing TraceId or ResultIndex" },
 				{ status: 400 }
 			);
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
 			}
 
 			// Return error response - but treat supplier errors as "not available" not "error"
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					success: false,
 					error: isSupplierError
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
 			}
 
 			// Return error response - but treat supplier errors as "not available" not "error"
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					success: false,
 					error: isSupplierError
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
 		// Check if results are empty (no upsell options available)
 		if (result?.Response?.Results && result.Response.Results.length === 0) {
 			console.log("⚠️ Fare Upsell returned empty results - no upsell options available");
-			return NextResponse.json({
+			return brandedFlightJson({
 				success: true,
 				data: result,
 				message: "No fare upsell options available for this flight",
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
 			resultCount: result?.Response?.Results?.length || 0,
 		});
 
-		return NextResponse.json({ success: true, data: result });
+		return brandedFlightJson({ success: true, data: result });
 	} catch (error) {
 		console.error("/api/travel/fare-upsell error:", error);
 		
@@ -156,7 +157,7 @@ export async function POST(request: NextRequest) {
 		
 		// Provide more helpful error messages
 		if (errorMessage.includes("FareUpsell failed from the Supplier end")) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					success: false,
 					error: "Fare upsell is not available for this flight. The supplier does not support upsell options for this particular flight, even though it may show an upsell badge.",
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		return NextResponse.json(
+		return brandedFlightJson(
 			{
 				success: false,
 				error: errorMessage,

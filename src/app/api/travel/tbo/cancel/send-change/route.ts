@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { sendChangeRequest } from "@/lib/tboClient";
 import type { SendChangeRequestSector } from "@/types/tbo";
 
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
 	try {
 		const body = await request.json();
 		if (!body || typeof body !== "object") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Request body must be a JSON object" },
 				{ status: 400 }
 			);
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
 		const EndUserIp =
 			typeof body.EndUserIp === "string" ? body.EndUserIp.trim() : "";
 		if (!EndUserIp) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required field: EndUserIp" },
 				{ status: 400 }
 			);
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
 				? body.BookingId
 				: parseInt(String(body.BookingId ?? ""), 10);
 		if (Number.isNaN(BookingId) || BookingId <= 0) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing or invalid BookingId" },
 				{ status: 400 }
 			);
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
 				? body.RequestType
 				: parseInt(String(body.RequestType ?? ""), 10);
 		if (Number.isNaN(RequestType) || RequestType < 0 || RequestType > 3) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing or invalid RequestType (0–3)" },
 				{ status: 400 }
 			);
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
 			CancellationType < 0 ||
 			CancellationType > 3
 		) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing or invalid CancellationType (0–3)" },
 				{ status: 400 }
 			);
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
 		const Remarks =
 			typeof body.Remarks === "string" ? body.Remarks.trim() : "";
 		if (!Remarks) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required field: Remarks" },
 				{ status: 400 }
 			);
@@ -76,13 +77,13 @@ export async function POST(request: NextRequest) {
 
 		if (RequestType === 2) {
 			if (!Array.isArray(body.Sectors) || body.Sectors.length === 0) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: "Partial cancellation requires Sectors array" },
 					{ status: 400 }
 				);
 			}
 			if (body.TicketId === undefined) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: "Partial cancellation requires TicketId" },
 					{ status: 400 }
 				);
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
 			const msg =
 				result.Error?.ErrorMessage ||
 				"Send change request failed";
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: msg,
 					responseStatus: result.ResponseStatus,
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
 				? [ticketCRInfo]
 				: [];
 
-		return NextResponse.json({
+		return brandedFlightJson({
 			responseStatus: result.ResponseStatus ?? 1,
 			traceId: result.TraceId,
 			ticketCRInfo: infoList,
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
 			error instanceof Error
 				? error.message
 				: "Send change request failed";
-		return NextResponse.json(
+		return brandedFlightJson(
 			{ error: message },
 			{ status: 500 }
 		);

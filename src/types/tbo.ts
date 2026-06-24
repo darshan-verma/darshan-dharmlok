@@ -478,6 +478,10 @@ export interface BookingResponse {
 		SSRMessage?: string | null;
 		Status: number;
 		FlightItinerary: TboBookFlightItinerary;
+		Error?: {
+			ErrorCode: number;
+			ErrorMessage: string;
+		};
 	};
 	Error?: {
 		ErrorCode: number;

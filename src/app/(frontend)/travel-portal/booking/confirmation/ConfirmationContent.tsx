@@ -78,7 +78,7 @@ export default function ConfirmationContent() {
 		if (source === "tripjack") {
 			const bookingId = bookingIdParam?.trim() ?? "";
 			if (!bookingId) {
-				setError("Missing bookingId for TripJack confirmation");
+				setError("Missing booking reference in URL");
 				setLoading(false);
 				return;
 			}
@@ -92,20 +92,20 @@ export default function ConfirmationContent() {
 				.then((res) => res.json())
 				.then((data) => {
 					if (!data?.success) {
-						setError(data?.error || "Failed to load TripJack booking details");
+						setError(data?.error || "Failed to load booking details");
 						setDetails(null);
 						return;
 					}
 					const normalized =
 						data.normalized ?? tripjackBookingDetailToNormalized(data.data);
 					setDetails(normalized ?? null);
-					if (!normalized) setError("No TripJack booking details found");
+					if (!normalized) setError("No booking details found");
 				})
 				.catch((err) => {
 					setError(
 						err instanceof Error
 							? err.message
-							: "Failed to load TripJack booking details",
+							: "Failed to load booking details",
 					);
 					setDetails(null);
 				})

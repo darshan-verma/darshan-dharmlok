@@ -64,7 +64,7 @@ export default function TripjackFlightConfirmationManage({
 				toast.error(data?.error || "Fare validation failed");
 				return;
 			}
-			toast.success("Fare still valid for this hold (per TripJack).");
+			toast.success("Fare still valid for this hold.");
 		});
 	};
 
@@ -99,7 +99,7 @@ export default function TripjackFlightConfirmationManage({
 			toast.error("No airline PNR found on this booking; cannot release hold.");
 			return;
 		}
-		if (!window.confirm(`Release hold and cancel these PNRs with TripJack?\n${pnrs.join(", ")}`)) return;
+		if (!window.confirm(`Release hold and cancel these PNRs?\n${pnrs.join(", ")}`)) return;
 		void run("release", async () => {
 			const res = await fetch("/api/travel/tripjack-flight/release-pnr", {
 				method: "POST",
@@ -138,7 +138,7 @@ export default function TripjackFlightConfirmationManage({
 	};
 
 	const handleSubmitCancellation = () => {
-		if (!window.confirm("Submit cancellation to TripJack for this booking? This cannot be undone from the portal."))
+		if (!window.confirm("Submit cancellation for this booking? This cannot be undone from the portal."))
 			return;
 		void run("submit", async () => {
 			const res = await fetch("/api/travel/tripjack-flight/submit-amendment", {
@@ -189,7 +189,7 @@ export default function TripjackFlightConfirmationManage({
 	if (orderStatus === "PENDING" || orderStatus === "FAILED" || orderStatus === "ABORTED") {
 		return (
 			<div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900 text-sm">
-				<p className="font-medium">TripJack order: {details.status}</p>
+				<p className="font-medium">Booking status: {details.status}</p>
 				<p className="mt-1 text-amber-800/90">
 					Refresh this page later or contact support if the booking does not move to success or on hold.
 				</p>
@@ -201,7 +201,7 @@ export default function TripjackFlightConfirmationManage({
 		return (
 			<div className="mb-6 space-y-4">
 				<div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-blue-900">
-					<p className="font-medium">Booking on hold (TripJack)</p>
+					<p className="font-medium">Booking on hold</p>
 					<p className="text-sm mt-1 text-blue-800/90">
 						Validate fare before paying, then complete payment to ticket. You can also release the PNR if
 						the traveller will not travel.
@@ -249,9 +249,9 @@ export default function TripjackFlightConfirmationManage({
 		return (
 			<div className="mb-6 space-y-4">
 				<div className="rounded-lg border border-gray-200 bg-muted/30 p-4">
-					<p className="font-medium text-gray-900">Manage booking (TripJack)</p>
+					<p className="font-medium text-gray-900">Manage booking</p>
 					<p className="text-sm text-muted-foreground mt-1">
-						Cancellation uses TripJack amendment APIs. Date change may require support if not available for
+						Cancellation is processed through Dharmlok. Date change may require support if not available for
 						this fare.
 					</p>
 					<div className="mt-3 flex flex-wrap gap-2">
@@ -316,7 +316,7 @@ export default function TripjackFlightConfirmationManage({
 	if (orderStatus === "UNCONFIRMED" || orderStatus === "CANCELLED") {
 		return (
 			<div className="mb-6 rounded-lg border border-gray-200 bg-muted/20 p-4 text-sm text-muted-foreground">
-				This TripJack order is <span className="font-medium text-foreground">{details.status}</span>. No further
+				This booking is <span className="font-medium text-foreground">{details.status}</span>. No further
 				actions are offered here.
 			</div>
 		);

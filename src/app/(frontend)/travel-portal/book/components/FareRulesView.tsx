@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, ScrollText } from "lucide-react";
+import { sanitizeVendorDisplayText } from "@/lib/dharmlokFlightBranding";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import type { FareRuleResponse } from "@/types/tbo";
@@ -97,7 +98,7 @@ export default function FareRulesView({ fareRules, isLoading }: FareRulesViewPro
 																</div>
 															</div>
 															<div className="text-sm font-medium text-gray-900">
-																{rule.Details}
+																{sanitizeVendorDisplayText(rule.Details)}
 															</div>
 														</div>
 													))}
@@ -140,7 +141,7 @@ export default function FareRulesView({ fareRules, isLoading }: FareRulesViewPro
 													<div
 														className="text-sm text-gray-700 fare-rules-content"
 														dangerouslySetInnerHTML={{
-															__html: rule.FareRuleDetail,
+															__html: sanitizeVendorDisplayText(rule.FareRuleDetail),
 														}}
 													/>
 												) : (

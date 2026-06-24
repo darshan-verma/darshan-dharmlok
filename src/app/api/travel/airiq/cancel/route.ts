@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { cancelOrPenalty } from "@/lib/airiqClient";
@@ -11,12 +12,12 @@ export async function POST(req: NextRequest) {
 	try {
 		const session = await getServerSession(authOptions);
 		if (!session?.user) {
-			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+			return brandedFlightJson({ error: "Unauthorized" }, { status: 401 });
 		}
 
 		const body = await req.json().catch(() => null);
 		if (!body || typeof body !== "object") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Invalid JSON body" },
 				{ status: 400 }
 			);
@@ -30,14 +31,14 @@ export async function POST(req: NextRequest) {
 
 		const normalizedFlag = (flag || "").toString().toUpperCase();
 		if (normalizedFlag !== "PENALTY" && normalizedFlag !== "CANCEL") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: 'Invalid flag. Expected "PENALTY" or "CANCEL".' },
 				{ status: 400 }
 			);
 		}
 
 		if (!airIqPNR || typeof airIqPNR !== "string" || !airIqPNR.trim()) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "airIqPNR is required" },
 				{ status: 400 }
 			);
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
 		const agentId = process.env.AIRIQ_AGENT_ID;
 		const userName = process.env.AIRIQ_USERNAME;
 		if (!agentId || !userName) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ credentials" },
 				{ status: 500 }
 			);
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
 
 		// Map AIRiQ cancellation outcomes to HTTP status codes
 		if (cancelStatus === "FAILED" || resultCode === "0") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error:
 						response.Status?.Error ||
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
 			resultCode === "-1" ||
 			resultCode === "-2"
 		) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					cancelStatus: response.CancelStatus,
 					remarks: response.Remarks,
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		// Default: treat as success (SUCCESS / other non-error codes)
-		return NextResponse.json(
+		return brandedFlightJson(
 			{
 				cancelStatus: response.CancelStatus,
 				remarks: response.Remarks,
@@ -125,7 +126,7 @@ export async function POST(req: NextRequest) {
 				? err.message
 				: "Cancellation request failed. Please try again.";
 		console.error("AIRiQ Cancellation API Error:", err);
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }
 

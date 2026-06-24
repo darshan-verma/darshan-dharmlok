@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { reviewTripjackFlight } from "@/lib/tripjackClient";
 import { TripjackApiError } from "@/lib/tripjackClient";
 import { extractTripjackReviewFlight } from "@/lib/tripjackFlightBooking";
@@ -11,7 +12,7 @@ export const maxDuration = 120;
 export async function POST(request: NextRequest) {
 	try {
 		if (!isTripjackConfigured()) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "TripJack flight API is not configured" },
 				{ status: 503 },
 			);
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
 			: [];
 
 		if (!priceIds.length) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "priceIds is required and must be a non-empty array" },
 				{ status: 400 },
 			);
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
 			data?.errors?.[0]?.message || data?.alerts?.[0]?.message || providerMessage;
 
 		if (providerSuccess === false || data?.bookingId == null) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error:
 						providerError ||
@@ -65,10 +66,10 @@ export async function POST(request: NextRequest) {
 			userAgent: getUserAgent(request),
 			metadata: { priceIdsCount: priceIds.length },
 		});
-		return NextResponse.json({ success: true, data });
+		return brandedFlightJson({ success: true, data });
 	} catch (error) {
 		if (error instanceof TripjackApiError) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: error.message,
 					status: error.status,
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
 			);
 		}
 		const message = error instanceof Error ? error.message : "TripJack review failed";
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }
 

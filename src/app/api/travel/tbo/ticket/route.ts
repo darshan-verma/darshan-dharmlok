@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { issueTicket, getBookingDetails } from "@/lib/tboClient";
 import type {
 	TicketRequestNonLCC,
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
 	try {
 		const body = await request.json();
 		if (!body || typeof body !== "object") {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Request body must be a JSON object" },
 				{ status: 400 }
 			);
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
 			typeof body.TraceId === "string" ? body.TraceId.trim() : "";
 
 		if (!EndUserIp || !TraceId) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required fields: EndUserIp, TraceId" },
 				{ status: 400 }
 			);
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
 					? body.BookingId
 					: parseInt(String(body.BookingId), 10);
 			if (!PNR || Number.isNaN(BookingId) || BookingId <= 0) {
-				return NextResponse.json(
+				return brandedFlightJson(
 					{ error: "Non-LCC ticket requires valid PNR and BookingId" },
 					{ status: 400 }
 				);
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
 				payload.IsPriceChangeAccepted = body.IsPriceChangeAccepted;
 			}
 		} else {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error:
 						"Provide either (PNR, BookingId) for Non-LCC or (ResultIndex, Passengers) for LCC",
@@ -126,13 +127,13 @@ export async function POST(request: NextRequest) {
 						EndUserIp,
 						TraceId,
 					});
-					return NextResponse.json({
+					return brandedFlightJson({
 						...bookingDetailsResult,
 						_timeoutRecovered: true,
 					});
 				} catch (pollError) {
 					console.error("GetBookingDetails after ticket timeout failed:", pollError);
-					return NextResponse.json(
+					return brandedFlightJson(
 						{ error: "Ticket issuance timed out. Please check booking status manually.", _timeout: true },
 						{ status: 504 }
 					);
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
 			throw ticketError;
 		}
 
-		return NextResponse.json({
+		return brandedFlightJson({
 			...result,
 			IsPriceChanged: result?.IsPriceChanged ?? false,
 			IsTimeChanged: result?.IsTimeChanged ?? false,
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
 		console.error("TBO Ticket API error:", error);
 		const message =
 			error instanceof Error ? error.message : "Failed to issue ticket";
-		return NextResponse.json(
+		return brandedFlightJson(
 			{ error: message },
 			{ status: 500 }
 		);

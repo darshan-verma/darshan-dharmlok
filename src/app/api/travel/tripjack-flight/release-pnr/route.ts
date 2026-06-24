@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { releaseTripjackPnr, getTripjackFlightBookingDetails } from "@/lib/tripjackClient";
 
 export async function POST(request: NextRequest) {
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
 			? body.pnrs.filter((x: unknown) => typeof x === "string" && x.trim())
 			: [];
 		if (!bookingId || !pnrs.length) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "bookingId and pnrs[] are required" },
 				{ status: 400 },
 			);
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
 			// Non-critical: verification is best-effort
 		}
 
-		return NextResponse.json({
+		return brandedFlightJson({
 			success: true,
 			data,
 			verifiedStatus,
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
 	} catch (error) {
 		const message =
 			error instanceof Error ? error.message : "TripJack release PNR failed";
-		return NextResponse.json({ error: message }, { status: 500 });
+		return brandedFlightJson({ error: message }, { status: 500 });
 	}
 }
 

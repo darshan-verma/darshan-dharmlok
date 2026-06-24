@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getPricing } from "@/lib/airiqClient";
 
 export async function POST(req: NextRequest) {
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
 		});
 
 		if (!traceId || !resultIndex || !flight) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing required parameters" },
 				{ status: 400 }
 			);
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 		const userName = process.env.AIRIQ_USERNAME;
 
 		if (!agentId || !userName) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing AIRiQ credentials" },
 				{ status: 500 }
 			);
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
 		if (!originalData || !originalData.FlightDetails) {
 			console.error("❌ Missing original AIRiQ data in flight object");
 			console.error("Flight object:", JSON.stringify(flight, null, 2));
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing original AIRiQ flight data. Please search again." },
 				{ status: 400 }
 			);
@@ -334,11 +335,11 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		return NextResponse.json(pricingResponse);
+		return brandedFlightJson(pricingResponse);
 	} catch (error) {
 		console.error("AIRiQ Pricing API Error:", error);
 		const errorMessage =
 			error instanceof Error ? error.message : "Unknown error occurred";
-		return NextResponse.json({ error: errorMessage }, { status: 500 });
+		return brandedFlightJson({ error: errorMessage }, { status: 500 });
 	}
 }

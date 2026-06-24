@@ -22,6 +22,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2, Calendar, Car, MapPin, Plane, Search } from "lucide-react";
 import Link from "next/link";
+import { getDharmlokFlightProviderLabel } from "@/lib/dharmlokFlightBranding";
 
 interface Booking {
 	id: string;
@@ -153,11 +154,6 @@ function getFlightPnr(booking: Booking): string {
 	return "—";
 }
 
-function getProviderLabel(source: string | null | undefined): string {
-	if (!source) return "—";
-	return source.replace(/_/g, " ");
-}
-
 function buildHotelConfirmationHref(booking: Booking): string | null {
 	const hasHotelDetails =
 		Boolean(booking.tripjackBookingId?.trim()) || Boolean(booking.id);
@@ -270,7 +266,7 @@ function FlightsTable({ bookings }: { bookings: Booking[] }) {
 						<TableHead>Departure</TableHead>
 						<TableHead>Return</TableHead>
 						<TableHead>PNR</TableHead>
-						<TableHead>Provider</TableHead>
+						<TableHead>Booked via</TableHead>
 						<TableHead>Status</TableHead>
 						<TableHead>Booked on</TableHead>
 						<TableHead className="text-right">Actions</TableHead>
@@ -303,7 +299,7 @@ function FlightsTable({ bookings }: { bookings: Booking[] }) {
 									{getFlightPnr(booking)}
 								</TableCell>
 								<TableCell className="text-sm text-muted-foreground">
-									{getProviderLabel(booking.source)}
+									{getDharmlokFlightProviderLabel(booking.source)}
 								</TableCell>
 								<TableCell>
 									<StatusBadge status={booking.status} />
@@ -342,7 +338,7 @@ function HotelsTable({ bookings }: { bookings: Booking[] }) {
 						<TableHead className="max-w-[160px]">Location</TableHead>
 						<TableHead>Check-in</TableHead>
 						<TableHead>Check-out</TableHead>
-						<TableHead>Provider</TableHead>
+						<TableHead>Booked via</TableHead>
 						<TableHead>Status</TableHead>
 						<TableHead>Booked on</TableHead>
 						<TableHead className="text-right">Actions</TableHead>
@@ -356,8 +352,7 @@ function HotelsTable({ bookings }: { bookings: Booking[] }) {
 							booking.destination?.name ||
 							"Hotel stay";
 						const location =
-							booking.destination?.location ||
-							getProviderLabel(booking.source);
+							booking.destination?.location || "—";
 						return (
 							<TableRow key={booking.id}>
 								<TableCell className="font-medium">{hotelName}</TableCell>
@@ -372,7 +367,7 @@ function HotelsTable({ bookings }: { bookings: Booking[] }) {
 								<TableCell>{formatDate(booking.checkIn || booking.travelDate)}</TableCell>
 								<TableCell>{formatDate(booking.checkOut || booking.returnDate)}</TableCell>
 								<TableCell className="text-sm text-muted-foreground">
-									{getProviderLabel(booking.source)}
+									{getDharmlokFlightProviderLabel(booking.source)}
 								</TableCell>
 								<TableCell>
 									<StatusBadge status={booking.status} />
@@ -410,7 +405,7 @@ function CabsTable({ bookings }: { bookings: Booking[] }) {
 						<TableHead>Trip</TableHead>
 						<TableHead className="max-w-[200px]">Route</TableHead>
 						<TableHead>Pickup date</TableHead>
-						<TableHead>Provider</TableHead>
+						<TableHead>Booked via</TableHead>
 						<TableHead>Status</TableHead>
 						<TableHead>Booked on</TableHead>
 						<TableHead className="text-right">Actions</TableHead>
@@ -442,7 +437,7 @@ function CabsTable({ bookings }: { bookings: Booking[] }) {
 									</div>
 								</TableCell>
 								<TableCell className="text-sm text-muted-foreground">
-									{getProviderLabel(booking.source)}
+									{getDharmlokFlightProviderLabel(booking.source)}
 								</TableCell>
 								<TableCell>
 									<StatusBadge status={booking.status} />

@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { getTripjackFareRule, TripjackApiError } from "@/lib/tripjackClient";
 import { convertTripjackFareRuleToTboResponse } from "@/lib/tripjackFareRuleNormalize";
 import { isTripjackConfigured } from "@/lib/tripjackFlightSearch";
@@ -19,7 +20,7 @@ const ALLOWED_FLOW: Set<TripjackFareRuleFlowType> = new Set([
 export async function POST(request: NextRequest) {
 	try {
 		if (!isTripjackConfigured()) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error:
 						"TripJack flight API is not configured (need TRIPJACK_API_KEY and FMS base URL)",
@@ -34,14 +35,14 @@ export async function POST(request: NextRequest) {
 		const traceId = typeof body?.traceId === "string" ? body.traceId : "";
 
 		if (!id) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{ error: "Missing or empty required field: id" },
 				{ status: 400 },
 			);
 		}
 
 		if (!flowType || !ALLOWED_FLOW.has(flowType)) {
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error:
 						"Invalid or missing flowType; expected SEARCH, REVIEW, or BOOKING_DETAIL",
@@ -54,10 +55,10 @@ export async function POST(request: NextRequest) {
 		const normalized = convertTripjackFareRuleToTboResponse(raw, traceId);
 
 		if (normalized.Response.Error.ErrorCode !== 0) {
-			return NextResponse.json(normalized, { status: 400 });
+			return brandedFlightJson(normalized, { status: 400 });
 		}
 
-		return NextResponse.json(normalized);
+		return brandedFlightJson(normalized);
 	} catch (error) {
 		if (error instanceof TripjackApiError) {
 			console.error("TripJack fare rule API error:", {
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
 				message: error.message,
 				endpoint: error.endpoint,
 			});
-			return NextResponse.json(
+			return brandedFlightJson(
 				{
 					error: error.message,
 					status: error.status,
@@ -78,6 +79,6 @@ export async function POST(request: NextRequest) {
 		console.error("TripJack fare rules route error:", error);
 		const errorMessage =
 			error instanceof Error ? error.message : "Failed to fetch fare rules";
-		return NextResponse.json({ error: errorMessage }, { status: 500 });
+		return brandedFlightJson({ error: errorMessage }, { status: 500 });
 	}
 }

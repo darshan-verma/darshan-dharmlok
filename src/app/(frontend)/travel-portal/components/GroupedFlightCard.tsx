@@ -34,8 +34,6 @@ interface GroupedFlightCardProps {
 	onBook: (flight: FlightResult) => void;
 	selectingFlight: string | null;
 	tripType: string;
-	expandedFareBreakdown: string | null;
-	onToggleFareBreakdown: (resultIndex: string | null) => void;
 	advanceSearchRbdByIndex: Record<string, string>;
 	onAdvanceSearchRbdChange: (resultIndex: string, fareClass: string) => void;
 }
@@ -59,8 +57,6 @@ export default function GroupedFlightCard({
 	onBook,
 	selectingFlight,
 	tripType,
-	expandedFareBreakdown,
-	onToggleFareBreakdown,
 	advanceSearchRbdByIndex,
 	onAdvanceSearchRbdChange,
 }: GroupedFlightCardProps) {
@@ -333,26 +329,6 @@ export default function GroupedFlightCard({
 								Upsell available on selected fare
 							</div>
 						) : null}
-
-						{selectedFlight.Fare ? (
-							<Button
-								variant="link"
-								size="sm"
-								className="h-auto p-0 text-xs text-blue-600 mt-3"
-								onClick={() =>
-									onToggleFareBreakdown(
-										expandedFareBreakdown === selectedFlight.ResultIndex
-											? null
-											: selectedFlight.ResultIndex,
-									)
-								}
-							>
-								{expandedFareBreakdown === selectedFlight.ResultIndex
-									? "Hide"
-									: "View"}{" "}
-								Fare Rules
-							</Button>
-						) : null}
 					</div>
 
 					{/* Book */}
@@ -383,38 +359,6 @@ export default function GroupedFlightCard({
 						</Button>
 					</div>
 				</div>
-
-				{expandedFareBreakdown === selectedFlight.ResultIndex &&
-				selectedFlight.Fare ? (
-					<div className="px-4 lg:px-5 pb-4 border-t border-gray-200 bg-white">
-						<div className="pt-4">
-							<h3 className="font-medium text-gray-900 mb-3">Fare Breakdown</h3>
-							{(() => {
-								const breakdown = getFareBreakdown(selectedFlight.Fare, 0);
-								return (
-									<div className="bg-gray-50 p-4 rounded-lg text-sm space-y-2 border border-gray-100">
-										<div className="flex justify-between text-gray-600">
-											<span>Base Fare</span>
-											<span className="font-medium text-gray-900">
-												{selectedFlight.Fare.Currency}{" "}
-												{formatTravelPriceInr(breakdown.baseFare)}
-											</span>
-										</div>
-										<div className="flex justify-between text-gray-600">
-											<span>Tax & Charges</span>
-											<span className="font-medium text-gray-900">
-												{selectedFlight.Fare.Currency}{" "}
-												{formatTravelPriceInr(
-													breakdown.tax + breakdown.otherCharges,
-												)}
-											</span>
-										</div>
-									</div>
-								);
-							})()}
-						</div>
-					</div>
-				) : null}
 			</CardContent>
 		</Card>
 	);
