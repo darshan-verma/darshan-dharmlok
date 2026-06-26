@@ -109,7 +109,7 @@ export async function generateCacheKey(
 			String(params.FlightCabinClass || params.cabinClass || ""),
 		);
 		normalizedRequest.directFlight =
-			params.DirectFlight || params.directFlight || "true";
+			params.DirectFlight || params.directFlight || "false";
 		normalizedRequest.oneStopFlight =
 			params.OneStopFlight || params.oneStopFlight || "false";
 	}
@@ -216,7 +216,7 @@ export function generateCacheKeySync(params: Record<string, unknown>): string {
 		cabinClass: normalizeTboCabinClass(
 			String(params.FlightCabinClass || params.cabinClass || ""),
 		),
-		directFlight: params.DirectFlight || params.directFlight || "true",
+		directFlight: params.DirectFlight || params.directFlight || "false",
 		oneStopFlight: params.OneStopFlight || params.oneStopFlight || "false",
 	};
 

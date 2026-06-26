@@ -38,6 +38,7 @@ export default function EventDetailPage() {
 						? data.relatedImages
 						: [],
 				});
+				setContentLocale("en");
 			} catch {
 				router.push("/admin/events");
 			}

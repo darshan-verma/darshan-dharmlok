@@ -15,6 +15,13 @@ import FlightDetails from "./components/FlightDetails";
 import FareRulesView from "./components/FareRulesView";
 import { toast } from "@/lib/toast";
 import { buildDuplicateCriteriaFromFlight } from "@/lib/tboDuplicateBooking";
+import {
+	hasPassengerSsrSelection,
+	isTboInternationalFlight,
+	mapBaggageOptionToTbo,
+	resolveSsrForPassenger,
+	validateMandatorySsrForPassenger,
+} from "@/lib/tboBookingSsr";
 import type {
 	FlightResult,
 	PassengerDetail,
@@ -392,6 +399,50 @@ export default function BookingClient({
 					toast.error(`Passenger ${i + 1}: Email address is required`);
 					return;
 				}
+				const nationality = (p.Nationality || p.CountryCode || "").trim().toUpperCase();
+				if (!nationality || !/^[A-Z]{2}$/.test(nationality)) {
+					toast.error(`Passenger ${i + 1}: Nationality must be a valid 2-letter country code`);
+					return;
+				}
+			}
+
+			const isInternational = isTboInternationalFlight(flightResult);
+			const requireIntlLccBaggage =
+				flightResult.IsLCC === true && isInternational;
+
+			for (let i = 0; i < passengerData.length; i++) {
+				const p = passengerData[i];
+				const mealSelected = Boolean(
+					resolveSsrForPassenger(selectedSSRs.meals, i) ||
+						(flightResult.IsMealMandatory && freeMealOptions.length > 0),
+				);
+				const seatSelected = Boolean(
+					resolveSsrForPassenger(selectedSSRs.seats, i) ||
+						(flightResult.IsSeatMandatory && freeSeatOptions.length > 0),
+				);
+				const baggageSelected = Boolean(
+					resolveSsrForPassenger(selectedSSRs.baggage, i) ||
+						(requireIntlLccBaggage &&
+							p.PaxType !== 3 &&
+							freeBaggageOptions.length > 0),
+				);
+				const ssrError = validateMandatorySsrForPassenger({
+					paxType: p.PaxType,
+					passengerIndex: i,
+					isMealMandatory: flightResult.IsMealMandatory === true,
+					isSeatMandatory: flightResult.IsSeatMandatory === true,
+					requireBaggage: requireIntlLccBaggage,
+					hasMeal: mealSelected,
+					hasSeat: seatSelected,
+					hasBaggage: baggageSelected,
+					freeMealAvailable: freeMealOptions.length > 0,
+					freeSeatAvailable: freeSeatOptions.length > 0,
+					freeBaggageAvailable: freeBaggageOptions.length > 0,
+				});
+				if (ssrError) {
+					toast.error(ssrError);
+					return;
+				}
 			}
 
 			// GST validation (mandatory only when FareQuote IsGSTMandatory)
@@ -405,8 +456,9 @@ export default function BookingClient({
 
 			const tboPassengers: TboBookPassenger[] = passengerData.map((p, index) => {
 				const paxFare = getPerPassengerFare(flightResult, p.PaxType);
-				const mealOption = selectedSSRs.meals?.[index];
-				const seatOption = selectedSSRs.seats?.[index];
+				const mealOption = resolveSsrForPassenger(selectedSSRs.meals, index);
+				const seatOption = resolveSsrForPassenger(selectedSSRs.seats, index);
+				const baggageOption = resolveSsrForPassenger(selectedSSRs.baggage, index);
 
 				// For special fares with mandatory meals/seats, force free options from SSR
 				let meal = mealOption && "Code" in mealOption ? { Code: mealOption.Code, Description: typeof mealOption.Description === "string" ? mealOption.Description : String(mealOption.Description ?? "") } : undefined;
@@ -421,10 +473,20 @@ export default function BookingClient({
 					seat = { Code: fs.Code ?? "", Description: fs.Description ?? "" };
 				}
 
-				// For international LCC, auto-include free baggage (Price 0) from SSR
 				let baggage: { Code?: string; Description?: string; Weight?: number; Price?: number } | undefined;
-				if (freeBaggageOptions.length > 0 && !selectedSSRs.baggage?.[index]) {
-					baggage = { Code: freeBaggageOptions[0].Code, Description: freeBaggageOptions[0].Description, Weight: freeBaggageOptions[0].Weight, Price: 0 };
+				if (baggageOption && "Code" in baggageOption && p.PaxType !== 3) {
+					baggage = mapBaggageOptionToTbo(baggageOption);
+				} else if (
+					p.PaxType !== 3 &&
+					freeBaggageOptions.length > 0 &&
+					!hasPassengerSsrSelection(selectedSSRs.baggage, index)
+				) {
+					baggage = {
+						Code: freeBaggageOptions[0].Code,
+						Description: freeBaggageOptions[0].Description,
+						Weight: freeBaggageOptions[0].Weight,
+						Price: 0,
+					};
 				}
 
 				// GST fields
@@ -461,7 +523,7 @@ export default function BookingClient({
 					Meal: meal,
 					Seat: seat,
 					Baggage: baggage,
-					Nationality: p.Nationality || "IN",
+					Nationality: (p.Nationality || p.CountryCode || "IN").trim().toUpperCase(),
 					CellCountryCode: (p as PassengerDetail & { CellCountryCode?: string }).CellCountryCode,
 					GuardianDetails: p.GuardianDetails || undefined,
 				};
@@ -504,6 +566,7 @@ export default function BookingClient({
 					TraceId: traceId,
 					ResultIndex: resultIndex,
 					Passengers: tboPassengers,
+					isGSTMandatory: gstMandatory,
 				};
 				if (fareQuotePriceChanged) {
 					ticketBody.IsPriceChangeAccepted = true;
@@ -555,6 +618,8 @@ export default function BookingClient({
 					TraceId: traceId,
 					ResultIndex: bookResultIndex || resultIndex,
 					Passengers: tboPassengers,
+					isLCC: false,
+					isGSTMandatory: gstMandatory,
 					duplicateGuard,
 				}),
 			});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,11 +19,14 @@ import {
 	type ReligiousCategory,
 } from "@/lib/religious-categories";
 
+export type PoojaCategoryFormData = Omit<
+	PoojaCategory,
+	"id" | "translations"
+> & { translations?: unknown };
+
 interface PoojaCategoryFormProps {
 	initialData?: Partial<PoojaCategory>;
-	onSubmit: (
-		data: Omit<PoojaCategory, "id"> & { translations?: unknown }
-	) => Promise<void>;
+	onSubmit: (data: PoojaCategoryFormData) => Promise<void>;
 	onCancel: () => void;
 	isLoading?: boolean;
 	title?: string;
@@ -45,12 +48,28 @@ export default function PoojaCategoryForm({
 	title = "Pooja Category Form",
 }: PoojaCategoryFormProps) {
 	const [contentLocale, setContentLocale] = useState<ContentLang>("en");
-	const [enName, setEnName] = useState(initialData.name || "");
-	const [hiName, setHiName] = useState("");
-	const [enDetails, setEnDetails] = useState(
-		initialData.details || initialData.description || ""
+	const initialTranslations = initialData.translations as
+		| {
+				en?: { name?: string; description?: string; details?: string };
+				hi?: { name?: string; description?: string; details?: string } | null;
+		  }
+		| undefined;
+	const [enName, setEnName] = useState(
+		initialTranslations?.en?.name ?? initialData.name ?? ""
 	);
-	const [hiDetails, setHiDetails] = useState("");
+	const [hiName, setHiName] = useState(initialTranslations?.hi?.name ?? "");
+	const [enDetails, setEnDetails] = useState(
+		initialTranslations?.en?.details ??
+			initialTranslations?.en?.description ??
+			initialData.details ??
+			initialData.description ??
+			""
+	);
+	const [hiDetails, setHiDetails] = useState(
+		initialTranslations?.hi?.details ??
+			initialTranslations?.hi?.description ??
+			""
+	);
 
 	const initialReligious = resolveReligiousCategories({
 		religiousCategories: initialData.religiousCategories,
@@ -72,6 +91,51 @@ export default function PoojaCategoryForm({
 	const [uploadingImages, setUploadingImages] = useState(false);
 	const [uploadingVideos, setUploadingVideos] = useState(false);
 
+	useEffect(() => {
+		const tr = initialData.translations as
+			| {
+					en?: { name?: string; description?: string; details?: string };
+					hi?: { name?: string; description?: string; details?: string } | null;
+			  }
+			| undefined;
+		setEnName(tr?.en?.name ?? initialData.name ?? "");
+		setHiName(tr?.hi?.name ?? "");
+		setEnDetails(
+			tr?.en?.details ??
+				tr?.en?.description ??
+				initialData.details ??
+				initialData.description ??
+				""
+		);
+		setHiDetails(tr?.hi?.details ?? tr?.hi?.description ?? "");
+		setFormData({
+			name: initialData.name || "",
+			description: initialData.description || "",
+			date: initialData.date || "",
+			price: initialData.price ?? undefined,
+			details: initialData.details || "",
+			religiousCategories: resolveReligiousCategories({
+				religiousCategories: initialData.religiousCategories,
+			}),
+			images: initialData.images || [],
+			videos: initialData.videos || [],
+		});
+		setFormErrors({});
+		setIsDirty(false);
+		setContentLocale("en");
+	}, [
+		initialData.id,
+		initialData.name,
+		initialData.description,
+		initialData.details,
+		initialData.date,
+		initialData.price,
+		initialData.translations,
+		initialData.religiousCategories,
+		initialData.images,
+		initialData.videos,
+	]);
+
 	const validateForm = useCallback((data: typeof formData): FormErrors => {
 		const errors: FormErrors = {};
 
@@ -84,15 +148,24 @@ export default function PoojaCategoryForm({
 			errors.name = "Pooja name must be less than 100 characters";
 		}
 
-		// Date validation
+		// Date validation (parse YYYY-MM-DD as local date — avoids UTC timezone false negatives)
 		if (!data.date) {
 			errors.date = "Date is required";
 		} else {
-			const selectedDate = new Date(data.date);
+			const datePart = data.date.slice(0, 10);
+			const [year, month, day] = datePart.split("-").map(Number);
+			const selectedDate = new Date(year, month - 1, day);
 			const today = new Date();
 			today.setHours(0, 0, 0, 0);
 
-			if (isNaN(selectedDate.getTime())) {
+			if (
+				!Number.isFinite(year) ||
+				!Number.isFinite(month) ||
+				!Number.isFinite(day) ||
+				selectedDate.getFullYear() !== year ||
+				selectedDate.getMonth() !== month - 1 ||
+				selectedDate.getDate() !== day
+			) {
 				errors.date = "Please enter a valid date";
 			} else if (selectedDate < today) {
 				errors.date = "Date cannot be in the past";

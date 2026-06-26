@@ -42,7 +42,7 @@ export interface BlogFormData {
 }
 
 interface BlogFormProps {
-	initialData?: Partial<BlogFormData>;
+	initialData?: Partial<BlogFormData & { id?: string }>;
 	onSubmit: (blogData: BlogFormData) => Promise<void>;
 	onCancel: () => void;
 	isLoading?: boolean;
@@ -121,8 +121,10 @@ export default function BlogForm({
 		});
 		setCoverImagePreviewUrl(initialData.coverImageUrl || null);
 		setBannerImagePreviewUrl(initialData.bannerImageUrl || null);
-		setFormErrors({}); // Clear any previous form errors
+		setFormErrors({});
+		setContentLocale("en");
 	}, [
+		initialData.id,
 		initialData.title,
 		initialData.content,
 		initialData.translations,

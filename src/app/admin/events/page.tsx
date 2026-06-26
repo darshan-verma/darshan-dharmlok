@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import EventsTable, { Event } from "../components/events/EventsTable";
 import EventsForm from "../components/events/EventsForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "@/lib/toast";
 
 export default function EventsPage() {
+	const router = useRouter();
 	const [events, setEvents] = useState<Event[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [showForm, setShowForm] = useState(false);
@@ -35,8 +37,7 @@ export default function EventsPage() {
 	};
 
 	const handleEditEvent = (event: Event) => {
-		setEditingEvent(event);
-		setShowForm(true);
+		router.push(`/admin/events/${event.id}`);
 	};
 
 	const handleDeleteEvent = async (id: string, title: string) => {

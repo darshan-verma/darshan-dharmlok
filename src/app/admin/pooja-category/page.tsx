@@ -11,7 +11,9 @@ import {
 import PoojaCategoryTable, {
 	PoojaCategory,
 } from "../components/pooja_category/PoojaCategoryTable";
-import PoojaCategoryForm from "../components/pooja_category/PoojaCategoryForm";
+import PoojaCategoryForm, {
+	type PoojaCategoryFormData,
+} from "../components/pooja_category/PoojaCategoryForm";
 import Pagination from "../components/Pagination/Pagination";
 import { usePagination } from "../hooks/usePagination";
 import { resolveReligiousCategories } from "@/lib/religious-categories";
@@ -58,6 +60,7 @@ export default function PoojaCategoryPage() {
 					religiousCategories?: string[];
 					images?: string[];
 					videos?: string[];
+					translations?: PoojaCategory["translations"];
 				};
 				const mapped = data.categories.map((item: ApiPoojaCategory) => ({
 					id: item.id,
@@ -70,6 +73,7 @@ export default function PoojaCategoryPage() {
 					religiousCategories: resolveReligiousCategories(item),
 					images: item.images || [],
 					videos: item.videos || [],
+					translations: item.translations,
 				}));
 				setPoojaCategories(mapped);
 				updatePagination(data.total, data.pagination.totalPages);
@@ -120,7 +124,7 @@ export default function PoojaCategoryPage() {
 		}
 	};
 
-	const handleFormSubmit = async (formData: Omit<PoojaCategory, "id">) => {
+	const handleFormSubmit = async (formData: PoojaCategoryFormData) => {
 		setIsSubmitting(true);
 		try {
 			const url = currentPooja?.id
@@ -140,7 +144,10 @@ export default function PoojaCategoryPage() {
 			});
 
 			if (!response.ok) {
-				throw new Error("Failed to save pooja category");
+				const errBody = (await response.json().catch(() => null)) as
+					| ApiErrorResponse
+					| null;
+				throw new Error(errBody?.message || "Failed to save pooja category");
 			}
 
 			// Refresh list
@@ -159,9 +166,11 @@ export default function PoojaCategoryPage() {
 					date: item.date || "",
 					price: item.price ?? undefined,
 					details: item.details || "",
+					status: item.status || "Inactive",
 					religiousCategories: resolveReligiousCategories(item),
 					images: item.images || [],
 					videos: item.videos || [],
+					translations: item.translations,
 				}))
 			);
 

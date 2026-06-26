@@ -138,6 +138,14 @@ describe("flightSearchMerge", () => {
 		expect(paired[0].Segments).toHaveLength(2);
 	});
 
+	it("mergeAndCapRoundTrip returns bundled fares when only one leg is present", () => {
+		const bundled = stubFlight({ ResultIndex: "combo", ApiSource: "TRIPJACK", net: 3000 });
+		bundled.Segments = [minimalLeg(), minimalLeg()];
+		const merged = mergeAndCapRoundTrip([[bundled], []]);
+		expect(merged).toHaveLength(1);
+		expect(merged[0].ResultIndex).toBe("combo");
+	});
+
 	it("mergeAndCapRoundTrip pairs per source and caps total", () => {
 		const outTbo = stubFlight({ ResultIndex: "to", ApiSource: "TBO", net: 100 });
 		const retTbo = stubFlight({ ResultIndex: "tr", ApiSource: "TBO", net: 50 });

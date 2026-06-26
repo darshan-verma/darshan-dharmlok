@@ -53,6 +53,10 @@ export interface PoojaCategory {
 	religiousCategories?: ReligiousCategory[];
 	images?: string[];
 	videos?: string[];
+	translations?: {
+		en?: { name?: string; description?: string; details?: string };
+		hi?: { name?: string; description?: string; details?: string } | null;
+	};
 }
 
 interface PoojaCategoryTableProps {

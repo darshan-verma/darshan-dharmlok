@@ -21,7 +21,9 @@ export default function BlogsPage() {
 	const [blogs, setBlogs] = useState<Blog[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [isFormOpen, setIsFormOpen] = useState(false);
-	const [currentBlog, setCurrentBlog] = useState<Partial<Blog> | null>(null);
+	const [currentBlog, setCurrentBlog] = useState<
+		Partial<BlogFormData & { id?: string }> | null
+	>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [blogToDelete, setBlogToDelete] = useState<{
@@ -58,18 +60,11 @@ export default function BlogsPage() {
 	};
 
 	const handleEditBlog = (blog: Blog) => {
-		// Transform Blog data to BlogFormData format for the form
-		const formData: Partial<BlogFormData> = {
-			title: blog.title,
-			content: blog.content,
-			translations: (blog as Blog & { translations?: unknown }).translations as BlogFormData["translations"],
-			translationStatus: (blog as Blog & { translationStatus?: string }).translationStatus as BlogFormData["translationStatus"],
-			status: blog.status,
-			religiousCategories: blog.religiousCategories,
+		setCurrentBlog({
+			...blog,
 			coverImageUrl: blog.coverImage || null,
 			bannerImageUrl: blog.bannerImage || null,
-		};
-		setCurrentBlog(formData);
+		});
 		setIsFormOpen(true);
 	};
 

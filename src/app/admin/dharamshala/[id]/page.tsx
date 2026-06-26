@@ -82,6 +82,7 @@ export default function DharamshalaDetailPage() {
 				};
 				setDharamshala(mapped);
 				setEditedDharamshala(mapped);
+				setContentLocale("en");
 				setAmenities(data.amenities || []);
 				setDharamshalaFaqs(data.dharamshalaFaqs || []);
 				setImageFiles(

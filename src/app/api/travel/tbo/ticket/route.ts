@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { brandedFlightJson } from "@/lib/brandedFlightApiResponse";
 import { issueTicket, getBookingDetails } from "@/lib/tboClient";
+import { validateTboBookPassengers } from "@/lib/tboBookPassengerValidation";
 import type {
 	TicketRequestNonLCC,
 	TicketRequestLCC,
@@ -94,8 +95,19 @@ export async function POST(request: NextRequest) {
 				payload.IsPriceChangeAccepted = body.IsPriceChangeAccepted;
 			}
 		} else if (isLCCTicketBody(body)) {
-			const ResultIndex = body.ResultIndex.trim();
+			const ResultIndex = (body.ResultIndex as string).trim();
 			const Passengers = body.Passengers as TboBookPassenger[];
+			const isGSTMandatory = body.isGSTMandatory === true;
+			const passengerValidation = validateTboBookPassengers(Passengers, {
+				requireGstMandatory: isGSTMandatory,
+				requireFare: true,
+			});
+			if (passengerValidation) {
+				return brandedFlightJson(
+					{ error: passengerValidation.error },
+					{ status: passengerValidation.status },
+				);
+			}
 			payload = {
 				EndUserIp,
 				TraceId,

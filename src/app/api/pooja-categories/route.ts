@@ -21,8 +21,16 @@ export async function GET(req: NextRequest) {
 		const limitParam = searchParams.get("limit");
 		const searchParam = searchParams.get("search")?.trim();
 		const statusParam = searchParams.get("status")?.trim();
-		const minPriceParam = Number(searchParams.get("minPrice"));
-		const maxPriceParam = Number(searchParams.get("maxPrice"));
+		const minPriceRaw = searchParams.get("minPrice");
+		const maxPriceRaw = searchParams.get("maxPrice");
+		const minPriceParam =
+			minPriceRaw !== null && minPriceRaw !== ""
+				? Number(minPriceRaw)
+				: Number.NaN;
+		const maxPriceParam =
+			maxPriceRaw !== null && maxPriceRaw !== ""
+				? Number(maxPriceRaw)
+				: Number.NaN;
 		const filtersOnly = searchParams.get("filtersOnly") === "true";
 		const religiousCategory = searchParams.get("religiousCategory")?.trim();
 		const locale = parseLangParam(searchParams.get("lang")) ?? "en";

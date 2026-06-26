@@ -57,6 +57,11 @@ export interface Blog {
 	religiousCategories?: ReligiousCategory[];
 	createdAt?: string;
 	updatedAt?: string;
+	translations?: {
+		en?: { title?: string; content?: string };
+		hi?: { title?: string; content?: string } | null;
+	};
+	translationStatus?: "none" | "partial" | "complete";
 }
 
 interface BlogTableProps {

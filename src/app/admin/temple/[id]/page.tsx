@@ -85,6 +85,7 @@ export default function TempleDetailPage() {
 			};
 			setTemple(mapped);
 			setEditedTemple(mapped);
+			setContentLocale("en");
 			setAmenities(data.amenities || []);
 			setFaqs(data.templeFaq || []);
 			setImageFiles(

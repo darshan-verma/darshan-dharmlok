@@ -4,9 +4,80 @@ import {
 	countFlightsBySource,
 	mergeAndCapRoundTrip,
 } from "@/lib/flightSearchMerge";
-import { pairTboSpecialReturnFlights, TBO_JOURNEY } from "@/lib/tboFlightSearch";
+import {
+	isReturnJourneyType,
+	isSpecialReturnJourneyType,
+	pairTboSpecialReturnFlights,
+	TBO_JOURNEY,
+} from "@/lib/tboFlightSearch";
 import { nonEmptyResultLegs } from "@/lib/tripjackMulticityUi";
+import type { AiriqFlightSearchResponse } from "@/types/airiq";
+import type { TripjackAirSearchResponse } from "@/types/tripjackFlight";
 import type { FlightResult, FlightSearchResponse } from "@/types/tbo";
+
+export function tboResponseHasFlights(
+	res: FlightSearchResponse | null | undefined,
+	journeyType: string,
+): boolean {
+	if (!res?.Response?.Results?.length) return false;
+	const results = res.Response.Results;
+
+	if (
+		isReturnJourneyType(journeyType) &&
+		!isSpecialReturnJourneyType(journeyType)
+	) {
+		const outbound = results[0];
+		const returnLeg = results[1];
+		return (
+			Array.isArray(outbound) &&
+			outbound.length > 0 &&
+			Array.isArray(returnLeg) &&
+			returnLeg.length > 0
+		);
+	}
+
+	for (const leg of results) {
+		if (Array.isArray(leg) && leg.length > 0) return true;
+	}
+	return false;
+}
+
+export function tripjackRawHasFlights(
+	raw: TripjackAirSearchResponse | null | undefined,
+	journeyType: string,
+): boolean {
+	const tripInfos = raw?.searchResult?.tripInfos;
+	if (!tripInfos) return false;
+
+	if (journeyType === "2") {
+		const onward = tripInfos.ONWARD?.length ?? 0;
+		const ret = tripInfos.RETURN?.length ?? 0;
+		const combo = tripInfos.COMBO?.length ?? 0;
+		return (onward > 0 && ret > 0) || combo > 0;
+	}
+
+	return (
+		(tripInfos.ONWARD?.length ?? 0) > 0 || (tripInfos.COMBO?.length ?? 0) > 0
+	);
+}
+
+export function airiqRawHasFlights(
+	raw: AiriqFlightSearchResponse | null | undefined,
+	journeyType: string,
+): boolean {
+	const list = raw?.ItineraryFlightList;
+	if (!list?.length) return false;
+
+	if (journeyType === "2") {
+		return (
+			list.length >= 2 &&
+			(list[0]?.Items?.length ?? 0) > 0 &&
+			(list[1]?.Items?.length ?? 0) > 0
+		);
+	}
+
+	return (list[0]?.Items?.length ?? 0) > 0;
+}
 
 export interface MergedFlightSearchResponse {
 	Response: {

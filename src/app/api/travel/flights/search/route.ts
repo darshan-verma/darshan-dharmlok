@@ -18,12 +18,16 @@ import {
 import { calculateNetPayable } from "@/lib/tboFareCalculations";
 import { countFlightsBySource } from "@/lib/flightSearchMerge";
 import {
+	airiqRawHasFlights,
 	mergeProviderResponses,
+	tboResponseHasFlights,
+	tripjackRawHasFlights,
 	withTimeout,
 	type MergedFlightSearchResponse,
 } from "@/lib/flightSearchMergePipeline";
 import type { FlightResult, FlightSegment, FlightSearchResponse } from "@/types/tbo";
 import type { AiriqFlightSearchResponse } from "@/types/airiq";
+import type { TripjackAirSearchResponse } from "@/types/tripjackFlight";
 import {
 	logTravelActivity,
 	getIpAddress,
@@ -79,12 +83,11 @@ interface RequestSegment {
 	PreferredArrivalTime?: string;
 }
 
-function responseHasFlights(res: FlightSearchResponse | null | undefined): boolean {
-	if (!res?.Response?.Results?.length) return false;
-	for (const leg of res.Response.Results) {
-		if (Array.isArray(leg) && leg.length > 0) return true;
-	}
-	return false;
+function responseHasFlights(
+	res: FlightSearchResponse | null | undefined,
+	journeyType: string,
+): boolean {
+	return tboResponseHasFlights(res, journeyType);
 }
 
 function annotateTboFlights(flights: FlightSearchResponse | null) {
@@ -637,7 +640,7 @@ export async function POST(request: NextRequest) {
 
 		const firstCandidates: Promise<FirstWin>[] = [
 			withTimeout(tboP, TBO_FIRST_MS, "TBO").then((raw) => {
-				if (!responseHasFlights(raw)) throw new Error("TBO empty");
+				if (!responseHasFlights(raw, journeyType)) throw new Error("TBO empty");
 				return { source: "TBO" as const, raw };
 			}),
 		];
@@ -645,7 +648,9 @@ export async function POST(request: NextRequest) {
 		if (airiqParams) {
 			firstCandidates.push(
 				withTimeout(airiqP, AIRIQ_FIRST_MS, "AIRiQ").then((raw) => {
-					if (!raw) throw new Error("AIRiQ empty");
+					if (!raw || !airiqRawHasFlights(raw, journeyType)) {
+						throw new Error("AIRiQ empty");
+					}
 					return { source: "AIRiQ" as const, raw: raw as AiriqFlightSearchResponse };
 				}),
 			);
@@ -654,7 +659,15 @@ export async function POST(request: NextRequest) {
 		if (tripjackPayload) {
 			firstCandidates.push(
 				withTimeout(tjP, TRIPJACK_FIRST_MS, "TRIPJACK").then((raw) => {
-					if (!raw) throw new Error("TRIPJACK empty");
+					if (
+						!raw ||
+						!tripjackRawHasFlights(
+							raw as TripjackAirSearchResponse,
+							journeyType,
+						)
+					) {
+						throw new Error("TRIPJACK empty");
+					}
 					return { source: "TRIPJACK" as const, raw };
 				}),
 			);

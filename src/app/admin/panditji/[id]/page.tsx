@@ -109,6 +109,7 @@ export default function PanditjiDetailPage() {
 				const PanditjiData = await response.json();
 				setPanditji(PanditjiData);
 				setEditedPanditji(PanditjiData);
+				setContentLocale("en");
 
 				// Fetch offering count for Panditji
 				if (PanditjiData?.id) {

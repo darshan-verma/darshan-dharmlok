@@ -12,6 +12,7 @@ import {
 	findRecentTboDuplicateBooking,
 	recordTboNonLccDuplicateBooking,
 } from "@/lib/tboDuplicateBookingStore";
+import { validateTboBookPassengers } from "@/lib/tboBookPassengerValidation";
 import type { BookingRequest, TboBookPassenger } from "@/types/tbo";
 
 function duplicateBookingResponse(
@@ -99,7 +100,23 @@ export async function POST(request: NextRequest) {
 			ResultIndex,
 			Passengers,
 			duplicateGuard,
-		} = body as Partial<BookingRequest> & { duplicateGuard?: unknown };
+			isLCC,
+			isGSTMandatory,
+		} = body as Partial<BookingRequest> & {
+			duplicateGuard?: unknown;
+			isLCC?: boolean;
+			isGSTMandatory?: boolean;
+		};
+
+		if (isLCC === true) {
+			return brandedFlightJson(
+				{
+					error:
+						"LCC flights must be ticketed via /api/travel/tbo/ticket with ResultIndex and Passengers (Book is for Non-LCC only)",
+				},
+				{ status: 400 },
+			);
+		}
 
 		if (!EndUserIp || !TraceId || !ResultIndex) {
 			return brandedFlightJson(
@@ -108,85 +125,26 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		if (!Array.isArray(Passengers) || Passengers.length === 0) {
+		const passengerValidation = validateTboBookPassengers(Passengers, {
+			requireGstMandatory: isGSTMandatory === true,
+			requireFare: true,
+		});
+		if (passengerValidation) {
 			return brandedFlightJson(
-				{ error: "Passengers must be a non-empty array" },
-				{ status: 400 },
+				{ error: passengerValidation.error },
+				{ status: passengerValidation.status },
 			);
 		}
 
 		const duplicateBlock = await guardAgainstDuplicateBooking(duplicateGuard);
 		if (duplicateBlock) return duplicateBlock;
 
-		// Validate each passenger has required fields and Fare
-		for (let i = 0; i < Passengers.length; i++) {
-			const p = Passengers[i] as TboBookPassenger;
-			if (!p.Title || !p.FirstName || !p.LastName || p.PaxType == null || p.Gender == null) {
-				return brandedFlightJson(
-					{ error: `Passenger ${i + 1}: Title, FirstName, LastName, PaxType, Gender are required` },
-					{ status: 400 },
-				);
-			}
-			if (
-				!p.GSTCompanyAddress ||
-				p.GSTCompanyContactNumber == null ||
-				!p.GSTCompanyName ||
-				p.GSTNumber == null ||
-				p.GSTCompanyEmail == null
-			) {
-				return brandedFlightJson(
-					{ error: `Passenger ${i + 1}: GST fields (GSTCompanyAddress, GSTCompanyContactNumber, GSTCompanyName, GSTNumber, GSTCompanyEmail) are required (use empty string if not applicable)` },
-					{ status: 400 },
-				);
-			}
-			if (!p.Fare || typeof p.Fare !== "object") {
-				return brandedFlightJson(
-					{ error: `Passenger ${i + 1}: Fare object is required` },
-					{ status: 400 },
-				);
-			}
-			const f = p.Fare;
-			if (
-				f.Currency == null ||
-				f.BaseFare == null ||
-				f.Tax == null ||
-				f.TransactionFee == null ||
-				f.YQTax == null ||
-				f.AdditionalTxnFeeOfrd == null ||
-				f.AdditionalTxnFeePub == null ||
-				f.AirTransFee == null
-			) {
-				return brandedFlightJson(
-					{ error: `Passenger ${i + 1}: Fare must include Currency, BaseFare, Tax, TransactionFee, YQTax, AdditionalTxnFeeOfrd, AdditionalTxnFeePub, AirTransFee` },
-					{ status: 400 },
-				);
-			}
-			if (!p.AddressLine1 || !p.City || !p.CountryCode || !p.CountryName || !p.ContactNo || !p.Email) {
-				return brandedFlightJson(
-					{ error: `Passenger ${i + 1}: AddressLine1, City, CountryCode, CountryName, ContactNo, Email are required` },
-					{ status: 400 },
-				);
-			}
-			if (p.Nationality == null || p.Nationality === "") {
-				return brandedFlightJson(
-					{ error: `Passenger ${i + 1}: Nationality is required` },
-					{ status: 400 },
-				);
-			}
-			if (typeof p.IsLeadPax !== "boolean") {
-				return brandedFlightJson(
-					{ error: `Passenger ${i + 1}: IsLeadPax must be boolean` },
-					{ status: 400 },
-				);
-			}
-		}
-
 		// Strip TokenId if client sent it; server injects token
 		const payload: Omit<BookingRequest, "TokenId"> = {
 			EndUserIp,
 			TraceId,
 			ResultIndex,
-			Passengers,
+			Passengers: Passengers as TboBookPassenger[],
 		};
 
 		let result;

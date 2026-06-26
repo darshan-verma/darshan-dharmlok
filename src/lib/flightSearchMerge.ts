@@ -142,14 +142,37 @@ function groupFlightsBySource(
  * sort by combined NetPayable, cap at MERGED_MAX_TOTAL.
  * Returns a single leg array suitable for `Response.Results = [paired]`.
  */
+function bundledRoundTripFlights(flights: FlightResult[]): FlightResult[] {
+	return flights.filter((f) => (f.Segments?.length ?? 0) >= 2);
+}
+
+function resolveReturnLeg(results: FlightResult[][]): FlightResult[] {
+	const returnLeg = results[1] ?? [];
+	if (returnLeg.length > 0) return returnLeg;
+	// TripJack may expose bundled round-trip fares in a third Results bucket.
+	for (let i = 2; i < results.length; i++) {
+		const leg = results[i];
+		if (Array.isArray(leg) && leg.length > 0) return leg;
+	}
+	return [];
+}
+
 export function mergeAndCapRoundTrip(
 	results: FlightResult[][],
 	topPerLeg = TOP_PER_PROVIDER_LEG,
 	maxTotal = MERGED_MAX_TOTAL,
 ): FlightResult[] {
 	const outboundAll = results[0] ?? [];
-	const returnAll = results[1] ?? [];
-	if (outboundAll.length === 0 || returnAll.length === 0) return [];
+	const returnAll = resolveReturnLeg(results);
+	const bundled = [
+		...bundledRoundTripFlights(outboundAll),
+		...bundledRoundTripFlights(returnAll),
+	];
+	if (outboundAll.length === 0 || returnAll.length === 0) {
+		return bundled.length
+			? sortByNetPayable(bundled).slice(0, maxTotal)
+			: [];
+	}
 
 	const outBy = groupFlightsBySource(outboundAll);
 	const retBy = groupFlightsBySource(returnAll);
@@ -171,7 +194,12 @@ export function mergeAndCapRoundTrip(
 		allPaired.push(...pairRoundTripLegs(trimmedO, trimmedR));
 	}
 
-	return sortByNetPayable(allPaired).slice(0, maxTotal);
+	const paired = sortByNetPayable(allPaired).slice(0, maxTotal);
+	if (bundled.length === 0) return paired;
+
+	const seen = new Set(paired.map((f) => f.ResultIndex));
+	const extras = bundled.filter((f) => !seen.has(f.ResultIndex));
+	return sortByNetPayable([...paired, ...extras]).slice(0, maxTotal);
 }
 
 /**
