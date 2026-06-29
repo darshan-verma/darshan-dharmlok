@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { NormalizedBookingDetails } from "@/types/booking-details";
+import { tripjackIsConfirmBookAlreadyProcessed } from "@/lib/tripjackBookFlow";
 import { toast } from "@/lib/toast";
 
 const DEFAULT_REMARKS = "Customer request via Dharmlok travel portal";
@@ -84,7 +85,13 @@ export default function TripjackFlightConfirmationManage({
 				}),
 			});
 			const data = await res.json().catch(() => ({}));
-			if (!res.ok || !data?.success) {
+			const confirmPayload = (data?.data ?? data) as {
+				errors?: Array<{ errCode?: string }>;
+			};
+			if (
+				(!res.ok || !data?.success) &&
+				!tripjackIsConfirmBookAlreadyProcessed(confirmPayload)
+			) {
 				toast.error(data?.error || "Confirm booking failed");
 				return;
 			}

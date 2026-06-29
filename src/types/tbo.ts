@@ -147,6 +147,10 @@ export interface FlightResult {
 	/** Set when outbound+inbound paired for TBO JourneyType 5 */
 	_tboSpecialReturn?: boolean;
 	ApiSource?: "TBO" | "AIRiQ" | "TRIPJACK"; // API source identifier
+	/** AIRiQ TripType from search: O | R | Y */
+	_airiqTripType?: "O" | "R" | "Y";
+	/** AIRiQ return packaging: paired vs combined */
+	_airiqReturnMode?: "oneway" | "paired" | "combined";
 	FareBreakdown: Array<{
 		Currency?: string;
 		PassengerType: number;

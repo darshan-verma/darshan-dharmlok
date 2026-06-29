@@ -13,8 +13,24 @@ import type {
 } from "@/types/tripjackFlight";
 import { extractTripjackReviewFlight, fareComponentFromReviewTotal } from "@/lib/tripjackFlightBooking";
 import {
+	tripjackInstantBookAmount,
+	tripjackIsConfirmBookAlreadyProcessed,
+	tripjackIsSeatMandatoryBookError,
+	tripjackOrderAmountFromBookingDetails,
+	tripjackPickMandatorySeatsFromMap,
+	tripjackRequiresMandatorySeats,
+	tripjackResolveHoldConfirmAmount,
+	tripjackSeatSelectionComplete,
+	tripjackSeatedPaxCount,
+	tripjackUsesHoldBooking,
+	tripjackWaitForHoldReadyClient,
+	type TripjackBookingDetailsClientResult,
+} from "@/lib/tripjackBookFlow";
+import {
 	emptyTripjackSsrPickState,
 	tripjackFlatSegmentsFromReview,
+	tripjackMergeAutoSeatsIntoPicks,
+	tripjackPhysicalSeatsComplete,
 	tripjackPicksToFareSsrShape,
 	tripjackSsrExtraTotal,
 	tripjackTravellerSsrForPax,
@@ -230,6 +246,34 @@ function mapPaxTypeToTripjack(
 type TripjackReviewFetchResult =
 	| { ok: true; review: TripjackReviewResponse }
 	| { ok: false; error: string };
+
+async function fetchTripjackBookingDetailsClient(
+	bookingId: string,
+): Promise<TripjackBookingDetailsClientResult> {
+	const detRes = await fetch("/api/travel/tripjack-flight/booking-details", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ bookingId, requirePaxPricing: true }),
+	});
+	const detData = await detRes.json().catch(() => ({}));
+	if (!detRes.ok || !detData?.success) {
+		return {
+			ok: false,
+			error:
+				(typeof detData?.error === "string" && detData.error) ||
+				"TripJack booking-details failed",
+		};
+	}
+	return {
+		ok: true,
+		data: detData.data,
+		pnr: typeof detData.pnr === "string" ? detData.pnr : undefined,
+	};
+}
+
+function tripjackSleep(ms: number): Promise<void> {
+	return new Promise((r) => setTimeout(r, ms));
+}
 
 /** Survives React Strict Mode remounts (component ref resets); avoids a second `/fms/v1/review` that can hang until the route times out (~60s). */
 const tripjackReviewInflightByKey = new Map<
@@ -468,12 +512,48 @@ export default function TripjackBookingClient({
 		setError(null);
 		try {
 			const phone = tripjackPhoneE164(lead.ContactNo);
-			const roundAmount = Math.round(totalAmount * 100) / 100;
-			const useHold = review.conditions?.isBA === true;
+			const useHold = tripjackUsesHoldBooking(review.conditions);
+			const seatedTravellers = tripjackSeatedPaxCount(adultCount, childCount);
 			const gstInfo = buildTripjackGstInfo(lead);
+			let bookPicks = tjSsrPicks;
+
+			if (
+				tripjackRequiresMandatorySeats(review.conditions) &&
+				!tripjackPhysicalSeatsComplete(bookPicks, tjSegments, seatedTravellers)
+			) {
+				const seatRes = await fetch("/api/travel/tripjack-flight/seat-map", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ bookingId: review.bookingId }),
+				});
+				const seatData = await seatRes.json().catch(() => ({}));
+				if (seatRes.ok && seatData?.success && seatData?.data) {
+					const picked = tripjackPickMandatorySeatsFromMap(
+						seatData.data,
+						tjSegments,
+						seatedTravellers,
+					);
+					if (
+						tripjackSeatSelectionComplete(
+							picked.seatByTraveller,
+							seatedTravellers,
+							tjSegments.length,
+						)
+					) {
+						bookPicks = tripjackMergeAutoSeatsIntoPicks(
+							bookPicks,
+							tjSegments,
+							picked.seatByTraveller,
+						);
+					}
+				}
+			}
+
+			const ssrExtras = tripjackSsrExtraTotal(bookPicks);
+			const roundAmount = tripjackInstantBookAmount(review, ssrExtras, totalAmount);
 
 			const travellers: TripjackTravellerInfo[] = passengerData.map((p, idx) => {
-				const ssr = tripjackTravellerSsrForPax(tjSegments, idx, tjSsrPicks);
+				const ssr = tripjackTravellerSsrForPax(tjSegments, idx, bookPicks);
 				const dob = tripjackDateOnly(p.DateOfBirth);
 				const passportExpiry = tripjackDateOnly(p.PassportExpiry);
 				const passportIssue = tripjackDateOnly(p.PassportIssueDate);
@@ -549,6 +629,15 @@ export default function TripjackBookingClient({
 					(typeof bookData?.data?.errors?.[0]?.message === "string"
 						? bookData.data.errors[0].message
 						: null);
+				const bookErrPayload = (bookData?.data ?? bookData) as {
+					errors?: Array<{ errCode?: string; message?: string }>;
+				};
+				if (tripjackIsSeatMandatoryBookError(bookErrPayload)) {
+					throw new Error(
+						providerMsg ||
+							"Seat selection is mandatory for this fare. Choose seats in Add-ons, then try again.",
+					);
+				}
 				throw new Error(
 					providerMsg ||
 						(typeof bookData?.error === "string" && bookData.error) ||
@@ -570,16 +659,40 @@ export default function TripjackBookingClient({
 					);
 				}
 
+				const detBefore = await fetchTripjackBookingDetailsClient(review.bookingId);
+				const orderAmount = detBefore.ok
+					? tripjackOrderAmountFromBookingDetails(detBefore.data)
+					: 0;
+
+				const holdReady = await tripjackWaitForHoldReadyClient(
+					fetchTripjackBookingDetailsClient,
+					review.bookingId,
+				);
+
+				const payAmount = tripjackResolveHoldConfirmAmount({
+					review,
+					ssrAndSeatExtras: ssrExtras,
+					fareValidateReview: fvData.data as TripjackReviewResponse,
+					orderAmountFromDetails: orderAmount > 0 ? orderAmount : undefined,
+					holdReadyAmount: holdReady?.amount,
+					fallbackAmount: roundAmount,
+				});
+
 				const confirmRes = await fetch("/api/travel/tripjack-flight/confirm-book", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						bookingId: review.bookingId,
-						paymentInfos: [{ amount: roundAmount }],
+						paymentInfos: [{ amount: payAmount }],
 					}),
 				});
 				const confirmData = await confirmRes.json();
-				if (!confirmRes.ok || !confirmData?.success) {
+				const confirmPayload = (confirmData?.data ?? confirmData) as {
+					errors?: Array<{ errCode?: string }>;
+				};
+				const alreadyProcessed =
+					tripjackIsConfirmBookAlreadyProcessed(confirmPayload);
+				if ((!confirmRes.ok || !confirmData?.success) && !alreadyProcessed) {
 					throw new Error(
 						(typeof confirmData?.error === "string" && confirmData.error) ||
 							"TripJack confirm-book failed",
@@ -590,17 +703,16 @@ export default function TripjackBookingClient({
 			const finalBookingId = review.bookingId;
 			let pnr: string | undefined;
 			try {
-				const detRes = await fetch("/api/travel/tripjack-flight/booking-details", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						bookingId: finalBookingId,
-						requirePaxPricing: true,
-					}),
-				});
-				const detData = await detRes.json();
-				if (detRes.ok && detData?.success && typeof detData.pnr === "string") {
-					pnr = detData.pnr;
+				const detRes = await fetchTripjackBookingDetailsClient(finalBookingId);
+				if (detRes.ok && detRes.pnr) {
+					pnr = detRes.pnr;
+				}
+				if (!pnr) {
+					await tripjackSleep(2000);
+					const detRetry = await fetchTripjackBookingDetailsClient(finalBookingId);
+					if (detRetry.ok && detRetry.pnr) {
+						pnr = detRetry.pnr;
+					}
 				}
 			} catch {
 				/* best-effort */
@@ -628,7 +740,7 @@ export default function TripjackBookingClient({
 						returnDate: returnDateIso,
 						departureTime: departureTimeLabel,
 						travelers: adultCount + childCount + infantCount,
-						totalAmount,
+						totalAmount: roundAmount,
 						status: "CONFIRMED",
 					}),
 				})

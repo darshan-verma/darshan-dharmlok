@@ -116,6 +116,10 @@ export function pairRoundTripLegs(
 		paired.push({
 			...outboundFlight,
 			ReturnResultIndex: returnFlight.ResultIndex,
+			_airiqReturnMode: "paired" as const,
+			...(outboundFlight._airiqTripType
+				? { _airiqTripType: outboundFlight._airiqTripType }
+				: {}),
 			Fare: combinedFare,
 			Segments: [outboundFlight.Segments[0], returnFlight.Segments[0]],
 		});
@@ -143,7 +147,13 @@ function groupFlightsBySource(
  * Returns a single leg array suitable for `Response.Results = [paired]`.
  */
 function bundledRoundTripFlights(flights: FlightResult[]): FlightResult[] {
-	return flights.filter((f) => (f.Segments?.length ?? 0) >= 2);
+	return flights
+		.filter((f) => (f.Segments?.length ?? 0) >= 2 && !f.ReturnResultIndex)
+		.map((f) => ({
+			...f,
+			_airiqTripType: f._airiqTripType ?? ("R" as const),
+			_airiqReturnMode: f._airiqReturnMode ?? ("combined" as const),
+		}));
 }
 
 function resolveReturnLeg(results: FlightResult[][]): FlightResult[] {

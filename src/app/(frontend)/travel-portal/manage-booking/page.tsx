@@ -377,7 +377,7 @@ export default function ManageBookingPage() {
 		setLoadingRescheduleConfirm(true);
 		setRescheduleSuccessResult(null);
 		try {
-			const response = await fetch("/api/travel/airiq/reschedule", {
+			const checkfareResponse = await fetch("/api/travel/airiq/reschedule", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -389,7 +389,7 @@ export default function ManageBookingPage() {
 					trackId: rescheduleAvailResult.trackId,
 					airIqPNR: trimmedPNR,
 					remarks: remarks.trim() || undefined,
-					flag: "CONFIRM",
+					flag: "CHECKFARE",
 					contactNo: rescheduleContactNo.trim(),
 					itineraryInfo: [
 						{
@@ -405,6 +405,86 @@ export default function ManageBookingPage() {
 							grossAmount: rescheduleSelectedOption.grossAmount,
 						},
 					],
+				}),
+			});
+			const checkfareData = await checkfareResponse.json();
+			if (!checkfareResponse.ok) {
+				toast.error(checkfareData.error || "Reschedule fare check failed.");
+				return;
+			}
+
+			const confirmSegmentInfo =
+				checkfareData.SegmentInfo || checkfareData.segmentInfo || {
+					baseOrigin: rescheduleDeparture.trim(),
+					baseDestination: rescheduleArrival.trim(),
+					tripType: rescheduleTripType,
+				};
+			const confirmTrackId =
+				checkfareData.Trackid || checkfareData.trackId || rescheduleAvailResult.trackId;
+			const confirmItinerary =
+				checkfareData.ItineraryInfo || checkfareData.itineraryInfo;
+
+			const response = await fetch("/api/travel/airiq/reschedule", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					segmentInfo: {
+						baseOrigin:
+							confirmSegmentInfo.BaseOrigin ||
+							confirmSegmentInfo.baseOrigin ||
+							rescheduleDeparture.trim(),
+						baseDestination:
+							confirmSegmentInfo.BaseDestination ||
+							confirmSegmentInfo.baseDestination ||
+							rescheduleArrival.trim(),
+						tripType:
+							confirmSegmentInfo.TripType ||
+							confirmSegmentInfo.tripType ||
+							rescheduleTripType,
+					},
+					trackId: confirmTrackId,
+					airIqPNR: checkfareData.AirIqPNR || trimmedPNR,
+					remarks: remarks.trim() || undefined,
+					flag: "CONFIRM",
+					contactNo: rescheduleContactNo.trim(),
+					itineraryInfo: confirmItinerary
+						? (Array.isArray(confirmItinerary) ? confirmItinerary : [confirmItinerary]).map(
+								(it: {
+									FlightDetails?: typeof rescheduleSelectedOption.flightDetails;
+									flightDetails?: typeof rescheduleSelectedOption.flightDetails;
+									BaseAmount?: string;
+									baseAmount?: string;
+									GrossAmount?: string;
+									grossAmount?: string;
+								}) => ({
+									flightDetails: (it.FlightDetails || it.flightDetails || []).map(
+										(fd) => ({
+											flightID: fd.FlightID,
+											flightNumber: fd.FlightNumber,
+											origin: fd.Origin,
+											destination: fd.Destination,
+											departureDateTime: fd.DepartureDateTime,
+											arrivalDateTime: fd.ArrivalDateTime,
+										})
+									),
+									baseAmount: it.BaseAmount || it.baseAmount || "",
+									grossAmount: it.GrossAmount || it.grossAmount || "",
+								})
+							)
+						: [
+								{
+									flightDetails: rescheduleSelectedOption.flightDetails.map((fd) => ({
+										flightID: fd.FlightID,
+										flightNumber: fd.FlightNumber,
+										origin: fd.Origin,
+										destination: fd.Destination,
+										departureDateTime: fd.DepartureDateTime,
+										arrivalDateTime: fd.ArrivalDateTime,
+									})),
+									baseAmount: rescheduleSelectedOption.baseAmount,
+									grossAmount: rescheduleSelectedOption.grossAmount,
+								},
+							],
 				}),
 			});
 			const data = await response.json();

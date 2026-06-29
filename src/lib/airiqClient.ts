@@ -28,6 +28,8 @@ import type {
 	AiriqSeatMapResponse,
 	AiriqRetrieveBookingRequest,
 	AiriqRetrieveBookingResponse,
+	AiriqTrackStatusRequest,
+	AiriqTrackStatusResponse,
 	AiriqGetMultiClassRequest,
 	AiriqGetMultiClassResponse,
 	AiriqGetMultiClassFareRequest,
@@ -61,6 +63,17 @@ export interface AiriqRequestConfig {
 const AIRIQ_DEFAULT_TIMEOUT_MS = Math.max(
 	15_000,
 	parseInt(process.env.AIRIQ_REQUEST_TIMEOUT_MS || "45000", 10) || 45_000
+);
+
+/** UAT-aligned timeout for Book / IssueTicket (AirIQ can be slow). */
+const AIRIQ_BOOK_TIMEOUT_MS = Math.max(
+	AIRIQ_DEFAULT_TIMEOUT_MS,
+	parseInt(process.env.AIRIQ_BOOK_TIMEOUT_MS || "120000", 10) || 120_000
+);
+
+const AIRIQ_SEAT_MAP_TIMEOUT_MS = Math.max(
+	5_000,
+	parseInt(process.env.AIRIQ_SEAT_MAP_TIMEOUT_MS || "15000", 10) || 15_000
 );
 
 /**
@@ -377,6 +390,7 @@ export async function getSeatMap(
 		endpoint: "GetAvailSeatMap",
 		method: "POST",
 		body: seatMapParams,
+		timeoutMs: AIRIQ_SEAT_MAP_TIMEOUT_MS,
 	});
 }
 
@@ -393,6 +407,7 @@ export async function bookFlight(
 		method: "POST",
 		body: bookingParams,
 		skipStatusCheck: true,
+		timeoutMs: AIRIQ_BOOK_TIMEOUT_MS,
 	});
 }
 
@@ -409,6 +424,22 @@ export async function issueTicket(
 		method: "POST",
 		body: params,
 		skipStatusCheck: true,
+		timeoutMs: AIRIQ_BOOK_TIMEOUT_MS,
+	});
+}
+
+/**
+ * TrackStatus — poll for PNR when Book returns pending / ambiguous (#56).
+ */
+export async function trackStatus(
+	params: AiriqTrackStatusRequest
+): Promise<AiriqTrackStatusResponse> {
+	return airiqRequest<AiriqTrackStatusResponse>({
+		endpoint: "TrackStatus",
+		method: "POST",
+		body: params,
+		skipStatusCheck: true,
+		timeoutMs: AIRIQ_BOOK_TIMEOUT_MS,
 	});
 }
 
@@ -526,7 +557,9 @@ export function convertAiriqToTboFormat(
 	// Multi-city: Could be multiple items or single item with multi-segment flights
 	// One-way: 1 ItineraryFlightList item
 	const isRoundtrip =
-		airiqResponse.ItineraryFlightList.length === 2 && journeyType === "2";
+		airiqResponse.ItineraryFlightList.length === 2 &&
+		(journeyType === "2" || journeyType === "5");
+	const isSpecialReturn = journeyType === "5";
 	const isMultiCity = journeyType === "3";
 
 	console.log("🎯 Flight Type Detection:", { isRoundtrip, isMultiCity });
@@ -542,7 +575,10 @@ export function convertAiriqToTboFormat(
 
 		// Convert outbound flights
 		for (const item of outboundItinerary.Items) {
-			const flight = convertAiriqItemToTboFlight(item, airiqResponse.Trackid);
+			const flight = convertAiriqItemToTboFlight(item, airiqResponse.Trackid, {
+				tripType: isSpecialReturn ? "Y" : "R",
+				returnMode: "paired",
+			});
 			if (flight) {
 				outboundFlights.push(flight);
 			}
@@ -550,7 +586,10 @@ export function convertAiriqToTboFormat(
 
 		// Convert return flights
 		for (const item of returnItinerary.Items) {
-			const flight = convertAiriqItemToTboFlight(item, airiqResponse.Trackid);
+			const flight = convertAiriqItemToTboFlight(item, airiqResponse.Trackid, {
+				tripType: isSpecialReturn ? "Y" : "R",
+				returnMode: "paired",
+			});
 			if (flight) {
 				returnFlights.push(flight);
 			}
@@ -692,17 +731,23 @@ export function convertAiriqToTboFormat(
 			};
 		}
 	} else {
-		// One-way or multi-city (single list)
+		// One-way, special return (single list), or multi-city (single list)
 		console.log(
 			`➡️ Converting AIRiQ ${
-				isMultiCity ? "Multi-city" : "One-way"
+				isMultiCity ? "Multi-city" : isSpecialReturn ? "Special Return" : "One-way"
 			} Flight Response`
 		);
 		const tboFlights: Array<Record<string, unknown>> = [];
 
 		for (const itinerary of airiqResponse.ItineraryFlightList) {
 			for (const item of itinerary.Items) {
-				const flight = convertAiriqItemToTboFlight(item, airiqResponse.Trackid);
+				const flight = convertAiriqItemToTboFlight(
+					item,
+					airiqResponse.Trackid,
+					isSpecialReturn
+						? { tripType: "Y", returnMode: "combined" }
+						: undefined
+				);
 				if (flight) {
 					tboFlights.push(flight);
 				}
@@ -730,7 +775,11 @@ export function convertAiriqToTboFormat(
  */
 function convertAiriqItemToTboFlight(
 	item: AiriqFlightSearchResponse["ItineraryFlightList"][0]["Items"][0],
-	trackid: string
+	trackid: string,
+	meta?: {
+		tripType?: "O" | "R" | "Y";
+		returnMode?: "oneway" | "paired" | "combined";
+	}
 ): Record<string, unknown> | null {
 	const flightDetails = item.FlightDetails;
 	const fares = item.Fares[0]; // Take first fare
@@ -799,6 +848,8 @@ function convertAiriqItemToTboFlight(
 		ResultIndex: firstSegment.ReferenceToken,
 		Source: 2, // AIRiQ source identifier
 		ApiSource: "AIRiQ",
+		...(meta?.tripType ? { _airiqTripType: meta.tripType } : {}),
+		...(meta?.returnMode ? { _airiqReturnMode: meta.returnMode } : {}),
 		IsLCC: firstSegment.AirlineCategory === "LCC",
 		IsRefundable:
 			firstSegment.Refundable === "Y" || firstSegment.Refundable === "Yes",
@@ -867,9 +918,16 @@ export function convertTboToAiriqParams(
 	const agentId = process.env.AIRIQ_AGENT_ID || "AQAG060270";
 	const username = process.env.AIRIQ_USERNAME || "7506209217";
 
-	// Convert JourneyType: "1" = OneWay (O), "2" = Return (R), "3" = MultiCity (M)
+	// Convert JourneyType: "1"=O, "2"=R, "3"=M, "5"=Y (Special Return)
 	const journeyType = tboParams.JourneyType as string;
-	const tripType = journeyType === "2" ? "R" : journeyType === "3" ? "M" : "O";
+	const tripType =
+		journeyType === "2"
+			? "R"
+			: journeyType === "5"
+				? "Y"
+				: journeyType === "3"
+					? "M"
+					: "O";
 
 	console.log("🔄 Converting TBO to AIRiQ params:", {
 		journeyType,
@@ -912,7 +970,9 @@ export function convertTboToAiriqParams(
 		};
 	});
 
-	const airiqParams = {
+	const airiqParams: Omit<AiriqFlightSearchRequest, "Token"> & {
+		AirlineCategory?: string;
+	} = {
 		AgentInfo: {
 			AgentId: agentId,
 			UserName: username,
@@ -928,6 +988,12 @@ export function convertTboToAiriqParams(
 			InfantCount: tboParams.InfantCount as string,
 		},
 	};
+
+	if (journeyType === "5") {
+		const channel =
+			tboParams.SpecialReturnChannel === "GDS" ? "FSC" : "LCC";
+		airiqParams.AirlineCategory = channel;
+	}
 
 	console.log("✅ AIRiQ params created:", JSON.stringify(airiqParams, null, 2));
 

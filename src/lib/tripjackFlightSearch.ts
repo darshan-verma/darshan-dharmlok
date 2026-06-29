@@ -15,6 +15,7 @@ import type {
 	TripjackSegmentInfo,
 	TripjackTripInfo,
 	TripjackPft,
+	TripjackTripInfos,
 } from "@/types/tripjackFlight";
 import { calculateNetPayable } from "@/lib/tboFareCalculations";
 
@@ -433,6 +434,49 @@ export function groupOnwardTripInfosByRoutes(
 	return [...buckets.values()];
 }
 
+/**
+ * Domestic multicity: API may return numeric keys ("0","1",…) where each key's trips
+ * share a departure airport. Match each route leg to the key whose trips depart from
+ * that leg's origin (UAT runner `matchMcLegsByOrigin`).
+ */
+export function matchMcLegsByOrigin(
+	ti: TripjackTripInfos & Record<string, TripjackTripInfo[] | undefined>,
+	routes: TripjackRouteRef[],
+): TripjackTripInfo[][] | null {
+	const numericKeys = Object.keys(ti).filter((k) => /^\d+$/.test(k));
+	if (!numericKeys.length || routes.length < 2) return null;
+
+	const keyOrigins = numericKeys.map((k) => {
+		const trips = ti[k] || [];
+		const origin = (trips[0]?.sI?.[0]?.da?.code || "").toUpperCase() || null;
+		return { key: k, origin, trips };
+	});
+
+	const matched = routes.map((leg) => {
+		const from = (leg.from || "").toUpperCase();
+		const match = keyOrigins.find((ko) => ko.origin === from);
+		return match ? match.trips : null;
+	});
+
+	if (matched.some((trips) => trips === null)) return null;
+	return matched as TripjackTripInfo[][];
+}
+
+function domesticMulticityLegGroups(
+	tripInfos: TripjackTripInfos & Record<string, TripjackTripInfo[] | undefined>,
+	requestedRoutes: TripjackRouteRef[],
+): TripjackTripInfo[][] {
+	const onwardRaw = tripInfos.ONWARD || [];
+	if (onwardRaw.length > 0) {
+		return groupOnwardTripInfosByRoutes(onwardRaw, requestedRoutes);
+	}
+	const fromNumeric = matchMcLegsByOrigin(tripInfos, requestedRoutes);
+	if (fromNumeric?.some((leg) => leg.length > 0)) {
+		return fromNumeric;
+	}
+	return groupOnwardTripInfosByRoutes(onwardRaw, requestedRoutes);
+}
+
 function tripInfoToFlightResults(
 	trips: TripjackTripInfo[],
 	traceId: string,
@@ -628,7 +672,10 @@ export function convertTripjackSearchToTboFormat(
 		}
 
 		const onwardRaw = tripInfos.ONWARD || [];
-		const legGroups = groupOnwardTripInfosByRoutes(onwardRaw, requestedRoutes);
+		const legGroups = domesticMulticityLegGroups(
+			tripInfos as TripjackTripInfos & Record<string, TripjackTripInfo[] | undefined>,
+			requestedRoutes,
+		);
 		const results: FlightResult[][] = legGroups.map((trips, legIndex) =>
 			tripInfoToFlightResults(trips, traceId, adults, children, infants, {
 				multicityMode: "DOMESTIC_LEGS",

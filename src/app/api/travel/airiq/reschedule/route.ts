@@ -8,6 +8,7 @@ import type {
 	AiriqRescheduleResponse,
 	AiriqRescheduleItineraryInfo,
 } from "@/types/airiq";
+import { resolveIntlConnectingRescheduleRoutes } from "@/lib/airiqRescheduleHelpers";
 
 export async function POST(req: NextRequest) {
 	try {
@@ -32,6 +33,9 @@ export async function POST(req: NextRequest) {
 			flag,
 			contactNo,
 			itineraryInfo,
+			deriveIntlConnecting,
+			tripOrigin,
+			tripDestination,
 		} = body as {
 			segmentInfo?: { baseOrigin?: string; baseDestination?: string; tripType?: string };
 			trackId?: string;
@@ -51,6 +55,9 @@ export async function POST(req: NextRequest) {
 				baseAmount?: string;
 				grossAmount?: string;
 			}>;
+			deriveIntlConnecting?: boolean;
+			tripOrigin?: string;
+			tripDestination?: string;
 		};
 
 		if (
@@ -103,26 +110,43 @@ export async function POST(req: NextRequest) {
 
 		const mappedItinerary: AiriqRescheduleItineraryInfo[] = itineraryInfo.map(
 			(it) => {
-				const fd = it.flightDetails?.[0];
+				const flightDetailsList = it.flightDetails || [];
+				const fd = flightDetailsList[0];
 				if (!fd) {
 					throw new Error("Each itineraryInfo item must have flightDetails");
 				}
 				return {
-					FlightDetails: [
-						{
-							FlightID: (fd.flightID ?? "").toString(),
-							FlightNumber: (fd.flightNumber ?? "").toString(),
-							Origin: (fd.origin ?? "").toString(),
-							Destination: (fd.destination ?? "").toString(),
-							DepartureDateTime: (fd.departureDateTime ?? "").toString(),
-							ArrivalDateTime: (fd.arrivalDateTime ?? "").toString(),
-						},
-					],
+					FlightDetails: flightDetailsList.map((seg) => ({
+						FlightID: (seg.flightID ?? "").toString(),
+						FlightNumber: (seg.flightNumber ?? "").toString(),
+						Origin: (seg.origin ?? "").toString(),
+						Destination: (seg.destination ?? "").toString(),
+						DepartureDateTime: (seg.departureDateTime ?? "").toString(),
+						ArrivalDateTime: (seg.arrivalDateTime ?? "").toString(),
+					})),
 					BaseAmount: (it.baseAmount ?? "").toString(),
 					GrossAmount: (it.grossAmount ?? "").toString(),
 				};
 			}
 		);
+
+		let baseOrigin = segmentInfo.baseOrigin.trim();
+		let baseDestination = segmentInfo.baseDestination.trim();
+		const tripType = (segmentInfo.tripType ?? "O").toString();
+
+		if (
+			deriveIntlConnecting &&
+			tripType === "R" &&
+			mappedItinerary[0]?.FlightDetails?.length
+		) {
+			const { legOrigin, legDestination } = resolveIntlConnectingRescheduleRoutes(
+				mappedItinerary[0].FlightDetails,
+				tripOrigin || baseOrigin,
+				tripDestination || baseDestination
+			);
+			baseOrigin = legOrigin;
+			baseDestination = legDestination;
+		}
 
 		const agentId = process.env.AIRIQ_AGENT_ID;
 		const userName = process.env.AIRIQ_USERNAME;
@@ -147,9 +171,9 @@ export async function POST(req: NextRequest) {
 		const rescheduleRequest: AiriqRescheduleRequest = {
 			AgentInfo: agentInfo,
 			SegmentInfo: {
-				BaseOrigin: segmentInfo.baseOrigin.trim(),
-				BaseDestination: segmentInfo.baseDestination.trim(),
-				TripType: (segmentInfo.tripType ?? "O").toString(),
+				BaseOrigin: baseOrigin,
+				BaseDestination: baseDestination,
+				TripType: tripType,
 			},
 			Trackid: trackId.trim(),
 			AirIqPNR: airIqPNR.trim(),

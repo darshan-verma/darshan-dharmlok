@@ -25,6 +25,8 @@ import {
 	mergeMulticlassFareWithPricing,
 	deriveAiriqPassportFlags,
 } from "@/lib/airiqBookingHelpers";
+import { resolveAiriqTripBookContext } from "@/lib/airiqTripContext";
+import { isRebookBookError, isRetryableSeatBookError } from "@/lib/airiqBookErrors";
 import { flightLegDates, flightRouteSummary } from "@/lib/flightTripMeta";
 
 interface AiriqBookingClientProps {
@@ -34,6 +36,7 @@ interface AiriqBookingClientProps {
 	traceId: string;
 	resultIndex: string;
 	isUpsellAllowed?: boolean;
+	searchJourneyType?: string;
 }
 
 export default function AiriqBookingClient({
@@ -42,6 +45,7 @@ export default function AiriqBookingClient({
 	infantCount,
 	traceId,
 	resultIndex,
+	searchJourneyType: searchJourneyTypeProp,
 }: // isUpsellAllowed reserved for future upsell functionality
 AiriqBookingClientProps) {
 	const persistAiriqFlightToMyTrips = (
@@ -138,6 +142,33 @@ AiriqBookingClientProps) {
 	const [addAncillaryLoading, setAddAncillaryLoading] = useState(false);
 	const [selectedMulticlassFare, setSelectedMulticlassFare] = useState<AiriqGetMultiClassFareResponse | null>(null);
 	const [returnFlightResult, setReturnFlightResult] = useState<FlightResult | null>(null);
+	const [searchJourneyType, setSearchJourneyType] = useState<string | undefined>(
+		searchJourneyTypeProp
+	);
+
+	useEffect(() => {
+		if (searchJourneyTypeProp) {
+			setSearchJourneyType(searchJourneyTypeProp);
+			try {
+				sessionStorage.setItem(
+					"lastFlightSearchJourneyType",
+					searchJourneyTypeProp
+				);
+			} catch {
+				/* ignore */
+			}
+		}
+	}, [searchJourneyTypeProp]);
+
+	const airiqTripContext = useMemo(
+		() =>
+			resolveAiriqTripBookContext({
+				flight: flightResult,
+				returnFlight: returnFlightResult,
+				searchJourneyType,
+			}),
+		[flightResult, returnFlightResult, searchJourneyType]
+	);
 
 	const effectivePricingData = useMemo(
 		() =>
@@ -163,6 +194,8 @@ AiriqBookingClientProps) {
 			}
 
 			const cache = JSON.parse(stored);
+			const jt = sessionStorage.getItem("lastFlightSearchJourneyType");
+			if (jt) setSearchJourneyType(jt);
 
 			// Find the flight with matching resultIndex (cache structure changed - no traceId in cache entries)
 			// Search through all cache entries to find the flight
@@ -262,6 +295,10 @@ AiriqBookingClientProps) {
 							adultCount,
 							childCount,
 							infantCount,
+							searchJourneyType:
+								searchJourneyType ||
+								sessionStorage.getItem("lastFlightSearchJourneyType") ||
+								undefined,
 						}),
 					});
 
@@ -452,7 +489,7 @@ AiriqBookingClientProps) {
 				contactNumber: leadPax.ContactNo || "",
 				emailId: leadPax.Email || "",
 			};
-			const tripType = flightResult?.ReturnResultIndex ? "R" : "O";
+			const tripType = airiqTripContext.tripType;
 			const bookingRequest = {
 				pricingData: effectivePricingDataForBook,
 				passengers: passengerData,
@@ -467,23 +504,95 @@ AiriqBookingClientProps) {
 				preferBlockPNR: true,
 				postAncillaryFlow: true,
 				tripType,
+				searchJourneyType:
+					searchJourneyType ||
+					(typeof sessionStorage !== "undefined"
+						? sessionStorage.getItem("lastFlightSearchJourneyType") || undefined
+						: undefined),
 			};
 			setCreateBookingLoading(true);
-			const response = await fetch("/api/travel/airiq/book", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(bookingRequest),
-			});
-			const result = await response.json();
-			if (!response.ok) throw new Error(result.error || "Booking failed");
-			const isSuccess = result._meta?.isSuccess;
-			const pnrs = result._meta?.pnrs as { airIqPNR: string; airlinePNR: string } | undefined;
-			const bookingTrackId = result._meta?.bookingTrackId as string | undefined;
-			const postAncillarySupported = result._meta?.postAncillarySupported === true;
-			const allowBlockPNR = result._meta?.allowBlockPNR === true;
+
+			const SEAT_BOOK_MAX_RETRIES = 3;
+			let result: Record<string, unknown> | null = null;
+			let response: Response | null = null;
+			let lastError = "Booking failed";
+
+			for (let attempt = 0; attempt <= SEAT_BOOK_MAX_RETRIES; attempt++) {
+				if (attempt > 0) {
+					toast.info(
+						`Seat may be stale — retrying booking (${attempt}/${SEAT_BOOK_MAX_RETRIES})…`
+					);
+					const pricingRefresh = await fetch("/api/travel/airiq/pricing", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							traceId,
+							resultIndex,
+							flight: flightResult,
+							returnFlight: returnFlightResult,
+							adultCount,
+							childCount,
+							infantCount,
+							searchJourneyType: bookingRequest.searchJourneyType,
+						}),
+					});
+					if (pricingRefresh.ok) {
+						const freshPricing = await pricingRefresh.json();
+						setPricingData(freshPricing);
+						bookingRequest.pricingData = selectedMulticlassFare
+							? mergeMulticlassFareWithPricing(
+									selectedMulticlassFare,
+									freshPricing
+								) ?? freshPricing
+							: freshPricing;
+					}
+				}
+
+				response = await fetch("/api/travel/airiq/book", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(bookingRequest),
+				});
+				result = await response.json();
+
+				if (response.ok) break;
+
+				const errMsg =
+					(typeof result?.error === "string" && result.error) || "Booking failed";
+				lastError = errMsg;
+
+				if (
+					result?.rebook === true ||
+					isRebookBookError(errMsg) ||
+					isRetryableSeatBookError(errMsg)
+				) {
+					if (attempt < SEAT_BOOK_MAX_RETRIES) continue;
+				}
+				break;
+			}
+
+			if (!response || !result) {
+				throw new Error(lastError);
+			}
+			if (!response.ok) throw new Error(lastError);
+			const bookResult = result as {
+				_meta?: {
+					isSuccess?: boolean;
+					pnrs?: { airIqPNR: string; airlinePNR: string };
+					bookingTrackId?: string;
+					postAncillarySupported?: boolean;
+					allowBlockPNR?: boolean;
+				};
+				Status?: { Error?: string };
+			};
+			const isSuccess = bookResult._meta?.isSuccess;
+			const pnrs = bookResult._meta?.pnrs;
+			const bookingTrackId = bookResult._meta?.bookingTrackId;
+			const postAncillarySupported = bookResult._meta?.postAncillarySupported === true;
+			const allowBlockPNR = bookResult._meta?.allowBlockPNR === true;
 
 			if (!isSuccess || !pnrs || !bookingTrackId) {
-				toast.error(result.Status?.Error || "Booking could not be created");
+				toast.error(bookResult.Status?.Error || "Booking could not be created");
 				return;
 			}
 
@@ -685,6 +794,7 @@ AiriqBookingClientProps) {
 								traceId={traceId}
 								resultIndex={resultIndex}
 								flight={flightResult}
+								returnFlight={returnFlightResult}
 								passengers={passengers}
 								adultCount={adultCount}
 								childCount={childCount}

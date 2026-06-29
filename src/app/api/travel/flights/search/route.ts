@@ -607,9 +607,12 @@ export async function POST(request: NextRequest) {
 
 		let airiqParams;
 		try {
-			airiqParams = convertTboToAiriqParams(searchParams);
-			// AIRiQ: no multi-city or TBO-only journey types (4 Advance, 5 Special Return)
-			if (journeyType === "3" || journeyType === "4" || journeyType === "5") {
+			airiqParams = convertTboToAiriqParams({
+				...searchParams,
+				SpecialReturnChannel: body.SpecialReturnChannel,
+			});
+			// AIRiQ: no multi-city or TBO-only advance search (JT=4). Special Return (JT=5) uses TripType Y.
+			if (journeyType === "3" || journeyType === "4") {
 				airiqParams = null;
 			}
 		} catch (_err) {

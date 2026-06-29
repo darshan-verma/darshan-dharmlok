@@ -8,6 +8,7 @@ interface AiriqBookingPageProps {
 	childCount: string;
 	infantCount: string;
 	isUpsellAllowed: boolean;
+	searchJourneyType?: string;
 }
 
 export default async function AiriqBookingPage({
@@ -17,6 +18,7 @@ export default async function AiriqBookingPage({
 	childCount,
 	infantCount,
 	isUpsellAllowed,
+	searchJourneyType,
 }: AiriqBookingPageProps) {
 	// returnResultIndex is for future use with round-trip flights
 	return (
@@ -28,6 +30,7 @@ export default async function AiriqBookingPage({
 				traceId={traceId}
 				resultIndex={resultIndex}
 				isUpsellAllowed={isUpsellAllowed}
+				searchJourneyType={searchJourneyType}
 			/>
 		</main>
 	);

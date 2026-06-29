@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
 	convertTripjackSearchToTboFormat,
 	groupOnwardTripInfosByRoutes,
+	matchMcLegsByOrigin,
 } from "./tripjackFlightSearch";
 import type { TripjackAirSearchResponse, TripjackTripInfo } from "@/types/tripjackFlight";
 
@@ -81,5 +82,39 @@ describe("TripJack multicity search conversion", () => {
 		expect(res.Response.Results[0][0]._tripjackMulticityMode).toBe("DOMESTIC_LEGS");
 		expect(res.Response.Results[0][0]._tripjackLegIndex).toBe(0);
 		expect(res.Response.Results[1][0]._tripjackLegIndex).toBe(1);
+	});
+
+	it("matches domestic multicity numeric leg keys by origin airport", () => {
+		const raw: TripjackAirSearchResponse = {
+			searchResult: {
+				tripInfos: {
+					"0": [trip("DEL", "BOM", "leg0-a")],
+					"1": [trip("BOM", "BLR", "leg1-a")],
+					ONWARD: [],
+				},
+			},
+		};
+		const routes = [
+			{ from: "DEL", to: "BOM" },
+			{ from: "BOM", to: "BLR" },
+		];
+		const matched = matchMcLegsByOrigin(
+			raw.searchResult!.tripInfos! as Parameters<typeof matchMcLegsByOrigin>[0],
+			routes,
+		);
+		expect(matched?.[0]).toHaveLength(1);
+		expect(matched?.[1]).toHaveLength(1);
+		expect(matched?.[0][0].totalPriceList?.[0]?.id).toBe("leg0-a");
+
+		const res = convertTripjackSearchToTboFormat(
+			raw,
+			"3",
+			"trace-3",
+			{ adults: 1, children: 0, infants: 0 },
+			routes,
+		);
+		expect(res.Response.Results).toHaveLength(2);
+		expect(res.Response.Results[0][0].ResultIndex).toBe("leg0-a");
+		expect(res.Response.Results[1][0].ResultIndex).toBe("leg1-a");
 	});
 });

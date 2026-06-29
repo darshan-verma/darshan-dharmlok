@@ -103,6 +103,7 @@ export default async function BookingPage({ searchParams }: PageProps) {
 				childCount={childCount}
 				infantCount={infantCount}
 				isUpsellAllowed={isUpsellAllowed}
+				searchJourneyType={journeyType}
 			/>
 		);
 	}

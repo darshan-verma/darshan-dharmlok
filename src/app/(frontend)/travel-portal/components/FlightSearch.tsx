@@ -1456,6 +1456,15 @@ export default function FlightSearch() {
 				});
 			}
 
+			try {
+				sessionStorage.setItem(
+					"lastFlightSearchJourneyType",
+					String(searchData.journeyType)
+				);
+			} catch {
+				/* ignore */
+			}
+
 			// Save last search parameters for form restoration (UI state only)
 			const lastSearchData: Record<
 				string,

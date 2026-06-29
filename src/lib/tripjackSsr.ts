@@ -55,6 +55,44 @@ function selKey(pax: number, segmentIndex: number): string {
 	return `${pax}-${segmentIndex}`;
 }
 
+/** All seated passengers have a physical seat on every segment (mandatory seat flows). */
+export function tripjackPhysicalSeatsComplete(
+	picks: TripjackSsrPickState,
+	segments: TripjackFlatSegment[],
+	seatedTravellers: number,
+): boolean {
+	if (!segments.length || seatedTravellers <= 0) return true;
+	for (let p = 0; p < seatedTravellers; p++) {
+		for (const seg of segments) {
+			const k = selKey(p, seg.segmentIndex);
+			if (!picks.physicalSeats[k]?.code) return false;
+		}
+	}
+	return true;
+}
+
+/** Merge UAT-style auto seat picks into SSR pick state for book payload. */
+export function tripjackMergeAutoSeatsIntoPicks(
+	picks: TripjackSsrPickState,
+	segments: TripjackFlatSegment[],
+	seatByTraveller: Array<Array<{ key: string; code: string; amount?: number }>>,
+): TripjackSsrPickState {
+	const physicalSeats = { ...picks.physicalSeats };
+	for (let p = 0; p < seatByTraveller.length; p++) {
+		for (const seat of seatByTraveller[p] || []) {
+			const seg = segments.find((s) => s.segmentKey === seat.key);
+			if (!seg) continue;
+			const k = selKey(p, seg.segmentIndex);
+			if (physicalSeats[k]?.code) continue;
+			physicalSeats[k] = {
+				code: seat.code,
+				amount: typeof seat.amount === "number" ? seat.amount : 0,
+			};
+		}
+	}
+	return { ...picks, physicalSeats };
+}
+
 export interface TripjackSsrPickState {
 	baggage: Record<string, TripjackSsrCatalogItem | null>;
 	meals: Record<string, TripjackSsrCatalogItem | null>;

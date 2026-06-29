@@ -221,17 +221,18 @@ export function formatAiriqBookTotalAmount(
 	amount: number,
 	rawSample?: string
 ): string {
+	const rounded = Math.round(amount * 100) / 100;
 	const sample = rawSample?.trim();
 	if (sample && /^\d+$/.test(sample)) {
-		return String(Math.round(amount));
+		return String(Math.round(rounded));
 	}
 	if (sample && /^\d+\.\d{1,2}$/.test(sample)) {
-		return amount.toFixed(2);
+		return rounded.toFixed(2);
 	}
-	if (Math.abs(amount - Math.round(amount)) < 0.001) {
-		return String(Math.round(amount));
+	if (Math.abs(rounded - Math.round(rounded)) < 0.001) {
+		return String(Math.round(rounded));
 	}
-	return amount.toFixed(2);
+	return rounded.toFixed(2);
 }
 
 export function getBookTotalAmountStringFromPriceInfo(

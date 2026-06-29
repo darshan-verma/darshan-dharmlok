@@ -40,8 +40,9 @@ export interface AiriqFlightSearchRequest {
 		AppType: string;
 		Version: number;
 	};
-	TripType: string; // O=OneWay, R=Return, M=MultiCity
+	TripType: string; // O=OneWay, R=Return, M=MultiCity, Y=Special Return
 	AirlineID: string;
+	AirlineCategory?: string; // LCC | FSC — required for TripType Y
 	AvailInfo: AiriqAvailInfo[];
 	PassengersInfo: {
 		AdultCount: string;
@@ -471,6 +472,29 @@ export interface AiriqRetrieveBookingResponse {
 	Status: {
 		Error: string;
 		ResultCode: string; // "1" = success, "0" = failure, "-1" = exception
+		SequenceID: string;
+	};
+}
+
+/** TrackStatus — resolve PNR after ambiguous Book pending (#56). */
+export interface AiriqTrackStatusRequest {
+	AgentInfo: {
+		AgentId: string;
+		UserName: string;
+		AppType: string;
+		Version: number;
+	};
+	Item: Array<{ BookingTrackId: string }>;
+}
+
+export interface AiriqTrackStatusResponse {
+	TrackStatusresponse?: unknown;
+	Retrieveresponse?: unknown;
+	Trackresponse?: unknown;
+	Bookingresponse?: unknown;
+	Status?: {
+		Error: string;
+		ResultCode: string;
 		SequenceID: string;
 	};
 }

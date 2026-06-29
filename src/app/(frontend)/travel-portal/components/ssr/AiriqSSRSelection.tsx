@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { PassengerDetail, FlightResult } from "@/types/tbo";
 import type { AiriqPricingResponse, AiriqSeatMapResponse } from "@/types/airiq";
+import { resolveAiriqTripBookContext } from "@/lib/airiqTripContext";
 
 // Type aliases for pricing response items (removed - using inline types instead)
 import {
@@ -20,6 +21,7 @@ interface AiriqSSRSelectionProps {
 	traceId: string;
 	resultIndex: string;
 	flight: FlightResult;
+	returnFlight?: FlightResult | null;
 	passengers: PassengerDetail[];
 	adultCount: number;
 	childCount: number;
@@ -40,6 +42,7 @@ export default function AiriqSSRSelection({
 	traceId,
 	resultIndex,
 	flight,
+	returnFlight,
 	passengers,
 	adultCount,
 	childCount,
@@ -190,7 +193,15 @@ export default function AiriqSSRSelection({
 						flightDetailsCount: priceInfo?.FlightDetails?.length || 0,
 					} : null,
 				});
-				const tripType = flight.ReturnResultIndex ? "R" : "O";
+				const tripType = resolveAiriqTripBookContext({
+					flight,
+					returnFlight,
+					searchJourneyType:
+						typeof sessionStorage !== "undefined"
+							? sessionStorage.getItem("lastFlightSearchJourneyType") ||
+								undefined
+							: undefined,
+				}).tripType;
 				const response = await fetch("/api/travel/airiq/seat-map", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -198,12 +209,18 @@ export default function AiriqSSRSelection({
 						traceId,
 						resultIndex,
 						flight,
+						returnFlight,
 						passengers: passengersForSeatMap,
 						adultCount,
 						childCount,
 						infantCount,
 						pricingData,
 						tripType,
+						searchJourneyType:
+							typeof sessionStorage !== "undefined"
+								? sessionStorage.getItem("lastFlightSearchJourneyType") ||
+									undefined
+								: undefined,
 					}),
 				});
 
