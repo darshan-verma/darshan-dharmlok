@@ -19,6 +19,8 @@ interface TravellerSelectorProps {
 	transportType?: string;
 	onTravellersChange: (count: TravellerCount) => void;
 	onClassChange: (classType: string) => void;
+	/** TBO allows max 9 passengers (adults + children + infants). */
+	maxPassengers?: number;
 }
 
 export default function TravellerSelector({
@@ -27,6 +29,7 @@ export default function TravellerSelector({
 	transportType,
 	onTravellersChange,
 	onClassChange,
+	maxPassengers,
 }: TravellerSelectorProps) {
 	const [open, setOpen] = useState(false);
 
@@ -63,6 +66,26 @@ export default function TravellerSelector({
 	}, [travellers]);
 
 	const totalTravellers = adults + children + infants;
+	const atMaxPassengers =
+		maxPassengers != null && totalTravellers >= maxPassengers;
+
+	const canAddTraveller = () =>
+		maxPassengers == null || totalTravellers < maxPassengers;
+
+	const emitCounts = (
+		nextAdults: number,
+		nextChildren: number,
+		nextInfants: number,
+	) => {
+		setAdults(nextAdults);
+		setChildren(nextChildren);
+		setInfants(nextInfants);
+		onTravellersChange({
+			adults: nextAdults,
+			children: nextChildren,
+			infants: nextInfants,
+		});
+	};
 
 	// Default classes for air, bus, road etc.
 	const defaultClasses = ["Economy", "Premium Economy", "Business"];
@@ -111,7 +134,11 @@ export default function TravellerSelector({
 						</div>
 						<div className="flex items-center gap-3">
 							<button
-								onClick={() => setAdults(Math.max(1, adults - 1))}
+								onClick={() => {
+									const nextAdults = Math.max(1, adults - 1);
+									const nextInfants = Math.min(infants, nextAdults);
+									emitCounts(nextAdults, children, nextInfants);
+								}}
 								disabled={adults <= 1}
 								className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-blue-600 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 							>
@@ -119,8 +146,11 @@ export default function TravellerSelector({
 							</button>
 							<span className="w-6 text-center font-semibold">{adults}</span>
 							<button
-								onClick={() => setAdults(adults + 1)}
-								className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-blue-600 hover:text-blue-600 transition-colors"
+								onClick={() => {
+									if (canAddTraveller()) emitCounts(adults + 1, children, infants);
+								}}
+								disabled={atMaxPassengers}
+								className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-blue-600 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 							>
 								<Plus className="h-4 w-4" />
 							</button>
@@ -135,7 +165,9 @@ export default function TravellerSelector({
 						</div>
 						<div className="flex items-center gap-3">
 							<button
-								onClick={() => setChildren(Math.max(0, children - 1))}
+								onClick={() => {
+									emitCounts(adults, Math.max(0, children - 1), infants);
+								}}
 								disabled={children <= 0}
 								className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-blue-600 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 							>
@@ -143,8 +175,11 @@ export default function TravellerSelector({
 							</button>
 							<span className="w-6 text-center font-semibold">{children}</span>
 							<button
-								onClick={() => setChildren(children + 1)}
-								className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-blue-600 hover:text-blue-600 transition-colors"
+								onClick={() => {
+									if (canAddTraveller()) emitCounts(adults, children + 1, infants);
+								}}
+								disabled={atMaxPassengers}
+								className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-blue-600 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 							>
 								<Plus className="h-4 w-4" />
 							</button>
@@ -159,7 +194,9 @@ export default function TravellerSelector({
 						</div>
 						<div className="flex items-center gap-3">
 							<button
-								onClick={() => setInfants(Math.max(0, infants - 1))}
+								onClick={() => {
+									emitCounts(adults, children, Math.max(0, infants - 1));
+								}}
 								disabled={infants <= 0}
 								className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-blue-600 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 							>
@@ -167,8 +204,13 @@ export default function TravellerSelector({
 							</button>
 							<span className="w-6 text-center font-semibold">{infants}</span>
 							<button
-								onClick={() => setInfants(infants + 1)}
-								className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-blue-600 hover:text-blue-600 transition-colors"
+								onClick={() => {
+									if (canAddTraveller() && infants < adults) {
+										emitCounts(adults, children, infants + 1);
+									}
+								}}
+								disabled={atMaxPassengers || infants >= adults}
+								className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-blue-600 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 							>
 								<Plus className="h-4 w-4" />
 							</button>
@@ -197,15 +239,18 @@ export default function TravellerSelector({
 						</div>
 					</div>
 
-					{/* Apply Button */}
+					{maxPassengers != null && (
+						<p className="text-xs text-gray-500">
+							Maximum {maxPassengers} passengers (TBO limit)
+						</p>
+					)}
+
+					{/* Done — counts are applied live on each change */}
 					<button
-						onClick={() => {
-							onTravellersChange({ adults, children, infants });
-							setOpen(false);
-						}}
+						onClick={() => setOpen(false)}
 						className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
 					>
-						APPLY
+						DONE
 					</button>
 				</div>
 			</PopoverContent>

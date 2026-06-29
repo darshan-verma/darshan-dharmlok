@@ -206,6 +206,9 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 function hasNominee(ni: unknown): boolean {
+	if (Array.isArray(ni)) {
+		return ni.some((row) => isPlainObject(row) && Object.keys(row).length > 0);
+	}
 	if (!isPlainObject(ni)) return false;
 	return Object.keys(ni).length > 0;
 }

@@ -68,6 +68,7 @@ import MinimalFlightSearch from "@/components/travel-portal/MinimalFlightSearch"
 import {
 	TBO_API_CABIN_TO_UI,
 	TBO_CABIN_CLASS,
+	TBO_MAX_PASSENGERS,
 	TBO_UI_CABIN_TO_API,
 } from "@/lib/tboFlightSearch";
 
@@ -430,10 +431,22 @@ export default function FlightSearch() {
 			hasLoadedCacheRef.current = false;
 		}
 
-		// Parse travellers
-		const adultCount = adults ? parseInt(adults) : 1;
-		const childCount = children ? parseInt(children) : 0;
-		const infantCount = infants ? parseInt(infants) : 0;
+		// Parse travellers (TBO max 9)
+		const parsedAdults = adults ? parseInt(adults, 10) : 1;
+		const parsedChildren = children ? parseInt(children, 10) : 0;
+		const parsedInfants = infants ? parseInt(infants, 10) : 0;
+		let adultCount = Number.isFinite(parsedAdults) ? parsedAdults : 1;
+		let childCount = Number.isFinite(parsedChildren) ? parsedChildren : 0;
+		let infantCount = Number.isFinite(parsedInfants) ? parsedInfants : 0;
+		while (adultCount + childCount + infantCount > TBO_MAX_PASSENGERS) {
+			if (infantCount > 0) infantCount -= 1;
+			else if (childCount > 0) childCount -= 1;
+			else {
+				adultCount = TBO_MAX_PASSENGERS;
+				break;
+			}
+		}
+		if (infantCount > adultCount) infantCount = adultCount;
 
 		// Update state and form
 		setTravellers({
@@ -596,6 +609,13 @@ export default function FlightSearch() {
 	const handleToChange = (city: City) => {
 		setTo(city);
 		form.setValue("destination", city.code);
+	};
+
+	const syncTravellerFormState = (count: TravellerCount) => {
+		setTravellers(count);
+		form.setValue("adults", count.adults);
+		form.setValue("children", count.children);
+		form.setValue("infants", count.infants);
 	};
 
 	const handleTripTypeChange = (type: string) => {
@@ -1041,6 +1061,12 @@ export default function FlightSearch() {
 	) => {
 		const forceRefresh = options?.forceRefresh === true;
 
+		syncTravellerFormState({
+			adults: searchData.adults,
+			children: searchData.children,
+			infants: searchData.infants,
+		});
+
 		// Comprehensive validation for all journey types
 		if (
 			searchData.journeyType === "1" ||
@@ -1097,8 +1123,10 @@ export default function FlightSearch() {
 			toast.error("At least 1 adult is required");
 			return;
 		}
-		if (searchData.adults + searchData.children + searchData.infants > 9) {
-			toast.error("Maximum 9 passengers allowed (adults + children + infants)");
+		if (searchData.adults + searchData.children + searchData.infants > TBO_MAX_PASSENGERS) {
+			toast.error(
+				`Maximum ${TBO_MAX_PASSENGERS} passengers allowed (adults + children + infants)`,
+			);
 			return;
 		}
 		if (searchData.infants > searchData.adults) {
@@ -1585,21 +1613,33 @@ export default function FlightSearch() {
 	};
 
 	const onSubmit = async (data: FlightSearchForm) => {
+		const searchData: FlightSearchForm = {
+			...data,
+			adults: travellers.adults,
+			children: travellers.children,
+			infants: travellers.infants,
+		};
+		syncTravellerFormState({
+			adults: searchData.adults,
+			children: searchData.children,
+			infants: searchData.infants,
+		});
+
 		// Generate cache key to clear specific entry when user manually submits
 		// Use normalized dates for cache key generation
 		const cacheKeyParams: Record<
 			string,
 			string | number | Array<Record<string, string>>
 		> = {
-			AdultCount: String(data.adults),
-			ChildCount: String(data.children),
-			InfantCount: String(data.infants),
-			FlightCabinClass: data.cabinClass,
-			JourneyType: data.journeyType,
-			DirectFlight: String(data.directFlight),
-			OneStopFlight: String(data.oneStopFlight),
-			fareProfile: data.fareProfile,
-			preferredAirlinesKey: data.preferredAirlines
+			AdultCount: String(searchData.adults),
+			ChildCount: String(searchData.children),
+			InfantCount: String(searchData.infants),
+			FlightCabinClass: searchData.cabinClass,
+			JourneyType: searchData.journeyType,
+			DirectFlight: String(searchData.directFlight),
+			OneStopFlight: String(searchData.oneStopFlight),
+			fareProfile: searchData.fareProfile,
+			preferredAirlinesKey: searchData.preferredAirlines
 				.split(/[\s,]+/)
 				.map((c) => c.trim().toUpperCase())
 				.filter((c) => c.length >= 2)
@@ -1607,28 +1647,28 @@ export default function FlightSearch() {
 				.join(","),
 		};
 
-		if (data.journeyType === "3" && data.segments) {
-			cacheKeyParams.Segments = data.segments.map((segment) => ({
+		if (searchData.journeyType === "3" && searchData.segments) {
+			cacheKeyParams.Segments = searchData.segments.map((segment) => ({
 				Origin: segment.origin.toUpperCase(),
 				Destination: segment.destination.toUpperCase(),
-				FlightCabinClass: data.cabinClass,
+				FlightCabinClass: searchData.cabinClass,
 				PreferredDepartureTime: segment.departureDate
 					? normalizeDate(new Date(segment.departureDate))
 					: "",
 			}));
 		} else {
-			cacheKeyParams.Origin = data.origin.toUpperCase();
-			cacheKeyParams.Destination = data.destination.toUpperCase();
-			cacheKeyParams.PreferredDepartureTime = data.departureDate
-				? normalizeDate(new Date(data.departureDate))
+			cacheKeyParams.Origin = searchData.origin.toUpperCase();
+			cacheKeyParams.Destination = searchData.destination.toUpperCase();
+			cacheKeyParams.PreferredDepartureTime = searchData.departureDate
+				? normalizeDate(new Date(searchData.departureDate))
 				: "";
 			if (
-				data.journeyType === "2" ||
-				data.journeyType === "4" ||
-				data.journeyType === "5"
+				searchData.journeyType === "2" ||
+				searchData.journeyType === "4" ||
+				searchData.journeyType === "5"
 			) {
-				cacheKeyParams.ReturnPreferredDepartureTime = data.returnDate
-					? normalizeDate(new Date(data.returnDate))
+				cacheKeyParams.ReturnPreferredDepartureTime = searchData.returnDate
+					? normalizeDate(new Date(searchData.returnDate))
 					: "";
 			}
 		}
@@ -1637,7 +1677,7 @@ export default function FlightSearch() {
 		// Clear this specific cache entry to force fresh search
 		flightCache.clearKey(cacheKey);
 
-		await handleAutoSearch(data, { forceRefresh: true });
+		await handleAutoSearch(searchData, { forceRefresh: true });
 	};
 
 	const handleFlightBook = async (flight: FlightResult) => {
@@ -1977,12 +2017,8 @@ export default function FlightSearch() {
 									<TravellerSelector
 										travellers={travellers}
 										travelClass={travelClass}
-										onTravellersChange={(count) => {
-											setTravellers(count);
-											form.setValue("adults", count.adults);
-											form.setValue("children", count.children);
-											form.setValue("infants", count.infants);
-										}}
+										maxPassengers={TBO_MAX_PASSENGERS}
+										onTravellersChange={syncTravellerFormState}
 										onClassChange={(cls) => {
 											setTravelClass(cls);
 											form.setValue(

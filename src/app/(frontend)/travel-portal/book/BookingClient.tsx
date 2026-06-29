@@ -22,6 +22,11 @@ import {
 	resolveSsrForPassenger,
 	validateMandatorySsrForPassenger,
 } from "@/lib/tboBookingSsr";
+import {
+	isValidTboContactNumber,
+	sanitizeTboContactNumberInput,
+	validateTboPassengerCounts,
+} from "@/lib/tboFlightSearch";
 import type {
 	FlightResult,
 	PassengerDetail,
@@ -306,6 +311,15 @@ export default function BookingClient({
 				return;
 			}
 
+			const adults = passengerData.filter((p) => p.PaxType === 1).length;
+			const children = passengerData.filter((p) => p.PaxType === 2).length;
+			const infants = passengerData.filter((p) => p.PaxType === 3).length;
+			const paxCountError = validateTboPassengerCounts(adults, children, infants);
+			if (paxCountError) {
+				toast.error(paxCountError);
+				return;
+			}
+
 			if (traceIdExpired) {
 				toast.error("Session expired (TraceId expired after 15 minutes). Please search again.");
 				return;
@@ -395,6 +409,12 @@ export default function BookingClient({
 					toast.error(`Passenger ${i + 1}: Contact number is required`);
 					return;
 				}
+				if (!isValidTboContactNumber(p.ContactNo)) {
+					toast.error(
+						`Passenger ${i + 1}: Contact number must be digits only (6–15 digits)`,
+					);
+					return;
+				}
 				if (!p.Email?.trim()) {
 					toast.error(`Passenger ${i + 1}: Email address is required`);
 					return;
@@ -452,6 +472,21 @@ export default function BookingClient({
 					toast.error("GST details are mandatory for this booking. Please provide GST information.");
 					return;
 				}
+				const gstContact = leadPax.GSTCompanyContactNumber?.trim() || "";
+				if (!isValidTboContactNumber(gstContact)) {
+					toast.error(
+						"GST company contact number must be digits only (6–15 digits)",
+					);
+					return;
+				}
+			} else {
+				const gstContact = passengerData[0]?.GSTCompanyContactNumber?.trim();
+				if (gstContact && !isValidTboContactNumber(gstContact)) {
+					toast.error(
+						"GST company contact number must be digits only (6–15 digits)",
+					);
+					return;
+				}
 			}
 
 			const tboPassengers: TboBookPassenger[] = passengerData.map((p, index) => {
@@ -500,7 +535,9 @@ export default function BookingClient({
 					DateOfBirth: p.DateOfBirth || undefined,
 					Gender: p.Gender,
 					GSTCompanyAddress: gstData.GSTCompanyAddress || "",
-					GSTCompanyContactNumber: gstData.GSTCompanyContactNumber || "",
+					GSTCompanyContactNumber: sanitizeTboContactNumberInput(
+						gstData.GSTCompanyContactNumber || "",
+					),
 					GSTCompanyName: gstData.GSTCompanyName || "",
 					GSTNumber: gstData.GSTNumber || "",
 					GSTCompanyEmail: gstData.GSTCompanyEmail || "",
@@ -514,7 +551,7 @@ export default function BookingClient({
 					City: p.City,
 					CountryCode: p.CountryCode,
 					CountryName: p.CountryName || "India",
-					ContactNo: p.ContactNo,
+					ContactNo: sanitizeTboContactNumberInput(p.ContactNo?.trim() || ""),
 					Email: p.Email,
 					IsLeadPax: index === 0,
 					FFAirlineCode: p.FFAirlineCode ?? null,

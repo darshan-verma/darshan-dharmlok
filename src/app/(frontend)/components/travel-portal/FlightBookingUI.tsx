@@ -6,6 +6,7 @@ import TripTypeSelector from "./TripTypeSelector";
 import FromToSelector from "./FromToSelector";
 import DateSelector from "./DateSelector";
 import TravellerSelector, { TravellerCount } from "./TravellerSelector";
+import { TBO_MAX_PASSENGERS } from "@/lib/tboFlightSearch";
 import SpecialFareOptions from "./SpecialFareOptions";
 import SearchButton from "./SearchButton";
 import MultiCitySelector from "./MultiCitySelector";
@@ -317,6 +318,7 @@ export default function FlightBookingUI() {
 											travellers={travellers}
 											travelClass={travelClass}
 											transportType={transportType}
+											maxPassengers={TBO_MAX_PASSENGERS}
 											onTravellersChange={setTravellers}
 											onClassChange={setTravelClass}
 										/>
@@ -349,6 +351,7 @@ export default function FlightBookingUI() {
 												travellers={travellers}
 												travelClass={travelClass}
 												transportType={transportType}
+												maxPassengers={TBO_MAX_PASSENGERS}
 												onTravellersChange={setTravellers}
 												onClassChange={setTravelClass}
 											/>

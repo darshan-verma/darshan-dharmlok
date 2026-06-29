@@ -78,8 +78,8 @@ export interface TripsafeInsuranceTraveller {
 	eid?: string;
 	pnum?: string;
 	gen?: string;
-	/** Nominee — mandatory per spec */
-	ni: TripsafeNomineeInfo | Record<string, unknown>;
+	/** Nominee — mandatory per spec; provider expects an array of nominee objects */
+	ni: TripsafeNomineeInfo[] | TripsafeNomineeInfo | Record<string, unknown>;
 	[key: string]: unknown;
 }
 

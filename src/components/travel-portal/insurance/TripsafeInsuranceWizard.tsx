@@ -235,11 +235,13 @@ export default function TripsafeInsuranceWizard() {
 			eid: t.eid.trim() || undefined,
 			pnum: t.pnum.trim() || undefined,
 			gen: t.gen,
-			ni: {
-				relation: t.niRelation,
-				fn: t.niFn.trim(),
-				ln: t.niLn.trim(),
-			},
+			ni: [
+				{
+					relation: t.niRelation,
+					fn: t.niFn.trim(),
+					ln: t.niLn.trim(),
+				},
+			],
 		}));
 
 		const pli: Record<string, unknown> = {

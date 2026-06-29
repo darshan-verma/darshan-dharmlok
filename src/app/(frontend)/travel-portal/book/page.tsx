@@ -16,6 +16,7 @@ import {
 	isSpecialReturnJourneyType,
 	resolveTboSpecialReturnResultIndex,
 	resolveTboSpecialReturnTicketResultIndex,
+	validateTboPassengerCounts,
 } from "@/lib/tboFlightSearch";
 import {
 	isPricedTboResultIndex,
@@ -68,10 +69,27 @@ export default async function BookingPage({ searchParams }: PageProps) {
 
 	const isUpsellAllowed = isUpsellAllowedParam === "true";
 
+	const parsedAdults = parseInt(adultCount, 10) || 1;
+	const parsedChildren = parseInt(childCount, 10) || 0;
+	const parsedInfants = parseInt(infantCount, 10) || 0;
+	const paxCountError = validateTboPassengerCounts(
+		parsedAdults,
+		parsedChildren,
+		parsedInfants,
+	);
+
 	if (!traceId || !resultIndex) {
 		return (
 			<div className="p-4">
 				Missing booking details. Please search for a flight first.
+			</div>
+		);
+	}
+
+	if (apiSource !== "TRIPJACK" && paxCountError) {
+		return (
+			<div className="p-4">
+				{paxCountError}. Please search again with a valid passenger count.
 			</div>
 		);
 	}
@@ -565,9 +583,9 @@ export default async function BookingPage({ searchParams }: PageProps) {
 	return (
 		<main className="min-h-screen bg-gray-50/50 pb-20">
 			<BookingClient
-				adultCount={parseInt(adultCount)}
-				childCount={parseInt(childCount)}
-				infantCount={parseInt(infantCount)}
+				adultCount={parsedAdults}
+				childCount={parsedChildren}
+				infantCount={parsedInfants}
 				traceId={traceId}
 				resultIndex={ticketResultIndex}
 				bookResultIndex={bookingResultIndex}

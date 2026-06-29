@@ -155,16 +155,45 @@ export function extractBookingIdFromReview(data: unknown): string | undefined {
 
 /** Surface a payable total from review/pricing blobs when possible */
 export function extractSuggestedWalletAmount(data: unknown): number | undefined {
+	const asRecord = (v: unknown): Record<string, unknown> | null =>
+		v && typeof v === "object" && !Array.isArray(v)
+			? (v as Record<string, unknown>)
+			: null;
+
+	const root = asRecord(data);
+	const iinfo = asRecord(root?.iinfo);
+	const pli = iinfo?.pli;
+	if (Array.isArray(pli)) {
+		for (const plan of pli) {
+			const products = asRecord(plan)?.pi;
+			if (!Array.isArray(products)) continue;
+			for (const product of products) {
+				const tfd = asRecord(product)?.tfd;
+				const total = asRecord(asRecord(tfd)?.ifc)?.TF;
+				if (typeof total === "number" && Number.isFinite(total) && total > 0) {
+					return total;
+				}
+			}
+		}
+	}
+
 	const walk = (v: unknown, depth: number): number | undefined => {
-		if (depth > 12) return undefined;
+		if (depth > 20) return undefined;
+		if (Array.isArray(v)) {
+			for (const item of v) {
+				const n = walk(item, depth + 1);
+				if (n != null) return n;
+			}
+			return undefined;
+		}
 		const o = asRecord(v);
 		if (!o) return undefined;
 		for (const key of ["TF", "tf", "totalFare", "amount", "payable"]) {
 			const x = o[key];
-			if (typeof x === "number" && Number.isFinite(x) && x >= 0) return x;
+			if (typeof x === "number" && Number.isFinite(x) && x > 0) return x;
 			if (typeof x === "string" && x.trim()) {
 				const n = Number.parseFloat(x);
-				if (Number.isFinite(n) && n >= 0) return n;
+				if (Number.isFinite(n) && n > 0) return n;
 			}
 		}
 		for (const val of Object.values(o)) {

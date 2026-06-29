@@ -1,4 +1,9 @@
 import type { TboBookPassenger } from "@/types/tbo";
+import {
+	TBO_MAX_PASSENGERS,
+	validateTboContactNumber,
+	validateTboPassengerCounts,
+} from "@/lib/tboFlightSearch";
 
 export interface TboBookPassengerValidationOptions {
 	/** When true, lead passenger must have non-empty GST fields (IsGSTMandatory). */
@@ -37,6 +42,21 @@ export function validateTboBookPassengers(
 			error: "Passengers must be a non-empty array",
 			status: 400,
 		};
+	}
+
+	if (passengers.length > TBO_MAX_PASSENGERS) {
+		return {
+			error: `Maximum ${TBO_MAX_PASSENGERS} passengers allowed per TBO booking`,
+			status: 400,
+		};
+	}
+
+	const adults = passengers.filter((p) => Number((p as TboBookPassenger).PaxType) === 1).length;
+	const children = passengers.filter((p) => Number((p as TboBookPassenger).PaxType) === 2).length;
+	const infants = passengers.filter((p) => Number((p as TboBookPassenger).PaxType) === 3).length;
+	const paxCountError = validateTboPassengerCounts(adults, children, infants);
+	if (paxCountError) {
+		return { error: paxCountError, status: 400 };
 	}
 
 	for (let i = 0; i < passengers.length; i++) {
@@ -107,6 +127,21 @@ export function validateTboBookPassengers(
 				error: `${label}: AddressLine1, City, CountryCode, CountryName, ContactNo, Email are required`,
 				status: 400,
 			};
+		}
+
+		const contactError = validateTboContactNumber(p.ContactNo, `${label}: Contact number`);
+		if (contactError) {
+			return { error: contactError, status: 400 };
+		}
+
+		if (p.GSTCompanyContactNumber?.trim()) {
+			const gstContactError = validateTboContactNumber(
+				p.GSTCompanyContactNumber,
+				`${label}: GST company contact number`,
+			);
+			if (gstContactError) {
+				return { error: gstContactError, status: 400 };
+			}
 		}
 
 		const nationality = (p.Nationality || "").trim().toUpperCase();

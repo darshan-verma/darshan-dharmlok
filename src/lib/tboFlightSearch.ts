@@ -97,6 +97,35 @@ export function validateTboPassengerCounts(
 	return null;
 }
 
+/** TBO Book API: ContactNo must be numeric digits only (no letters or symbols). */
+export function isValidTboContactNumber(value: string): boolean {
+	return /^\d{6,15}$/.test(value.trim());
+}
+
+/** Indian mobile numbers shown in the travel portal UI. */
+export function isValidIndianMobileNumber(value: string): boolean {
+	return /^\d{10}$/.test(value.trim());
+}
+
+/** Strip non-digits as the user types. */
+export function sanitizeTboContactNumberInput(
+	value: string,
+	maxDigits = 15,
+): string {
+	return value.replace(/\D/g, "").slice(0, maxDigits);
+}
+
+export function validateTboContactNumber(
+	value: string,
+	fieldLabel = "Contact number",
+): string | null {
+	if (!value.trim()) return null;
+	if (!isValidTboContactNumber(value)) {
+		return `${fieldLabel} must contain digits only (6–15 digits)`;
+	}
+	return null;
+}
+
 /** TBO doc: PreferredArrivalTime mandatory — default to same calendar day as departure */
 export function defaultPreferredArrivalTime(departureIso: string): string {
 	if (!departureIso) return "";

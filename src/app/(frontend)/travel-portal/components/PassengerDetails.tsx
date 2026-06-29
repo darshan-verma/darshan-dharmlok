@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,13 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { getFareBreakdown } from "@/lib/tboFareCalculations";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
+import {
+	isValidIndianMobileNumber,
+	sanitizeTboContactNumberInput,
+} from "@/lib/tboFlightSearch";
+
+const INDIAN_MOBILE_DIGITS = 10;
+import { TboPhoneInput } from "@/components/travel-portal/TboPhoneInput";
 import type { ReferenceCodeWarning } from "@/lib/reference-code-validation";
 import { collectFlightReferenceWarningsClient } from "@/lib/reference-code-validation-client";
 import { AirportCodeLabel } from "@/components/travel-portal/ReferenceCodeLabel";
@@ -133,8 +140,8 @@ export default function PassengerDetails({
 		control,
 		handleSubmit,
 		watch,
-		formState: {},
-	} = useForm({
+		formState: { errors },
+	} = useForm<{ passengers: FormPassenger[] }>({
 		defaultValues: {
 			passengers: [
 				...Array(adultCount).fill({
@@ -361,7 +368,24 @@ export default function PassengerDetails({
 	const onSubmit = async (data: { passengers: FormPassenger[] }) => {
 		const warnings = await collectFlightReferenceWarningsClient(flightResult);
 		setReferenceWarnings(warnings);
-		const formattedPassengers = data.passengers.map(
+
+		const passengers = data.passengers.map((p) => ({
+			...p,
+			contactNo: sanitizeTboContactNumberInput(
+				p.contactNo || "",
+				INDIAN_MOBILE_DIGITS,
+			),
+			gstCompanyContactNumber: sanitizeTboContactNumberInput(
+				p.gstCompanyContactNumber || "",
+				INDIAN_MOBILE_DIGITS,
+			),
+			emergencyContactPhone: sanitizeTboContactNumberInput(
+				p.emergencyContactPhone || "",
+				INDIAN_MOBILE_DIGITS,
+			),
+		}));
+
+		const formattedPassengers = passengers.map(
 			(p: FormPassenger, index: number) => {
 				const basePassenger: PassengerDetail = {
 					Title: p.title,
@@ -697,12 +721,43 @@ export default function PassengerDetails({
 											</div>
 											<div className="space-y-2">
 												<Label>Contact No</Label>
-												<Input
-													{...register(`passengers.${index}.contactNo`, {
-														required: true,
-													})}
-													placeholder="Contact Number"
+												<Controller
+													name={`passengers.${index}.contactNo`}
+													control={control}
+													rules={{
+														required: "Contact number is required",
+														validate: (value) =>
+															isValidIndianMobileNumber(String(value || "")) ||
+															"Enter a 10-digit mobile number",
+													}}
+													render={({ field }) => (
+														<TboPhoneInput
+															{...field}
+															maxDigits={INDIAN_MOBILE_DIGITS}
+															value={field.value ?? ""}
+															onChange={(e) =>
+																field.onChange(
+																	sanitizeTboContactNumberInput(
+																		e.target.value,
+																		INDIAN_MOBILE_DIGITS,
+																	),
+																)
+															}
+															placeholder="10-digit mobile number"
+															aria-invalid={Boolean(
+																errors.passengers?.[index]?.contactNo,
+															)}
+														/>
+													)}
 												/>
+												{errors.passengers?.[index]?.contactNo && (
+													<p className="text-sm text-red-600">
+														{String(
+															errors.passengers[index]?.contactNo?.message ||
+																"Invalid contact number",
+														)}
+													</p>
+												)}
 											</div>
 											<div className="space-y-2">
 												<Label>Email</Label>
@@ -734,12 +789,43 @@ export default function PassengerDetails({
 												</div>
 												<div className="space-y-2">
 													<Label>Phone</Label>
-													<Input
-														{...register(`passengers.${index}.emergencyContactPhone`, {
-															required: true,
-														})}
-														placeholder="Emergency phone"
+													<Controller
+														name={`passengers.${index}.emergencyContactPhone`}
+														control={control}
+														rules={{
+															required: "Emergency phone is required",
+															validate: (value) =>
+																isValidIndianMobileNumber(String(value || "")) ||
+																"Enter a 10-digit mobile number",
+														}}
+														render={({ field }) => (
+															<TboPhoneInput
+																{...field}
+																maxDigits={INDIAN_MOBILE_DIGITS}
+																value={field.value ?? ""}
+																onChange={(e) =>
+																	field.onChange(
+																		sanitizeTboContactNumberInput(
+																			e.target.value,
+																			INDIAN_MOBILE_DIGITS,
+																		),
+																	)
+																}
+																placeholder="10-digit mobile number"
+																aria-invalid={Boolean(
+																	errors.passengers?.[index]?.emergencyContactPhone,
+																)}
+															/>
+														)}
 													/>
+													{errors.passengers?.[index]?.emergencyContactPhone && (
+														<p className="text-sm text-red-600">
+															{String(
+																errors.passengers[index]?.emergencyContactPhone
+																	?.message || "Invalid phone number",
+															)}
+														</p>
+													)}
 												</div>
 												<div className="space-y-2 md:col-span-2">
 													<Label>Email</Label>
@@ -793,12 +879,51 @@ export default function PassengerDetails({
 												</div>
 												<div className="space-y-2">
 													<Label>Company Contact</Label>
-													<Input
-														{...register(`passengers.${index}.gstCompanyContactNumber`, {
-															required: requireGST,
-														})}
-														placeholder="Company Phone"
+													<Controller
+														name={`passengers.${index}.gstCompanyContactNumber`}
+														control={control}
+														rules={{
+															required: requireGST
+																? "Company contact is required"
+																: false,
+															validate: (value) => {
+																const v = String(value || "").trim();
+																if (!v) return true;
+																return (
+																	isValidIndianMobileNumber(v) ||
+																	"Enter a 10-digit mobile number"
+																);
+															},
+														}}
+														render={({ field }) => (
+															<TboPhoneInput
+																{...field}
+																maxDigits={INDIAN_MOBILE_DIGITS}
+																value={field.value ?? ""}
+																onChange={(e) =>
+																	field.onChange(
+																		sanitizeTboContactNumberInput(
+																			e.target.value,
+																			INDIAN_MOBILE_DIGITS,
+																		),
+																	)
+																}
+																placeholder="10-digit company phone"
+																aria-invalid={Boolean(
+																	errors.passengers?.[index]
+																		?.gstCompanyContactNumber,
+																)}
+															/>
+														)}
 													/>
+													{errors.passengers?.[index]?.gstCompanyContactNumber && (
+														<p className="text-sm text-red-600">
+															{String(
+																errors.passengers[index]?.gstCompanyContactNumber
+																	?.message || "Invalid company contact",
+															)}
+														</p>
+													)}
 												</div>
 												<div className="space-y-2">
 													<Label>Company Email</Label>

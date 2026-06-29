@@ -57,8 +57,39 @@ describe("validateTboBookPassengers", () => {
 
 	it("requires child DOB", () => {
 		const result = validateTboBookPassengers([
-			basePassenger({ PaxType: 2, DateOfBirth: "", IsLeadPax: false }),
+			basePassenger({ IsLeadPax: true }),
+			basePassenger({
+				PaxType: 2,
+				DateOfBirth: "",
+				IsLeadPax: false,
+				FirstName: "Child",
+			}),
 		]);
 		expect(result?.error).toMatch(/DateOfBirth/);
+	});
+
+	it("rejects more than 9 passengers", () => {
+		const passengers = Array.from({ length: 10 }, (_, i) =>
+			basePassenger({
+				IsLeadPax: i === 0,
+				FirstName: `Pax${i + 1}`,
+			}),
+		);
+		const result = validateTboBookPassengers(passengers);
+		expect(result?.error).toMatch(/Maximum 9/);
+	});
+
+	it("rejects alphanumeric contact numbers", () => {
+		const result = validateTboBookPassengers([
+			basePassenger({ ContactNo: "abc1234567" }),
+		]);
+		expect(result?.error).toMatch(/Contact number/);
+	});
+
+	it("rejects alphanumeric GST company contact numbers", () => {
+		const result = validateTboBookPassengers([
+			basePassenger({ GSTCompanyContactNumber: "phone-123" }),
+		]);
+		expect(result?.error).toMatch(/GST company contact/);
 	});
 });

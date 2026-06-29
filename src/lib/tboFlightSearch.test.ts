@@ -7,6 +7,9 @@ import {
 	resolveTboSpecialReturnTicketResultIndex,
 	tboSeparateReturnResultIndex,
 	TBO_CABIN_CLASS,
+	isValidIndianMobileNumber,
+	isValidTboContactNumber,
+	sanitizeTboContactNumberInput,
 	validateTboPassengerCounts,
 } from "./tboFlightSearch";
 import type { FareQuoteResponse } from "@/types/tbo";
@@ -19,6 +22,30 @@ describe("tboFlightSearch", () => {
 
 	it("rejects more than 9 passengers", () => {
 		expect(validateTboPassengerCounts(5, 3, 2)).toMatch(/Maximum 9/);
+	});
+
+	it("validates numeric contact numbers", () => {
+		expect(isValidTboContactNumber("9876543210")).toBe(true);
+		expect(isValidTboContactNumber("abc123")).toBe(false);
+		expect(isValidTboContactNumber("+91 9876543210")).toBe(false);
+	});
+
+	it("validates 10-digit Indian mobile numbers", () => {
+		expect(isValidIndianMobileNumber("9876543210")).toBe(true);
+		expect(isValidIndianMobileNumber("987654321")).toBe(false);
+		expect(isValidIndianMobileNumber("98765432101")).toBe(false);
+	});
+
+	it("sanitizes contact input to digits only", () => {
+		expect(sanitizeTboContactNumberInput("dsdada")).toBe("");
+		expect(sanitizeTboContactNumberInput("98abc76")).toBe("9876");
+		expect(sanitizeTboContactNumberInput("+91 98765-43210")).toBe("919876543210");
+		expect(sanitizeTboContactNumberInput("123456789012345678")).toBe(
+			"123456789012345",
+		);
+		expect(sanitizeTboContactNumberInput("123456789012345678", 10)).toBe(
+			"1234567890",
+		);
 	});
 
 	it("pairs special return OB+IB on same airline", () => {
