@@ -17,10 +17,15 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import type { TripsafeNomineeRelation, TripsafeStudentCourseDays } from "@/types/tripsafe";
+import { TboPhoneInput } from "@/components/travel-portal/TboPhoneInput";
+import type { TripsafeNomineeRelation } from "@/types/tripsafe";
+import type { TripsafeEmbeddedFlightOption } from "@/lib/tripsafeEmbeddedFlight";
+import {
+	AirportCombobox,
+	CountryCombobox,
+} from "@/components/travel-portal/insurance/TripsafeSearchPickers";
 import {
 	extractBookingIdFromReview,
-	extractFirstInsurancePlanRawIds,
 	extractInsurancePlanProducts,
 	extractSuggestedWalletAmount,
 	getTripsafeDefaultTripDates,
@@ -28,9 +33,19 @@ import {
 } from "@/lib/tripsafeUiNormalize";
 import { ChevronLeft, Loader2, Shield, Umbrella } from "lucide-react";
 
-const POPULAR_KEYS = ["SCH", "EUR", "MDE", "USC", "ASI"] as const;
+const POPULAR_KEYS = ["SCH", "EUR", "MDE", "USC", "ASI", "WW", "XUSC"] as const;
 
 type Step = "search" | "plans" | "travelers" | "done";
+
+type InsuranceType = "STANDARD" | "STUDENT" | "AMT";
+
+type RegionType = "POPULARREGION" | "COUNTRY";
+
+type RegionDraft = { rkey: string; rt: RegionType };
+
+/** Student flows accept 90+; AMT (annual multi-trip) coverage is 30/45/60/90. */
+const STUDENT_COURSE_DAYS = [90, 180, 365, 730, 1095] as const;
+const AMT_COVERAGE_DAYS = [30, 45, 60, 90] as const;
 
 type TravellerDraft = {
 	dob: string;
@@ -54,8 +69,6 @@ const NOMINEE_RELATIONS: TripsafeNomineeRelation[] = [
 	"OTHER",
 ];
 
-const COURSE_DAYS: TripsafeStudentCourseDays[] = [180, 365, 730, 1095];
-
 function emptyTraveller(): TravellerDraft {
 	return {
 		dob: "",
@@ -75,11 +88,21 @@ export default function TripsafeInsuranceWizard() {
 	const [loading, setLoading] = useState(false);
 
 	const [{ sd, ed }, setTripRange] = useState(() => getTripsafeDefaultTripDates());
-	const [popularKey, setPopularKey] = useState<string>("ASI");
-	const [countryCode, setCountryCode] = useState("");
+	const [regions, setRegions] = useState<RegionDraft[]>([
+		{ rkey: "ASI", rt: "POPULARREGION" },
+	]);
 	const [ages, setAges] = useState<number[]>([30]);
-	const [student, setStudent] = useState(false);
-	const [cd, setCd] = useState<TripsafeStudentCourseDays>(365);
+	const [insuranceType, setInsuranceType] = useState<InsuranceType>("STANDARD");
+	const [cd, setCd] = useState<number>(365);
+
+	const [embedded, setEmbedded] = useState(false);
+	const [flightFrom, setFlightFrom] = useState("DEL");
+	const [flightTo, setFlightTo] = useState("DXB");
+	const [flightJourney, setFlightJourney] = useState<"ONEWAY" | "RETURN">("ONEWAY");
+	const [flightReturnDate, setFlightReturnDate] = useState("");
+	const [flightLoading, setFlightLoading] = useState(false);
+	const [flightOptions, setFlightOptions] = useState<TripsafeEmbeddedFlightOption[]>([]);
+	const [selectedPriceId, setSelectedPriceId] = useState("");
 
 	const [studentCourse, setStudentCourse] = useState({
 		cn: "",
@@ -92,7 +115,6 @@ export default function TripsafeInsuranceWizard() {
 		se: "",
 	});
 
-	const [searchPayload, setSearchPayload] = useState<unknown>(null);
 	const [plans, setPlans] = useState<ExtractedInsurancePlanProduct[]>([]);
 	const [selected, setSelected] = useState<ExtractedInsurancePlanProduct | null>(null);
 	const [reviewRaw, setReviewRaw] = useState<unknown>(null);
@@ -107,36 +129,104 @@ export default function TripsafeInsuranceWizard() {
 	);
 
 	function buildSearchBody() {
-		const iri: { rkey: string; rt: "POPULARREGION" | "COUNTRY" }[] = [];
-		const cc = countryCode.trim().toUpperCase();
-		// Match Postman: country-only search uses a single COUNTRY entry (not POPULARREGION+COUNTRY).
-		if (cc) {
-			iri.push({ rkey: cc, rt: "COUNTRY" });
-		} else if (popularKey.trim()) {
-			iri.push({
-				rkey: popularKey.trim().toUpperCase(),
-				rt: "POPULARREGION",
-			});
-		} else {
-			iri.push({ rkey: "ASI", rt: "POPULARREGION" });
-		}
+		const iri = regions
+			.map((r) => ({ rkey: r.rkey.trim().toUpperCase(), rt: r.rt }))
+			.filter((r) => r.rkey);
+		if (!iri.length) iri.push({ rkey: "ASI", rt: "POPULARREGION" });
 
 		const iti = ages.map((age) => ({ age: Math.floor(age) }));
+		// Embedded (flight-linked) insurance carries the selected flight's priceId in isp.
+		const isp: Record<string, unknown> =
+			embedded && selectedPriceId ? { priceIds: [selectedPriceId] } : {};
 		const isq: Record<string, unknown> = {
 			sd,
 			ed,
 			isc: { iri },
 			iti,
-			isp: {},
+			isp,
 		};
-		if (student) {
+		// Student sends ict + cd; AMT (annual multi-trip) coverage sends cd only,
+		// matching TripJack certified payloads (AMT search carries cd without ict).
+		if (insuranceType === "STUDENT") {
 			isq.ict = "STUDENT";
+			isq.cd = cd;
+		} else if (insuranceType === "AMT") {
 			isq.cd = cd;
 		}
 		return { isq };
 	}
 
+	async function findFlights() {
+		if (!flightFrom.trim() || !flightTo.trim() || !sd) {
+			toast.error("From, to and start date are required to search flights");
+			return;
+		}
+		if (flightFrom.trim().toUpperCase() === flightTo.trim().toUpperCase()) {
+			toast.error("From and to airports must be different");
+			return;
+		}
+		const today = new Date().toISOString().slice(0, 10);
+		if (sd < today) {
+			toast.error("Departure (trip start date) cannot be in the past");
+			return;
+		}
+		if (flightJourney === "RETURN") {
+			if (!flightReturnDate) {
+				toast.error("Return date is required for a round trip");
+				return;
+			}
+			// Outbound uses the trip start date (sd); the return leg must be on/after it.
+			if (flightReturnDate < sd) {
+				toast.error("Return date must be on or after the departure (start) date");
+				return;
+			}
+		}
+		setFlightLoading(true);
+		try {
+			const res = await fetch("/api/travel/tripsafe/embedded-flight-search", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					from: flightFrom.trim().toUpperCase(),
+					to: flightTo.trim().toUpperCase(),
+					departDate: sd,
+					returnDate: flightJourney === "RETURN" ? flightReturnDate : undefined,
+					journeyType: flightJourney,
+					adults: ages.length,
+				}),
+			});
+			const json = await res.json();
+			if (!res.ok || !json.success) {
+				throw new Error(json.error || "Flight search failed");
+			}
+			const options: TripsafeEmbeddedFlightOption[] = json.data?.options ?? [];
+			setFlightOptions(options);
+			setSelectedPriceId("");
+			if (!options.length) {
+				toast.message("No flights found", {
+					description: "Try different dates or route.",
+				});
+			} else {
+				toast.success(`Found ${options.length} flight option(s)`);
+			}
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : "Flight search failed");
+		} finally {
+			setFlightLoading(false);
+		}
+	}
+
+	function selectFlight(option: TripsafeEmbeddedFlightOption) {
+		setSelectedPriceId(option.priceId);
+		// Align insurance coverage to the itinerary (matches UAT runner behaviour).
+		setTripRange({ sd: option.sd, ed: option.ed });
+	}
+
 	async function runSearch() {
+		if (embedded && !selectedPriceId) {
+			toast.error("Select a flight to link before searching embedded plans");
+			return;
+		}
 		setLoading(true);
 		try {
 			const body = buildSearchBody();
@@ -150,18 +240,12 @@ export default function TripsafeInsuranceWizard() {
 				throw new Error(json.error || "Search failed");
 			}
 			const data = json.data;
-			setSearchPayload(data);
 			const list = extractInsurancePlanProducts(data);
 			setPlans(list);
 			if (!list.length) {
-				const raw = extractFirstInsurancePlanRawIds(data);
-				const description =
-					raw?.plid && !raw?.pid
-						? "Found plid but not pid under pli[0].pi[0] — Review requires both."
-						: !raw?.plid
-							? "Could not find plid (try isr.iinfo.pli[0] or data.isr when wrapped)."
-							: "Provider may use a different shape; check raw response or try another region.";
-				toast.message("No structured plans parsed", { description });
+				toast.message("No plans found", {
+					description: "Try different dates, destination, or traveller details.",
+				});
 			}
 			setStep("plans");
 			toast.success("Search complete");
@@ -259,7 +343,9 @@ export default function TripsafeInsuranceWizard() {
 			paymentInfos: [{ method: "WALLET", amount: amountNum }],
 			pli: [pli],
 		};
-		if (student) {
+		// Only student bookings carry ict/cd/sc; AMT coverage is priced at search
+		// time and the book payload stays standard (matches certified UAT payloads).
+		if (insuranceType === "STUDENT") {
 			payload.ict = "STUDENT";
 			payload.cd = cd;
 			const sc = Object.fromEntries(
@@ -286,6 +372,28 @@ export default function TripsafeInsuranceWizard() {
 		} finally {
 			setLoading(false);
 		}
+	}
+
+	function changeInsuranceType(next: InsuranceType) {
+		setInsuranceType(next);
+		if (next === "AMT" && !AMT_COVERAGE_DAYS.includes(cd as never)) {
+			setCd(30);
+		} else if (next === "STUDENT" && !STUDENT_COURSE_DAYS.includes(cd as never)) {
+			setCd(365);
+		}
+	}
+
+	function addRegion() {
+		setRegions([...regions, { rkey: "", rt: "COUNTRY" }]);
+	}
+
+	function removeRegion(idx: number) {
+		if (regions.length <= 1) return;
+		setRegions(regions.filter((_, i) => i !== idx));
+	}
+
+	function updateRegion(idx: number, patch: Partial<RegionDraft>) {
+		setRegions(regions.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
 	}
 
 	function addAgeRow() {
@@ -316,10 +424,10 @@ export default function TripsafeInsuranceWizard() {
 						<Umbrella className="w-8 h-8" />
 					</div>
 					<div>
-						<h1 className="text-2xl font-semibold text-gray-900">Travel insurance</h1>
+						<h1 className="text-2xl font-semibold text-gray-900">Dharmlok Travel Insurance</h1>
 						<p className="text-gray-600 text-sm mt-1">
-							Search TripSafe plans, review pricing, then complete traveller and nominee details.
-							Payment uses wallet per TripJack TripSafe rules.
+							Search plans, review pricing, then complete traveller and nominee details
+							to protect your trip.
 						</p>
 						<div className="flex gap-2 mt-3">
 							<Link
@@ -384,35 +492,74 @@ export default function TripsafeInsuranceWizard() {
 								</div>
 							</div>
 
-							<div className="grid sm:grid-cols-2 gap-4">
-								<div className="space-y-2">
-									<Label>Popular region</Label>
-									<Select value={popularKey} onValueChange={setPopularKey}>
-										<SelectTrigger>
-											<SelectValue placeholder="Region" />
-										</SelectTrigger>
-										<SelectContent>
-											{POPULAR_KEYS.map((k) => (
-												<SelectItem key={k} value={k}>
-													{k}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
+							<div className="space-y-3">
+								<div className="flex items-center justify-between">
+									<Label>Regions / countries</Label>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onClick={addRegion}
+									>
+										Add region
+									</Button>
 								</div>
 								<div className="space-y-2">
-									<Label htmlFor="cc">Country code (optional)</Label>
-									<Input
-										id="cc"
-										placeholder="e.g. US"
-										value={countryCode}
-										onChange={(e) => setCountryCode(e.target.value)}
-									/>
-									<p className="text-xs text-gray-500">
-										If filled, search uses only this country (matches Postman). Leave empty to
-										use the popular region above.
-									</p>
+									{regions.map((r, idx) => (
+										<div key={idx} className="flex flex-wrap items-center gap-2">
+											<Select
+												value={r.rt}
+												onValueChange={(v) =>
+													updateRegion(idx, { rt: v as RegionType, rkey: "" })
+												}
+											>
+												<SelectTrigger className="w-44">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="POPULARREGION">Popular region</SelectItem>
+													<SelectItem value="COUNTRY">Country</SelectItem>
+												</SelectContent>
+											</Select>
+											{r.rt === "POPULARREGION" ? (
+												<Select
+													value={r.rkey}
+													onValueChange={(v) => updateRegion(idx, { rkey: v })}
+												>
+													<SelectTrigger className="w-44">
+														<SelectValue placeholder="Region" />
+													</SelectTrigger>
+													<SelectContent>
+														{POPULAR_KEYS.map((k) => (
+															<SelectItem key={k} value={k}>
+																{k}
+															</SelectItem>
+														))}
+													</SelectContent>
+												</Select>
+										) : (
+											<CountryCombobox
+												value={r.rkey}
+												onChange={(code) => updateRegion(idx, { rkey: code })}
+											/>
+										)}
+											{regions.length > 1 && (
+												<Button
+													type="button"
+													variant="ghost"
+													size="sm"
+													onClick={() => removeRegion(idx)}
+												>
+													×
+												</Button>
+											)}
+										</div>
+									))}
 								</div>
+								<p className="text-xs text-gray-500">
+									Add multiple popular regions or countries. Country picks are sent as
+									ISO codes (e.g. India → IN, United States → US).
+								</p>
 							</div>
 
 							<div className="space-y-3">
@@ -450,40 +597,169 @@ export default function TripsafeInsuranceWizard() {
 								</div>
 							</div>
 
-							<div className="flex items-center gap-2">
-								<Checkbox
-									id="stu"
-									checked={student}
-									onCheckedChange={(c) => setStudent(c === true)}
-								/>
-								<Label htmlFor="stu" className="font-normal cursor-pointer">
-									Student insurance
-								</Label>
-							</div>
-							{student && (
+							<div className="grid sm:grid-cols-2 gap-4">
 								<div className="space-y-2 max-w-xs">
-									<Label>Course duration (days)</Label>
+									<Label>Insurance type</Label>
 									<Select
-										value={String(cd)}
-										onValueChange={(v) => setCd(Number(v) as TripsafeStudentCourseDays)}
+										value={insuranceType}
+										onValueChange={(v) => changeInsuranceType(v as InsuranceType)}
 									>
 										<SelectTrigger>
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
-											{COURSE_DAYS.map((d) => (
-												<SelectItem key={d} value={String(d)}>
-													{d} days
-												</SelectItem>
-											))}
+											<SelectItem value="STANDARD">Standard</SelectItem>
+											<SelectItem value="STUDENT">Student</SelectItem>
+											<SelectItem value="AMT">Annual multi-trip (AMT)</SelectItem>
 										</SelectContent>
 									</Select>
 								</div>
-							)}
+								{insuranceType !== "STANDARD" && (
+									<div className="space-y-2 max-w-xs">
+										<Label>
+											{insuranceType === "AMT"
+												? "Coverage duration (days)"
+												: "Course duration (days)"}
+										</Label>
+										<Select value={String(cd)} onValueChange={(v) => setCd(Number(v))}>
+											<SelectTrigger>
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												{(insuranceType === "AMT"
+													? AMT_COVERAGE_DAYS
+													: STUDENT_COURSE_DAYS
+												).map((d) => (
+													<SelectItem key={d} value={String(d)}>
+														{d} days
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
+								)}
+							</div>
+
+							<Separator />
+
+							<div className="space-y-4">
+								<div className="flex items-center gap-2">
+									<Checkbox
+										id="embedded"
+										checked={embedded}
+										onCheckedChange={(c) => {
+											setEmbedded(c === true);
+											setSelectedPriceId("");
+											setFlightOptions([]);
+										}}
+									/>
+									<Label htmlFor="embedded" className="font-normal cursor-pointer">
+										Embedded (link to a flight)
+									</Label>
+								</div>
+
+								{embedded && (
+									<div className="space-y-4 rounded-lg border border-orange-100 bg-orange-50/30 p-4">
+										<div className="grid sm:grid-cols-4 gap-3">
+											<div className="space-y-1">
+												<Label className="text-xs">From</Label>
+												<AirportCombobox
+													value={flightFrom}
+													onChange={setFlightFrom}
+													placeholder="From city / airport"
+												/>
+											</div>
+											<div className="space-y-1">
+												<Label className="text-xs">To</Label>
+												<AirportCombobox
+													value={flightTo}
+													onChange={setFlightTo}
+													placeholder="To city / airport"
+												/>
+											</div>
+											<div className="space-y-1">
+												<Label className="text-xs">Journey</Label>
+												<Select
+													value={flightJourney}
+													onValueChange={(v) =>
+														setFlightJourney(v as "ONEWAY" | "RETURN")
+													}
+												>
+													<SelectTrigger>
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="ONEWAY">One way</SelectItem>
+														<SelectItem value="RETURN">Round trip</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+											{flightJourney === "RETURN" && (
+												<div className="space-y-1">
+													<Label className="text-xs">Return date</Label>
+													<Input
+														type="date"
+														value={flightReturnDate}
+														onChange={(e) => setFlightReturnDate(e.target.value)}
+													/>
+												</div>
+											)}
+										</div>
+										<p className="text-xs text-gray-500">
+											Outbound uses the trip start date above. Selecting a flight
+											aligns the insurance coverage dates to the itinerary.
+										</p>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											disabled={flightLoading}
+											onClick={findFlights}
+										>
+											{flightLoading ? (
+												<Loader2 className="w-4 h-4 animate-spin mr-2" />
+											) : null}
+											Find flights
+										</Button>
+
+										{flightOptions.length > 0 && (
+											<div className="space-y-2">
+												{flightOptions.map((o) => {
+													const active = o.priceId === selectedPriceId;
+													return (
+														<button
+															type="button"
+															key={o.priceId}
+															onClick={() => selectFlight(o)}
+															className={`w-full text-left rounded-md border p-3 text-sm transition ${
+																active
+																	? "border-orange-500 bg-orange-100/60"
+																	: "border-gray-200 bg-white hover:border-orange-300"
+															}`}
+														>
+															<div className="flex items-center justify-between gap-2">
+																<span className="font-medium">{o.label}</span>
+																{active && (
+																	<Badge variant="secondary">Selected</Badge>
+																)}
+															</div>
+															<div className="text-xs text-gray-500 mt-1">
+																Coverage {o.sd} → {o.ed}
+															</div>
+														</button>
+													);
+												})}
+											</div>
+										)}
+									</div>
+								)}
+							</div>
 
 							<Button
 								className="w-full sm:w-auto"
-								disabled={loading || !sd || !ed}
+								disabled={
+									loading || !sd || !ed || (embedded && !selectedPriceId)
+								}
 								onClick={runSearch}
 							>
 								{loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
@@ -502,14 +778,11 @@ export default function TripsafeInsuranceWizard() {
 						{!plans.length ? (
 							<Card>
 								<CardContent className="pt-6 text-sm text-gray-600">
-									<p>No plan list could be parsed from the response.</p>
+									<p>No plans are available for this trip.</p>
 									<p className="mt-2">
-										Use UAT credentials and verify the provider payload, or inspect the raw JSON
-										below for manual testing.
+										Please adjust your dates, destination, or traveller details and search
+										again.
 									</p>
-									<pre className="mt-4 p-3 bg-gray-100 rounded text-xs overflow-auto max-h-64">
-										{JSON.stringify(searchPayload, null, 2)}
-									</pre>
 								</CardContent>
 							</Card>
 						) : (
@@ -521,9 +794,7 @@ export default function TripsafeInsuranceWizard() {
 												<CardTitle className="text-lg">
 													{p.title || "Insurance plan"}
 												</CardTitle>
-												<Badge variant="secondary">PID: {p.pid}</Badge>
 											</div>
-											<CardDescription>Plan ID: {p.plid}</CardDescription>
 										</CardHeader>
 										<CardContent>
 											<Button
@@ -561,18 +832,16 @@ export default function TripsafeInsuranceWizard() {
 						<Card>
 							<CardHeader>
 								<CardTitle>Review snapshot</CardTitle>
-								<CardDescription>
-									{selected.title} · Plan {selected.plid} · Product {selected.pid}
-								</CardDescription>
+								<CardDescription>{selected.title}</CardDescription>
 							</CardHeader>
 							<CardContent className="space-y-4">
 								<div className="grid sm:grid-cols-2 gap-4">
 									<div className="space-y-2">
-										<Label>Booking ID (from review)</Label>
+										<Label>Booking reference</Label>
 										<Input
 											value={bookingId}
 											onChange={(e) => setBookingId(e.target.value)}
-											placeholder="Paste bid / bookingId if missing"
+											placeholder="Booking reference"
 										/>
 									</div>
 									<div className="space-y-2">
@@ -603,7 +872,7 @@ export default function TripsafeInsuranceWizard() {
 							</CardContent>
 						</Card>
 
-						{student && (
+						{insuranceType === "STUDENT" && (
 							<Card>
 								<CardHeader>
 									<CardTitle className="text-base">Student details</CardTitle>
@@ -692,7 +961,7 @@ export default function TripsafeInsuranceWizard() {
 										</div>
 										<div className="space-y-1">
 											<Label>Mobile (Indian)</Label>
-											<Input
+											<TboPhoneInput
 												value={t.pnum}
 												onChange={(e) => updateTraveller(idx, { pnum: e.target.value })}
 												placeholder="9XXXXXXXXX"
@@ -741,15 +1010,8 @@ export default function TripsafeInsuranceWizard() {
 
 						<Button disabled={loading} className="w-full" onClick={runBook}>
 							{loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-							Pay with wallet &amp; book
+							Pay &amp; book
 						</Button>
-
-						<details className="text-xs text-gray-500">
-							<summary className="cursor-pointer">Review API raw</summary>
-							<pre className="mt-2 p-3 bg-gray-100 rounded overflow-auto max-h-48">
-								{JSON.stringify(reviewRaw, null, 2)}
-							</pre>
-						</details>
 					</div>
 				)}
 
@@ -758,7 +1020,7 @@ export default function TripsafeInsuranceWizard() {
 						<CardHeader>
 							<CardTitle>Booking submitted</CardTitle>
 							<CardDescription>
-								Booking reference (review):{" "}
+								Booking reference:{" "}
 								<code className="bg-white px-1 rounded">{bookingId}</code>
 							</CardDescription>
 						</CardHeader>

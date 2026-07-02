@@ -204,3 +204,141 @@ export function extractSuggestedWalletAmount(data: unknown): number | undefined 
 	};
 	return walk(data, 0);
 }
+
+export interface TripsafeBookingTravellerSummary {
+	id?: number;
+	name: string;
+	age?: number;
+	email?: string;
+	phone?: string;
+	policyNumber?: string;
+}
+
+export interface TripsafeBookingSummary {
+	bookingId?: string;
+	status?: string;
+	amount?: number;
+	createdOn?: string;
+	coverageStart?: string;
+	coverageEnd?: string;
+	planTitle?: string;
+	travellers: TripsafeBookingTravellerSummary[];
+}
+
+export interface TripsafeCancellationTarget {
+	plid: string;
+	pid: string;
+	travellerId: number;
+	label: string;
+}
+
+function insuranceDetailsRoot(data: unknown): Record<string, unknown> | null {
+	const root = asRecord(data);
+	if (!root) return null;
+	const nested = asRecord(root.data);
+	return nested && nested !== root ? nested : root;
+}
+
+function insuranceItemInfo(data: unknown): Record<string, unknown> | null {
+	const root = insuranceDetailsRoot(data);
+	if (!root) return null;
+	const itemInfos = asRecord(root.itemInfos);
+	const insurance = asRecord(itemInfos?.INSURANCE);
+	return asRecord(insurance?.iinfo) ?? insurance;
+}
+
+function productTitle(product: Record<string, unknown>): string | undefined {
+	const tier = typeof product.pi === "string" ? product.pi : undefined;
+	const sumLabel = typeof product.pn === "string" ? product.pn : undefined;
+	return [tier, sumLabel].filter(Boolean).join(" · ") || undefined;
+}
+
+/** Customer-facing booking summary from insurance booking-details payload. */
+export function extractInsuranceBookingSummary(
+	data: unknown,
+): TripsafeBookingSummary | null {
+	const root = insuranceDetailsRoot(data);
+	if (!root) return null;
+
+	const order = asRecord(root.order);
+	const iinfo = insuranceItemInfo(data);
+	const pli = Array.isArray(iinfo?.pli) ? iinfo!.pli : [];
+	const firstPlan = pli.length ? asRecord(pli[0]) : null;
+	const products = Array.isArray(firstPlan?.pi) ? firstPlan!.pi : [];
+	const firstProduct = products.length ? asRecord(products[0]) : null;
+
+	const insuranceBlock = asRecord(asRecord(root.itemInfos)?.INSURANCE);
+	const isq = asRecord(insuranceBlock?.isq) ?? asRecord(iinfo?.isq);
+
+	const travellers: TripsafeBookingTravellerSummary[] = [];
+	const itiSource =
+		(Array.isArray(firstProduct?.iti) && firstProduct!.iti) ||
+		(Array.isArray(isq?.iti) && isq!.iti) ||
+		[];
+	for (const row of itiSource) {
+		const t = asRecord(row);
+		if (!t) continue;
+		const fn = typeof t.fn === "string" ? t.fn.trim() : "";
+		const ln = typeof t.ln === "string" ? t.ln.trim() : "";
+		const name = [fn, ln].filter(Boolean).join(" ");
+		if (!name) continue;
+		travellers.push({
+			id: typeof t.id === "number" ? t.id : undefined,
+			name,
+			age: typeof t.age === "number" ? t.age : undefined,
+			email: typeof t.eid === "string" ? t.eid : undefined,
+			phone: typeof t.pnum === "string" ? t.pnum : undefined,
+			policyNumber:
+				typeof t.policyId === "string" ? t.policyId : undefined,
+		});
+	}
+
+	return {
+		bookingId:
+			(typeof order?.bookingId === "string" && order.bookingId) ||
+			undefined,
+		status: typeof order?.status === "string" ? order.status : undefined,
+		amount: typeof order?.amount === "number" ? order.amount : undefined,
+		createdOn:
+			typeof order?.createdOn === "string" ? order.createdOn : undefined,
+		coverageStart: typeof isq?.sd === "string" ? isq.sd : undefined,
+		coverageEnd: typeof isq?.ed === "string" ? isq.ed : undefined,
+		planTitle: firstProduct ? productTitle(firstProduct) : undefined,
+		travellers,
+	};
+}
+
+/** Rows usable for cancellation `travellerKeys` without exposing raw API ids in the UI. */
+export function extractInsuranceCancellationTargets(
+	data: unknown,
+): TripsafeCancellationTarget[] {
+	const iinfo = insuranceItemInfo(data);
+	const pli = Array.isArray(iinfo?.pli) ? iinfo!.pli : [];
+	const out: TripsafeCancellationTarget[] = [];
+
+	for (const plan of pli) {
+		const planRec = asRecord(plan);
+		const plid = planRec?.plid != null ? String(planRec.plid).trim() : "";
+		if (!plid) continue;
+		const products = Array.isArray(planRec?.pi) ? planRec!.pi : [];
+		for (const product of products) {
+			const prod = asRecord(product);
+			const pid = prod?.pid != null ? String(prod.pid).trim() : "";
+			if (!pid) continue;
+			const iti = Array.isArray(prod?.iti) ? prod!.iti : [];
+			for (const row of iti) {
+				const t = asRecord(row);
+				const travellerId =
+					typeof t?.id === "number" ? t.id : Number.parseInt(String(t?.id), 10);
+				if (!Number.isFinite(travellerId)) continue;
+				const fn = typeof t?.fn === "string" ? t.fn.trim() : "";
+				const ln = typeof t?.ln === "string" ? t.ln.trim() : "";
+				const age = typeof t?.age === "number" ? `, age ${t.age}` : "";
+				const label = [fn, ln].filter(Boolean).join(" ") + age || `Traveller ${travellerId}`;
+				out.push({ plid, pid, travellerId, label: label.trim() });
+			}
+		}
+	}
+
+	return out;
+}

@@ -29,12 +29,20 @@ export async function POST(request: NextRequest) {
 
 		const parsed = parseTripsafeSearch(body);
 		if (!parsed.ok) {
+			console.warn("[TripSafe search] local validation failed", {
+				error: parsed.error,
+				body,
+			});
 			return NextResponse.json(
 				{ success: false, error: parsed.error },
 				{ status: 400 },
 			);
 		}
 
+		console.info(
+			"[TripSafe search] sending payload",
+			JSON.stringify(parsed.data),
+		);
 		const data = await searchTripsafeInsurance(parsed.data);
 		return NextResponse.json({ success: true, data });
 	} catch (error) {
@@ -42,6 +50,11 @@ export async function POST(request: NextRequest) {
 			error,
 			"TripSafe search failed",
 		);
+		console.error("[TripSafe search] failed", {
+			status,
+			message,
+			providerError: JSON.stringify(providerError)?.slice(0, 1000),
+		});
 		const is403 =
 			status === 403 ||
 			(error instanceof TripjackApiError && error.status === 403);

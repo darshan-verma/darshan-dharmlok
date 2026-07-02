@@ -31,13 +31,8 @@ const searchIsqSchema = z
 			.min(1)
 			.max(10, "Max 10 travellers"),
 		isp: z.record(z.unknown()).optional(),
-		ict: z.literal("STUDENT").optional(),
-		cd: z.union([
-			z.literal(180),
-			z.literal(365),
-			z.literal(730),
-			z.literal(1095),
-		]).optional(),
+		ict: z.enum(["STUDENT", "AMT"]).optional(),
+		cd: z.number().int().positive("cd must be a positive number of days").optional(),
 	})
 	.superRefine((val, ctx) => {
 		const sd = new Date(`${val.sd}T00:00:00`);
@@ -74,10 +69,10 @@ const searchIsqSchema = z
 			}
 		}
 
-		if (student && val.cd == null) {
+		if (val.ict != null && val.cd == null) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
-				message: "cd (course duration days) is required when ict is STUDENT",
+				message: `cd (coverage/course duration days) is required when ict is ${val.ict}`,
 				path: ["cd"],
 			});
 		}

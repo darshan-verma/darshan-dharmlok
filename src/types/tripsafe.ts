@@ -21,20 +21,30 @@ export interface TripsafeSearchTraveller {
 	age: number;
 }
 
-/** Course duration days for student flow */
-export type TripsafeStudentCourseDays = 180 | 365 | 730 | 1095;
+/** Insurance coverage type: student, or annual multi-trip (AMT). */
+export type TripsafeInsuranceCoverageType = "STUDENT" | "AMT";
+
+/**
+ * Course / coverage duration in days.
+ * Student flows use 90/180/365/730/1095; AMT (multi-trip) coverage uses 30/45/60/90.
+ * Kept numeric so the app mirrors the UAT runner and lets TripJack enforce exact rules.
+ */
+export type TripsafeCourseDurationDays = number;
+
+/** @deprecated Use {@link TripsafeCourseDurationDays}. Retained for backward compatibility. */
+export type TripsafeStudentCourseDays = TripsafeCourseDurationDays;
 
 export interface TripsafeSearchInsuranceQuery {
 	sd: string;
 	ed: string;
 	isc: TripsafeInsuranceCoverage;
 	iti: TripsafeSearchTraveller[];
-	/** Provider expects empty object when unused (matches Postman / TripJack samples) */
+	/** Provider expects empty object when unused; carries `priceIds` for embedded flows. */
 	isp?: Record<string, unknown>;
-	/** Student insurance type */
-	ict?: "STUDENT";
-	/** Course duration (days) — required with STUDENT */
-	cd?: TripsafeStudentCourseDays;
+	/** Insurance coverage type (student / annual multi-trip). */
+	ict?: TripsafeInsuranceCoverageType;
+	/** Course / coverage duration (days) — required with STUDENT and AMT. */
+	cd?: TripsafeCourseDurationDays;
 }
 
 export interface TripsafeSearchRequest {
@@ -121,8 +131,8 @@ export interface TripsafeBookRequest {
 	pli: TripsafeBookPlanItem[];
 	/** Present for student insurance */
 	sc?: TripsafeStudentCourseInfo;
-	ict?: "STUDENT";
-	cd?: TripsafeStudentCourseDays;
+	ict?: TripsafeInsuranceCoverageType;
+	cd?: TripsafeCourseDurationDays;
 	[key: string]: unknown;
 }
 

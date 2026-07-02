@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -9,8 +9,39 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { ChevronLeft, Loader2 } from "lucide-react";
+import {
+	extractInsuranceBookingSummary,
+	extractInsuranceCancellationTargets,
+	type TripsafeBookingSummary,
+	type TripsafeCancellationTarget,
+} from "@/lib/tripsafeUiNormalize";
+
+function formatInr(amount: number | undefined): string {
+	if (amount == null || !Number.isFinite(amount)) return "—";
+	return `₹${Math.round(amount).toLocaleString("en-IN")}`;
+}
+
+function formatStatus(status: string | undefined): string {
+	if (!status) return "—";
+	return status.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+	return (
+		<div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+			<dt className="text-sm text-gray-500 sm:w-40 shrink-0">{label}</dt>
+			<dd className="text-sm font-medium text-gray-900">{value}</dd>
+		</div>
+	);
+}
 
 export default function TripsafeInsuranceManage() {
 	const searchParams = useSearchParams();
@@ -18,27 +49,37 @@ export default function TripsafeInsuranceManage() {
 
 	const [bookingId, setBookingId] = useState(presetId);
 	const [detailsLoading, setDetailsLoading] = useState(false);
-	const [detailsJson, setDetailsJson] = useState<unknown>(null);
+	const [summary, setSummary] = useState<TripsafeBookingSummary | null>(null);
+	const [cancellationTargets, setCancellationTargets] = useState<
+		TripsafeCancellationTarget[]
+	>([]);
+	const [selectedTargetIdx, setSelectedTargetIdx] = useState("0");
 
 	const [raiseLoading, setRaiseLoading] = useState(false);
-	const [plid, setPlid] = useState("");
-	const [pid, setPid] = useState("");
-	const [travellerRowId, setTravellerRowId] = useState("1");
-	const [raiseRaw, setRaiseRaw] = useState<unknown>(null);
-
 	const [amendmentId, setAmendmentId] = useState("");
 	const [confirmLoading, setConfirmLoading] = useState(false);
-
-	const [advancedKeys, setAdvancedKeys] = useState("");
 
 	useEffect(() => {
 		if (presetId) setBookingId(presetId);
 	}, [presetId]);
 
+	const selectedTarget = useMemo(() => {
+		const idx = Number.parseInt(selectedTargetIdx, 10);
+		return cancellationTargets[idx] ?? null;
+	}, [cancellationTargets, selectedTargetIdx]);
+
+	function applyBookingPayload(data: unknown) {
+		const nextSummary = extractInsuranceBookingSummary(data);
+		const targets = extractInsuranceCancellationTargets(data);
+		setSummary(nextSummary);
+		setCancellationTargets(targets);
+		setSelectedTargetIdx("0");
+	}
+
 	async function fetchDetails() {
 		const id = bookingId.trim();
 		if (!id) {
-			toast.error("Enter booking ID");
+			toast.error("Enter your booking reference");
 			return;
 		}
 		setDetailsLoading(true);
@@ -52,7 +93,7 @@ export default function TripsafeInsuranceManage() {
 			if (!res.ok || !json.success) {
 				throw new Error(json.error || "Failed to load booking");
 			}
-			setDetailsJson(json.data);
+			applyBookingPayload(json.data);
 			toast.success("Booking loaded");
 		} catch (e) {
 			toast.error(e instanceof Error ? e.message : "Request failed");
@@ -61,39 +102,16 @@ export default function TripsafeInsuranceManage() {
 		}
 	}
 
-	function buildTravellerKeysFromForm():
-		| Record<string, Record<string, { id: number }[]>>
-		| null {
-		if (advancedKeys.trim()) {
-			try {
-				const parsed = JSON.parse(advancedKeys) as Record<
-					string,
-					Record<string, { id: number }[]>
-				>;
-				return parsed;
-			} catch {
-				toast.error("Invalid JSON in advanced travellerKeys");
-				return null;
-			}
-		}
-		const plan = plid.trim();
-		const prod = pid.trim();
-		const tid = Number.parseInt(travellerRowId, 10);
-		if (!plan || !prod || !Number.isFinite(tid)) {
-			toast.error("Plan ID, product ID, and traveller id are required (or paste JSON)");
-			return null;
-		}
-		return { [plan]: { [prod]: [{ id: tid }] } };
-	}
-
 	async function raiseCancellation() {
 		const id = bookingId.trim();
 		if (!id) {
-			toast.error("Enter booking ID");
+			toast.error("Enter your booking reference");
 			return;
 		}
-		const keys = buildTravellerKeysFromForm();
-		if (!keys) return;
+		if (!selectedTarget) {
+			toast.error("Load a booking first to select a traveller");
+			return;
+		}
 
 		setRaiseLoading(true);
 		try {
@@ -103,14 +121,17 @@ export default function TripsafeInsuranceManage() {
 				body: JSON.stringify({
 					bookingId: id,
 					type: "CANCELLATION",
-					travellerKeys: keys,
+					travellerKeys: {
+						[selectedTarget.plid]: {
+							[selectedTarget.pid]: [{ id: selectedTarget.travellerId }],
+						},
+					},
 				}),
 			});
 			const json = await res.json();
 			if (!res.ok || !json.success) {
-				throw new Error(json.error || "Raise amendment failed");
+				throw new Error(json.error || "Could not start cancellation");
 			}
-			setRaiseRaw(json.data);
 			const data = json.data as Record<string, unknown>;
 			const aid =
 				typeof data.amendmentId === "string"
@@ -119,9 +140,9 @@ export default function TripsafeInsuranceManage() {
 						? data.amendment_id
 						: "";
 			if (aid) setAmendmentId(aid);
-			toast.success("Cancellation draft created — confirm below if ready");
+			toast.success("Cancellation request created — review and confirm below");
 		} catch (e) {
-			toast.error(e instanceof Error ? e.message : "Raise failed");
+			toast.error(e instanceof Error ? e.message : "Request failed");
 		} finally {
 			setRaiseLoading(false);
 		}
@@ -131,7 +152,7 @@ export default function TripsafeInsuranceManage() {
 		const b = bookingId.trim();
 		const a = amendmentId.trim();
 		if (!b || !a) {
-			toast.error("Booking ID and amendment ID required");
+			toast.error("Booking reference and cancellation reference are required");
 			return;
 		}
 		setConfirmLoading(true);
@@ -143,12 +164,12 @@ export default function TripsafeInsuranceManage() {
 			});
 			const json = await res.json();
 			if (!res.ok || !json.success) {
-				throw new Error(json.error || "Confirm failed");
+				throw new Error(json.error || "Could not confirm cancellation");
 			}
-			toast.success("Cancellation request completed (check provider status in response)");
-			setDetailsJson(json.data);
+			toast.success("Cancellation confirmed");
+			if (json.data) applyBookingPayload(json.data);
 		} catch (e) {
-			toast.error(e instanceof Error ? e.message : "Confirm failed");
+			toast.error(e instanceof Error ? e.message : "Request failed");
 		} finally {
 			setConfirmLoading(false);
 		}
@@ -160,28 +181,28 @@ export default function TripsafeInsuranceManage() {
 				<Button variant="ghost" size="sm" asChild>
 					<Link href="/travel-portal/insurance">
 						<ChevronLeft className="w-4 h-4 mr-1" />
-						Back to insurance search
+						Back to insurance
 					</Link>
 				</Button>
 
 				<div>
-					<h1 className="text-2xl font-semibold text-gray-900">Manage TripSafe booking</h1>
+					<h1 className="text-2xl font-semibold text-gray-900">Manage your booking</h1>
 					<p className="text-sm text-gray-600 mt-1">
-						Load booking details, then start cancellation at least 24 hours before coverage
-						starts. Confirming cancellation is irreversible.
+						Look up your policy, then request cancellation at least 24 hours before
+						coverage starts. Confirming cancellation cannot be undone.
 					</p>
 				</div>
 
 				<Card>
 					<CardHeader>
-						<CardTitle>Booking lookup</CardTitle>
+						<CardTitle>Find booking</CardTitle>
 						<CardDescription>
-							Use the booking reference from the review / book step.
+							Enter the booking reference from your confirmation email or receipt.
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="flex flex-col sm:flex-row gap-3">
 						<Input
-							placeholder="Booking ID"
+							placeholder="Booking reference"
 							value={bookingId}
 							onChange={(e) => setBookingId(e.target.value)}
 						/>
@@ -191,79 +212,127 @@ export default function TripsafeInsuranceManage() {
 					</CardContent>
 				</Card>
 
-				{detailsJson != null && (
+				{summary && (
 					<Card>
 						<CardHeader>
-							<CardTitle className="text-base">Booking details</CardTitle>
+							<CardTitle className="text-base">Policy summary</CardTitle>
 						</CardHeader>
-						<CardContent>
-							<pre className="text-xs bg-gray-100 p-4 rounded-lg overflow-auto max-h-96">
-								{JSON.stringify(detailsJson, null, 2)}
-							</pre>
+						<CardContent className="space-y-4">
+							<dl className="space-y-3">
+								<SummaryRow
+									label="Booking reference"
+									value={summary.bookingId || bookingId}
+								/>
+								<SummaryRow label="Status" value={formatStatus(summary.status)} />
+								<SummaryRow label="Plan" value={summary.planTitle || "—"} />
+								<SummaryRow
+									label="Coverage"
+									value={
+										summary.coverageStart && summary.coverageEnd
+											? `${summary.coverageStart} → ${summary.coverageEnd}`
+											: "—"
+									}
+								/>
+								<SummaryRow label="Amount paid" value={formatInr(summary.amount)} />
+								{summary.createdOn && (
+									<SummaryRow
+										label="Booked on"
+										value={new Date(summary.createdOn).toLocaleString()}
+									/>
+								)}
+							</dl>
+
+							{summary.travellers.length > 0 && (
+								<>
+									<Separator />
+									<div className="space-y-3">
+										<h3 className="text-sm font-medium text-gray-900">Travellers</h3>
+										{summary.travellers.map((t, idx) => (
+											<div
+												key={`${t.name}-${idx}`}
+												className="rounded-lg border border-gray-200 bg-white p-3 text-sm space-y-1"
+											>
+												<p className="font-medium text-gray-900">{t.name}</p>
+												{t.age != null && (
+													<p className="text-gray-600">Age {t.age}</p>
+												)}
+												{t.email && (
+													<p className="text-gray-600">{t.email}</p>
+												)}
+												{t.phone && (
+													<p className="text-gray-600">{t.phone}</p>
+												)}
+												{t.policyNumber && (
+													<p className="text-gray-600">
+														Policy no. {t.policyNumber}
+													</p>
+												)}
+											</div>
+										))}
+									</div>
+								</>
+							)}
 						</CardContent>
 					</Card>
 				)}
 
 				<Card>
 					<CardHeader>
-						<CardTitle>Raise cancellation</CardTitle>
+						<CardTitle>Request cancellation</CardTitle>
 						<CardDescription>
-							Fill plan / product / traveller row id as returned by booking details, or paste
-							full <code className="text-xs">travellerKeys</code> JSON.
+							{summary
+								? "Choose the traveller to cancel, then submit your request."
+								: "Load a booking above to start a cancellation request."}
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-4">
-						<div className="grid sm:grid-cols-3 gap-3">
+						{cancellationTargets.length > 1 ? (
 							<div className="space-y-1">
-								<Label>Plan ID (plid)</Label>
-								<Input value={plid} onChange={(e) => setPlid(e.target.value)} />
+								<Label>Traveller</Label>
+								<Select
+									value={selectedTargetIdx}
+									onValueChange={setSelectedTargetIdx}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Select traveller" />
+									</SelectTrigger>
+									<SelectContent>
+										{cancellationTargets.map((t, idx) => (
+											<SelectItem key={`${t.travellerId}-${idx}`} value={String(idx)}>
+												{t.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
 							</div>
-							<div className="space-y-1">
-								<Label>Product ID (pid)</Label>
-								<Input value={pid} onChange={(e) => setPid(e.target.value)} />
-							</div>
-							<div className="space-y-1">
-								<Label>Traveller id</Label>
-								<Input
-									value={travellerRowId}
-									onChange={(e) => setTravellerRowId(e.target.value)}
-								/>
-							</div>
-						</div>
-						<div className="space-y-1">
-							<Label>Advanced — raw travellerKeys JSON</Label>
-							<Textarea
-								placeholder='{"PLAN_ID":{"PRODUCT_ID":[{"id":1}]}}'
-								value={advancedKeys}
-								onChange={(e) => setAdvancedKeys(e.target.value)}
-								rows={4}
-								className="font-mono text-xs"
-							/>
-						</div>
-						<Button disabled={raiseLoading} onClick={raiseCancellation}>
+						) : cancellationTargets.length === 1 ? (
+							<p className="text-sm text-gray-600">
+								Traveller: <span className="font-medium">{cancellationTargets[0].label}</span>
+							</p>
+						) : null}
+
+						<Button
+							disabled={raiseLoading || !summary || !selectedTarget}
+							onClick={raiseCancellation}
+						>
 							{raiseLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-							Raise cancellation
+							Start cancellation
 						</Button>
-						{raiseRaw != null && (
-							<details>
-								<summary className="text-sm cursor-pointer">Raise response</summary>
-								<pre className="mt-2 text-xs bg-gray-100 p-3 rounded overflow-auto max-h-48">
-									{JSON.stringify(raiseRaw, null, 2)}
-								</pre>
-							</details>
-						)}
 					</CardContent>
 				</Card>
 
 				<Card>
 					<CardHeader>
 						<CardTitle>Confirm cancellation</CardTitle>
-						<CardDescription>Uses amendment id from the raise step.</CardDescription>
+						<CardDescription>
+							After starting a cancellation, enter the reference below to confirm.
+						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-3">
 						<div className="space-y-1">
-							<Label>Amendment ID</Label>
+							<Label>Cancellation reference</Label>
 							<Input
+								placeholder="Filled automatically after you start cancellation"
 								value={amendmentId}
 								onChange={(e) => setAmendmentId(e.target.value)}
 							/>
@@ -271,11 +340,11 @@ export default function TripsafeInsuranceManage() {
 						<Separator />
 						<Button
 							variant="destructive"
-							disabled={confirmLoading}
+							disabled={confirmLoading || !amendmentId.trim()}
 							onClick={confirmCancellation}
 						>
 							{confirmLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-							Confirm cancellation (irreversible)
+							Confirm cancellation
 						</Button>
 					</CardContent>
 				</Card>
