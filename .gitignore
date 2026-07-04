@@ -51,8 +51,10 @@ scripts/*-uat-raw-results.json
 docs/Advance Search Return/
 docs/TRIPSAFE-UAT-CASES/
 docs/TRIPJACK-HOTEL-UAT-CASES/
+docs/TRIPJACK-CABS-UAT-CASES/
 docs/TRIPSAFE-UAT-CERTIFICATION-JSON.zip
 docs/TRIPJACK-HOTEL-UAT-CERTIFICATION-JSON.zip
+docs/TRIPJACK-CABS-UAT-CERTIFICATION-JSON.zip
 
 # Cursor plans
 .cursor/plans/

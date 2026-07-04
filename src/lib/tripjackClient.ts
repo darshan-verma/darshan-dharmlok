@@ -78,6 +78,8 @@ const TRIPJACK_API_URL = process.env.TRIPJACK_API_URL || "";
 /** When set, base URL for TripSafe (`/insurance/…`, `/oms/v1/insurance/…`, `/oms/v1/ins/…`). Falls back to `TRIPJACK_API_URL`. */
 const TRIPSAFE_API_URL = process.env.TRIPSAFE_API_URL || "";
 const TRIPJACK_CABS_API_URL = process.env.TRIPJACK_CABS_API_URL || "";
+/** Optional dedicated key for `apitest-cabs.tripjack.com`; falls back to TRIPJACK_API_KEY. */
+const TRIPJACK_CABS_API_KEY = process.env.TRIPJACK_CABS_API_KEY || "";
 const TRIPJACK_STATIC_API_URL = process.env.TRIPJACK_STATIC_API_URL || "";
 /** Flight Management System (`/fms/…`) — usually `https://apitest.tripjack.com`, not the HMS host. */
 const TRIPJACK_FMS_API_URL = process.env.TRIPJACK_FMS_API_URL || "";
@@ -166,9 +168,21 @@ function ensureTripjackConfig(endpoint: string): void {
 		);
 	}
 
-	if (!TRIPJACK_API_KEY) {
-		throw new Error("Missing TRIPJACK_API_KEY environment variable");
+	const apiKey = tripjackApiKeyForEndpoint(endpoint);
+	if (!apiKey) {
+		throw new Error(
+			isCabsEndpoint
+				? "Missing TRIPJACK_CABS_API_KEY or TRIPJACK_API_KEY environment variable"
+				: "Missing TRIPJACK_API_KEY environment variable",
+		);
 	}
+}
+
+function tripjackApiKeyForEndpoint(endpoint: string): string {
+	if (endpoint.startsWith("/cabs/")) {
+		return (TRIPJACK_CABS_API_KEY || TRIPJACK_API_KEY).trim();
+	}
+	return TRIPJACK_API_KEY.trim();
 }
 
 function buildTripjackUrl(endpoint: string): string {
@@ -238,7 +252,7 @@ export async function tripjackRequest<T = unknown>(
 
 	const baseHeaders: Record<string, string> = {
 		"Content-Type": "application/json",
-		apikey: TRIPJACK_API_KEY,
+		apikey: tripjackApiKeyForEndpoint(endpoint),
 		...headers,
 	};
 

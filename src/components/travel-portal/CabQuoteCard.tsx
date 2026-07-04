@@ -26,12 +26,17 @@ import type {
 	TripjackQuotesGroup,
 } from "@/types/tripjack";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
+import {
+	buildTripjackCabBookingPayload,
+	computeCabFareFromBreakup,
+} from "@/lib/tripjackCabBookingPayload";
 
 interface CabQuoteCardProps {
 	group: TripjackQuotesGroup;
 	quote: TripjackQuoteItem;
 	journeyInfo: TripjackJourneyInfo;
 	routeDetails: TripjackRouteDetails;
+	passengers: number;
 }
 
 interface BookingApiResponse {
@@ -72,6 +77,7 @@ export default function CabQuoteCard({
 	quote,
 	journeyInfo,
 	routeDetails,
+	passengers,
 }: CabQuoteCardProps) {
 	const { data: session } = useSession();
 	const defaultsStorageKey = useMemo(() => {
@@ -101,46 +107,11 @@ export default function CabQuoteCard({
 	});
 
 	const image = group.vehicleImages?.[0];
-	const netAmountValue = useMemo(() => {
-		const onward = Number(quote.fareBreakup.onwardFare) || 0;
-		const backward = Number(quote.fareBreakup.backwardFare) || 0;
-		if (onward > 0 || backward > 0) {
-			return onward + backward;
-		}
-
-		return Number(quote.fareBreakup.totalFare) || 0;
-	}, [quote.fareBreakup]);
-	const taxes = useMemo(() => {
-		const onwardTax = Number(quote.fareBreakup.onwardTax) || 0;
-		const backwardTax = Number(quote.fareBreakup.backwardTax) || 0;
-		if (onwardTax > 0 || backwardTax > 0) {
-			return onwardTax + backwardTax;
-		}
-
-		return Number(quote.fareBreakup.totalTax) || 0;
-	}, [quote.fareBreakup]);
-	const tjManagementFeeStr = useMemo(() => {
-		const mf = Number(quote.fareBreakup.tjManagementFee);
-		return Number.isFinite(mf) && mf > 0 ? mf.toFixed(2) : "0.00";
-	}, [quote.fareBreakup]);
-	const total = netAmountValue + taxes;
+	const { netAmount: netAmountValue, taxes, grossAmount: total } = useMemo(
+		() => computeCabFareFromBreakup(quote.fareBreakup),
+		[quote.fareBreakup],
+	);
 	const highlights = getHighlights(quote.policies).slice(0, 3);
-	const defaultPaxCount = useMemo(() => {
-		if (typeof quote.paxCount === "number" && quote.paxCount > 0) {
-			return quote.paxCount;
-		}
-
-		const parsed = Number(group.paxCapacity || "1");
-		return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-	}, [group.paxCapacity, quote.paxCount]);
-	const defaultLuggageCount = useMemo(() => {
-		if (typeof quote.luggageCount === "number" && quote.luggageCount >= 0) {
-			return quote.luggageCount;
-		}
-
-		const parsed = Number(group.luggageCapacity || "0");
-		return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-	}, [group.luggageCapacity, quote.luggageCount]);
 
 	useEffect(() => {
 		if (!session?.user) {
@@ -283,54 +254,35 @@ export default function CabQuoteCard({
 			: formData.agentId.trim();
 
 		try {
+			const bookingBody = buildTripjackCabBookingPayload({
+				journeyInfo,
+				routeDetail: routeDetails,
+				group,
+				quote,
+				passengers,
+				passengerDetail: {
+					firstName: formData.firstName.trim(),
+					lastName: formData.lastName.trim(),
+					email: formData.email.trim(),
+					phone: formData.phone.trim(),
+					flightDetails: formData.flightNumber.trim()
+						? {
+								number: formData.flightNumber.trim(),
+							}
+						: undefined,
+				},
+				serviceRequest: formData.serviceRequest.trim() || undefined,
+				agentEmail: formData.agentEmail.trim(),
+				agentPhone: formData.agentPhone.trim(),
+				agentId: normalizedAgentId,
+			});
+
 			const response = await fetch("/api/travel/cabs/booking", {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify({
-					journeyInfo,
-					routeDetail: routeDetails,
-					addons: [],
-					quotationInfo: {
-						vehicleType: group.vehicleType,
-						vehicleCategory: group.vehicleCategory,
-						quoteId: quote.quotationId,
-						childQuoteId: quote.quoteChildId,
-						paxCount: defaultPaxCount,
-						luggageCount: defaultLuggageCount,
-						vendorId: quote.vendorId,
-					},
-					pricingInfo: {
-						netAmount: netAmountValue.toFixed(2),
-						addonsPrice: "0.00",
-						tjTaxAmount: taxes.toFixed(2),
-						tjManagementFee: tjManagementFeeStr,
-						agentMarkup: 0,
-						agentMarkupSplitup: {
-							onwardJourneyMarkup: 0,
-							returnJourneyMarkup: 0,
-						},
-						grossAmount: total.toFixed(2),
-					},
-					passengerDetail: {
-						firstName: formData.firstName.trim(),
-						lastName: formData.lastName.trim(),
-						email: formData.email.trim(),
-						phone: formData.phone.trim(),
-						flightDetails: formData.flightNumber.trim()
-							? {
-									number: formData.flightNumber.trim(),
-								}
-							: undefined,
-					},
-					serviceRequest: formData.serviceRequest.trim() || undefined,
-					consent: "yes",
-					agentEmail: formData.agentEmail.trim(),
-					agentPhone: formData.agentPhone.trim(),
-					agentId: normalizedAgentId,
-					vendorId: quote.vendorId,
-				}),
+				body: JSON.stringify(bookingBody),
 			});
 
 			const payload = (await response.json()) as BookingApiResponse;

@@ -238,6 +238,7 @@ export default function CabSearch() {
 										quote={quote}
 										journeyInfo={results.journeyInfo}
 										routeDetails={results.routeDetails}
+										passengers={searchData?.passengers ?? 1}
 									/>
 								)),
 							)}

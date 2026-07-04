@@ -251,7 +251,7 @@ export default function CabSearchForm({
 								<SelectValue placeholder="Passengers" />
 							</SelectTrigger>
 							<SelectContent>
-								{[1, 2, 3, 4, 5, 6].map((count) => (
+								{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((count) => (
 									<SelectItem key={count} value={String(count)}>
 										{count} passenger{count > 1 ? "s" : ""}
 									</SelectItem>

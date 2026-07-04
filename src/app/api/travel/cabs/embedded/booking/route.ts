@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createTripjackEmbeddedBooking } from "@/lib/tripjackClient";
-import type { TripjackEmbeddedBookingRequest } from "@/types/tripjack";
+import { normalizeTripjackCabBookingPayload } from "@/lib/tripjackCabBookingNormalize";
+import type {
+	TripjackBookingRequest,
+	TripjackEmbeddedBookingRequest,
+} from "@/types/tripjack";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import {
@@ -44,9 +48,14 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const result = await createTripjackEmbeddedBooking(
-			body as unknown as TripjackEmbeddedBookingRequest,
-		);
+		const bookingRequestList = (
+			body.bookingRequestList as TripjackBookingRequest[]
+		).map((req) => normalizeTripjackCabBookingPayload(req));
+
+		const result = await createTripjackEmbeddedBooking({
+			...(body as unknown as TripjackEmbeddedBookingRequest),
+			bookingRequestList,
+		});
 
 		try {
 			const session = await getServerSession(authOptions);
