@@ -3,7 +3,7 @@
  *
  * Mirrors `resolveEmbeddedFlightContext` in `scripts/tripsafe-uat-client.mjs`:
  * runs a TripJack FMS air search and surfaces `priceIds` + itinerary dates so the
- * insurance search can be linked to a flight via `isq.isp.priceIds`.
+ * insurance search can be linked to a flight via `isq.ict: "API_EMB"` and `isq.isp.priceIds`.
  */
 import { searchTripjackFlights } from "@/lib/tripjackClient";
 import type {
@@ -52,7 +52,10 @@ const MAX_OPTIONS = 20;
 function addDays(dateStr: string, days: number): string {
 	const d = new Date(`${dateStr}T00:00:00`);
 	d.setDate(d.getDate() + days);
-	return d.toISOString().slice(0, 10);
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return `${y}-${m}-${day}`;
 }
 
 function segmentDate(seg: unknown): string {

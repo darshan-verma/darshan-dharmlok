@@ -287,7 +287,9 @@ export function extractInsuranceBookingSummary(
 			name,
 			age: typeof t.age === "number" ? t.age : undefined,
 			email: typeof t.eid === "string" ? t.eid : undefined,
-			phone: typeof t.pnum === "string" ? t.pnum : undefined,
+			phone:
+				(typeof t.cnum === "string" && t.cnum) ||
+				(typeof t.pnum === "string" ? t.pnum : undefined),
 			policyNumber:
 				typeof t.policyId === "string" ? t.policyId : undefined,
 		});

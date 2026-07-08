@@ -47,12 +47,22 @@ type RegionDraft = { rkey: string; rt: RegionType };
 const STUDENT_COURSE_DAYS = [90, 180, 365, 730, 1095] as const;
 const AMT_COVERAGE_DAYS = [30, 45, 60, 90] as const;
 
+function addDaysToDate(dateStr: string, days: number): string {
+	const d = new Date(`${dateStr}T00:00:00`);
+	d.setDate(d.getDate() + days);
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return `${y}-${m}-${day}`;
+}
+
 type TravellerDraft = {
 	dob: string;
 	fn: string;
 	ln: string;
 	eid: string;
 	pnum: string;
+	cnum: string;
 	gen: "MALE" | "FEMALE";
 	niRelation: TripsafeNomineeRelation;
 	niFn: string;
@@ -76,6 +86,7 @@ function emptyTraveller(): TravellerDraft {
 		ln: "",
 		eid: "",
 		pnum: "",
+		cnum: "",
 		gen: "MALE",
 		niRelation: "SPOUSE",
 		niFn: "",
@@ -145,15 +156,18 @@ export default function TripsafeInsuranceWizard() {
 			iti,
 			isp,
 		};
-		// Student sends ict + cd; AMT (annual multi-trip) coverage sends cd only,
-		// matching TripJack certified payloads (AMT search carries cd without ict).
-		if (insuranceType === "STUDENT") {
+		const body: Record<string, unknown> = { isq };
+		if (embedded) {
+			isq.ict = "API_EMB";
+		} else if (insuranceType === "STUDENT") {
 			isq.ict = "STUDENT";
 			isq.cd = cd;
 		} else if (insuranceType === "AMT") {
+			body.ict = "AMT";
 			isq.cd = cd;
+			isq.ed = addDaysToDate(sd, cd);
 		}
-		return { isq };
+		return body;
 	}
 
 	async function findFlights() {
@@ -318,6 +332,7 @@ export default function TripsafeInsuranceWizard() {
 			ln: t.ln.trim(),
 			eid: t.eid.trim() || undefined,
 			pnum: t.pnum.trim() || undefined,
+			cnum: t.cnum.trim() || undefined,
 			gen: t.gen,
 			ni: [
 				{
@@ -343,8 +358,6 @@ export default function TripsafeInsuranceWizard() {
 			paymentInfos: [{ method: "WALLET", amount: amountNum }],
 			pli: [pli],
 		};
-		// Only student bookings carry ict/cd/sc; AMT coverage is priced at search
-		// time and the book payload stays standard (matches certified UAT payloads).
 		if (insuranceType === "STUDENT") {
 			payload.ict = "STUDENT";
 			payload.cd = cd;
@@ -352,6 +365,9 @@ export default function TripsafeInsuranceWizard() {
 				Object.entries(studentCourse).filter(([, v]) => String(v).trim()),
 			);
 			if (Object.keys(sc).length) payload.sc = sc;
+		} else if (insuranceType === "AMT") {
+			payload.ict = "AMT";
+			payload.cd = cd;
 		}
 
 		setLoading(true);
@@ -376,8 +392,12 @@ export default function TripsafeInsuranceWizard() {
 
 	function changeInsuranceType(next: InsuranceType) {
 		setInsuranceType(next);
-		if (next === "AMT" && !AMT_COVERAGE_DAYS.includes(cd as never)) {
-			setCd(30);
+		if (next === "AMT") {
+			if (!AMT_COVERAGE_DAYS.includes(cd as never)) setCd(30);
+			setTripRange((prev) => ({
+				sd: prev.sd,
+				ed: addDaysToDate(prev.sd, AMT_COVERAGE_DAYS.includes(cd as never) ? cd : 30),
+			}));
 		} else if (next === "STUDENT" && !STUDENT_COURSE_DAYS.includes(cd as never)) {
 			setCd(365);
 		}
@@ -474,9 +494,16 @@ export default function TripsafeInsuranceWizard() {
 										id="sd"
 										type="date"
 										value={sd}
-										onChange={(e) =>
-											setTripRange((prev) => ({ ...prev, sd: e.target.value }))
-										}
+										onChange={(e) => {
+											const nextSd = e.target.value;
+											setTripRange((prev) => ({
+												sd: nextSd,
+												ed:
+													insuranceType === "AMT"
+														? addDaysToDate(nextSd, cd)
+														: prev.ed,
+											}));
+										}}
 									/>
 								</div>
 								<div className="space-y-2">
@@ -960,10 +987,18 @@ export default function TripsafeInsuranceWizard() {
 											/>
 										</div>
 										<div className="space-y-1">
-											<Label>Mobile (Indian)</Label>
-											<TboPhoneInput
+											<Label>Passport number</Label>
+											<Input
 												value={t.pnum}
 												onChange={(e) => updateTraveller(idx, { pnum: e.target.value })}
+												placeholder="A1234567"
+											/>
+										</div>
+										<div className="space-y-1">
+											<Label>Contact mobile (cnum)</Label>
+											<TboPhoneInput
+												value={t.cnum}
+												onChange={(e) => updateTraveller(idx, { cnum: e.target.value })}
 												placeholder="9XXXXXXXXX"
 											/>
 										</div>

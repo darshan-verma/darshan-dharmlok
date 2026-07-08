@@ -24,6 +24,14 @@ export interface TripsafeSearchTraveller {
 /** Insurance coverage type: student, or annual multi-trip (AMT). */
 export type TripsafeInsuranceCoverageType = "STUDENT" | "AMT";
 
+/** Search context for embedded (flight-linked) insurance. */
+export type TripsafeEmbeddedInsuranceContextType = "API_EMB";
+
+/** `isq.ict` values accepted on insurance search. */
+export type TripsafeSearchInsuranceContextType =
+	| TripsafeInsuranceCoverageType
+	| TripsafeEmbeddedInsuranceContextType;
+
 /**
  * Course / coverage duration in days.
  * Student flows use 90/180/365/730/1095; AMT (multi-trip) coverage uses 30/45/60/90.
@@ -41,14 +49,16 @@ export interface TripsafeSearchInsuranceQuery {
 	iti: TripsafeSearchTraveller[];
 	/** Provider expects empty object when unused; carries `priceIds` for embedded flows. */
 	isp?: Record<string, unknown>;
-	/** Insurance coverage type (student / annual multi-trip). */
-	ict?: TripsafeInsuranceCoverageType;
+	/** Insurance coverage type (student / annual multi-trip / embedded API). */
+	ict?: TripsafeSearchInsuranceContextType;
 	/** Course / coverage duration (days) — required with STUDENT and AMT. */
 	cd?: TripsafeCourseDurationDays;
 }
 
 export interface TripsafeSearchRequest {
 	isq: TripsafeSearchInsuranceQuery;
+	/** AMT searches pass `ict` at root — uppercase `isq.ict: AMT` triggers UAT validation errors. */
+	ict?: TripsafeSearchInsuranceContextType;
 }
 
 export interface TripsafeReviewProductItem {
@@ -86,7 +96,10 @@ export interface TripsafeInsuranceTraveller {
 	fn: string;
 	ln: string;
 	eid?: string;
+	/** Passport number */
 	pnum?: string;
+	/** Contact / mobile number */
+	cnum?: string;
 	gen?: string;
 	/** Nominee — mandatory per spec; provider expects an array of nominee objects */
 	ni: TripsafeNomineeInfo[] | TripsafeNomineeInfo | Record<string, unknown>;

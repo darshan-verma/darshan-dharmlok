@@ -31,7 +31,7 @@ const searchIsqSchema = z
 			.min(1)
 			.max(10, "Max 10 travellers"),
 		isp: z.record(z.unknown()).optional(),
-		ict: z.enum(["STUDENT", "AMT"]).optional(),
+		ict: z.enum(["STUDENT", "AMT", "API_EMB"]).optional(),
 		cd: z.number().int().positive("cd must be a positive number of days").optional(),
 	})
 	.superRefine((val, ctx) => {
@@ -69,7 +69,7 @@ const searchIsqSchema = z
 			}
 		}
 
-		if (val.ict != null && val.cd == null) {
+		if ((val.ict === "STUDENT" || val.ict === "AMT") && val.cd == null) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				message: `cd (coverage/course duration days) is required when ict is ${val.ict}`,
@@ -78,9 +78,32 @@ const searchIsqSchema = z
 		}
 	});
 
-const searchRequestSchema = z.object({
-	isq: searchIsqSchema,
-});
+const searchRequestSchema = z
+	.object({
+		isq: searchIsqSchema,
+		ict: z.enum(["STUDENT", "AMT", "API_EMB"]).optional(),
+	})
+	.superRefine((val, ctx) => {
+		const effectiveIct = val.ict ?? val.isq.ict;
+		if (effectiveIct === "AMT" && val.isq.ict === "AMT") {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message:
+					"Pass AMT ict at the search root; isq.ict AMT is rejected by the provider on UAT",
+				path: ["isq", "ict"],
+			});
+		}
+		if (
+			(effectiveIct === "STUDENT" || effectiveIct === "AMT") &&
+			val.isq.cd == null
+		) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: `cd is required when ict is ${effectiveIct}`,
+				path: ["isq", "cd"],
+			});
+		}
+	});
 
 export function parseTripsafeSearch(
 	body: unknown,
@@ -96,6 +119,7 @@ export function parseTripsafeSearch(
 	}
 	const base = parsed.data as TripsafeSearchRequest;
 	const data: TripsafeSearchRequest = {
+		...base,
 		isq: {
 			...base.isq,
 			isp: base.isq.isp ?? {},
@@ -209,7 +233,7 @@ function hasNominee(ni: unknown): boolean {
 }
 
 /**
- * Validates each traveller under pli[].pi[].iti: fn/ln, nominee (ni), optional Indian pnum.
+ * Validates each traveller under pli[].pi[].iti: fn/ln, nominee (ni), optional Indian cnum.
  */
 export function validateTripsafeBookTravellers(payload: TripsafeBookRequest): string | null {
 	const checkTraveller = (
@@ -227,11 +251,11 @@ export function validateTripsafeBookTravellers(payload: TripsafeBookRequest): st
 		if (!hasNominee(t.ni)) {
 			return `${path}: nominee (ni) is required`;
 		}
-		const pnum = t.pnum;
-		if (typeof pnum === "string" && pnum.trim()) {
-			const normalized = pnum.replace(/\s/g, "");
+		const cnum = t.cnum;
+		if (typeof cnum === "string" && cnum.trim()) {
+			const normalized = cnum.replace(/\s/g, "");
 			if (!INDIAN_MOBILE_REGEX.test(normalized)) {
-				return `${path}: pnum must be a valid Indian mobile number`;
+				return `${path}: cnum must be a valid Indian mobile number`;
 			}
 		}
 		return null;
