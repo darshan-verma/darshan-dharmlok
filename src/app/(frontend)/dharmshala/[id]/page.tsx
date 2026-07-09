@@ -21,6 +21,11 @@ import Footer from "@/components/landing/Footer";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+	hasRichContent,
+	parseRichContent,
+	type RichContent,
+} from "@/lib/rich-content";
 
 type Faq = { id: string; question: string; answer: string };
 
@@ -55,67 +60,27 @@ function extractGoogleMapsSrc(input?: string): string {
 	return input.trim();
 }
 
-type RichContent = { text: string; html: string | null };
-
-function sanitizeHtml(html: string): string {
-	return html
-		.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
-		.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
-		.replace(/\son\w+="[^"]*"/gi, "")
-		.replace(/\son\w+='[^']*'/gi, "")
-		.replace(/\s(href|src)=["']javascript:[^"']*["']/gi, ' $1="#"');
-}
-
-function parseRichContent(content?: string): RichContent {
-	if (!content) return { text: "", html: null };
-	try {
-		const parsed = JSON.parse(content) as unknown;
-		const blocks = Array.isArray(parsed) ? parsed : [parsed];
-
-		const extractText = (node: unknown): string[] => {
-			if (!node || typeof node !== "object") return [];
-			const obj = node as { text?: unknown; content?: unknown; children?: unknown };
-			const out: string[] = [];
-
-			if (typeof obj.text === "string" && obj.text.trim()) {
-				out.push(obj.text.trim());
-			}
-
-			if (Array.isArray(obj.content)) {
-				for (const child of obj.content) {
-					out.push(...extractText(child));
-				}
-			}
-
-			if (Array.isArray(obj.children)) {
-				for (const child of obj.children) {
-					out.push(...extractText(child));
-				}
-			}
-
-			return out;
-		};
-
-		const chunks: string[] = [];
-		for (const block of blocks) {
-			const blockTexts = extractText(block);
-			if (blockTexts.length) {
-				chunks.push(blockTexts.join(" ").replace(/\s+/g, " ").trim());
-			}
-		}
-
-		return { text: chunks.join("\n\n").trim(), html: null };
-	} catch {
-		const trimmed = content.trim();
-		if (!trimmed) return { text: "", html: null };
-
-		const looksLikeHtml = /<\s*\/?\s*[a-z][^>]*>/i.test(trimmed);
-		if (looksLikeHtml) {
-			return { text: "", html: sanitizeHtml(trimmed) };
-		}
-
-		return { text: trimmed, html: null };
-	}
+function RichSection({
+	title,
+	content,
+}: {
+	title: string;
+	content: RichContent;
+}) {
+	if (!hasRichContent(content)) return null;
+	return (
+		<div className="bg-white rounded-2xl p-6 shadow-sm">
+			<h2 className="text-2xl font-serif font-bold text-gray-900 mb-4">{title}</h2>
+			{content.html ? (
+				<div
+					className="text-gray-700 leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0"
+					dangerouslySetInnerHTML={{ __html: content.html }}
+				/>
+			) : (
+				<p className="text-gray-700 leading-relaxed whitespace-pre-line">{content.text}</p>
+			)}
+		</div>
+	);
 }
 
 function normalizeStringArray(value: unknown): string[] {
@@ -299,43 +264,8 @@ export default function DharmshalaDetailsPage() {
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 						{/* Left column */}
 						<div className="lg:col-span-2 space-y-8">
-							{/* Description */}
-							{(descriptionContent.text || descriptionContent.html) && (
-								<div className="bg-white rounded-2xl p-6 shadow-sm">
-									<h2 className="text-2xl font-serif font-bold text-gray-900 mb-4">
-										Description
-									</h2>
-									{descriptionContent.html ? (
-										<div
-											className="text-gray-700 leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0"
-											dangerouslySetInnerHTML={{ __html: descriptionContent.html }}
-										/>
-									) : (
-										<p className="text-gray-700 leading-relaxed whitespace-pre-line">
-											{descriptionContent.text}
-										</p>
-									)}
-								</div>
-							)}
-
-							{/* Additional info */}
-							{(additionalInfoContent.text || additionalInfoContent.html) && (
-								<div className="bg-white rounded-2xl p-6 shadow-sm">
-									<h2 className="text-2xl font-serif font-bold text-gray-900 mb-4">
-										Additional Info
-									</h2>
-									{additionalInfoContent.html ? (
-										<div
-											className="text-gray-700 leading-relaxed [&_p]:mb-3 [&_p:last-child]:mb-0"
-											dangerouslySetInnerHTML={{ __html: additionalInfoContent.html }}
-										/>
-									) : (
-										<p className="text-gray-700 leading-relaxed whitespace-pre-line">
-											{additionalInfoContent.text}
-										</p>
-									)}
-								</div>
-							)}
+							<RichSection title="Description" content={descriptionContent} />
+							<RichSection title="Additional Info" content={additionalInfoContent} />
 
 							{/* Media */}
 							{(allImages.length > 0 || videos.length > 0) && (

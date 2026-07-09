@@ -68,8 +68,14 @@ export function overlayTranslatable(
 ): Record<string, unknown> {
 	const next = { ...record };
 	for (const f of resolveTabFields(model, fields)) {
-		if (slice[f] !== undefined) next[f] = slice[f];
-		else if (f in next && slice[f] === null) next[f] = "";
+		// Always replace flat fields from the target locale slice.
+		// Missing keys must clear (not keep the previous locale's value),
+		// otherwise Hindi/English content cross-contaminates on tab switch.
+		if (slice[f] !== undefined && slice[f] !== null) {
+			next[f] = slice[f];
+		} else {
+			next[f] = "";
+		}
 	}
 	return next;
 }

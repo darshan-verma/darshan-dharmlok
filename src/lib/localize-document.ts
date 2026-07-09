@@ -8,7 +8,12 @@ export type LocalizableModel =
 	| "blog"
 	| "event"
 	| "poojaCategory"
-	| "panditji";
+	| "panditji"
+	| "kathavachak"
+	| "dharmguru";
+
+/** Shared profile fields for panditji / kathavachak / dharmguru (User model). */
+const USER_PROFILE_FIELDS = ["name", "bio", "description", "category"];
 
 export const TRANSLATABLE_FIELDS: Record<LocalizableModel, string[]> = {
 	temple: [
@@ -52,7 +57,9 @@ export const TRANSLATABLE_FIELDS: Record<LocalizableModel, string[]> = {
 		"toTime",
 	],
 	poojaCategory: ["name", "description", "details"],
-	panditji: ["name", "bio", "description", "category"],
+	panditji: [...USER_PROFILE_FIELDS],
+	kathavachak: [...USER_PROFILE_FIELDS],
+	dharmguru: [...USER_PROFILE_FIELDS],
 };
 
 const MODEL_ALIASES: Record<string, LocalizableModel> = {

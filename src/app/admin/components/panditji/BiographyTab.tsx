@@ -46,7 +46,8 @@ export default function BiographyTab({
 						prev as unknown as Record<string, unknown>,
 						"panditji",
 						contentLocale,
-						locale
+						locale,
+						["bio"]
 					) as unknown as Partial<Panditji>)
 				: prev
 		);

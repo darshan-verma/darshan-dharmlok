@@ -10,6 +10,9 @@ import { Dharmguru } from "./types";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import { useEffect, useRef } from "react";
+import LocaleTabs from "@/components/admin/LocaleTabs";
+import type { ContentLang } from "@/lib/content-lang";
+import { switchContentLocale } from "@/lib/admin-locale-sync";
 
 interface BiographyTabProps {
 	editedDharmguru: Partial<Dharmguru> | null;
@@ -18,6 +21,11 @@ interface BiographyTabProps {
 	safeBlockNoteHtml: (jsonString?: string) => string;
 	onSave?: (content?: string) => void;
 	isSaving?: boolean;
+	setEditedDharmguru: React.Dispatch<
+		React.SetStateAction<Partial<Dharmguru> | null>
+	>;
+	contentLocale: ContentLang;
+	onContentLocaleChange: (locale: ContentLang) => void;
 }
 
 export default function BiographyTab({
@@ -26,9 +34,28 @@ export default function BiographyTab({
 	handleBlockNoteChange,
 	onSave,
 	isSaving,
+	setEditedDharmguru,
+	contentLocale,
+	onContentLocaleChange,
 }: BiographyTabProps) {
 	const editor = useCreateBlockNote();
 	const blockNoteRef = useRef<BlockNoteEditorHandle | null>(null);
+
+	const handleLocaleChange = (locale: ContentLang) => {
+		blockNoteRef.current?.flush();
+		setEditedDharmguru((prev) =>
+			prev
+				? (switchContentLocale(
+						prev as unknown as Record<string, unknown>,
+						"dharmguru",
+						contentLocale,
+						locale,
+						["bio"]
+					) as unknown as Partial<Dharmguru>)
+				: prev
+		);
+		onContentLocaleChange(locale);
+	};
 
 	useEffect(() => {
 		if (!isEditing && editor && editedDharmguru?.bio) {
@@ -52,10 +79,19 @@ export default function BiographyTab({
 
 	return (
 		<Card>
+			{isEditing && (
+				<div className="px-4 pt-4">
+					<LocaleTabs
+						activeLocale={contentLocale}
+						onLocaleChange={handleLocaleChange}
+					/>
+				</div>
+			)}
 			<CardContent className="p-4">
 				{isEditing ? (
 					<BlockNoteEditor
 						ref={blockNoteRef}
+						key={`bio-${contentLocale}-${editedDharmguru?.id ?? "new"}`}
 						initialContent={editedDharmguru?.bio || ""}
 						onChange={(val: string) => handleBlockNoteChange("bio", val)}
 						editable={isEditing}
@@ -66,7 +102,7 @@ export default function BiographyTab({
 							<BlockNoteView
 								editor={editor}
 								editable={false}
-								theme="light" // or use `resolvedTheme` if you want to support dark mode
+								theme="light"
 								className="p-3"
 							/>
 						) : (

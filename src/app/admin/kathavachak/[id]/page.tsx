@@ -28,6 +28,8 @@ import {
 	DialogTitle,
 	DialogFooter,
 } from "@/components/ui/dialog";
+import type { ContentLang } from "@/lib/content-lang";
+import { finalizeTranslationsPayload } from "@/lib/admin-locale-sync";
 
 export default function KathavachakDetailPage() {
 	// Delete handler for Kathavachak with shadcn dialog
@@ -73,6 +75,7 @@ export default function KathavachakDetailPage() {
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 	const [isUploadingImage, setIsUploadingImage] = useState(false); // Add image upload state
 	const [isSavingBiography, setIsSavingBiography] = useState(false);
+	const [contentLocale, setContentLocale] = useState<ContentLang>("en");
 
 	// --- Posts Tab: Images & Videos State ---
 	const [showImageUpload, setShowImageUpload] = useState(false);
@@ -348,23 +351,28 @@ export default function KathavachakDetailPage() {
 		const loadingToast = toast.loading("Saving changes...");
 
 		try {
-			// Preserve the bio value - prioritize editedKathavachak.bio, fallback to kathavachak.bio
-			const bioToPreserve = editedKathavachak.bio !== undefined 
-				? editedKathavachak.bio 
-				: (kathavachak?.bio || "");
+			const translations = finalizeTranslationsPayload(
+				editedKathavachak as Record<string, unknown>,
+				"kathavachak",
+				contentLocale,
+				["name", "description", "category"]
+			);
+			// Bio is saved only from the Biography tab — omit it here so a
+			// Hindi/English details save cannot overwrite the other locale's bio.
+			const { bio: _omitBio, ...detailsWithoutBio } = editedKathavachak;
 
 			// Prepare data for API - only send necessary fields
 			const dataToSave = {
-				name: editedKathavachak.name,
-				email: editedKathavachak.email,
-				phone: editedKathavachak.phone,
-				addresses: editedKathavachak.addresses, // Updated/new addresses
-				addressesToDelete, // Array of address IDs to delete
-				bio: bioToPreserve,
+				name: detailsWithoutBio.name,
+				email: detailsWithoutBio.email,
+				phone: detailsWithoutBio.phone,
+				addresses: detailsWithoutBio.addresses,
+				addressesToDelete,
+				translations,
 				profileImageUrl:
-					editedKathavachak.profileImageUrl === undefined
-						? null // <-- send null if removed
-						: editedKathavachak.profileImageUrl,
+					detailsWithoutBio.profileImageUrl === undefined
+						? null
+						: detailsWithoutBio.profileImageUrl,
 			};
 
 			// Send PUT request to update user
@@ -381,17 +389,11 @@ export default function KathavachakDetailPage() {
 				throw new Error(errorData.error || "Failed to update Kathavachak");
 			}
 
-			// Update state immediately with the saved bio
-			const savedBio = bioToPreserve;
-			setKathavachak((prev) => prev ? { ...prev, bio: savedBio } : null);
-			setEditedKathavachak((prev) => prev ? { ...prev, bio: savedBio } : null);
-
 			setIsEditing(false);
+			setContentLocale("en");
 
-			// Refetch in the background to sync with server (don't wait for it)
-			fetchKathavachakData().catch((err) => {
-				console.error("Error refetching data:", err);
-			});
+			// Refetch so client state keeps full translations (en + hi).
+			await fetchKathavachakData();
 
 			// Clear the deletion queue since changes are saved
 			setAddressesToDelete([]);
@@ -740,12 +742,28 @@ export default function KathavachakDetailPage() {
 		const loadingToast = toast.loading("Saving biography...");
 
 		try {
+			const record = {
+				...(editedKathavachak ?? {}),
+				bio: bioToSave,
+			} as Record<string, unknown>;
+			// Only sync the bio field for the active locale so name/category/etc.
+			// from the other language are not copied into this locale's slice.
+			const translations = finalizeTranslationsPayload(
+				record,
+				"kathavachak",
+				contentLocale,
+				["bio"]
+			);
 			const response = await fetch(`/api/users/${KathavachakId}`, {
 				method: "PUT",
 				headers: {
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify({ bio: bioToSave }),
+				body: JSON.stringify({
+					locale: contentLocale,
+					bio: bioToSave,
+					translations,
+				}),
 			});
 
 			if (!response.ok) {
@@ -753,19 +771,13 @@ export default function KathavachakDetailPage() {
 				throw new Error(errorData.error || "Failed to save biography");
 			}
 
-			const updated = await response.json();
-			setKathavachak((prev) => (prev ? { ...prev, ...updated } : updated));
-			setEditedKathavachak((prev) =>
-				prev ? { ...prev, ...updated } : updated
-			);
-
 			toast.dismiss(loadingToast);
 			toast.success("Biography updated successfully!");
 			setIsEditing(false);
+			setContentLocale("en");
 
-			fetchKathavachakData().catch((err) => {
-				console.error("Error refetching data:", err);
-			});
+			// Refetch so client state keeps full translations (en + hi).
+			await fetchKathavachakData();
 		} catch (error) {
 			toast.dismiss(loadingToast);
 			toast.error(
@@ -940,6 +952,9 @@ export default function KathavachakDetailPage() {
 								handleBlockNoteChange={handleBlockNoteChange}
 								onSave={handleSaveBiography}
 								isSaving={isSavingBiography}
+								setEditedKathavachak={setEditedKathavachak}
+								contentLocale={contentLocale}
+								onContentLocaleChange={setContentLocale}
 							/>
 						</TabsContent>
 

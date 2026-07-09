@@ -11,6 +11,8 @@ import {
 	buildDualWriteReligiousFields,
 	hasReligiousCategoryInput,
 } from "@/lib/religious-categories";
+import { parseLangParam } from "@/lib/content-lang";
+import { formatLocalizedUserResponse } from "@/lib/content-api";
 
 // GET - List all kathavachak users with optimized queries
 export async function GET(request: NextRequest) {
@@ -22,6 +24,7 @@ export async function GET(request: NextRequest) {
 		const state = searchParams.get("state") || "";
 		const status = searchParams.get("status") || "";
 		const religiousCategory = searchParams.get("religiousCategory");
+		const locale = parseLangParam(searchParams.get("lang")) ?? "en";
 
 		const skip = (page - 1) * limit;
 
@@ -69,6 +72,8 @@ export async function GET(request: NextRequest) {
 					bannerImageUrl: true,
 					bio: true,
 					description: true,
+					translations: true,
+					translationStatus: true,
 					userType: true,
 					category: true,
 					religiousCategories: true,
@@ -118,7 +123,13 @@ export async function GET(request: NextRequest) {
 
 		return NextResponse.json({
 			success: true,
-			data: users.map(mapWithReligiousCategories),
+			data: users.map((user) =>
+				formatLocalizedUserResponse(
+					mapWithReligiousCategories(user) as unknown as Record<string, unknown>,
+					locale,
+					"kathavachak"
+				)
+			),
 			pagination: {
 				currentPage: page,
 				totalPages,

@@ -16,6 +16,7 @@ import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import BlockNoteEditor from "@/components/richtext/BlockNoteEditor";
 import { useTheme } from "next-themes";
+import { useLanguage } from "@/components/providers/LanguageProvider";
 
 interface BiographyProps {
 	userId: string;
@@ -40,11 +41,12 @@ export default function Biography({ userId, editable = true }: BiographyProps) {
 	const [isSaving, setIsSaving] = useState(false);
 	const editor = useCreateBlockNote();
 	const { resolvedTheme } = useTheme();
+	const { locale } = useLanguage();
 
 	useEffect(() => {
 		setLoading(true);
 		setError(null);
-		fetch(`/api/users/${userId}`)
+		fetch(`/api/users/${userId}?lang=${locale}`)
 			.then(async (res) => {
 				if (!res.ok) throw new Error("Failed to fetch user data");
 				return res.json();
@@ -55,7 +57,7 @@ export default function Biography({ userId, editable = true }: BiographyProps) {
 			})
 			.catch((e: Error) => setError(e.message))
 			.finally(() => setLoading(false));
-	}, [userId]);
+	}, [userId, locale]);
 
 	useEffect(() => {
 		if (!isEditing && editor && user?.bio) {

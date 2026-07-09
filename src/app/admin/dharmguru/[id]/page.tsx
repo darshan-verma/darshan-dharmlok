@@ -24,6 +24,8 @@ import {
 	DialogTitle,
 	DialogFooter,
 } from "@/components/ui/dialog";
+import type { ContentLang } from "@/lib/content-lang";
+import { finalizeTranslationsPayload } from "@/lib/admin-locale-sync";
 
 export default function DharmguruDetailPage() {
 	// Delete handler for Kathavachak with shadcn dialog
@@ -69,6 +71,7 @@ export default function DharmguruDetailPage() {
 	const [addressesToDelete, setAddressesToDelete] = useState<string[]>([]);
 	const [isUploadingImage, setIsUploadingImage] = useState(false); // Add image upload state
 	const [isSavingBiography, setIsSavingBiography] = useState(false);
+	const [contentLocale, setContentLocale] = useState<ContentLang>("en");
 
 	// --- Posts Tab: Images & Videos State ---
 	const [postImages, setPostImages] = useState<ImageObject[]>([]);
@@ -282,18 +285,27 @@ export default function DharmguruDetailPage() {
 		const loadingToast = toast.loading("Saving changes...");
 
 		try {
-			// Prepare data for API
+			const translations = finalizeTranslationsPayload(
+				editedDharmguru as Record<string, unknown>,
+				"dharmguru",
+				contentLocale,
+				["name", "description", "category"]
+			);
+			// Bio is saved only from the Biography tab — omit it here so a
+			// Hindi/English details save cannot overwrite the other locale's bio.
+			const { bio: _omitBio, ...detailsWithoutBio } = editedDharmguru;
+
 			const dataToSave = {
-				name: editedDharmguru.name,
-				email: editedDharmguru.email,
-				phone: editedDharmguru.phone,
-				addresses: editedDharmguru.addresses,
+				name: detailsWithoutBio.name,
+				email: detailsWithoutBio.email,
+				phone: detailsWithoutBio.phone,
+				addresses: detailsWithoutBio.addresses,
 				addressesToDelete,
-				bio: editedDharmguru.bio || null,
+				translations,
 				profileImageUrl:
-					editedDharmguru.profileImageUrl === undefined
-						? null // <-- send null if removed
-						: editedDharmguru.profileImageUrl,
+					detailsWithoutBio.profileImageUrl === undefined
+						? null
+						: detailsWithoutBio.profileImageUrl,
 			};
 
 			const response = await fetch(`/api/users/${dharmguruId}`, {
@@ -309,11 +321,9 @@ export default function DharmguruDetailPage() {
 				throw new Error(errorData.error || "Failed to update Dharmguru");
 			}
 
-			const updatedDharmguru = await response.json();
-
-			setDharmguru(updatedDharmguru);
-			setEditedDharmguru(updatedDharmguru);
 			setIsEditing(false);
+			setContentLocale("en");
+			await fetchDharmguruData();
 			toast.dismiss(loadingToast);
 			toast.success("Dharmguru details updated successfully!");
 			setAddressesToDelete([]);
@@ -333,20 +343,33 @@ export default function DharmguruDetailPage() {
 		setIsSavingBiography(true);
 		const bioToSave = content ?? editedDharmguru?.bio ?? "";
 		try {
+			const record = {
+				...(editedDharmguru ?? {}),
+				bio: bioToSave,
+			} as Record<string, unknown>;
+			const translations = finalizeTranslationsPayload(
+				record,
+				"dharmguru",
+				contentLocale,
+				["bio"]
+			);
 			const response = await fetch(`/api/users/${dharmguruId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ bio: bioToSave }),
+				body: JSON.stringify({
+					locale: contentLocale,
+					bio: bioToSave,
+					translations,
+				}),
 			});
 			if (!response.ok) {
 				const errorData = await response.json();
 				throw new Error(errorData.error || "Failed to save biography");
 			}
-			const updated = await response.json();
-			setDharmguru((prev) => (prev ? { ...prev, ...updated } : updated));
-			setEditedDharmguru((prev) => (prev ? { ...prev, ...updated } : updated));
+			await fetchDharmguruData();
 			toast.success("Biography saved!");
 			setIsEditing(false);
+			setContentLocale("en");
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : "Failed to save biography"
@@ -758,6 +781,9 @@ export default function DharmguruDetailPage() {
 								safeBlockNoteHtml={safeBlockNoteHtml}
 								onSave={handleSaveBiography}
 								isSaving={isSavingBiography}
+								setEditedDharmguru={setEditedDharmguru}
+								contentLocale={contentLocale}
+								onContentLocaleChange={setContentLocale}
 							/>
 						</TabsContent>
 

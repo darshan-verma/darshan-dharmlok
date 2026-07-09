@@ -12,6 +12,7 @@ import Biography from "@/app/dashboard/components/biography";
 import PostsViewer from "@/components/shared/PostsViewer";
 import VideoGallery from "@/app/dashboard/components/video-gallery";
 import PhotoGallery from "@/app/dashboard/components/photo-gallery";
+import { useLanguage } from "@/components/providers/LanguageProvider";
 
 interface DharmguruData {
   id: string;
@@ -48,6 +49,7 @@ interface DharmguruData {
 
 export default function DharmguruDetailsPage() {
   const params = useParams();
+  const { locale } = useLanguage();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const [dharmguru, setDharmguru] = useState<DharmguruData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +64,7 @@ export default function DharmguruDetailsPage() {
         setError(null);
         
         // Use the general users endpoint (more reliable)
-        const response = await fetch(`/api/users/${id}`);
+        const response = await fetch(`/api/users/${id}?lang=${locale}`);
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: "Failed to fetch dharmguru details" }));
@@ -91,7 +93,7 @@ export default function DharmguruDetailsPage() {
     };
 
     fetchDharmguru();
-  }, [id]);
+  }, [id, locale]);
 
   if (loading) {
     return (

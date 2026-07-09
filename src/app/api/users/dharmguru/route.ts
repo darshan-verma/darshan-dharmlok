@@ -9,6 +9,8 @@ import {
 	hasReligiousCategoryInput,
 	mapWithReligiousCategories,
 } from "@/lib/religious-categories";
+import { parseLangParam } from "@/lib/content-lang";
+import { formatLocalizedUserResponse } from "@/lib/content-api";
 
 interface DharmguruCreateData {
 	name: string;
@@ -39,6 +41,7 @@ export async function GET(request: Request) {
 		const search = searchParams.get("search") || "";
 		const status = searchParams.get("status");
 		const religiousCategory = searchParams.get("religiousCategory");
+		const locale = parseLangParam(searchParams.get("lang")) ?? "en";
 
 		const skip = (page - 1) * limit;
 
@@ -72,6 +75,8 @@ export async function GET(request: Request) {
 					bannerImageUrl: true,
 					bio: true,
 					description: true,
+					translations: true,
+					translationStatus: true,
 					category: true,
 					religiousCategories: true,
 					rank: true,
@@ -115,7 +120,13 @@ export async function GET(request: Request) {
 
 		return NextResponse.json({
 			success: true,
-			data: dharmgurus.map(mapWithReligiousCategories),
+			data: dharmgurus.map((user) =>
+				formatLocalizedUserResponse(
+					mapWithReligiousCategories(user) as unknown as Record<string, unknown>,
+					locale,
+					"dharmguru"
+				)
+			),
 			pagination: {
 				currentPage: page,
 				totalPages,

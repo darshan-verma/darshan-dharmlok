@@ -64,7 +64,8 @@ export default function DetailsTab({
 						prev as unknown as Record<string, unknown>,
 						"panditji",
 						contentLocale,
-						locale
+						locale,
+						["name", "description", "category"]
 					) as unknown as Partial<Panditji>)
 				: prev
 		);

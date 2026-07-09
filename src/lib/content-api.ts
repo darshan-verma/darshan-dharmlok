@@ -298,7 +298,15 @@ export function formatPanditjiResponse(
 	user: Record<string, unknown>,
 	locale: ContentLang
 ) {
-	const flat = flattenDocument(user, "panditji", locale) as Record<string, unknown>;
+	return formatLocalizedUserResponse(user, locale, "panditji");
+}
+
+export function formatLocalizedUserResponse(
+	user: Record<string, unknown>,
+	locale: ContentLang,
+	model: "panditji" | "kathavachak" | "dharmguru" = "panditji"
+) {
+	const flat = flattenDocument(user, model, locale) as Record<string, unknown>;
 	return withTranslationMeta(user, {
 		...flat,
 		...mapWithReligiousCategories({
@@ -306,6 +314,17 @@ export function formatPanditjiResponse(
 			religiousCategories: user.religiousCategories as string[] | null,
 		}),
 	});
+}
+
+/** Normalize User.userType casing used across the codebase. */
+export function localizedUserModelFromType(
+	userType: string | null | undefined
+): "panditji" | "kathavachak" | "dharmguru" | null {
+	const t = (userType || "").toLowerCase();
+	if (t === "panditji") return "panditji";
+	if (t === "kathavachak") return "kathavachak";
+	if (t === "dharmguru") return "dharmguru";
+	return null;
 }
 
 export function formatDharamshalaResponse(

@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useLanguage } from "@/components/providers/LanguageProvider";
 
 interface PanditjiData {
   id: string;
@@ -79,6 +80,7 @@ interface PanditjiData {
 export default function PanditjiDetailsPage() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const { locale } = useLanguage();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const selectedServiceId = searchParams.get("serviceId");
   const [panditji, setPanditji] = useState<PanditjiData | null>(null);
@@ -95,7 +97,7 @@ export default function PanditjiDetailsPage() {
         setError(null);
 
         // Use panditji endpoint to include serviceOfferings (needed for selected service pricing)
-        const response = await fetch(`/api/users/panditji/${id}`);
+        const response = await fetch(`/api/users/panditji/${id}?lang=${locale}`);
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: "Failed to fetch panditji details" }));
@@ -119,7 +121,7 @@ export default function PanditjiDetailsPage() {
     };
 
     fetchPanditji();
-  }, [id]);
+  }, [id, locale]);
 
   if (loading) {
     return (

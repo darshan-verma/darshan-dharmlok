@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
@@ -8,6 +8,8 @@ import {
 	resolveUserReligiousUpdate,
 } from "@/lib/user-religious-api";
 import { deleteUserWithRelations } from "@/lib/deleteUserWithRelations";
+import { parseLangParam } from "@/lib/content-lang";
+import { formatLocalizedUserResponse } from "@/lib/content-api";
 
 // Helper to delete S3 objects
 async function deleteS3Media(mediaUrls: string[]) {
@@ -35,11 +37,13 @@ async function deleteS3Media(mediaUrls: string[]) {
  * Retrieves a single dharmguru by ID with optimized fields
  */
 export async function GET(
-	_request: Request,
+	_request: NextRequest,
 	context: { params: Promise<{ id: string }> }
 ) {
 	try {
 		const { id } = await context.params;
+		const locale =
+			parseLangParam(_request.nextUrl.searchParams.get("lang")) ?? "en";
 
 		// Validate ObjectId format
 		if (!/^[0-9a-fA-F]{24}$/.test(id)) {
@@ -65,6 +69,9 @@ export async function GET(
 				religiousCategories: true,
 				rank: true,
 				bio: true,
+				description: true,
+				translations: true,
+				translationStatus: true,
 				profileImageUrl: true,
 				bannerImageUrl: true,
 				coverImageUrl: true,
@@ -136,7 +143,16 @@ export async function GET(
 			);
 		}
 
-		return NextResponse.json(mapWithReligiousCategories(dharmguru));
+		return NextResponse.json(
+			formatLocalizedUserResponse(
+				mapWithReligiousCategories(dharmguru) as unknown as Record<
+					string,
+					unknown
+				>,
+				locale,
+				"dharmguru"
+			)
+		);
 	} catch (error) {
 		console.error("Error fetching dharmguru:", error);
 		return NextResponse.json(

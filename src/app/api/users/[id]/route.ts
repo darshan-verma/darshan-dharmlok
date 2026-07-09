@@ -4,7 +4,8 @@ import { Prisma } from "@prisma/client";
 import { deleteUserWithRelations } from "@/lib/deleteUserWithRelations";
 import { parseLangParam } from "@/lib/content-lang";
 import {
-	formatPanditjiResponse,
+	formatLocalizedUserResponse,
+	localizedUserModelFromType,
 	prepareTranslationsForSave,
 } from "@/lib/content-api";
 
@@ -115,12 +116,14 @@ export async function GET(
 				},
 			});
 
-			if (user?.userType === "panditji") {
+			const localizedModel = localizedUserModelFromType(user?.userType);
+			if (user && localizedModel) {
 				const locale =
 					parseLangParam(new URL(_request.url).searchParams.get("lang")) ?? "en";
-				const formatted = formatPanditjiResponse(
+				const formatted = formatLocalizedUserResponse(
 					user as unknown as Record<string, unknown>,
-					locale
+					locale,
+					localizedModel
 				);
 				return NextResponse.json({ ...user, ...formatted });
 			}
@@ -260,16 +263,29 @@ export async function PUT(
 			});
 
 			// Prepare update data with conditional field inclusion
+			const localizedModel = localizedUserModelFromType(existingUser?.userType);
+			const isLocalizedProfileTranslationSave =
+				!!localizedModel &&
+				(data.translations !== undefined ||
+					data.name !== undefined ||
+					data.bio !== undefined ||
+					data.description !== undefined ||
+					data.category !== undefined);
+
 			const userUpdateData: Prisma.UserUpdateInput = {
 				// Basic information updates (only if provided)
-				...(data.name !== undefined && { name: data.name }),
+				// For localized profile translation saves, root name/bio/description/category
+				// are set from translations.en below — skip flat values (may be Hindi).
+				...(data.name !== undefined &&
+					!isLocalizedProfileTranslationSave && { name: data.name }),
 				...(data.email !== undefined && { email: data.email }),
 				...(data.phone !== undefined && { phone: data.phone }),
 				...(data.userType !== undefined && { userType: data.userType }),
 				...(data.typeVendor !== undefined && { typeVendor: data.typeVendor }),
 
 				// Profile and classification
-				...(data.category !== undefined && { category: data.category }),
+				...(data.category !== undefined &&
+					!isLocalizedProfileTranslationSave && { category: data.category }),
 				...(data.profileImageUrl !== undefined && {
 					profileImageUrl: data.profileImageUrl,
 				}),
@@ -279,10 +295,12 @@ export async function PUT(
 				...(data.coverImageUrl !== undefined && {
 					coverImageUrl: data.coverImageUrl,
 				}),
-				...(data.bio !== undefined && { bio: data.bio }),
-				...(data.description !== undefined && {
-					description: data.description,
-				}),
+				...(data.bio !== undefined &&
+					!isLocalizedProfileTranslationSave && { bio: data.bio }),
+				...(data.description !== undefined &&
+					!isLocalizedProfileTranslationSave && {
+						description: data.description,
+					}),
 
 				// Explicitly include rank field (important for kathavachak/dharmguru)
 				rank: data.rank || "",
@@ -315,16 +333,9 @@ export async function PUT(
 				userUpdateData.profileImageUrl = data.profileImageUrl ?? null;
 			}
 
-			if (
-				existingUser?.userType === "panditji" &&
-				(data.translations !== undefined ||
-					data.name !== undefined ||
-					data.bio !== undefined ||
-					data.description !== undefined ||
-					data.category !== undefined)
-			) {
+			if (isLocalizedProfileTranslationSave && localizedModel && existingUser) {
 				const { translations, translationStatus } = prepareTranslationsForSave(
-					"panditji",
+					localizedModel,
 					data,
 					existingUser
 				);
@@ -332,7 +343,12 @@ export async function PUT(
 				userUpdateData.translations = translations as object;
 				userUpdateData.translationStatus = translationStatus;
 				if (enSlice.name) userUpdateData.name = String(enSlice.name);
-				if (enSlice.bio !== undefined) userUpdateData.bio = String(enSlice.bio);
+				// Root fields are always English canonical — never overwrite with Hindi flat values.
+				if (enSlice.bio !== undefined) {
+					userUpdateData.bio = String(enSlice.bio);
+				} else if (existingUser.bio != null) {
+					userUpdateData.bio = existingUser.bio;
+				}
 				if (enSlice.description !== undefined) {
 					userUpdateData.description = String(enSlice.description);
 				}
@@ -362,6 +378,9 @@ export async function PUT(
 					bio: true,
 					coverImageUrl: true,
 					category: true,
+					description: true,
+					translations: true,
+					translationStatus: true,
 					social: true,
 					active: true,
 					rank: true,
@@ -509,7 +528,14 @@ export async function PUT(
 			if (data.name !== undefined) updateData.name = data.name;
 			if (data.email !== undefined) updateData.email = data.email;
 			if (data.phone !== undefined) updateData.phone = data.phone;
-			if (data.bio !== undefined) updateData.bio = data.bio;
+			// For localized profiles, root bio is already set from translations.en above.
+			// Do not overwrite it with the flat request bio (may be Hindi).
+			if (
+				data.bio !== undefined &&
+				!(localizedModel && data.translations !== undefined)
+			) {
+				updateData.bio = data.bio;
+			}
 			if (data.profileImageUrl !== undefined)
 				updateData.profileImageUrl = data.profileImageUrl;
 			if (data.addresses !== undefined) updateData.addresses = data.addresses;
@@ -534,6 +560,8 @@ export async function PUT(
 					bio: true,
 					coverImageUrl: true,
 					category: true,
+					translations: true,
+					translationStatus: true,
 					social: true,
 					active: true,
 					rank: true,
@@ -547,6 +575,20 @@ export async function PUT(
 					createdAt: true,
 				},
 			});
+
+			const responseModel = localizedUserModelFromType(updatedUser.userType);
+			if (responseModel) {
+				const locale =
+					parseLangParam(
+						typeof data.locale === "string" ? data.locale : null
+					) ?? "en";
+				const formatted = formatLocalizedUserResponse(
+					updatedUser as unknown as Record<string, unknown>,
+					locale,
+					responseModel
+				);
+				return NextResponse.json({ ...updatedUser, ...formatted });
+			}
 
 			return NextResponse.json(updatedUser);
 		} catch (prismaError) {

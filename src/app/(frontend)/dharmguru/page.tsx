@@ -8,6 +8,7 @@ import { KathavachakDharmguruCard } from "@/components/shared/kathavachak-dharmg
 import { PageBanner } from "@/components/shared/PageBanner";
 import { CardsPagination, CARDS_PER_PAGE } from "@/components/shared/CardsPagination";
 import { SimpleSearchFilterBar } from "@/components/shared/SimpleSearchFilterBar";
+import { useLanguage } from "@/components/providers/LanguageProvider";
 
 interface Dharmguru {
   id: string;
@@ -33,6 +34,7 @@ interface PaginationInfo {
 
 export default function DharmguruPage() {
   const router = useRouter();
+  const { locale } = useLanguage();
   const [dharmgurus, setDharmgurus] = useState<Dharmguru[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingCardId, setLoadingCardId] = useState<string | null>(null);
@@ -72,6 +74,7 @@ export default function DharmguruPage() {
         const params = new URLSearchParams({
           limit: String(CARDS_PER_PAGE),
           page: String(currentPage),
+          lang: locale,
         });
         if (selectedReligiousCategory !== "all") {
           params.set("religiousCategory", selectedReligiousCategory);
@@ -107,7 +110,7 @@ export default function DharmguruPage() {
     };
 
     fetchDharmgurus();
-  }, [currentPage, selectedReligiousCategory, debouncedSearchQuery]);
+  }, [currentPage, selectedReligiousCategory, debouncedSearchQuery, locale]);
 
   useEffect(() => {
     if (currentPage > 1) {

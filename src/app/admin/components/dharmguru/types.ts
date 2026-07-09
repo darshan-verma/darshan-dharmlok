@@ -23,11 +23,19 @@ export interface Address {
 	updatedAt?: string | Date;
 }
 
+import type {
+	LocaleTranslations,
+	TranslationStatus,
+} from "@/lib/content-lang";
+
 export interface Dharmguru {
 	id: string;
 	name: string;
 	phone: string;
 	email: string;
+	translations?: LocaleTranslations;
+	translationStatus?: TranslationStatus;
+	description?: string;
 	KathavachakType?: string;
 	typeVendor?: string;
 	profileImageUrl?: string;

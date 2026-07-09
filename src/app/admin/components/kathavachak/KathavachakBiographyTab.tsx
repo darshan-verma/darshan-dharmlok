@@ -11,6 +11,9 @@ import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import { PartialBlock } from "@blocknote/core";
 import { useMemo, useRef } from "react";
+import LocaleTabs from "@/components/admin/LocaleTabs";
+import type { ContentLang } from "@/lib/content-lang";
+import { switchContentLocale } from "@/lib/admin-locale-sync";
 
 interface BiographyTabProps {
 	editedKathavachak: Partial<Kathavachak> | null;
@@ -18,6 +21,11 @@ interface BiographyTabProps {
 	handleBlockNoteChange: (field: "bio", val: string) => void;
 	onSave?: (content?: string) => void;
 	isSaving?: boolean;
+	setEditedKathavachak: React.Dispatch<
+		React.SetStateAction<Partial<Kathavachak> | null>
+	>;
+	contentLocale: ContentLang;
+	onContentLocaleChange: (locale: ContentLang) => void;
 }
 
 // Helper function to safely parse BlockNote content
@@ -59,15 +67,37 @@ export default function BiographyTab({
 	handleBlockNoteChange,
 	onSave,
 	isSaving,
+	setEditedKathavachak,
+	contentLocale,
+	onContentLocaleChange,
 }: BiographyTabProps) {
 	const blockNoteRef = useRef<BlockNoteEditorHandle | null>(null);
 
-	// Create a unique key that changes when bio changes to force component recreation
+	const handleLocaleChange = (locale: ContentLang) => {
+		blockNoteRef.current?.flush();
+		setEditedKathavachak((prev) =>
+			prev
+				? (switchContentLocale(
+						prev as unknown as Record<string, unknown>,
+						"kathavachak",
+						contentLocale,
+						locale,
+						["bio"]
+					) as unknown as Partial<Kathavachak>)
+				: prev
+		);
+		onContentLocaleChange(locale);
+	};
+
+	// Create a unique key that changes when bio/locale changes to force component recreation
 	const bioKey = useMemo(() => {
 		const bioString = editedKathavachak?.bio || "";
-		const bioHash = bioString.length > 0 ? `${bioString.length}-${bioString.substring(0, 10)}` : "empty";
-		return `${editedKathavachak?.id || "unknown"}-${bioHash}`;
-	}, [editedKathavachak?.id, editedKathavachak?.bio]);
+		const bioHash =
+			bioString.length > 0
+				? `${bioString.length}-${bioString.substring(0, 10)}`
+				: "empty";
+		return `${editedKathavachak?.id || "unknown"}-${contentLocale}-${bioHash}`;
+	}, [editedKathavachak?.id, editedKathavachak?.bio, contentLocale]);
 
 	const handleSaveClick = () => {
 		if (!onSave) return;
@@ -79,6 +109,14 @@ export default function BiographyTab({
 
 	return (
 		<Card>
+			{isEditing && (
+				<div className="px-4 pt-4">
+					<LocaleTabs
+						activeLocale={contentLocale}
+						onLocaleChange={handleLocaleChange}
+					/>
+				</div>
+			)}
 			<CardContent className="p-4">
 				{isEditing ? (
 					<BlockNoteEditor
@@ -92,9 +130,9 @@ export default function BiographyTab({
 					<>
 						{editedKathavachak?.bio ? (
 							<div key={`bio-viewer-wrapper-${bioKey}`}>
-								<BioViewer 
+								<BioViewer
 									key={`bio-viewer-${bioKey}`}
-									bio={editedKathavachak.bio} 
+									bio={editedKathavachak.bio}
 									id={editedKathavachak.id}
 								/>
 							</div>

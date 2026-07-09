@@ -298,10 +298,14 @@ export default function PanditjiDetailPage() {
 			const translations = finalizeTranslationsPayload(
 				editedPanditji as Record<string, unknown>,
 				"panditji",
-				contentLocale
+				contentLocale,
+				["name", "description", "category"]
 			);
+			// Bio is saved only from the Biography tab — omit it here so a
+			// Hindi/English details save cannot overwrite the other locale's bio.
+			const { bio: _omitBio, ...detailsWithoutBio } = editedPanditji;
 			const dataToSave = {
-				...editedPanditji,
+				...detailsWithoutBio,
 				translations,
 				images: imagesToSave,
 				videos: videosToSave,
@@ -428,15 +432,19 @@ export default function PanditjiDetailPage() {
 	const handleSaveBiography = async () => {
 		setIsSavingBiography(true);
 		try {
+			// Only sync the bio field for the active locale so name/category/etc.
+			// from the other language are not copied into this locale's slice.
 			const translations = finalizeTranslationsPayload(
 				(editedPanditji ?? {}) as Record<string, unknown>,
 				"panditji",
-				contentLocale
+				contentLocale,
+				["bio"]
 			);
 			const response = await fetch(`/api/users/${panditjiId}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
+					locale: contentLocale,
 					bio: editedPanditji?.bio || "",
 					translations,
 				}),
@@ -445,9 +453,8 @@ export default function PanditjiDetailPage() {
 				const errorData = await response.json();
 				throw new Error(errorData.error || "Failed to save biography");
 			}
-			const updated = await response.json();
-			setPanditji(updated);
-			setEditedPanditji(updated);
+			// Refetch so client state keeps full translations (en + hi).
+			await fetchPanditjiData();
 			toast.success("Biography saved!");
 			setIsEditing(false);
 		} catch (error) {

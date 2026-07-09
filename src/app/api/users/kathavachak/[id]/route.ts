@@ -10,6 +10,8 @@ import {
 	parseReligiousCategoriesFromFormData,
 } from "@/lib/user-religious-api";
 import { deleteUserWithRelations } from "@/lib/deleteUserWithRelations";
+import { parseLangParam } from "@/lib/content-lang";
+import { formatLocalizedUserResponse } from "@/lib/content-api";
 
 // Helper function to delete S3 media
 async function deleteS3Media(mediaUrls: string[]) {
@@ -40,6 +42,8 @@ export async function GET(
 ) {
 	try {
 		const { id: userId } = await params;
+		const locale =
+			parseLangParam(_request.nextUrl.searchParams.get("lang")) ?? "en";
 
 		if (!userId) {
 			return NextResponse.json(
@@ -63,6 +67,8 @@ export async function GET(
 				bannerImageUrl: true,
 				bio: true,
 				description: true,
+				translations: true,
+				translationStatus: true,
 				userType: true,
 				category: true,
 				religiousCategories: true,
@@ -146,7 +152,11 @@ export async function GET(
 
 		return NextResponse.json({
 			success: true,
-			data: mapWithReligiousCategories(user),
+			data: formatLocalizedUserResponse(
+				mapWithReligiousCategories(user) as unknown as Record<string, unknown>,
+				locale,
+				"kathavachak"
+			),
 		});
 	} catch (error) {
 		console.error("Error fetching kathavachak user:", error);

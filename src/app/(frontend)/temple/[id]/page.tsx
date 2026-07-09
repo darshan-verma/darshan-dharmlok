@@ -32,6 +32,11 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+	hasRichContent,
+	parseRichContent,
+	type RichContent,
+} from "@/lib/rich-content";
 
 type Faq = { id: string; question: string; answer: string };
 
@@ -68,46 +73,6 @@ function extractGoogleMapsSrc(input?: string): string {
 	return input.trim();
 }
 
-type RichContent = { text: string; html: string | null };
-
-function sanitizeHtml(html: string): string {
-	return html
-		.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
-		.replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
-		.replace(/\son\w+="[^"]*"/gi, "")
-		.replace(/\son\w+='[^']*'/gi, "")
-		.replace(/\s(href|src)=["']javascript:[^"']*["']/gi, ' $1="#"');
-}
-
-function parseRichContent(content?: string): RichContent {
-	if (!content) return { text: "", html: null };
-	try {
-		const parsed = JSON.parse(content);
-		if (!Array.isArray(parsed)) return { text: "", html: null };
-
-		const texts: string[] = [];
-		for (const block of parsed) {
-			const blockContent = (block as { content?: unknown }).content;
-			if (!Array.isArray(blockContent)) continue;
-			for (const node of blockContent) {
-				const t = (node as { text?: unknown }).text;
-				if (typeof t === "string" && t.trim()) texts.push(t.trim());
-			}
-		}
-		return { text: texts.join("\n\n").trim(), html: null };
-	} catch {
-		const trimmed = content.trim();
-		if (!trimmed) return { text: "", html: null };
-
-		const looksLikeHtml = /<\s*\/?\s*[a-z][^>]*>/i.test(trimmed);
-		if (looksLikeHtml) {
-			return { text: "", html: sanitizeHtml(trimmed) };
-		}
-
-		return { text: trimmed, html: null };
-	}
-}
-
 function Section({
 	title,
 	content,
@@ -115,7 +80,7 @@ function Section({
 	title: string;
 	content: RichContent;
 }) {
-	if (!content.text && !content.html) return null;
+	if (!hasRichContent(content)) return null;
 	return (
 		<div className="bg-white rounded-2xl p-6 shadow-sm">
 			<h2 className="text-2xl font-serif font-bold text-gray-900 mb-4">{title}</h2>

@@ -19,6 +19,8 @@ const DEFAULT_SEARCH_FIELDS: Record<LocalizableModel, TranslationSearchField[]> 
 		event: ["title", "place", "location", "address"],
 		poojaCategory: ["name", "description"],
 		panditji: ["name", "description"],
+		kathavachak: ["name", "description"],
+		dharmguru: ["name", "description"],
 	};
 
 function escapeRegex(term: string): string {
