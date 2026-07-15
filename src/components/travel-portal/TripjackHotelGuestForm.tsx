@@ -17,6 +17,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Users, Mail, Phone, AlertCircle } from "lucide-react";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
+import { tripjackHotelTravellerDocs } from "@/lib/tripjackHotelCompliance";
 import { cn } from "@/lib/utils";
 
 /** Consistent field spacing — avoids cramped labels/placeholders in guest forms */
@@ -228,24 +229,18 @@ export default function TripjackHotelGuestForm({
 		const roomTravellerInfo = roomTravellers.map((room) => ({
 			travellerInfo: room.travellerInfo.map((t, ti) => {
 				const leadIdx = leadAdultIndex(room.travellerInfo);
-				const base: TravellerFormData = {
-					ti: t.ti,
-					pt: t.pt,
-					fN: t.fN.trim(),
-					lN: t.lN.trim(),
-				};
-				if (
-					panRequired &&
-					t.pt === "ADULT" &&
-					ti === leadIdx &&
-					t.pan?.trim()
-				) {
-					base.pan = t.pan.trim().toUpperCase();
-				}
-				if (passportRequired && t.pNum?.trim()) {
-					base.pNum = t.pNum.trim().toUpperCase();
-				}
-				return base;
+				return tripjackHotelTravellerDocs(
+					{
+						ti: t.ti,
+						pt: t.pt,
+						fN: t.fN,
+						lN: t.lN,
+						pan: t.pan,
+						pNum: t.pNum,
+					},
+					{ panRequired, passportRequired },
+					{ isLeadAdult: ti === leadIdx },
+				);
 			}),
 		}));
 

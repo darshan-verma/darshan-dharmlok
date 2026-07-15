@@ -20,6 +20,7 @@ import type { Room } from "@/types/hotelApi";
 import { captureAndSendSnapshot } from "@/lib/audit/snapshotClient";
 import { TRIPJACK_HOTEL_PRICING_SESSION_KEY } from "@/lib/tripjackPricingNormalize";
 import { getTripjackGuestNationalityCountryId } from "@/lib/tripjackHotelGuestNationality";
+import { tripjackHotelComplianceFlags } from "@/lib/tripjackHotelCompliance";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
 import TripjackHotelGuestForm from "@/components/travel-portal/TripjackHotelGuestForm";
 import { useTranslation } from "@/components/providers/LanguageProvider";
@@ -374,12 +375,10 @@ function HotelBookingContent() {
 					}));
 			};
 
-			const tryRefreshContextAndRetry = async () => {
-				if (!hotelCode || !checkIn || !checkOut) return null;
-				const refreshedCorrelation =
-					(typeof crypto !== "undefined" && crypto.randomUUID
-						? crypto.randomUUID()
-						: `tj-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`);
+			/** Re-price with the *same* correlationId (listing → pricing → review must match). */
+			const tryRefreshContextAndRetry = async (correlationForSession: string) => {
+				if (!hotelCode || !checkIn || !checkOut || !correlationForSession)
+					return null;
 
 				const pricingResponse = await fetch("/api/travel/tripjack-hotel/pricing", {
 					method: "POST",
@@ -391,7 +390,7 @@ function HotelBookingContent() {
 						rooms: buildRoomsForPricing(),
 						currency: "INR",
 						nationality: getTripjackGuestNationalityCountryId(),
-						correlationId: refreshedCorrelation,
+						correlationId: correlationForSession,
 					}),
 				});
 				const pricingResult = await pricingResponse.json();
@@ -430,11 +429,13 @@ function HotelBookingContent() {
 					typeof pricingResult.reviewHash === "string"
 						? pricingResult.reviewHash
 						: "";
-				const nextCorrelation =
+				// Prefer returned id only if TripJack echoes the same session; never mint a new one.
+				const returnedCorr =
 					typeof pricingResult.correlationId === "string" &&
 					pricingResult.correlationId
 						? pricingResult.correlationId
-						: refreshedCorrelation;
+						: "";
+				const nextCorrelation = returnedCorr || correlationForSession;
 				const nextOptionId =
 					typeof matched?.optionId === "string" ? matched.optionId : "";
 
@@ -494,17 +495,13 @@ function HotelBookingContent() {
 				};
 			};
 
-			// Pre-refresh pricing context once to reduce stale optionId/reviewHash failures
-			// and avoid noisy initial 400s in browser console.
-			const preRefreshed = await tryRefreshContextAndRetry();
-			let { response, result } = await doReview(
-				preRefreshed || {
-					correlationId: corr,
-					optionId: bookingCode,
-					reviewHash: reviewHashEffective,
-					hid: hotelCode,
-				},
-			);
+			// Review with the search-session correlationId first (do not mint a new one).
+			let { response, result } = await doReview({
+				correlationId: corr,
+				optionId: bookingCode,
+				reviewHash: reviewHashEffective,
+				hid: hotelCode,
+			});
 
 			if (!response.ok || !result.status?.success) {
 				const providerErrCode =
@@ -517,7 +514,7 @@ function HotelBookingContent() {
 
 				// Common TripJack case: selected option expires quickly; refresh pricing once and retry review.
 				if (isOptionExpired) {
-					const retryPayload = await tryRefreshContextAndRetry();
+					const retryPayload = await tryRefreshContextAndRetry(corr);
 					if (retryPayload) {
 						const retry = await doReview(retryPayload);
 						response = retry.response;
@@ -877,21 +874,30 @@ function HotelBookingContent() {
 									</Alert>
 									{isTripjack && tjReviewResponse?.option?.compliance && (
 										<div className="mt-3 flex flex-wrap gap-2">
-											{tjReviewResponse.option.compliance.panRequired && (
-												<span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
-													PAN Card Required
-												</span>
-											)}
-											{tjReviewResponse.option.compliance.passportRequired && (
-												<span className="text-xs font-medium text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
-													Passport Required
-												</span>
-											)}
-											{tjReviewResponse.option.compliance.gstType !== "NA" && (
-												<span className="text-xs text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full">
-													GST: {tjReviewResponse.option.compliance.gstType}
-												</span>
-											)}
+											{(() => {
+												const compliance = tripjackHotelComplianceFlags(
+													tjReviewResponse.option.compliance,
+												);
+												return (
+													<>
+														{compliance.panRequired && (
+															<span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+																PAN Card Required
+															</span>
+														)}
+														{compliance.passportRequired && (
+															<span className="text-xs font-medium text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
+																Passport Required
+															</span>
+														)}
+														{compliance.gstType !== "NA" && (
+															<span className="text-xs text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full">
+																GST: {compliance.gstType}
+															</span>
+														)}
+													</>
+												);
+											})()}
 										</div>
 									)}
 								</CardContent>
@@ -914,10 +920,14 @@ function HotelBookingContent() {
 								adultsCount={adultCount}
 								childrenCount={childCount}
 								panRequired={
-									tjReviewResponse.option?.compliance?.panRequired || false
+									tripjackHotelComplianceFlags(
+										tjReviewResponse.option?.compliance,
+									).panRequired
 								}
 								passportRequired={
-									tjReviewResponse.option?.compliance?.passportRequired || false
+									tripjackHotelComplianceFlags(
+										tjReviewResponse.option?.compliance,
+									).passportRequired
 								}
 								totalAmount={totalPrice}
 								currency={tjReviewResponse.option?.pricing?.currency || "INR"}

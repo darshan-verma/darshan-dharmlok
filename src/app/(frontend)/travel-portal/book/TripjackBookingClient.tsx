@@ -552,12 +552,18 @@ export default function TripjackBookingClient({
 			const ssrExtras = tripjackSsrExtraTotal(bookPicks);
 			const roundAmount = tripjackInstantBookAmount(review, ssrExtras, totalAmount);
 
+			const needPassport =
+				conditionFlags.requirePassport ||
+				conditionFlags.requirePassportExpiry ||
+				conditionFlags.requirePassportFull;
+			const needPan = conditionFlags.requirePan;
+
 			const travellers: TripjackTravellerInfo[] = passengerData.map((p, idx) => {
 				const ssr = tripjackTravellerSsrForPax(tjSegments, idx, bookPicks);
 				const dob = tripjackDateOnly(p.DateOfBirth);
 				const passportExpiry = tripjackDateOnly(p.PassportExpiry);
 				const passportIssue = tripjackDateOnly(p.PassportIssueDate);
-				const hasPassport = Boolean(p.PassportNo?.trim());
+				const passportNo = p.PassportNo?.trim();
 				const nationality = p.Nationality?.trim() || p.CountryCode?.trim() || "IN";
 				const pan =
 					p.PAN?.trim() ||
@@ -571,15 +577,16 @@ export default function TripjackBookingClient({
 					pt: mapPaxTypeToTripjack(p.PaxType),
 					gd: Number(p.Gender) === 2 ? "FEMALE" : "MALE",
 					dob,
-					...(hasPassport
+					pNat: nationality,
+					// Send passport fields only when pcs requires them — never substitute for PAN.
+					...(needPassport && passportNo
 						? {
-								pNum: p.PassportNo!.trim(),
-								eD: passportExpiry,
-								pid: passportIssue,
-								pNat: nationality,
+								pNum: passportNo,
+								...(passportExpiry ? { eD: passportExpiry } : {}),
+								...(passportIssue ? { pid: passportIssue } : {}),
 							}
-						: { pNat: nationality }),
-					pan,
+						: {}),
+					...(needPan && pan ? { pan } : {}),
 					di: p.DocumentId?.trim() || undefined,
 					...ssr,
 				};

@@ -36,6 +36,7 @@ import type {
 	TripjackHotelPricingOption,
 } from "@/types/tripjack";
 import { formatTravelPriceInr } from "@/lib/formatTravelPrice";
+import { tripjackHotelComplianceFlags } from "@/lib/tripjackHotelCompliance";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -496,7 +497,8 @@ function TripjackOptionCard({
 	index: number;
 	onBook: (opt: TripjackHotelPricingOption) => void;
 }) {
-	const { pricing, compliance, cancellation, inclusions } = option;
+	const { pricing, cancellation, inclusions } = option;
+	const compliance = tripjackHotelComplianceFlags(option.compliance);
 	const hasMfOrMft = (pricing.mf || 0) > 0 || (pricing.mft || 0) > 0;
 	const hasDiscount = (pricing.discount || 0) > 0;
 	const today = new Date();

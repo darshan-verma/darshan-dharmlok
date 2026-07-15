@@ -442,6 +442,10 @@ export interface TripjackHotelCompliance {
 	gstType: "NA" | "PASSTHROUGH" | "RESELLER";
 	panRequired: boolean;
 	passportRequired: boolean;
+	/** Some TripJack payloads use this alias instead of `panRequired`. */
+	isPanRequired?: boolean;
+	/** Some TripJack payloads use this alias instead of `passportRequired`. */
+	isPassportRequired?: boolean;
 }
 
 export interface TripjackHotelRoomInfo {
